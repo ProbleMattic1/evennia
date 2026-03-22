@@ -10,3 +10,6 @@ batch_imps/
 
 # Exclude postgres_data - database files, not part of Evennia
 postgres_data/
+
+# Exclude frontend/ - separate Next.js app, not part of Evennia package
+frontend/

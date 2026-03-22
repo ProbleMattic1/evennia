@@ -57,9 +57,11 @@ g++ gfortran python3-dev cmake openblas-dev
 # invalidating the build cache.
 COPY . /usr/src/evennia
 
-# docker-compose entrypoint: auto-init game dir when running from repo root
+# Install start/entry scripts under /usr/local/bin so ENTRYPOINT still works if
+# something mounts over /usr/src/evennia (e.g. a dev bind mount).
 COPY bin/unix/evennia-docker-entrypoint.sh /usr/local/bin/evennia-docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/evennia-docker-entrypoint.sh
+COPY bin/unix/evennia-docker-start.sh /usr/local/bin/evennia-docker-start.sh
+RUN chmod +x /usr/local/bin/evennia-docker-entrypoint.sh /usr/local/bin/evennia-docker-start.sh
 
 # install dependencies/evennia
 # EVENNIA_INSTALL_MODE options:
@@ -99,7 +101,7 @@ ENV PYTHONPATH=/usr/src/evennia
 # USER evennia
 
 # startup a shell when we start the container
-ENTRYPOINT ["/usr/src/evennia/bin/unix/evennia-docker-start.sh"]
+ENTRYPOINT ["/usr/local/bin/evennia-docker-start.sh"]
 
 # expose the telnet, webserver and websocket client ports
 EXPOSE 4000 4001 4002
