@@ -10,7 +10,6 @@ It is designed for a **hybrid Evennia model**:
 - **Aliases** hold stable lookup keys.
 - **Batchcode** imports/upserts the CSV into live Evennia objects.
 
-The current CSV has **9,600 rows** and **82 columns**. The biggest cleanup need before long-term production import is numeric normalization: several numeric/currency fields are currently strings with commas or suffixes like `cr`.
 
 ## 1) Import target
 

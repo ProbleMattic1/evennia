@@ -7,3 +7,6 @@ game/
 
 # Exclude batch_imps - game data, not part of Evennia; available at runtime via volume
 batch_imps/
+
+# Exclude postgres_data - database files, not part of Evennia
+postgres_data/

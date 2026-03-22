@@ -6,6 +6,10 @@
 # (load balancer, platform health check, proxy) sends HTTP to port 5432 instead
 # of the PostgreSQL protocol. Fix: don't expose postgres port publicly.
 #
+# Data persistence: Both the game folder and postgres data use bind mounts to
+# your host machine. Data survives `docker compose down`. Avoid `docker compose
+# down -v` — the -v flag removes volumes and would delete the database.
+#
 # Usage:
 #   Start everything (postgres + evennia server):
 #     docker compose up
@@ -44,7 +48,10 @@ services:
       - "0.0.0.0:4001:4001"   # Web server (LAN accessible)
       - "0.0.0.0:4002:4002"   # WebSocket client (LAN accessible)
     volumes:
+      # Bind mount: game folder and DB state persist on host across restarts
       - .:/usr/src/game
+      # Mount Evennia source so makemigrations writes persist (editable install)
+      - ./evennia:/usr/src/evennia/evennia
     entrypoint: ["/usr/local/bin/evennia-docker-entrypoint.sh"]
     command: ["evennia", "start", "-l"]
     environment:
@@ -69,7 +76,8 @@ services:
       POSTGRES_USER: evennia
       POSTGRES_PASSWORD: password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Bind mount: database persists on host (./postgres_data)
+      - ./postgres_data:/var/lib/postgresql/data
     # Exposing 5432 publicly can trigger "invalid length of startup packet" when
     # load balancers, proxies, or PaaS health checks send HTTP to this port.
     # Uncomment only if you need external DB access (e.g. pgAdmin, local tools).
@@ -81,5 +89,3 @@ services:
       timeout: 5s
       retries: 5
 
-volumes:
-  postgres_data:

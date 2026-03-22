@@ -70,3 +70,6 @@ docs/build
 
 # Docker auto-created game (when running from repo root)
 game/
+
+# PostgreSQL data (persists across docker compose down)
+postgres_data/
