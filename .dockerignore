@@ -1,0 +1,9 @@
+# Exclude docker/ to avoid setuptools "Multiple top-level packages" error
+# (docker + evennia would both be discovered; script lives in bin/unix/)
+docker/
+
+# Exclude game/ - auto-created at runtime, not part of the Evennia package
+game/
+
+# Exclude batch_imps - game data, not part of Evennia; available at runtime via volume
+batch_imps/

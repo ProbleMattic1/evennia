@@ -1,0 +1,85 @@
+# Docker Compose for Evennia with PostgreSQL
+#
+# Based on: https://www.evennia.com/docs/latest/Setup/Installation-Docker.html
+#
+# "invalid length of startup packet" in postgres logs? That happens when something
+# (load balancer, platform health check, proxy) sends HTTP to port 5432 instead
+# of the PostgreSQL protocol. Fix: don't expose postgres port publicly.
+#
+# Usage:
+#   Start everything (postgres + evennia server):
+#     docker compose up
+#
+#   From Evennia repo root: a new game is auto-created in ./game/ on first run.
+#   From a game directory: use that game directly.
+#
+#   Development (interactive shell):
+#     docker compose run evennia bash
+#
+#   Run migrations manually (if needed):
+#     docker compose run evennia evennia migrate --noinput
+#
+# Ports bound to 0.0.0.0 = accessible on LAN. Other devices use this machine's
+# LAN IP (e.g. http://192.168.1.x:4001). Find it: ipconfig / ifconfig / ip addr
+#
+# For user/group id (Linux/Mac, avoids root-owned files): run echo $UID:$GID
+# and set the user: line below. On Windows, comment out the user: line.
+
+services:
+  evennia:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        EVENNIA_INSTALL_MODE: editable
+        INSTALL_POSTGRES: "true"
+    image: evennia/evennia:local
+    stdin_open: true
+    tty: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "0.0.0.0:4000:4000"   # Telnet (LAN accessible)
+      - "0.0.0.0:4001:4001"   # Web server (LAN accessible)
+      - "0.0.0.0:4002:4002"   # WebSocket client (LAN accessible)
+    volumes:
+      - .:/usr/src/game
+    entrypoint: ["/usr/local/bin/evennia-docker-entrypoint.sh"]
+    command: ["evennia", "start", "-l"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: evennia
+      POSTGRES_USER: evennia
+      POSTGRES_PASSWORD: password
+      POSTGRES_PORT: "5432"
+      # Create superuser non-interactively (required when running in Docker)
+      EVENNIA_SUPERUSER_USERNAME: admin
+      EVENNIA_SUPERUSER_PASSWORD: admin
+      EVENNIA_SUPERUSER_EMAIL: ""
+    # Linux/Mac: uncomment and set to your UID:GID (run: echo $UID:$GID) to avoid
+    # root-owned files. When enabled, ensure game/server/logs is writable (e.g.
+    # chown -R 1000:1000 game/server/logs). Windows: leave commented.
+    # user: "1000:1000"
+
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: evennia
+      POSTGRES_USER: evennia
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Exposing 5432 publicly can trigger "invalid length of startup packet" when
+    # load balancers, proxies, or PaaS health checks send HTTP to this port.
+    # Uncomment only if you need external DB access (e.g. pgAdmin, local tools).
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evennia -d evennia"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

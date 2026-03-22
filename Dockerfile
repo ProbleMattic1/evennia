@@ -45,6 +45,7 @@ FROM python:3.13-alpine
 
 LABEL maintainer="https://www.evennia.com"
 ARG EVENNIA_INSTALL_MODE=editable
+ARG INSTALL_POSTGRES=false
 
 # install compilation environment
 RUN apk update && apk add --no-cache bash gcc jpeg-dev musl-dev procps \
@@ -56,6 +57,10 @@ g++ gfortran python3-dev cmake openblas-dev
 # invalidating the build cache.
 COPY . /usr/src/evennia
 
+# docker-compose entrypoint: auto-init game dir when running from repo root
+COPY bin/unix/evennia-docker-entrypoint.sh /usr/local/bin/evennia-docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/evennia-docker-entrypoint.sh
+
 # install dependencies/evennia
 # EVENNIA_INSTALL_MODE options:
 # - editable (default): install local source in editable mode for Evennia dev.
@@ -65,6 +70,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
         pip install --no-cache-dir --upgrade evennia[extra]; \
     else \
         pip install --no-cache-dir -e /usr/src/evennia[extra]; \
+    fi && \
+    if [ "$INSTALL_POSTGRES" = "true" ]; then \
+        pip install --no-cache-dir "psycopg[binary]>=3.1.0"; \
     fi
 
 # add the game source when rebuilding a new docker image from inside

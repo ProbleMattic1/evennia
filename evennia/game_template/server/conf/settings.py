@@ -36,6 +36,14 @@ SERVERNAME = {servername}
 
 
 ######################################################################
+# Docker/PostgreSQL: override DATABASES when POSTGRES_HOST env var is set
+######################################################################
+try:
+    from server.conf.docker_settings import *
+except ImportError:
+    pass
+
+######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################
 try:
