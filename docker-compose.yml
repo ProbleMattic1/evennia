@@ -71,9 +71,10 @@ services:
     working_dir: /app
     environment:
       - HOSTNAME=0.0.0.0
+      - EVENNIA_BASE_URL=http://evennia:4001
     volumes:
       - ./frontend/aurnom:/app
-    command: sh -c "npm install && npm run dev -- --hostname 0.0.0.0"
+    command: sh -c "npm install && HOST=0.0.0.0 npm run dev -- --hostname 0.0.0.0"
     ports:
       - "3000:3000"
     restart: unless-stopped
