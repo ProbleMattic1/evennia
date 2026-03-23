@@ -106,7 +106,7 @@ def _get_or_create_catalog_vendor(room, spec):
     for obj in room.contents:
         if not obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False):
             continue
-        if obj.is_typeclass("typeclasses.shops.Shipyard", exact=False):
+        if getattr(obj.db, "catalog_mode", None) == "ships":
             continue
         if getattr(obj.db, "vendor_id", None) == spec["vendor_id"]:
             kiosk = obj

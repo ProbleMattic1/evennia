@@ -7,6 +7,18 @@ from evennia import search_object
 from world.bootstrap_hub import HUB_ROOM_KEY
 
 DEFAULT_PLAY_ROOM = HUB_ROOM_KEY
+
+
+def _is_ship_catalog_vendor(obj):
+    if not obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False):
+        return False
+    return getattr(obj.db, "catalog_mode", None) == "ships"
+
+
+def _is_items_catalog_vendor(obj):
+    if not obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False):
+        return False
+    return getattr(obj.db, "catalog_mode", None) != "ships"
 BANK_ROOM_KEY = "Alpha Prime Central Reserve"
 SHIPYARD_ROOM_KEY = "Meridian Civil Shipyard"
 
@@ -34,15 +46,8 @@ def _room_exits(room):
 def _room_actions(room):
     actions = []
 
-    has_shipyard = any(
-        obj.is_typeclass("typeclasses.shops.Shipyard", exact=False)
-        for obj in room.contents
-    )
-    has_catalog_shop = any(
-        obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False)
-        and not obj.is_typeclass("typeclasses.shops.Shipyard", exact=False)
-        for obj in room.contents
-    )
+    has_shipyard = any(_is_ship_catalog_vendor(obj) for obj in room.contents)
+    has_catalog_shop = any(_is_items_catalog_vendor(obj) for obj in room.contents)
     has_bank = any(
         obj.is_typeclass("typeclasses.bank.CentralBank", exact=False)
         for obj in room.contents
@@ -153,14 +158,14 @@ def shipyard_state(request):
 
     shop = None
     for obj in room.contents:
-        if obj.is_typeclass("typeclasses.shops.Shipyard", exact=False):
+        if _is_ship_catalog_vendor(obj):
             shop = obj
             break
 
     if not shop:
         raise Http404("Shipyard shop not found in room.")
 
-    data = shop.get_shipyard_state_for_api()
+    data = shop.get_shop_state_for_api()
     return JsonResponse(data)
 
 
@@ -180,15 +185,12 @@ def shop_state(request):
 
     shop = None
     for obj in room.contents:
-        if not obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False):
-            continue
-        if obj.is_typeclass("typeclasses.shops.Shipyard", exact=False):
-            continue
-        shop = obj
-        break
+        if _is_items_catalog_vendor(obj):
+            shop = obj
+            break
 
     if not shop:
         raise Http404("No catalog shop kiosk found in this room.")
 
-    data = shop.get_catalog_shop_state_for_api()
+    data = shop.get_shop_state_for_api(buyer=None)
     return JsonResponse(data)

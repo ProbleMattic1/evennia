@@ -11,6 +11,7 @@ from .objects import ObjectParent
 class CatalogVendor(ObjectParent, DefaultObject):
     """
     Room kiosk backed by a vendor tag catalog.
+    catalog_mode: "items" (general goods) or "ships" (vehicles).
     Catalog objects carry tag (vendor_id, category="vendor") and db.is_template.
     """
 
@@ -19,6 +20,7 @@ class CatalogVendor(ObjectParent, DefaultObject):
         self.db.vendor_name = None
         self.db.inventory = []
         self.db.credits = 0
+        self.db.catalog_mode = "items"
 
     def get_catalog_items(self):
         """
@@ -96,18 +98,77 @@ class CatalogVendor(ObjectParent, DefaultObject):
 
         return vendor_amount, tax_amount
 
-    def get_catalog_shop_state_for_api(self, buyer=None):
-        """
-        Build generic catalog state for UI/API (non-ship items).
-        """
-        from typeclasses.economy import get_economy
+    def _exits_for_api(self):
+        room = self.location
+        exits = []
+        if room:
+            for ex in room.contents:
+                dest = getattr(ex, "destination", None)
+                if not dest:
+                    continue
+                exits.append(
+                    {
+                        "key": ex.key,
+                        "label": ex.key.title(),
+                        "command": ex.key,
+                        "destination": dest.key if dest else None,
+                    }
+                )
+        return exits
 
-        econ = get_economy(create_missing=True)
+    def get_shop_state_for_api(self, buyer=None):
+        """
+        Unified API for both items and ships modes.
+        Returns dict with shopName, roomName, roomDescription, exits, storyLines,
+        plus items (for catalog_mode="items") or ships (for catalog_mode="ships").
+        """
+        mode = getattr(self.db, "catalog_mode", None) or "items"
         room = self.location
         room_name = room.key if room else ""
         room_desc = (getattr(room.db, "desc", None) or "") if room else ""
-        market_type = getattr(self.db, "market_type", None) or "normal"
+        exits = self._exits_for_api()
 
+        if mode == "ships":
+            ships = []
+            for obj in self.get_catalog_items():
+                economy = getattr(obj.db, "economy", None) or {}
+                price = economy.get("total_price_cr") or economy.get("base_price_cr")
+                summary = (
+                    obj.get_vehicle_summary()
+                    if hasattr(obj, "get_vehicle_summary")
+                    else str(obj.key)
+                )
+                ship_id = (getattr(obj.db, "catalog", None) or {}).get("vehicle_id") or obj.key
+                ships.append(
+                    {
+                        "id": str(ship_id),
+                        "key": obj.key,
+                        "description": getattr(obj.db, "desc", "") or "",
+                        "summary": summary,
+                        "price": price,
+                    }
+                )
+            count = len(ships)
+            return {
+                "catalogMode": "ships",
+                "vendorId": self.db.vendor_id or "",
+                "shopName": self.db.vendor_name or self.key,
+                "roomName": room_name,
+                "roomDescription": room_desc,
+                "ships": ships,
+                "items": [],
+                "exits": exits,
+                "storyLines": [
+                    {"id": "yard-title", "text": room_name, "kind": "title"},
+                    {"id": "yard-desc", "text": room_desc or "No description available.", "kind": "room"},
+                    {"id": "yard-summary", "text": f"{count} ships currently listed for sale.", "kind": "system"},
+                ],
+            }
+
+        from typeclasses.economy import get_economy
+
+        econ = get_economy(create_missing=True)
+        market_type = getattr(self.db, "market_type", None) or "normal"
         catalog = []
         for obj in self.get_catalog_items():
             if not getattr(obj.db, "is_template", False):
@@ -128,92 +189,19 @@ class CatalogVendor(ObjectParent, DefaultObject):
                     "price": price,
                 }
             )
-
-        exits = []
-        if room:
-            for ex in room.contents:
-                dest = getattr(ex, "destination", None)
-                if not dest:
-                    continue
-                exits.append(
-                    {
-                        "key": ex.key,
-                        "label": ex.key.title(),
-                        "command": ex.key,
-                        "destination": dest.key if dest else None,
-                    }
-                )
-
         count = len(catalog)
         return {
-            "shopName": self.db.vendor_name or self.key,
+            "catalogMode": "items",
             "vendorId": self.db.vendor_id or "",
+            "shopName": self.db.vendor_name or self.key,
             "roomName": room_name,
             "roomDescription": room_desc,
+            "ships": [],
             "items": catalog,
             "exits": exits,
             "storyLines": [
                 {"id": "shop-title", "text": room_name, "kind": "title"},
                 {"id": "shop-desc", "text": room_desc or "No description available.", "kind": "room"},
                 {"id": "shop-summary", "text": f"{count} items listed for sale.", "kind": "system"},
-            ],
-        }
-
-
-class Shipyard(CatalogVendor):
-    """A shipyard where vehicles can be browsed and purchased."""
-
-    def get_shipyard_state_for_api(self):
-        """
-        Build shipyard state dict for UI/API consumers.
-        Assumes catalog items are vehicles with get_vehicle_summary, db.desc, db.economy.
-        """
-        room = self.location
-        room_name = room.key if room else ""
-        room_desc = (getattr(room.db, "desc", None) or "") if room else ""
-        ships = []
-        for obj in self.get_catalog_items():
-            economy = getattr(obj.db, "economy", None) or {}
-            price = economy.get("total_price_cr") or economy.get("base_price_cr")
-            summary = (
-                obj.get_vehicle_summary()
-                if hasattr(obj, "get_vehicle_summary")
-                else str(obj.key)
-            )
-            ship_id = (getattr(obj.db, "catalog", None) or {}).get("vehicle_id") or obj.key
-            ships.append(
-                {
-                    "id": str(ship_id),
-                    "key": obj.key,
-                    "description": getattr(obj.db, "desc", "") or "",
-                    "summary": summary,
-                    "price": price,
-                }
-            )
-        exits = []
-        if room:
-            for ex in room.contents:
-                dest = getattr(ex, "destination", None)
-                if not dest:
-                    continue
-                exits.append(
-                    {
-                        "key": ex.key,
-                        "label": ex.key.title(),
-                        "command": ex.key,
-                        "destination": dest.key if dest else None,
-                    }
-                )
-        ships_count = len(ships)
-        return {
-            "shopName": self.db.vendor_name or self.key,
-            "roomName": room_name,
-            "roomDescription": room_desc,
-            "ships": ships,
-            "exits": exits,
-            "storyLines": [
-                {"id": "yard-title", "text": room_name, "kind": "title"},
-                {"id": "yard-desc", "text": room_desc or "No description available.", "kind": "room"},
-                {"id": "yard-summary", "text": f"{ships_count} ships currently listed for sale.", "kind": "system"},
             ],
         }

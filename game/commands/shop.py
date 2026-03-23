@@ -1,21 +1,21 @@
 """
 General catalog vendor commands (tech, supply, mining, toy kiosks).
 
-Uses typeclasses.shops.CatalogVendor. Shipyards (Shipyard subclass) use shipyard commands instead.
+Uses CatalogVendor with catalog_mode="items". Ship catalogs use shipyard commands.
 """
 
 from commands.command import Command
 
 
 def _get_general_vendor_in_room(caller):
-    """First CatalogVendor in the room that is not a Shipyard."""
+    """First CatalogVendor with catalog_mode='items' in caller's room."""
     loc = caller.location
     if not loc:
         return None
     for obj in loc.contents:
         if not obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False):
             continue
-        if obj.is_typeclass("typeclasses.shops.Shipyard", exact=False):
+        if getattr(obj.db, "catalog_mode", None) == "ships":
             continue
         return obj
     return None
@@ -142,6 +142,7 @@ class CmdBuy(Command):
         vid = vendor.db.vendor_id
         if vid and new_item.tags.has(vid, category="vendor"):
             new_item.tags.remove(vid, category="vendor")
+        new_item.db.owner = caller
         new_item.locks.add("get:true();drop:true();give:true()")
         new_item.move_to(caller, quiet=True)
 

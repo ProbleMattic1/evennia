@@ -14,13 +14,15 @@ from commands.command import Command
 # Room-level helpers
 # ---------------------------------------------------------------------------
 
-def _get_shipyard_in_room(caller):
-    """Return the first Shipyard object in caller's current room, or None."""
+def _get_ship_vendor_in_room(caller):
+    """First CatalogVendor with catalog_mode='ships' in caller's room."""
     loc = caller.location
     if not loc:
         return None
     for obj in loc.contents:
-        if obj.is_typeclass("typeclasses.shops.Shipyard", exact=False):
+        if not obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False):
+            continue
+        if getattr(obj.db, "catalog_mode", None) == "ships":
             return obj
     return None
 
@@ -83,7 +85,7 @@ class CmdShipyard(Command):
 
     def func(self):
         caller = self.caller
-        shop = _get_shipyard_in_room(caller)
+        shop = _get_ship_vendor_in_room(caller)
         if not shop:
             caller.msg("There is no shipyard here. Find a shipyard kiosk to browse available ships.")
             return
@@ -120,7 +122,7 @@ class CmdInspectShip(Command):
             caller.msg("Inspect which ship? Use |wshipyard|n to list available ships.")
             return
 
-        shop = _get_shipyard_in_room(caller)
+        shop = _get_ship_vendor_in_room(caller)
         if not shop:
             caller.msg("There is no shipyard here.")
             return
@@ -156,7 +158,7 @@ class CmdBuyShip(Command):
             caller.msg("Buy which ship? Use |wshipyard|n to list ships and |winspectship <name>|n for details.")
             return
 
-        shop = _get_shipyard_in_room(caller)
+        shop = _get_ship_vendor_in_room(caller)
         if not shop:
             caller.msg("There is no shipyard here.")
             return
@@ -193,6 +195,9 @@ class CmdBuyShip(Command):
         new_ship = template.copy(new_key=template.key)
         new_ship.db.is_template = False
         new_ship.tags.remove("for_sale", category="shop_stock")
+        vid = shop.db.vendor_id
+        if vid and new_ship.tags.has(vid, category="vendor"):
+            new_ship.tags.remove(vid, category="vendor")
         new_ship.db.owner = caller
         new_ship.db.allowed_boarders = [caller]
         new_ship.db.state = "docked"

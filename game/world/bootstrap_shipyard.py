@@ -39,11 +39,14 @@ def _get_or_create_exit(key, aliases, location, destination, typeclass="typeclas
 
 def _get_or_create_shipyard(room):
     for obj in room.contents:
-        if obj.is_typeclass("typeclasses.shops.Shipyard", exact=False):
+        if not obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False):
+            continue
+        if getattr(obj.db, "catalog_mode", None) == "ships":
             shop = obj
             break
     else:
-        shop = create_object("typeclasses.shops.Shipyard", key="shipyard kiosk", location=room, home=room)
+        shop = create_object("typeclasses.shops.CatalogVendor", key="shipyard kiosk", location=room, home=room)
+        shop.db.catalog_mode = "ships"
     shop.db.desc = "A polished terminal lists civilian and commercial hulls currently available for purchase."
     shop.db.price_modifier = 1.0
     shop.db.tax_rate = 0.02
