@@ -34,6 +34,31 @@ DEFAULT_ABILITY_BASES = {
     "cha": 17,
 }
 
+MARCUS_CHARACTER_KEY = "Marcus Killstar"
+
+MARCUS_ABILITY_BASES = {
+    "str": 24,
+    "dex": 24,
+    "con": 24,
+    "int": 24,
+    "wis": 24,
+    "cha": 24,
+}
+
+
+def ability_bases_for_character_key(character_key, *, rpg_pointbuy_done):
+    """
+    Base scores when creating missing ability traits.
+
+    Marcus: fixed god-tier. rpg_pointbuy_done False: 8s until point-buy finishes.
+    None (legacy) or True: DEFAULT_ABILITY_BASES for any still-missing trait.
+    """
+    if character_key == MARCUS_CHARACTER_KEY:
+        return MARCUS_ABILITY_BASES
+    if rpg_pointbuy_done is False:
+        return {k: 8 for k in ABILITY_KEYS}
+    return DEFAULT_ABILITY_BASES
+
 
 class Character(ObjectParent, DefaultCharacter):
     """
@@ -61,10 +86,16 @@ class Character(ObjectParent, DefaultCharacter):
         super().at_object_creation()
         if self.db.credits is None:
             self.db.credits = 1000
+        if self.key == MARCUS_CHARACTER_KEY:
+            self.db.rpg_pointbuy_done = True
+        else:
+            self.db.rpg_pointbuy_done = False
         self.ensure_default_rpg_traits()
 
     def ensure_default_rpg_traits(self):
         """Idempotent: safe to call for old characters that lack traits."""
+        done = getattr(self.db, "rpg_pointbuy_done", None)
+        bases = ability_bases_for_character_key(self.key, rpg_pointbuy_done=done)
         for key in ABILITY_KEYS:
             if self.stats.get(key):
                 continue
@@ -72,7 +103,7 @@ class Character(ObjectParent, DefaultCharacter):
                 key,
                 ABILITY_NAMES[key],
                 trait_type="static",
-                base=DEFAULT_ABILITY_BASES[key],
+                base=bases[key],
                 mod=0,
                 mult=1.0,
             )
@@ -89,6 +120,17 @@ class Character(ObjectParent, DefaultCharacter):
                 min=0,
                 max=None,
             )
+
+    def at_pre_puppet(self, account, session=None, **kwargs):
+        if not account.check_permstring("Developer"):
+            if (
+                self.key != MARCUS_CHARACTER_KEY
+                and getattr(self.db, "rpg_pointbuy_done", None) is False
+            ):
+                raise RuntimeError(
+                    "Finish ability point-buy first (OOC): |wpointbuy|n, then |wic|n."
+                )
+        super().at_pre_puppet(account, session=session, **kwargs)
 
     def ability_modifier(self, ability_key):
         ability_key = ability_key.lower()

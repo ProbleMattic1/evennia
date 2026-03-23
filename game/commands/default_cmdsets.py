@@ -4,6 +4,7 @@ Command sets
 
 from evennia import default_cmds
 
+from commands.chargen_pointbuy import CmdCharCreate, CmdPointBuy
 from commands.banking import CmdBalance, CmdTreasury
 from commands.shipyard import CmdShipyard, CmdInspectShip, CmdBuyShip
 from commands.shop import CmdBuy, CmdShop
@@ -44,6 +45,8 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
 
     def at_cmdset_creation(self):
         super().at_cmdset_creation()
+        self.add(CmdPointBuy())
+        self.add(CmdCharCreate())
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

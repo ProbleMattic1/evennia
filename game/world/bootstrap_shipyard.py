@@ -59,8 +59,12 @@ def _get_or_create_shipyard(room):
 
 def _tag_legacy_catalog(shop):
     """
-    One-time: tag existing demo vehicles (sparrow-mk-v, kestrel-mk-vi, wayfarer-mk-vii)
-    so they appear in the shipyard. Safe to run multiple times.
+    Ensure demo showroom hulls carry the vendor tag. Safe on every cold start.
+
+    search_tag(vehicle_id) matches every hull with that id (templates + purchased copies).
+    Only templates / legacy stock (no owner, not explicitly is_template=False) are tagged.
+    Player-owned or sold copies are skipped and any stray vendor tag is removed so the
+    kiosk catalog cannot list them after restart.
     """
     vendor_id = shop.db.vendor_id
     if not vendor_id:
@@ -68,6 +72,14 @@ def _tag_legacy_catalog(shop):
     for vehicle_id in ("sparrow-mk-v", "kestrel-mk-vi", "wayfarer-mk-vii"):
         matches = search_tag(vehicle_id, category="vehicle_id")
         for obj in matches:
+            if getattr(obj.db, "owner", None):
+                if obj.tags.has(vendor_id, category="vendor"):
+                    obj.tags.remove(vendor_id, category="vendor")
+                continue
+            if getattr(obj.db, "is_template", None) is False:
+                if obj.tags.has(vendor_id, category="vendor"):
+                    obj.tags.remove(vendor_id, category="vendor")
+                continue
             obj.tags.add(vendor_id, category="vendor")
             obj.db.is_template = True
             obj.locks.add("get:false()")

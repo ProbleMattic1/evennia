@@ -9,9 +9,16 @@ import { useUiResource } from "@/lib/use-ui-resource";
 const PRIMARY = [
   { href: "/", label: "Home" },
   { href: "/play", label: "Play" },
-  { href: "/bank", label: "Bank" },
-  { href: "/shipyard", label: "Shipyard" },
 ] as const;
+
+/** Hub exits that use kiosk / dedicated pages in the third section */
+const HUB_EXIT_KEYS_HIDDEN = new Set(["bank", "shipyard"]);
+
+const SHIPYARD_KIOSK = {
+  key: "meridian-shipyard",
+  label: "Shipyard",
+  href: "/shipyard",
+} as const;
 
 const linkClass =
   "shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-100";
@@ -45,18 +52,26 @@ export function SiteNav() {
             <span className="shrink-0 text-xs text-zinc-500">Loading places…</span>
           ) : (
             <>
-              {data.exits.map((ex) =>
-                ex.destination ? (
+              {data.exits
+                .filter(
+                  (ex) =>
+                    ex.destination && !HUB_EXIT_KEYS_HIDDEN.has(ex.key.toLowerCase()),
+                )
+                .map((ex) => (
                   <Link
                     key={`${ex.key}-${ex.destination}`}
-                    href={`/play?room=${encodeURIComponent(ex.destination)}`}
+                    href={`/play?room=${encodeURIComponent(ex.destination!)}`}
                     className={linkClass}
                   >
                     {ex.label}
                   </Link>
-                ) : null,
-              )}
-              {data.exits.some((ex) => ex.destination) ? <Separator /> : null}
+                ))}
+              {data.exits.some(
+                (ex) =>
+                  ex.destination && !HUB_EXIT_KEYS_HIDDEN.has(ex.key.toLowerCase()),
+              ) ? (
+                <Separator />
+              ) : null}
               {data.shops.map((s) => (
                 <Link
                   key={s.roomKey}
@@ -66,6 +81,13 @@ export function SiteNav() {
                   {s.label}
                 </Link>
               ))}
+              <Link
+                key={SHIPYARD_KIOSK.key}
+                href={SHIPYARD_KIOSK.href}
+                className={linkClass}
+              >
+                {SHIPYARD_KIOSK.label}
+              </Link>
             </>
           )}
         </nav>

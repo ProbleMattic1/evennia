@@ -136,7 +136,26 @@ class Account(DefaultAccount):
 
     """
 
-    pass
+    def at_post_create_character(self, character, **kwargs):
+        super().at_post_create_character(character, **kwargs)
+        if not (self.is_superuser or self.check_permstring("Developer")):
+            return
+        from typeclasses.characters import (
+            ABILITY_KEYS,
+            DEFAULT_ABILITY_BASES,
+            MARCUS_CHARACTER_KEY,
+        )
+
+        character.db.rpg_pointbuy_done = True
+        if character.key == MARCUS_CHARACTER_KEY:
+            return
+        character.ensure_default_rpg_traits()
+        for key in ABILITY_KEYS:
+            trait = character.stats.get(key)
+            if trait:
+                trait.base = DEFAULT_ABILITY_BASES[key]
+                trait.mod = 0
+                trait.mult = 1.0
 
 
 class Guest(DefaultGuest):

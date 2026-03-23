@@ -1,17 +1,20 @@
 """
-Apply default D&D-style ability bases to all Character objects once per baseline version.
+Apply default D&D-style ability bases to legacy Character objects once per baseline version.
 
-Runs from at_server_cold_start on deploy. Idempotent: skips characters that already have
-db.rpg_baseline_scores_v1 equal to BASELINE_VERSION.
-
-Set env FORCE_RPG_BASELINE=1 to re-apply bases from DEFAULT_ABILITY_BASES.
+Skips Marcus, anyone with db.rpg_pointbuy_done set (point-buy or staff-created), and rows
+already tagged with rpg_baseline_scores_v1 unless FORCE_RPG_BASELINE=1.
 """
 
 import os
 
 from evennia.objects.models import ObjectDB
 
-from typeclasses.characters import ABILITY_KEYS, DEFAULT_ABILITY_BASES, Character
+from typeclasses.characters import (
+    ABILITY_KEYS,
+    DEFAULT_ABILITY_BASES,
+    Character,
+    MARCUS_CHARACTER_KEY,
+)
 
 BASELINE_VERSION = 1
 
@@ -33,6 +36,15 @@ def bootstrap_character_abilities():
     # separate model with a .typeclass attribute.
     for char in qs.iterator():
         if not char.is_typeclass(Character, exact=False):
+            continue
+
+        if char.key == MARCUS_CHARACTER_KEY:
+            skipped += 1
+            continue
+
+        # Point-buy / staff-created chars use rpg_pointbuy_done; only legacy (unset) get this sweep.
+        if getattr(char.db, "rpg_pointbuy_done", None) is not None:
+            skipped += 1
             continue
 
         if not force and getattr(char.db, _FLAG, None) == BASELINE_VERSION:

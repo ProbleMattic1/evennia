@@ -4,6 +4,9 @@ Ensure Marcus Killstar exists and is linked to the admin account.
 Initial credit seed (MARCUS_CREDITS) runs only when the character is first created.
 Existing characters keep their ledger balance unless MARCUS_RESET_CREDITS is set.
 
+Ability scores use MARCUS_ABILITY_BASES (see typeclasses.characters). Set MARCUS_RESET_STATS=1
+to re-apply those bases to an existing Marcus.
+
 Runs from server/conf/at_server_cold_start after bootstrap_hub and bootstrap_economy.
 Idempotent for linkage; credits are not reset each cold start by default.
 """
@@ -13,13 +16,32 @@ import os
 from evennia import search_object
 from evennia.accounts.models import AccountDB
 
-CHARACTER_KEY = "Marcus Killstar"
+from typeclasses.characters import (
+    ABILITY_KEYS,
+    MARCUS_ABILITY_BASES,
+    MARCUS_CHARACTER_KEY,
+)
+
 CHARACTER_TYPECLASS = "typeclasses.characters.Character"
-MARCUS_CREDITS = 100_000_000_000
+MARCUS_CREDITS = 1_000_000_000_000
 
 
 def _marcus_reset_credits_requested():
     return os.environ.get("MARCUS_RESET_CREDITS", "").strip().lower() in ("1", "true", "yes")
+
+
+def _marcus_reset_stats_requested():
+    return os.environ.get("MARCUS_RESET_STATS", "").strip().lower() in ("1", "true", "yes")
+
+
+def _apply_marcus_ability_scores(char):
+    char.ensure_default_rpg_traits()
+    for key in ABILITY_KEYS:
+        trait = char.stats.get(key)
+        if trait:
+            trait.base = MARCUS_ABILITY_BASES[key]
+            trait.mod = 0
+            trait.mult = 1.0
 
 
 def _admin_account():
@@ -50,30 +72,40 @@ def bootstrap_marcus_killstar():
         print("[marcus] No admin account found; skipping Marcus Killstar.")
         return
 
-    matches = search_object(CHARACTER_KEY)
+    matches = search_object(MARCUS_CHARACTER_KEY)
     if matches:
         char = matches[0]
         if not char.is_typeclass(CHARACTER_TYPECLASS, exact=False):
-            print("[marcus] An object named Marcus Killstar exists but is not a Character; skipping.")
+            print(
+                f"[marcus] An object named {MARCUS_CHARACTER_KEY} exists but is not a Character; skipping."
+            )
             return
         if char not in account.characters:
             account.characters.add(char)
         account.db._last_puppet = char
+        char.db.rpg_pointbuy_done = True
+        if _marcus_reset_stats_requested():
+            _apply_marcus_ability_scores(char)
+            print(f"[marcus] Re-applied ability scores for {MARCUS_CHARACTER_KEY}.")
         if _marcus_reset_credits_requested():
             _apply_marcus_credits(char)
-            print(f"[marcus] Updated {CHARACTER_KEY} for {account.username} (credits={MARCUS_CREDITS:,}).")
-        else:
-            print(f"[marcus] Linked {CHARACTER_KEY} to {account.username} (credits unchanged).")
+            print(f"[marcus] Updated {MARCUS_CHARACTER_KEY} for {account.username} (credits={MARCUS_CREDITS:,}).")
+        if not _marcus_reset_stats_requested() and not _marcus_reset_credits_requested():
+            print(f"[marcus] Linked {MARCUS_CHARACTER_KEY} to {account.username} (credits unchanged).")
         return
 
     char, errs = account.create_character(
-        key=CHARACTER_KEY,
+        key=MARCUS_CHARACTER_KEY,
         typeclass=CHARACTER_TYPECLASS,
     )
     if errs:
         print(f"[marcus] create_character failed: {errs}")
         return
 
+    _apply_marcus_ability_scores(char)
+    char.db.rpg_pointbuy_done = True
     _apply_marcus_credits(char)
     account.db._last_puppet = char
-    print(f"[marcus] Created {CHARACTER_KEY} for {account.username} (#{char.id}, credits={MARCUS_CREDITS:,}).")
+    print(
+        f"[marcus] Created {MARCUS_CHARACTER_KEY} for {account.username} (#{char.id}, credits={MARCUS_CREDITS:,})."
+    )
