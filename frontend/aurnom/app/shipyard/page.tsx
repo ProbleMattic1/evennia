@@ -47,7 +47,7 @@ export default function ShipyardPage() {
       }
       if (res.message) {
         setState((prev) =>
-          prev ? { ...prev, storyLines: appendSystemLine(prev.storyLines, res.message) } : prev
+          prev ? { ...prev, storyLines: appendSystemLine(prev.storyLines, res.message ?? "") } : prev
         );
       }
     } catch (err) {
@@ -70,7 +70,7 @@ export default function ShipyardPage() {
       }
       if (res.message) {
         setState((prev) =>
-          prev ? { ...prev, storyLines: appendSystemLine(prev.storyLines, res.message) } : prev
+          prev ? { ...prev, storyLines: appendSystemLine(prev.storyLines, res.message ?? "") } : prev
         );
       }
     } catch (err) {

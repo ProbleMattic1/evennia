@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -15,7 +15,7 @@ function appendSystemLine(lines: StoryLine[], text: string): StoryLine[] {
   return [...lines, { id: `sys-${Date.now()}`, text, kind: "system" }];
 }
 
-export default function ShopPage() {
+function ShopPageInner() {
   const searchParams = useSearchParams();
   const room = searchParams.get("room") ?? "";
 
@@ -48,7 +48,7 @@ export default function ShopPage() {
       }
       if (res.message) {
         setState((prev) =>
-          prev ? { ...prev, storyLines: appendSystemLine(prev.storyLines, res.message) } : prev
+          prev ? { ...prev, storyLines: appendSystemLine(prev.storyLines, res.message ?? "") } : prev
         );
       }
     } catch (err) {
@@ -71,7 +71,7 @@ export default function ShopPage() {
       }
       if (res.message) {
         setState((prev) =>
-          prev ? { ...prev, storyLines: appendSystemLine(prev.storyLines, res.message) } : prev
+          prev ? { ...prev, storyLines: appendSystemLine(prev.storyLines, res.message ?? "") } : prev
         );
       }
     } catch (err) {
@@ -162,5 +162,19 @@ export default function ShopPage() {
 
       <ExitGrid exits={view.exits} />
     </main>
+  );
+}
+
+export default function ShopPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto flex w-full max-w-6xl flex-1 px-6 py-10">
+          <p className="text-zinc-600">Loading shop state...</p>
+        </main>
+      }
+    >
+      <ShopPageInner />
+    </Suspense>
   );
 }

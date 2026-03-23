@@ -1498,10 +1498,20 @@ def check_database(always_return=False):
     tables = connection.introspection.get_table_list(connection.cursor())
     if not tables or not isinstance(tables[0], str):  # django 1.8+
         tables = [tableinfo.name for tableinfo in tables]
-    if tables and "accounts_accountdb" in tables:
-        # database exists and seems set up. Initialize evennia.
-        evennia._init()
-    # Try to get Account#1
+    if "accounts_accountdb" not in tables:
+        # Schema not migrated yet — do not query AccountDB (would error in PostgreSQL etc.).
+        if always_return:
+            return False
+        print(
+            ERROR_DATABASE.format(
+                traceback="accounts_accountdb missing (run evennia migrate)"
+            )
+        )
+        sys.exit()
+
+    # Database schema present. Initialize evennia.
+    evennia._init()
+
     from evennia.accounts.models import AccountDB
 
     try:

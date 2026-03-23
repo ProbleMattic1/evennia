@@ -153,6 +153,12 @@ class EconomyEngine(Script):
     # -----------------------------
 
     def ensure_account(self, account_key, opening_balance=0):
+        """
+        Create ``account_key`` in the ledger if missing, seeded with ``opening_balance``.
+
+        If the account already exists, the balance is left unchanged; ``opening_balance``
+        applies only on first creation.
+        """
         accounts = self.db.accounts or {}
         if account_key not in accounts:
             accounts[account_key] = int(opening_balance or 0)
@@ -235,6 +241,11 @@ class EconomyEngine(Script):
         return f"player:{character.id}"
 
     def get_character_balance(self, character):
+        """
+        Ledger balance for this character. ``character.db.credits`` is used only as
+        ``opening_balance`` when the player account is first created; afterward the
+        ledger is authoritative.
+        """
         account_key = self.get_character_account(character)
         opening = int(character.db.credits or 0)
         self.ensure_account(account_key, opening_balance=opening)
@@ -526,6 +537,18 @@ def get_economy(create_missing=True):
         from evennia import create_script
         return create_script("typeclasses.economy.EconomyEngine")
     return None
+
+
+def grant_character_credits(character, amount, memo="grant"):
+    """
+    Deposit credits into the character's ledger account and refresh ``character.db.credits``.
+    """
+    econ = get_economy(create_missing=True)
+    acct = econ.get_character_account(character)
+    econ.ensure_account(acct, opening_balance=int(character.db.credits or 0))
+    econ.deposit(acct, int(amount), memo=memo)
+    character.db.credits = econ.get_balance(acct)
+    return character.db.credits
 
 
 def get_price(item, location=None, market_type="normal", transaction_type="buy", standing="neutral"):

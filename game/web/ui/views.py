@@ -72,10 +72,10 @@ def _ship_price(template):
     return economy.get("total_price_cr") or economy.get("base_price_cr")
 
 
-def _character_for_web_purchase(account):
+def _resolve_character_for_web(account):
     """
-    Resolve Character for purchases from the authenticated Account (request.user).
-    Uses: (1) any connected puppet that is a Character, else (2) sole playable Character.
+    Resolve the active Character for web APIs.
+    Returns (character, None) on success, or (None, error_message) on failure.
     """
     try:
         puppets = account.get_all_puppets()
@@ -95,18 +95,20 @@ def _character_for_web_purchase(account):
     if len(chars) == 1:
         return chars[0], None
     if len(chars) == 0:
-        return None, JsonResponse(
-            {"ok": False, "message": "No playable character on this account."},
-            status=400,
-        )
+        return None, "No playable character on this account."
 
-    return None, JsonResponse(
-        {
-            "ok": False,
-            "message": "Multiple characters; connect with a puppet so the active character is known.",
-        },
-        status=400,
-    )
+    return None, "Multiple characters; connect with a puppet so the active character is known."
+
+
+def _character_for_web_purchase(account):
+    """
+    Resolve Character for purchases from the authenticated Account (request.user).
+    Uses: (1) any connected puppet that is a Character, else (2) sole playable Character.
+    """
+    char, msg = _resolve_character_for_web(account)
+    if char is not None:
+        return char, None
+    return None, JsonResponse({"ok": False, "message": msg}, status=400)
 
 
 def _room_exits(room):
@@ -196,6 +198,29 @@ def play_state(request):
 
 
 @require_GET
+def nav_state(request):
+    """
+    Hub exits plus catalog shop rooms for persistent web navigation.
+    Shop list is sourced from world.bootstrap_shops.SHOPS (single source of truth).
+    """
+    from world.bootstrap_shops import SHOPS
+
+    hub = _first_object(HUB_ROOM_KEY)
+    if not hub:
+        raise Http404(f"Room '{HUB_ROOM_KEY}' was not found.")
+
+    shops = [{"roomKey": entry["room_key"], "label": entry["vendor_name"]} for entry in SHOPS]
+
+    return JsonResponse(
+        {
+            "hubRoomKey": hub.key,
+            "exits": _room_exits(hub),
+            "shops": shops,
+        }
+    )
+
+
+@require_GET
 def bank_state(request):
     from typeclasses.economy import get_economy
 
@@ -227,6 +252,112 @@ def bank_state(request):
                 },
             ],
             "exits": _room_exits(room),
+        }
+    )
+
+
+@require_GET
+def dashboard_state(request):
+    """
+    Character-centric snapshot for the web dashboard: credits, carried items,
+    owned ships, plus Alpha Prime treasury (public). Always returns 200 JSON.
+    """
+    from typeclasses.economy import get_economy
+
+    econ = get_economy(create_missing=True)
+    treasury_balance = None
+    bank_room = _first_object(BANK_ROOM_KEY)
+    if bank_room:
+        treasury_balance = econ.get_balance("treasury:alpha-prime")
+
+    base = {
+        "treasuryBalance": treasury_balance,
+    }
+
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {
+                **base,
+                "authenticated": False,
+                "character": None,
+                "credits": None,
+                "inventory": [],
+                "ships": [],
+                "message": None,
+            }
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {
+                **base,
+                "authenticated": True,
+                "character": None,
+                "credits": None,
+                "inventory": [],
+                "ships": [],
+                "message": msg,
+            }
+        )
+
+    credits = econ.get_character_balance(char)
+
+    inventory = []
+    for obj in char.contents:
+        if getattr(obj, "destination", None):
+            continue
+        if getattr(obj.db, "is_template", False):
+            continue
+        desc = getattr(obj.db, "desc", None) or ""
+        if len(desc) > 500:
+            desc = desc[:500] + "…"
+        inventory.append(
+            {
+                "id": obj.id,
+                "key": obj.key,
+                "description": desc,
+            }
+        )
+
+    ships = []
+    for entry in char.db.owned_vehicles or []:
+        if hasattr(entry, "key"):
+            obj = entry
+        else:
+            found = search_object(entry)
+            obj = found[0] if found else None
+        if not obj:
+            continue
+        loc = obj.location.key if obj.location else None
+        pilot_key = None
+        pilot = getattr(obj.db, "pilot", None)
+        if pilot is not None:
+            pilot_key = getattr(pilot, "key", str(pilot))
+        summary = obj.get_vehicle_summary() if hasattr(obj, "get_vehicle_summary") else obj.key
+        ships.append(
+            {
+                "id": obj.id,
+                "key": obj.key,
+                "location": loc,
+                "pilot": pilot_key,
+                "state": getattr(obj.db, "state", None),
+                "summary": summary,
+            }
+        )
+
+    room_key = char.location.key if char.location else None
+    rpg = char.get_rpg_dashboard_snapshot()
+
+    return JsonResponse(
+        {
+            **base,
+            "authenticated": True,
+            "character": {"id": char.id, "key": char.key, "room": room_key, **rpg},
+            "credits": credits,
+            "inventory": inventory,
+            "ships": ships,
+            "message": None,
         }
     )
 

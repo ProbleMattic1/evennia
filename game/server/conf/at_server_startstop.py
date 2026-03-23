@@ -5,7 +5,7 @@ Called by Evennia at various points during its startup, reload and shutdown
 sequence.
 
 at_server_cold_start  — every cold start (shutdown → restart, NOT reload)
-                        runs idempotent world bootstraps (hub, economy, marcus, catalog, shipyard, shops).
+                        runs world bootstraps (hub, economy, ability baselines, marcus link, etc.).
 """
 
 import traceback
@@ -50,9 +50,10 @@ def at_server_cold_start():
     """
     Called only on cold start (after shutdown or reset, not after a reload).
 
-    All bootstrap functions are idempotent (check before create), so running
-    them on every cold start is safe and ensures world data always exists.
+    Bootstrap functions create missing world data only; they do not reset player
+    economy state unless explicitly opted in (e.g. MARCUS_RESET_CREDITS).
     """
+    from world.bootstrap_character_abilities import bootstrap_character_abilities
     from world.bootstrap_economy import bootstrap_economy
     from world.bootstrap_hub import bootstrap_hub
     from world.bootstrap_marcus_killstar import bootstrap_marcus_killstar
@@ -62,7 +63,8 @@ def at_server_cold_start():
 
     _run("NanoMegaPlex hub (#2 → Promenade)", bootstrap_hub)
     _run("global economy script", bootstrap_economy)
-    _run("Marcus Killstar (admin character + credits)", bootstrap_marcus_killstar)
+    _run("character ability baselines (STR–CHA)", bootstrap_character_abilities)
+    _run("Marcus Killstar (account link; credits on create only)", bootstrap_marcus_killstar)
     _run("vehicle catalog CSV import", bootstrap_vehicle_catalog)
     _run("shipyard rooms + stock templates", bootstrap_shipyard)
     _run("general catalog shops (tech, mining, supply, toy)", bootstrap_shops)

@@ -1,8 +1,11 @@
 """
-Ensure Marcus Killstar exists, is linked to the admin account, and has a set credit balance.
+Ensure Marcus Killstar exists and is linked to the admin account.
+
+Initial credit seed (MARCUS_CREDITS) runs only when the character is first created.
+Existing characters keep their ledger balance unless MARCUS_RESET_CREDITS is set.
 
 Runs from server/conf/at_server_cold_start after bootstrap_hub and bootstrap_economy.
-Idempotent.
+Idempotent for linkage; credits are not reset each cold start by default.
 """
 
 import os
@@ -13,6 +16,10 @@ from evennia.accounts.models import AccountDB
 CHARACTER_KEY = "Marcus Killstar"
 CHARACTER_TYPECLASS = "typeclasses.characters.Character"
 MARCUS_CREDITS = 100_000_000_000
+
+
+def _marcus_reset_credits_requested():
+    return os.environ.get("MARCUS_RESET_CREDITS", "").strip().lower() in ("1", "true", "yes")
 
 
 def _admin_account():
@@ -52,8 +59,11 @@ def bootstrap_marcus_killstar():
         if char not in account.characters:
             account.characters.add(char)
         account.db._last_puppet = char
-        _apply_marcus_credits(char)
-        print(f"[marcus] Updated {CHARACTER_KEY} for {account.username} (credits={MARCUS_CREDITS:,}).")
+        if _marcus_reset_credits_requested():
+            _apply_marcus_credits(char)
+            print(f"[marcus] Updated {CHARACTER_KEY} for {account.username} (credits={MARCUS_CREDITS:,}).")
+        else:
+            print(f"[marcus] Linked {CHARACTER_KEY} to {account.username} (credits unchanged).")
         return
 
     char, errs = account.create_character(

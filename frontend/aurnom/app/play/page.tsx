@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { ActionGrid } from "@/components/action-grid";
@@ -9,7 +9,7 @@ import { StoryPanel } from "@/components/story-panel";
 import { getPlayState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
-export default function PlayPage() {
+function PlayPageInner() {
   const searchParams = useSearchParams();
   const room = searchParams.get("room") ?? undefined;
   const loader = useCallback(() => getPlayState(room), [room]);
@@ -46,5 +46,19 @@ export default function PlayPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function PlayPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto flex w-full max-w-6xl flex-1 px-6 py-10">
+          <p className="text-zinc-600">Loading play state...</p>
+        </main>
+      }
+    >
+      <PlayPageInner />
+    </Suspense>
   );
 }

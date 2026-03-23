@@ -70,7 +70,14 @@ def run():
     ship = get_or_create_ship('Sparrow Mk V', hangar, owner=character)
     if character:
         update_owned_vehicles(character, ship)
-        character.db.credits = max(character.db.credits or 0, 500000)
+        from typeclasses.economy import get_economy
+
+        econ = get_economy(create_missing=True)
+        acct = econ.get_character_account(character)
+        econ.ensure_account(acct, opening_balance=int(character.db.credits or 0))
+        target = max(econ.get_balance(acct), 500_000)
+        econ.set_balance(acct, target)
+        character.db.credits = econ.get_balance(acct)
 
     print('Created/updated rooms: Meridian Civil Shipyard, Meridian Delivery Hangar, Low Meridian Orbit')
     print('Created/updated demo ship: Sparrow Mk V')
