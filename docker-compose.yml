@@ -48,6 +48,16 @@ services:
       EVENNIA_SUPERUSER_USERNAME: admin
       EVENNIA_SUPERUSER_PASSWORD: admin
       EVENNIA_SUPERUSER_EMAIL: ""
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import socket; s=socket.create_connection(('127.0.0.1', 4001), 2); s.close()\"",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 10s
     restart: unless-stopped
 
   postgres:
@@ -69,6 +79,9 @@ services:
     image: node:20-alpine
     container_name: evennia_frontend
     working_dir: /app
+    depends_on:
+      evennia:
+        condition: service_healthy
     environment:
       - HOSTNAME=0.0.0.0
       - EVENNIA_BASE_URL=http://evennia:4001

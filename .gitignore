@@ -69,7 +69,7 @@ docs/build
 .test_game_dir
 
 # Docker auto-created game (when running from repo root)
-game/
+# game/ is intentionally tracked in this project.
 
 # PostgreSQL data (persists across docker compose down)
 postgres_data/
