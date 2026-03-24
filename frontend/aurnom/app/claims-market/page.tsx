@@ -57,7 +57,7 @@ export default function ClaimsMarketPage() {
 
   return (
     <main className="main-content">
-      <header className="border-b border-zinc-200 py-3 dark:border-cyan-900/50">
+      <header className="page-header border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
         <div className="px-2">
           <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Claims Market</h1>
           <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">

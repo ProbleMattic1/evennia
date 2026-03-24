@@ -30,7 +30,7 @@ export default function BankPage() {
 
   return (
     <main className="main-content">
-      <header className="flex items-center justify-between border-b border-zinc-200 py-3 dark:border-cyan-900/50">
+      <header className="page-header flex items-center justify-between border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
         <div className="px-2">
           <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{data.bankName}</h1>
           <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">{data.roomName}</p>
@@ -49,7 +49,8 @@ export default function BankPage() {
           <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
             <h2 className="section-label">Treasury</h2>
             <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
-              {data.treasuryBalance.toLocaleString()} cr
+              {data.treasuryBalance.toLocaleString()}{" "}
+              <span className="text-amber-700 dark:text-amber-400">cr</span>
             </p>
           </section>
           <ExitGrid exits={data.exits} />

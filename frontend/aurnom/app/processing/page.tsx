@@ -9,7 +9,7 @@ import { getProcessingState } from "@/lib/ui-api";
 import type { ProcessingState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
-function StatRow({ label, value }: { label: string; value: string }) {
+function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-2 border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30">
       <span className="text-[12px] text-zinc-500 dark:text-cyan-500/80">{label}</span>
@@ -64,13 +64,23 @@ function MinerSection({ data }: { data: ProcessingState }) {
         {myRefinedOutputValue !== null && (
           <StatRow
             label={`Refined output (gross, before ${(processingFeeRate * 100).toFixed(0)}% fee)`}
-            value={`${myRefinedOutputValue.toLocaleString()} cr`}
+            value={
+              <>
+                {myRefinedOutputValue.toLocaleString()}{" "}
+                <span className="text-amber-700 dark:text-amber-400">cr</span>
+              </>
+            }
           />
         )}
         {myRefinedOutputValue !== null && myRefinedOutputValue > 0 && (
           <StatRow
             label="Net payout after fee"
-            value={`${Math.floor(myRefinedOutputValue * (1 - processingFeeRate)).toLocaleString()} cr`}
+            value={
+              <>
+                {Math.floor(myRefinedOutputValue * (1 - processingFeeRate)).toLocaleString()}{" "}
+                <span className="text-amber-700 dark:text-amber-400">cr</span>
+              </>
+            }
           />
         )}
       </div>
@@ -140,7 +150,7 @@ export default function ProcessingPage() {
 
   return (
     <main className="main-content">
-      <header className="flex items-center justify-between border-b border-zinc-200 py-3 dark:border-cyan-900/50">
+      <header className="page-header flex items-center justify-between border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
         <div className="px-2">
           <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{data.plantName}</h1>
           <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">{data.roomName}</p>
@@ -171,7 +181,12 @@ export default function ProcessingPage() {
               />
               <StatRow
                 label="Output value"
-                value={`${data.refineryOutputValue.toLocaleString()} cr`}
+                value={
+                  <>
+                    {data.refineryOutputValue.toLocaleString()}{" "}
+                    <span className="text-amber-700 dark:text-amber-400">cr</span>
+                  </>
+                }
               />
               <StatRow
                 label="Processing fee"

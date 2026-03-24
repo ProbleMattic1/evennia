@@ -11,6 +11,15 @@ const EVENNIA_ORIGIN = process.env.NEXT_PUBLIC_EVENNIA_ORIGIN ?? "";
 
 const ABILITY_ORDER = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
+const ABILITY_COLORS: Record<string, string> = {
+  str: "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300",
+  dex: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+  con: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
+  int: "bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300",
+  wis: "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300",
+  cha: "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300",
+};
+
 function resourceNameByKey(resources: ResourceEntry[]): Record<string, string> {
   return Object.fromEntries(resources.map((r) => [r.key, r.name]));
 }
@@ -84,7 +93,7 @@ export default function Home() {
 
   return (
     <main className="main-content">
-      <header className="border-b border-zinc-200 py-3 dark:border-cyan-900/50">
+      <header className="page-header border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
         <div className="px-2">
           <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Aurnom</h1>
           <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">
@@ -94,58 +103,56 @@ export default function Home() {
           </p>
         </div>
         {data.character && data.credits !== null ? (
-          <dl className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-zinc-200 px-2 pt-2 dark:border-cyan-900/50">
-            <div className="flex min-w-0 flex-col gap-0">
-              <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
+          <dl className="mt-2 flex flex-wrap gap-2 border-t border-zinc-200 px-2 pt-2 dark:border-cyan-900/50">
+            <div className="rounded-lg px-2 py-1 ring-1 ring-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:ring-amber-700/30">
+              <dt className="text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
                 Credits
               </dt>
-              <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
-                {data.credits.toLocaleString()} <span className="text-zinc-400 dark:text-cyan-500/80">cr</span>
+              <dd className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
+                {data.credits.toLocaleString()}{" "}
+                <span className="text-amber-600 dark:text-amber-400">cr</span>
               </dd>
             </div>
             {(data.miningEstimatedValuePerCycle ?? 0) > 0 ||
             (data.miningTotalStoredValue ?? 0) > 0 ? (
               <>
-                <div className="flex min-w-0 flex-col gap-0">
-                  <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
+                <div className="rounded-lg px-2 py-1 ring-1 ring-teal-200 bg-teal-50 dark:bg-teal-950/30 dark:ring-teal-700/30">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-teal-700 dark:text-teal-400">
                     Est. value / cycle
                   </dt>
-                  <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
+                  <dd className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
                     {(data.miningEstimatedValuePerCycle ?? 0).toLocaleString()}{" "}
-                    <span className="text-zinc-400 dark:text-cyan-500/80">cr</span>
+                    <span className="text-amber-600 dark:text-amber-400">cr</span>
                   </dd>
                 </div>
-                <div className="flex min-w-0 flex-col gap-0">
-                  <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
+                <div className="rounded-lg px-2 py-1 ring-1 ring-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:ring-emerald-700/30">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
                     Stored value
                   </dt>
-                  <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
+                  <dd className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
                     {(data.miningTotalStoredValue ?? 0).toLocaleString()}{" "}
-                    <span className="text-zinc-400 dark:text-cyan-500/80">cr</span>
+                    <span className="text-amber-600 dark:text-amber-400">cr</span>
                   </dd>
                 </div>
               </>
             ) : null}
-            <div className="flex min-w-0 flex-col gap-0">
-              <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
+            <div className="rounded-lg px-2 py-1 ring-1 ring-sky-200 bg-sky-50 dark:bg-sky-950/30 dark:ring-sky-700/30">
+              <dt className="text-[10px] font-medium uppercase tracking-wide text-sky-700 dark:text-sky-400">
                 Armor class
               </dt>
-              <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
+              <dd className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
                 {data.character.armorClass}
               </dd>
             </div>
             {data.character.vitals.hp ? (
-              <div className="flex min-w-0 flex-col gap-0">
-                <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
+              <div className="rounded-lg px-2 py-1 ring-1 ring-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:ring-emerald-700/30">
+                <dt className="text-[10px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
                   {data.character.vitals.hp.name}
                 </dt>
-                <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
+                <dd className="font-mono text-sm tabular-nums text-emerald-800 dark:text-emerald-300">
                   {data.character.vitals.hp.current}
                   {data.character.vitals.hp.max != null ? (
-                    <>
-                      {" "}
-                      <span className="text-zinc-400 dark:text-cyan-500/80">/ {data.character.vitals.hp.max}</span>
-                    </>
+                    <> / {data.character.vitals.hp.max}</>
                   ) : null}
                 </dd>
               </div>
@@ -153,9 +160,9 @@ export default function Home() {
           </dl>
         ) : null}
         {data.character ? (
-          <div className="mt-2 border-t border-zinc-200 px-2 pt-2 dark:border-cyan-900/50">
+          <div className="mx-2 mt-2 rounded-lg border border-teal-200/60 bg-teal-50/50 px-3 py-2 dark:border-teal-800/40 dark:bg-teal-950/20">
             <p className="mb-1.5 section-label">Ability scores</p>
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
+            <div className="flex flex-wrap gap-2">
               {ABILITY_ORDER.map((key) => {
                 const row = data.character!.abilities[key];
                 if (!row) return null;
@@ -163,12 +170,14 @@ export default function Home() {
                 return (
                   <span
                     key={key}
-                    className="inline-flex items-baseline gap-1.5 text-[12px] text-zinc-600 dark:text-zinc-400"
+                    className={`inline-flex items-baseline gap-1.5 rounded px-1.5 py-0.5 text-[12px] font-mono ${
+                      ABILITY_COLORS[key] ?? "bg-zinc-100 dark:bg-zinc-800"
+                    }`}
                   >
-                    <span className="font-semibold text-zinc-500 dark:text-cyan-400/90">{label}</span>
-                    <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{row.score}</span>
-                    <span className="text-zinc-400 dark:text-cyan-500/70">
-                      ({row.name}, Mod {row.abilityMod >= 0 ? "+" : ""}
+                    <span className="font-semibold">{label}</span>
+                    <span className="tabular-nums">{row.score}</span>
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      (Mod {row.abilityMod >= 0 ? "+" : ""}
                       {row.abilityMod})
                     </span>
                   </span>
@@ -203,16 +212,31 @@ export default function Home() {
       {data.character ? (
         <>
           <SectionDivider />
-          <section className="px-2 py-2">
-            <h2 className="section-label">Inventory</h2>
+          <section className="mx-2 rounded-lg border border-violet-200/60 bg-violet-50/50 px-3 py-2 dark:border-violet-800/40 dark:bg-violet-950/20">
+            <details open className="group">
+              <summary className="section-label flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+                <span>Inventory</span>
+                <svg
+                  className="size-3 shrink-0 transition-transform group-open:rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </summary>
+              <div className="mt-1">
             {data.inventory.length === 0 ? (
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">You are not carrying any items.</p>
             ) : (
               <ul className="mt-1 space-y-0.5">
-                {data.inventory.map((item) => (
+                {data.inventory.map((item, i) => (
                   <li
                     key={item.id}
-                    className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30"
+                    className={`rounded py-1.5 px-2 -mx-2 ${
+                      i % 2 === 0 ? "bg-violet-100/40 dark:bg-violet-950/30" : "bg-white/50 dark:bg-violet-900/10"
+                    }`}
                   >
                     <div className="flex justify-between gap-2">
                       <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.key}</span>
@@ -241,8 +265,8 @@ export default function Home() {
                           </p>
                         ) : null}
                         <p className="text-[12px] font-medium text-zinc-600 dark:text-cyan-400/90">
-                          Est. ~
-                          {item.claimSpecs.estimatedValuePerCycle.toLocaleString()} cr/cycle
+                          Est. ~{item.claimSpecs.estimatedValuePerCycle.toLocaleString()}{" "}
+                          <span className="text-amber-700 dark:text-amber-400">cr</span>/cycle
                         </p>
                       </div>
                     ) : null}
@@ -250,6 +274,8 @@ export default function Home() {
                 ))}
               </ul>
             )}
+              </div>
+            </details>
           </section>
         </>
       ) : null}
@@ -257,7 +283,7 @@ export default function Home() {
       {data.character && canDeploy ? (
         <>
           <SectionDivider />
-          <section className="px-2 py-2">
+          <section className="mx-2 rounded-lg border border-amber-200/60 bg-amber-50/50 px-3 py-2 dark:border-amber-800/40 dark:bg-amber-950/20">
             <h2 className="section-label">Deploy Mine</h2>
             <p className="mt-1 text-[12px] text-zinc-500 dark:text-cyan-500/80">
               Choose a package and claim to deploy a mining operation.
@@ -321,14 +347,27 @@ export default function Home() {
       {data.character ? (
         <>
           <SectionDivider />
-          <section className="px-2 py-2">
-            <h2 className="section-label">Ships</h2>
+          <section className="mx-2 rounded-lg border border-sky-200/60 bg-sky-50/50 px-3 py-2 dark:border-sky-800/40 dark:bg-sky-950/20">
+            <details open className="group">
+              <summary className="section-label flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+                <span>Ships</span>
+                <svg
+                  className="size-3 shrink-0 transition-transform group-open:rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </summary>
+              <div className="mt-1">
             {data.ships.length === 0 ? (
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 No owned ships yet. Visit the{" "}
                 <Link
                   href="/shop?room=Meridian%20Civil%20Shipyard"
-                  className="text-zinc-700 underline hover:text-zinc-900 dark:text-cyan-400 dark:hover:text-cyan-300"
+                  className="text-sky-700 underline hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300"
                 >
                   shipyard
                 </Link>{" "}
@@ -336,10 +375,12 @@ export default function Home() {
               </p>
             ) : (
               <ul className="mt-1 space-y-1">
-                {data.ships.map((ship) => (
+                {data.ships.map((ship, i) => (
                   <li
                     key={ship.id}
-                    className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30"
+                    className={`rounded py-1.5 px-2 -mx-2 ${
+                      i % 2 === 0 ? "bg-sky-100/40 dark:bg-sky-950/30" : "bg-white/50 dark:bg-sky-900/10"
+                    }`}
                   >
                     <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{ship.key}</span>
                     <span className="ml-2 text-[12px] text-zinc-500 dark:text-cyan-500/80">{ship.summary}</span>
@@ -350,6 +391,8 @@ export default function Home() {
                 ))}
               </ul>
             )}
+              </div>
+            </details>
           </section>
         </>
       ) : null}
@@ -357,13 +400,28 @@ export default function Home() {
       {data.character && data.mines && data.mines.length > 0 ? (
         <>
           <SectionDivider />
-          <section className="px-2 py-2">
-            <h2 className="section-label">My Mines</h2>
-            <ul className="mt-1 space-y-1">
-              {data.mines.map((mine) => (
+          <section className="mx-2 rounded-lg border border-emerald-200/60 bg-emerald-50/50 px-3 py-2 dark:border-emerald-800/40 dark:bg-emerald-950/20">
+            <details open className="group">
+              <summary className="section-label flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+                <span>My Mines</span>
+                <svg
+                  className="size-3 shrink-0 transition-transform group-open:rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </summary>
+              <div className="mt-1">
+            <ul className="space-y-1">
+              {data.mines.map((mine, i) => (
                 <li
                   key={mine.key}
-                  className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30"
+                  className={`rounded py-1.5 px-2 -mx-2 ${
+                    i % 2 === 0 ? "bg-emerald-100/40 dark:bg-emerald-950/30" : "bg-white/50 dark:bg-emerald-900/10"
+                  }`}
                 >
                   <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{mine.key}</span>
                   <span className="ml-2 text-[12px] text-zinc-500 dark:text-cyan-500/80">
@@ -411,6 +469,8 @@ export default function Home() {
                 </li>
               ))}
             </ul>
+              </div>
+            </details>
           </section>
         </>
       ) : null}

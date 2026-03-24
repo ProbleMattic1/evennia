@@ -45,8 +45,8 @@ body {
   max-width: 42rem;
   padding: 1rem 1.25rem;
   width: 100%;
-  background: white;
-  border-left: 1px solid rgb(228 228 231);
+  background: linear-gradient(to bottom, rgb(248 250 252), white);
+  border-left: 2px solid rgb(148 163 184);
 }
 
 .dark .main-content {
@@ -57,10 +57,10 @@ body {
 /* Section label — small uppercase headers */
 .section-label {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: rgb(161 161 170);
+  color: rgb(15 118 110);
 }
 
 .dark .section-label {
@@ -73,11 +73,20 @@ body {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
   border: 0;
-  border-top: 1px solid rgb(228 228 231);
+  border-top: 1px solid rgb(203 213 225);
 }
 
 .dark .section-divider {
   border-top-color: var(--border-subtle);
+}
+
+/* Page header accent — consistent left border across all pages */
+.page-header {
+  border-left: 4px solid rgb(13 148 136);
+}
+
+.dark .page-header {
+  border-left-color: rgb(34 211 238);
 }
 
 /* Dashboard header — space HUD: nebula wash + star field + slow gradient drift */
