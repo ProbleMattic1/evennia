@@ -376,6 +376,7 @@ def nav_state(request):
 
     kiosks = []
     exits = []
+    mines = []
     for ex in all_exits:
         key_lower = ex["key"].lower()
         if key_lower in NAV_KIOSKS and ex.get("destination"):
@@ -387,11 +388,14 @@ def nav_state(request):
                 }
             )
         else:
-            is_site, _ = _is_mining_site_room(_resolve_exit_destination(ex))
+            dest = _resolve_exit_destination(ex)
+            is_site, _ = _is_mining_site_room(dest)
             if is_site:
                 if char is None or not _should_show_mining_exit(ex, char):
                     continue
-            exits.append(ex)
+                mines.append(ex)
+            else:
+                exits.append(ex)
 
     shops = [{"roomKey": entry["room_key"], "label": entry["vendor_name"]} for entry in SHOPS]
     shops.append(SHIPYARD_SHOP_ENTRY)
@@ -403,6 +407,7 @@ def nav_state(request):
         {
             "hubRoomKey": hub.key,
             "exits": exits,
+            "mines": mines,
             "shops": shops,
             "kiosks": kiosks,
         }

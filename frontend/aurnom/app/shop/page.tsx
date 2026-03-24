@@ -98,7 +98,7 @@ function ShopPageInner() {
   if (loading) {
     return (
       <main className="main-content">
-        <p className="text-sm text-zinc-500">Loading shop state…</p>
+        <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading shop state…</p>
       </main>
     );
   }
@@ -106,28 +106,28 @@ function ShopPageInner() {
   if (error || !view) {
     return (
       <main className="main-content">
-        <p className="text-sm text-red-600">Failed to load shop state: {error ?? "Unknown error"}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load shop state: {error ?? "Unknown error"}</p>
       </main>
     );
   }
 
   return (
     <main className="main-content">
-      <header className="flex items-center justify-between border-b border-zinc-200 py-3 dark:border-zinc-700">
+      <header className="flex items-center justify-between border-b border-zinc-200 py-3 dark:border-cyan-900/50">
         <div className="px-2">
           <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{view.shopName}</h1>
-          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{view.roomName}</p>
+          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">{view.roomName}</p>
         </div>
         <Link
           href={`/play?room=${encodeURIComponent(view.roomName)}`}
-          className="rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-300"
         >
           Back to Play
         </Link>
       </header>
 
       {actionError ? (
-        <p className="mx-2 mt-2 rounded border border-red-200/60 bg-red-50/80 px-2 py-1.5 text-[12px] text-red-700">
+        <p className="mx-2 mt-2 rounded border border-red-200/60 bg-red-50/80 px-2 py-1.5 text-[12px] text-red-700 dark:border-red-800/50 dark:bg-red-950/40 dark:text-red-400">
           {actionError}
         </p>
       ) : null}
@@ -138,7 +138,7 @@ function ShopPageInner() {
           lines={view.storyLines}
         />
 
-        <section className="border-b border-zinc-100 px-2 py-2 dark:border-zinc-800">
+        <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
           <h2 className="section-label">
             {isShips ? "Ships for Sale" : "Items for Sale"}
           </h2>
@@ -148,7 +148,7 @@ function ShopPageInner() {
               return (
                 <li
                   key={entry.id}
-                  className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-zinc-800"
+                  className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30"
                 >
                   <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{entry.key}</span>
                   <span className="ml-2 text-[12px] text-zinc-500 dark:text-zinc-400">
@@ -163,7 +163,7 @@ function ShopPageInner() {
                   <div className="mt-1 flex gap-1.5">
                     <button
                       type="button"
-                      className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-700 disabled:text-zinc-400 dark:border-zinc-600 dark:text-zinc-300 dark:disabled:text-zinc-500"
+                      className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-700 disabled:text-zinc-400 dark:border-cyan-700/50 dark:text-cyan-400 dark:disabled:text-cyan-500/50"
                       disabled={rowBusy}
                       onClick={() => onInspect(entry.id, entry.key)}
                     >
@@ -171,7 +171,7 @@ function ShopPageInner() {
                     </button>
                     <button
                       type="button"
-                      className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-800 hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:bg-zinc-700"
+                      className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-800 hover:bg-zinc-100 disabled:opacity-60 dark:border-cyan-700/50 dark:bg-cyan-950/40 dark:text-cyan-400 dark:hover:bg-cyan-900/50 dark:hover:text-cyan-300"
                       disabled={rowBusy}
                       onClick={() => onBuy(entry.id, entry.key)}
                     >
@@ -196,7 +196,7 @@ export default function ShopPage() {
     <Suspense
       fallback={
         <main className="main-content">
-          <p className="text-sm text-zinc-500">Loading shop state…</p>
+          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading shop state…</p>
         </main>
       }
     >

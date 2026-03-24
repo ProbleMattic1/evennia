@@ -7,7 +7,7 @@ type Props = {
 function Kv({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-2 text-sm">
-      <span className="shrink-0 text-zinc-500 dark:text-zinc-400">{label}:</span>
+      <span className="shrink-0 text-zinc-500 dark:text-cyan-400/90">{label}:</span>
       <span className="text-zinc-800 dark:text-zinc-200">{value}</span>
     </div>
   );
@@ -16,7 +16,7 @@ function Kv({ label, value }: { label: string; value: React.ReactNode }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-3">
-      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-cyan-400/90">
         {title}
       </h3>
       <div className="flex flex-col gap-1">{children}</div>
@@ -26,9 +26,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function MineDetailsPanel({ site }: Props) {
   return (
-    <section className="border-b border-zinc-100 px-2 py-2 dark:border-zinc-800">
+    <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
       <h2 className="section-label">Mine Details</h2>
-      <div className="mt-1 max-h-[400px] overflow-y-auto rounded border border-zinc-200 bg-zinc-50 p-2 font-mono text-sm leading-5 text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
+      <div className="mt-1 max-h-[400px] overflow-y-auto rounded border border-zinc-200 bg-zinc-50 p-2 font-mono text-sm leading-5 text-zinc-800 dark:border-cyan-900/50 dark:bg-zinc-950/80 dark:text-zinc-200">
         <Section title="Identity">
           <Kv label="id" value={site.id} />
           <Kv label="key" value={site.key} />
@@ -86,23 +86,23 @@ export function MineDetailsPanel({ site }: Props) {
         <Section title="cycleLog">
           {site.cycleLog.length > 0 ? (
             site.cycleLog.map((line, i) => (
-              <div key={i} className="text-xs text-zinc-600 dark:text-zinc-400">
+              <div key={i} className="text-xs text-zinc-600 dark:text-cyan-500/80">
                 {line}
               </div>
             ))
           ) : (
-            <span className="text-zinc-500 dark:text-zinc-600">—</span>
+            <span className="text-zinc-500 dark:text-cyan-500/60">—</span>
           )}
         </Section>
         <Section title="hazardLog">
           {site.hazardLog.length > 0 ? (
             site.hazardLog.map((line, i) => (
-              <div key={i} className="text-xs text-zinc-600 dark:text-zinc-400">
+              <div key={i} className="text-xs text-zinc-600 dark:text-cyan-500/80">
                 {line}
               </div>
             ))
           ) : (
-            <span className="text-zinc-500 dark:text-zinc-600">—</span>
+            <span className="text-zinc-500 dark:text-cyan-500/60">—</span>
           )}
         </Section>
       </div>

@@ -63,7 +63,7 @@ export function CommodityTickerStrip() {
 
   if (loading && !data) {
     return (
-      <div className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700/60 dark:bg-zinc-950">
+      <div className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-cyan-900/50 dark:bg-zinc-950/80">
         <p className="animate-pulse font-mono text-[13px] text-zinc-600 dark:text-zinc-500">
           SYNCING MARKET FEED…
         </p>
@@ -76,12 +76,12 @@ export function CommodityTickerStrip() {
   const items = [...data.commodities, ...data.commodities]; // duplicate for seamless loop
 
   return (
-    <div className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-zinc-700/60 dark:bg-zinc-950">
+    <div className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-cyan-900/50 dark:bg-zinc-950/80">
       {/* Header row */}
-      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-1.5 dark:border-cyan-800/50 dark:bg-cyan-950/40">
         <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 dark:bg-emerald-400" />
-          <span className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-zinc-300">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 dark:bg-cyan-400" />
+          <span className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
             Aurnom Commodity Exchange · Live Pricing
           </span>
         </div>
@@ -130,7 +130,7 @@ function CommodityRow({ c }: { c: MarketCommodity }) {
   const d = priceDelta(c.sellPriceCrPerTon, c.basePriceCrPerTon);
   const s = cat(c);
   return (
-    <tr className="border-b border-zinc-200 transition-colors hover:bg-zinc-100 dark:border-zinc-800/60 dark:hover:bg-zinc-800/30">
+    <tr className="border-b border-zinc-200 transition-colors hover:bg-zinc-100 dark:border-cyan-900/40 dark:hover:bg-cyan-950/30">
       <td className="py-1.5 pr-3">
         <span className={`font-mono text-sm font-semibold ${s.text}`}>{c.name}</span>
       </td>
@@ -186,10 +186,10 @@ export function CommodityTickerTable() {
     : null;
 
   return (
-    <section className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-zinc-700/60 dark:bg-zinc-950">
+    <section className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-cyan-900/50 dark:bg-zinc-950/80">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-zinc-300">
+      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-2 dark:border-cyan-800/50 dark:bg-cyan-950/40">
+        <h2 className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
           Market Rates — All Commodities
         </h2>
         <div className="flex items-center gap-2">
@@ -202,7 +202,7 @@ export function CommodityTickerTable() {
             type="button"
             onClick={reload}
             disabled={loading}
-            className="rounded border border-zinc-300 px-1.5 py-0.5 font-mono text-[12px] text-zinc-600 transition hover:border-zinc-500 hover:text-zinc-900 disabled:opacity-30 dark:border-zinc-700 dark:text-zinc-500 dark:hover:border-zinc-500 dark:hover:text-zinc-200"
+            className="rounded border border-zinc-300 px-1.5 py-0.5 font-mono text-[12px] text-zinc-600 transition hover:border-zinc-500 hover:text-zinc-900 disabled:opacity-30 dark:border-cyan-700/50 dark:text-cyan-400/90 dark:hover:border-cyan-500 dark:hover:text-cyan-300"
           >
             {loading ? "…" : "↻"}
           </button>
@@ -224,7 +224,7 @@ export function CommodityTickerTable() {
         {groups && (
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800">
+              <tr className="border-b border-zinc-200 dark:border-cyan-800/50">
                 {(
                   [
                     ["Commodity", "text-left",  "pr-3"],

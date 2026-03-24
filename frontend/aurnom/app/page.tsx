@@ -69,7 +69,7 @@ export default function Home() {
   if (loading) {
     return (
       <main className="main-content">
-        <p className="text-sm text-zinc-500">Loading dashboard…</p>
+        <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading dashboard…</p>
       </main>
     );
   }
@@ -77,74 +77,74 @@ export default function Home() {
   if (error || !data) {
     return (
       <main className="main-content">
-        <p className="text-sm text-red-600">Failed to load dashboard: {error ?? "Unknown error"}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load dashboard: {error ?? "Unknown error"}</p>
       </main>
     );
   }
 
   return (
     <main className="main-content">
-      <header className="border-b border-zinc-200 py-3">
+      <header className="border-b border-zinc-200 py-3 dark:border-cyan-900/50">
         <div className="px-2">
-          <h1 className="text-base font-semibold text-zinc-900">Aurnom</h1>
-          <p className="mt-0.5 text-[12px] text-zinc-500">
+          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Aurnom</h1>
+          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">
             {data.character
               ? `Signed in as ${data.character.key}. Location: ${data.character.room ?? "Unknown"}.`
               : "Character dashboard and entry point for the Evennia-powered world."}
           </p>
         </div>
         {data.character && data.credits !== null ? (
-          <dl className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-zinc-200 px-2 pt-2">
+          <dl className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-zinc-200 px-2 pt-2 dark:border-cyan-900/50">
             <div className="flex min-w-0 flex-col gap-0">
-              <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400">
+              <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
                 Credits
               </dt>
-              <dd className="font-mono text-sm tabular-nums text-zinc-700">
-                {data.credits.toLocaleString()} <span className="text-zinc-400">cr</span>
+              <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
+                {data.credits.toLocaleString()} <span className="text-zinc-400 dark:text-cyan-500/80">cr</span>
               </dd>
             </div>
             {(data.miningEstimatedValuePerCycle ?? 0) > 0 ||
             (data.miningTotalStoredValue ?? 0) > 0 ? (
               <>
                 <div className="flex min-w-0 flex-col gap-0">
-                  <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400">
+                  <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
                     Est. value / cycle
                   </dt>
-                  <dd className="font-mono text-sm tabular-nums text-zinc-700">
+                  <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
                     {(data.miningEstimatedValuePerCycle ?? 0).toLocaleString()}{" "}
-                    <span className="text-zinc-400">cr</span>
+                    <span className="text-zinc-400 dark:text-cyan-500/80">cr</span>
                   </dd>
                 </div>
                 <div className="flex min-w-0 flex-col gap-0">
-                  <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400">
+                  <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
                     Stored value
                   </dt>
-                  <dd className="font-mono text-sm tabular-nums text-zinc-700">
+                  <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
                     {(data.miningTotalStoredValue ?? 0).toLocaleString()}{" "}
-                    <span className="text-zinc-400">cr</span>
+                    <span className="text-zinc-400 dark:text-cyan-500/80">cr</span>
                   </dd>
                 </div>
               </>
             ) : null}
             <div className="flex min-w-0 flex-col gap-0">
-              <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400">
+              <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
                 Armor class
               </dt>
-              <dd className="font-mono text-sm tabular-nums text-zinc-700">
+              <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
                 {data.character.armorClass}
               </dd>
             </div>
             {data.character.vitals.hp ? (
               <div className="flex min-w-0 flex-col gap-0">
-                <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400">
+                <dt className="text-[12px] font-medium uppercase tracking-wide text-zinc-400 dark:text-cyan-400/90">
                   {data.character.vitals.hp.name}
                 </dt>
-                <dd className="font-mono text-sm tabular-nums text-zinc-700">
+                <dd className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
                   {data.character.vitals.hp.current}
                   {data.character.vitals.hp.max != null ? (
                     <>
                       {" "}
-                      <span className="text-zinc-400">/ {data.character.vitals.hp.max}</span>
+                      <span className="text-zinc-400 dark:text-cyan-500/80">/ {data.character.vitals.hp.max}</span>
                     </>
                   ) : null}
                 </dd>
@@ -153,7 +153,7 @@ export default function Home() {
           </dl>
         ) : null}
         {data.character ? (
-          <div className="mt-2 border-t border-zinc-200 px-2 pt-2">
+          <div className="mt-2 border-t border-zinc-200 px-2 pt-2 dark:border-cyan-900/50">
             <p className="mb-1.5 section-label">Ability scores</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1">
               {ABILITY_ORDER.map((key) => {
@@ -163,11 +163,11 @@ export default function Home() {
                 return (
                   <span
                     key={key}
-                    className="inline-flex items-baseline gap-1.5 text-[12px] text-zinc-600"
+                    className="inline-flex items-baseline gap-1.5 text-[12px] text-zinc-600 dark:text-zinc-400"
                   >
-                    <span className="font-semibold text-zinc-500">{label}</span>
-                    <span className="font-mono tabular-nums text-zinc-800">{row.score}</span>
-                    <span className="text-zinc-400">
+                    <span className="font-semibold text-zinc-500 dark:text-cyan-400/90">{label}</span>
+                    <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{row.score}</span>
+                    <span className="text-zinc-400 dark:text-cyan-500/70">
                       ({row.name}, Mod {row.abilityMod >= 0 ? "+" : ""}
                       {row.abilityMod})
                     </span>
@@ -180,13 +180,13 @@ export default function Home() {
       </header>
 
       {!data.authenticated ? (
-        <p className="mx-2 mt-2 rounded border border-amber-200/60 bg-amber-50/80 px-2 py-1.5 text-[12px] text-amber-800">
+        <p className="mx-2 mt-2 rounded border border-amber-200/60 bg-amber-50/80 px-2 py-1.5 text-[12px] text-amber-800 dark:border-cyan-700/50 dark:bg-cyan-950/30 dark:text-amber-200">
           Sign in on the game server with the same browser session to see your character, credits, and
           inventory here.
           {EVENNIA_ORIGIN ? (
             <>
               {" "}
-              <a href={`${EVENNIA_ORIGIN.replace(/\/$/, "")}/`} className="font-medium underline">
+              <a href={`${EVENNIA_ORIGIN.replace(/\/$/, "")}/`} className="font-medium underline dark:text-cyan-400 dark:hover:text-cyan-300">
                 Open game site
               </a>
             </>
@@ -195,7 +195,7 @@ export default function Home() {
       ) : null}
 
       {data.authenticated && data.message ? (
-        <p className="mx-2 mt-2 rounded border border-amber-200/60 bg-amber-50/80 px-2 py-1.5 text-[12px] text-amber-800">
+        <p className="mx-2 mt-2 rounded border border-amber-200/60 bg-amber-50/80 px-2 py-1.5 text-[12px] text-amber-800 dark:border-cyan-700/50 dark:bg-cyan-950/30 dark:text-amber-200">
           {data.message}
         </p>
       ) : null}
@@ -206,32 +206,32 @@ export default function Home() {
           <section className="px-2 py-2">
             <h2 className="section-label">Inventory</h2>
             {data.inventory.length === 0 ? (
-              <p className="mt-1 text-sm text-zinc-500">You are not carrying any items.</p>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">You are not carrying any items.</p>
             ) : (
               <ul className="mt-1 space-y-0.5">
                 {data.inventory.map((item) => (
                   <li
                     key={item.id}
-                    className="border-b border-zinc-100 py-1.5 last:border-0"
+                    className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30"
                   >
                     <div className="flex justify-between gap-2">
-                      <span className="truncate text-sm font-medium text-zinc-800">{item.key}</span>
+                      <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.key}</span>
                       {item.description ? (
-                        <span className="max-w-[12rem] shrink-0 truncate text-[12px] text-zinc-500">
+                        <span className="max-w-[12rem] shrink-0 truncate text-[12px] text-zinc-500 dark:text-cyan-500/80">
                           {item.description}
                         </span>
                       ) : null}
                     </div>
                     {item.isMiningClaim && item.claimSpecs ? (
                       <div className="mt-1 space-y-0.5">
-                        <p className="text-[12px] text-zinc-500">
+                        <p className="text-[12px] text-zinc-500 dark:text-cyan-500/80">
                           {item.claimSpecs.roomKey} · Richness{" "}
                           {Math.round(item.claimSpecs.richness * 100)}% ·{" "}
                           {item.claimSpecs.baseOutputTons}t/cycle · Hazard{" "}
                           {item.claimSpecs.hazardLabel}
                         </p>
                         {Object.keys(item.claimSpecs.composition).length > 0 ? (
-                          <p className="text-[12px] text-zinc-500">
+                          <p className="text-[12px] text-zinc-500 dark:text-cyan-500/80">
                             {Object.entries(item.claimSpecs.composition)
                               .map(
                                 ([k, v]) =>
@@ -240,7 +240,7 @@ export default function Home() {
                               .join(", ")}
                           </p>
                         ) : null}
-                        <p className="text-[12px] font-medium text-zinc-600">
+                        <p className="text-[12px] font-medium text-zinc-600 dark:text-cyan-400/90">
                           Est. ~
                           {item.claimSpecs.estimatedValuePerCycle.toLocaleString()} cr/cycle
                         </p>
@@ -259,14 +259,14 @@ export default function Home() {
           <SectionDivider />
           <section className="px-2 py-2">
             <h2 className="section-label">Deploy Mine</h2>
-            <p className="mt-1 text-[12px] text-zinc-500">
+            <p className="mt-1 text-[12px] text-zinc-500 dark:text-cyan-500/80">
               Choose a package and claim to deploy a mining operation.
             </p>
             <div className="mt-2 flex flex-wrap gap-3">
               <div>
-                <label className="block text-[12px] font-medium text-zinc-500">Package</label>
+                <label className="block text-[12px] font-medium text-zinc-500 dark:text-cyan-400/90">Package</label>
                 <select
-                  className="mt-0.5 rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800"
+                  className="mt-0.5 rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 dark:border-cyan-700/50 dark:bg-zinc-900 dark:text-zinc-200"
                   value={deployPackageId ?? ""}
                   onChange={(e) =>
                     setDeployPackageId(e.target.value ? Number(e.target.value) : null)
@@ -281,9 +281,9 @@ export default function Home() {
                 </select>
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-zinc-500">Claim</label>
+                <label className="block text-[12px] font-medium text-zinc-500 dark:text-cyan-400/90">Claim</label>
                 <select
-                  className="mt-0.5 rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800"
+                  className="mt-0.5 rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 dark:border-cyan-700/50 dark:bg-zinc-900 dark:text-zinc-200"
                   value={deployClaimId ?? ""}
                   onChange={(e) =>
                     setDeployClaimId(e.target.value ? Number(e.target.value) : null)
@@ -300,7 +300,7 @@ export default function Home() {
               <div className="flex items-end">
                 <button
                   type="button"
-                  className="rounded bg-zinc-800 px-3 py-1 text-sm text-white hover:bg-zinc-700 disabled:opacity-50"
+                  className="rounded bg-zinc-800 px-3 py-1 text-sm text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-cyan-700 dark:hover:bg-cyan-600"
                   disabled={deployBusy || deployPackageId == null || deployClaimId == null}
                   onClick={handleDeploy}
                 >
@@ -309,10 +309,10 @@ export default function Home() {
               </div>
             </div>
             {deployError ? (
-              <p className="mt-2 text-[12px] text-red-600">{deployError}</p>
+              <p className="mt-2 text-[12px] text-red-600 dark:text-red-400">{deployError}</p>
             ) : null}
             {deploySuccess ? (
-              <p className="mt-2 text-[12px] text-emerald-600">{deploySuccess}</p>
+              <p className="mt-2 text-[12px] text-emerald-600 dark:text-emerald-400">{deploySuccess}</p>
             ) : null}
           </section>
         </>
@@ -324,11 +324,11 @@ export default function Home() {
           <section className="px-2 py-2">
             <h2 className="section-label">Ships</h2>
             {data.ships.length === 0 ? (
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 No owned ships yet. Visit the{" "}
                 <Link
                   href="/shop?room=Meridian%20Civil%20Shipyard"
-                  className="text-zinc-700 underline hover:text-zinc-900"
+                  className="text-zinc-700 underline hover:text-zinc-900 dark:text-cyan-400 dark:hover:text-cyan-300"
                 >
                   shipyard
                 </Link>{" "}
@@ -339,11 +339,11 @@ export default function Home() {
                 {data.ships.map((ship) => (
                   <li
                     key={ship.id}
-                    className="border-b border-zinc-100 py-1.5 last:border-0"
+                    className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30"
                   >
-                    <span className="text-sm font-medium text-zinc-800">{ship.key}</span>
-                    <span className="ml-2 text-[12px] text-zinc-500">{ship.summary}</span>
-                    <p className="mt-0.5 text-[12px] text-zinc-400">
+                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{ship.key}</span>
+                    <span className="ml-2 text-[12px] text-zinc-500 dark:text-cyan-500/80">{ship.summary}</span>
+                    <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-cyan-500/70">
                       {ship.location ?? "—"} · {ship.state ?? "—"} · {ship.pilot ?? "—"}
                     </p>
                   </li>
@@ -363,25 +363,25 @@ export default function Home() {
               {data.mines.map((mine) => (
                 <li
                   key={mine.key}
-                  className="border-b border-zinc-100 py-1.5 last:border-0"
+                  className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30"
                 >
-                  <span className="text-sm font-medium text-zinc-800">{mine.key}</span>
-                  <span className="ml-2 text-[12px] text-zinc-500">
+                  <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{mine.key}</span>
+                  <span className="ml-2 text-[12px] text-zinc-500 dark:text-cyan-500/80">
                     {mine.location ?? "—"} · {mine.active ? "Active" : "Inactive"}
                   </span>
-                  <p className="mt-0.5 text-[12px] text-zinc-400">
+                  <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-cyan-500/70">
                     Storage: {mine.storageUsed}/{mine.storageCapacity}t
                     {mine.nextCycleAt
                       ? ` · Next: ${new Date(mine.nextCycleAt).toLocaleString()}`
                       : ""}
                   </p>
                   {mine.rig ? (
-                    <p className="text-[12px] text-zinc-400">
+                    <p className="text-[12px] text-zinc-400 dark:text-cyan-500/70">
                       Rig: {mine.rig} ({mine.rigWear ?? 0}% wear)
                     </p>
                   ) : null}
                   {Object.keys(mine.composition).length > 0 ? (
-                    <p className="text-[12px] text-zinc-400">
+                    <p className="text-[12px] text-zinc-400 dark:text-cyan-500/70">
                       Produces:{" "}
                       {Object.entries(mine.composition)
                         .map(
@@ -392,7 +392,7 @@ export default function Home() {
                     </p>
                   ) : null}
                   {Object.keys(mine.inventory).length > 0 ? (
-                    <p className="text-[12px] text-zinc-400">
+                    <p className="text-[12px] text-zinc-400 dark:text-cyan-500/70">
                       Stored:{" "}
                       {Object.entries(mine.inventory)
                         .map(
@@ -404,7 +404,7 @@ export default function Home() {
                   ) : null}
                   <Link
                     href={`/play?room=${encodeURIComponent(mine.location ?? "")}`}
-                    className="mt-1 inline-block text-[12px] text-zinc-600 underline hover:text-zinc-800"
+                    className="mt-1 inline-block text-[12px] text-zinc-600 underline hover:text-zinc-800 dark:text-cyan-400 dark:hover:text-cyan-300"
                   >
                     Visit mine →
                   </Link>

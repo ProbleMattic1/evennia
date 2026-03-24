@@ -22,7 +22,7 @@ function PlayPageInner() {
   if (loading) {
     return (
       <main className="main-content">
-        <p className="text-sm text-zinc-500">Loading play state…</p>
+        <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading play state…</p>
       </main>
     );
   }
@@ -30,17 +30,17 @@ function PlayPageInner() {
   if (error || !data) {
     return (
       <main className="main-content">
-        <p className="text-sm text-red-600">Failed to load play state: {error ?? "Unknown error"}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load play state: {error ?? "Unknown error"}</p>
       </main>
     );
   }
 
   return (
     <main className="main-content">
-      <header className="border-b border-zinc-200 py-3 dark:border-zinc-700">
+      <header className="border-b border-zinc-200 py-3 dark:border-cyan-900/50">
         <div className="px-2">
           <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Play</h1>
-          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">Current location: {data.roomName}</p>
+          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">Current location: {data.roomName}</p>
         </div>
       </header>
 
@@ -67,7 +67,7 @@ export default function PlayPage() {
     <Suspense
       fallback={
         <main className="main-content">
-          <p className="text-sm text-zinc-500">Loading play state…</p>
+          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading play state…</p>
         </main>
       }
     >
