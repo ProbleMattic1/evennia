@@ -12,3 +12,7 @@ I never want batchcode to implement. Make updates to the core files for me to re
 The repo is local and accessed via git. You may never delete files but you can search for reference. 
 
 No defensive code, ever!! That only masks errors and makes diagnosis difficult.
+
+Always review and check existing typeclasses before making changes or making new ones.
+
+No Fallbacks or Defensive code allowed!!

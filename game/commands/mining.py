@@ -654,12 +654,15 @@ class CmdAvailableClaims(Command):
             comp = deposit.get("composition", {})
             families = ", ".join(comp.keys()) if comp else "unknown"
             richness = float(deposit.get("richness", 0.0))
-            if richness >= 0.85:
-                richness_label = "|gRich|n"
-            elif richness >= 0.60:
-                richness_label = "|yModerate|n"
-            else:
-                richness_label = "|rLean|n"
+            base_tons = float(deposit.get("base_output_tons", 0) or 0)
+            from typeclasses.mining import _volume_tier, _resource_rarity_tier
+
+            volume_tier, _ = _volume_tier(richness, base_tons)
+            resource_rarity_tier, _ = _resource_rarity_tier(comp)
+            volume_colors = {"Deep": "|b", "Rich": "|g", "Moderate": "|y", "Lean": "|r"}
+            rarity_colors = {"Rare": "|m", "Uncommon": "|y", "Common": "|w"}
+            vc = volume_colors.get(volume_tier, "|w") + volume_tier + "|n"
+            rc = rarity_colors.get(resource_rarity_tier, "|w") + resource_rarity_tier + "|n"
             hazard = float(site.db.hazard_level or 0.0)
             if hazard <= 0.20:
                 hazard_label = "|gLow|n"
@@ -668,7 +671,7 @@ class CmdAvailableClaims(Command):
             else:
                 hazard_label = "|rHigh|n"
             lines.append(
-                f"  |c{room_name}|n  ({richness_label} deposit, {hazard_label} hazard)\n"
+                f"  |c{room_name}|n  (Volume: {vc}, Rarity: {rc}, {hazard_label} hazard)\n"
                 f"    Resources: {families}"
             )
         lines.append("|x" + "-" * 52 + "|n")
@@ -775,13 +778,12 @@ class CmdDeployMine(Command):
 
 class CmdUndeployMine(Command):
     """
-    Pack up an owned mine and return it as a deployable package to inventory.
+    Stop mine operations; rig, storage, and hauler return to your inventory.
 
     Usage:
       undeploymine [site]
 
-    Full teardown: rig, storage, hauler removed; site freed. A fresh package
-    is returned to your inventory.
+    The site stays yours (idle) until you reactivate or list it on the claims market.
     """
 
     key = "undeploymine"
@@ -812,7 +814,7 @@ class CmdUndeployMine(Command):
 
         from typeclasses.packages import undeploy_mine_to_package
 
-        success, msg, _pkg = undeploy_mine_to_package(caller, site)
+        success, msg, _meta = undeploy_mine_to_package(caller, site)
         if success:
             caller.msg(msg)
         else:

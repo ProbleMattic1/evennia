@@ -223,10 +223,11 @@ def _serialize_room(room):
     }
 
 
-def _serialize_mining_site(site):
+def _serialize_mining_site(site, char=None):
     """
     Serialize a MiningSite with all available API data.
     Returns a dict suitable for PlayState.site (or None if site is invalid).
+    If char is provided and owns the site, adds canUndeploy / canListProperty / canReactivate.
     """
     if not site or not getattr(site, "db", None):
         return None
@@ -241,12 +242,10 @@ def _serialize_mining_site(site):
     dep_rate = float(deposit.get("depletion_rate", 0.002) or 0.002)
     richness_floor = float(deposit.get("richness_floor", 0.10) or 0.10)
 
-    if richness >= 0.85:
-        richness_tier, richness_tier_cls = "Rich", "emerald"
-    elif richness >= 0.60:
-        richness_tier, richness_tier_cls = "Moderate", "amber"
-    else:
-        richness_tier, richness_tier_cls = "Lean", "zinc"
+    from typeclasses.mining import _volume_tier, _resource_rarity_tier
+
+    volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
+    resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(raw_comp)
 
     hazard = float(site.db.hazard_level or 0)
     if hazard <= 0.20:
@@ -301,8 +300,10 @@ def _serialize_mining_site(site):
         "owner": owner_key,
         "surveyLevel": int(site.db.survey_level or 0),
         "richness": round(richness, 4),
-        "richnessTier": richness_tier,
-        "richnessTierCls": richness_tier_cls,
+        "volumeTier": volume_tier,
+        "volumeTierCls": volume_tier_cls,
+        "resourceRarityTier": resource_rarity_tier,
+        "resourceRarityTierCls": resource_rarity_tier_cls,
         "baseOutputTons": base_tons,
         "composition": comp,
         "resources": families,
@@ -331,6 +332,15 @@ def _serialize_mining_site(site):
         "storageCapacity": cap,
         "inventory": inv,
     }
+    mo_active = getattr(site.db, "mine_operation_active", True)
+    payload["mineOperationActive"] = mo_active
+    if char and getattr(site.db, "is_claimed", False) and site.db.owner == char:
+        if getattr(site.db, "package_tier", None):
+            if mo_active:
+                payload["canUndeploy"] = True
+            else:
+                payload["canListProperty"] = True
+                payload["canReactivate"] = True
     return payload
 
 
@@ -343,8 +353,16 @@ def play_state(request):
 
     data = _serialize_room(room)
     is_site, site = _is_mining_site_room(room)
+    char = None
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
     if is_site and site:
-        data["site"] = _serialize_mining_site(site)
+        data["site"] = _serialize_mining_site(site, char=char)
+        # Insert Processing link before Refresh View for mine rooms
+        data["actions"].insert(
+            -1,
+            {"key": "open_processing", "label": "Processing", "href": "/processing"},
+        )
     return JsonResponse(data)
 
 
@@ -615,11 +633,12 @@ def dashboard_state(request):
         }
         if obj.tags.has("mining_package", category="mining"):
             inv_entry["isMiningPackage"] = True
+            inv_entry["estimatedValue"] = int(getattr(obj.db, "estimated_value", 0) or 0)
         if obj.tags.has("mining_claim", category="mining"):
             inv_entry["isMiningClaim"] = True
             site = getattr(obj.db, "site_ref", None)
             if site and hasattr(site, "db"):
-                from typeclasses.mining import get_commodity_price
+                from typeclasses.mining import get_commodity_price, _volume_tier, _resource_rarity_tier
 
                 deposit = site.db.deposit or {}
                 comp = deposit.get("composition") or {}
@@ -631,6 +650,8 @@ def dashboard_state(request):
                 for k, frac in comp.items():
                     price = get_commodity_price(k)
                     estimated_value += total_tons * float(frac) * price
+                volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
+                resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
                 inv_entry["claimSpecs"] = {
                     "roomKey": site.location.key if site.location else site.key,
                     "richness": round(richness, 2),
@@ -639,6 +660,10 @@ def dashboard_state(request):
                     "hazardLevel": round(hazard, 2),
                     "hazardLabel": "Low" if hazard <= 0.20 else "Medium" if hazard <= 0.50 else "High",
                     "estimatedValuePerCycle": int(round(estimated_value)),
+                    "volumeTier": volume_tier,
+                    "volumeTierCls": volume_tier_cls,
+                    "resourceRarityTier": resource_rarity_tier,
+                    "resourceRarityTierCls": resource_rarity_tier_cls,
                 }
         inventory.append(inv_entry)
 
@@ -705,8 +730,10 @@ def dashboard_state(request):
             price = get_commodity_price(k)
             mining_total_stored += tons * price
 
+        base_tons = float(deposit.get("base_output_tons", 0) or 0)
+        estimated_value_per_cycle = 0
+        estimated_output_tons = 0
         if getattr(site, "is_active", False) and rig:
-            base_tons = float(deposit.get("base_output_tons", 0) or 0)
             rig_rating = float(getattr(rig.db, "rig_rating", 1.0) or 1.0)
             mode = str(getattr(rig.db, "mode", "balanced") or "balanced")
             power = str(getattr(rig.db, "power_level", "normal") or "normal")
@@ -715,9 +742,22 @@ def dashboard_state(request):
             power_mod = POWER_OUTPUT_MODIFIERS.get(power, 1.0)
             wear_mod = 1.0 - (wear * WEAR_OUTPUT_PENALTY)
             total_tons = base_tons * richness * rig_rating * mode_mod * power_mod * wear_mod
+            estimated_output_tons = total_tons
             for k, frac in raw_comp.items():
                 price = get_commodity_price(k)
-                mining_value_per_cycle += total_tons * float(frac) * price
+                val = total_tons * float(frac) * price
+                estimated_value_per_cycle += val
+                mining_value_per_cycle += val
+        else:
+            estimated_output_tons = base_tons * richness
+            for k, frac in raw_comp.items():
+                price = get_commodity_price(k)
+                estimated_value_per_cycle += estimated_output_tons * float(frac) * price
+
+        from typeclasses.mining import _volume_tier, _resource_rarity_tier
+
+        volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
+        resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(raw_comp)
 
         mines.append({
             "id": site.id,
@@ -725,7 +765,13 @@ def dashboard_state(request):
             "location": site.location.key if site.location else None,
             "active": getattr(site, "is_active", False),
             "richness": richness,
+            "volumeTier": volume_tier,
+            "volumeTierCls": volume_tier_cls,
+            "resourceRarityTier": resource_rarity_tier,
+            "resourceRarityTierCls": resource_rarity_tier_cls,
             "baseOutputTons": deposit.get("base_output_tons", 0),
+            "estimatedOutputTons": round(estimated_output_tons, 1),
+            "estimatedValuePerCycle": int(round(estimated_value_per_cycle)),
             "composition": comp,
             "nextCycleAt": next_cycle,
             "rig": rig.key if rig else None,
@@ -903,16 +949,24 @@ def market_state(request):
 @require_GET
 def claims_market_state(request):
     """
-    List all unclaimed mining sites for the claims market page.
+    List mining sites open on the claims market (unclaimed, no outstanding deed).
     Public — no auth required.
     """
     from evennia import search_tag
 
+    from typeclasses.claim_market import (
+        _existing_deed_for_site,
+        _get_property_listings_script,
+        claims_market_row_extras,
+        site_is_claims_market_listable,
+    )
+    from typeclasses.mining import _resource_rarity_tier, _volume_tier
+
     sites = search_tag("mining_site", category="mining")
-    unclaimed = [s for s in sites if not getattr(s.db, "is_claimed", False)]
+    listable = [s for s in sites if site_is_claims_market_listable(s)]
 
     claims = []
-    for site in unclaimed:
+    for site in listable:
         room = site.location
         room_key = room.key if room else "unknown"
         deposit = site.db.deposit or {}
@@ -921,34 +975,150 @@ def claims_market_state(request):
         richness = float(deposit.get("richness", 0.0))
         hazard = float(site.db.hazard_level or 0.0)
         base_tons = float(deposit.get("base_output_tons", 0) or 0)
-        if richness >= 0.85:
-            tier = "Rich"
-            tier_cls = "emerald"
-        elif richness >= 0.60:
-            tier = "Moderate"
-            tier_cls = "amber"
-        else:
-            tier = "Lean"
-            tier_cls = "zinc"
+
+        volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
+        resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
         if hazard <= 0.20:
             hazard_label = "Low"
         elif hazard <= 0.50:
             hazard_label = "Medium"
         else:
             hazard_label = "High"
-        claims.append({
+        row = {
             "siteKey": site.key,
             "roomKey": room_key,
             "resources": families,
             "richness": round(richness, 2),
-            "richnessTier": tier,
-            "richnessTierCls": tier_cls,
+            "volumeTier": volume_tier,
+            "volumeTierCls": volume_tier_cls,
+            "resourceRarityTier": resource_rarity_tier,
+            "resourceRarityTierCls": resource_rarity_tier_cls,
             "hazardLevel": round(hazard, 2),
             "hazardLabel": hazard_label,
             "baseOutputTons": base_tons,
-        })
+        }
+        row.update(claims_market_row_extras(site))
+        row["playerListing"] = False
+        claims.append(row)
 
-    return JsonResponse({"claims": claims})
+    script = _get_property_listings_script()
+    if script:
+        for ent in list(script.db.listings or []):
+            sid = ent.get("site_id")
+            site = next((s for s in sites if s.id == sid), None)
+            if not site:
+                continue
+            if getattr(site.db, "is_claimed", False):
+                continue
+            if _existing_deed_for_site(site):
+                continue
+            seller_key = "?"
+            seller_id = ent.get("seller_id")
+            if seller_id:
+                found = search_object("#" + str(seller_id))
+                if found:
+                    seller_key = found[0].key
+            room = site.location
+            room_key = room.key if room else "unknown"
+            deposit = site.db.deposit or {}
+            comp = deposit.get("composition", {})
+            families = ", ".join(comp.keys()) if comp else "unknown"
+            richness = float(deposit.get("richness", 0.0))
+            hazard = float(site.db.hazard_level or 0.0)
+            base_tons = float(deposit.get("base_output_tons", 0) or 0)
+            volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
+            resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
+            if hazard <= 0.20:
+                hazard_label = "Low"
+            elif hazard <= 0.50:
+                hazard_label = "Medium"
+            else:
+                hazard_label = "High"
+            claims.append(
+                {
+                    "siteKey": site.key,
+                    "roomKey": room_key,
+                    "resources": families,
+                    "richness": round(richness, 2),
+                    "volumeTier": volume_tier,
+                    "volumeTierCls": volume_tier_cls,
+                    "resourceRarityTier": resource_rarity_tier,
+                    "resourceRarityTierCls": resource_rarity_tier_cls,
+                    "hazardLevel": round(hazard, 2),
+                    "hazardLabel": hazard_label,
+                    "baseOutputTons": base_tons,
+                    "listingPriceCr": int(ent.get("price", 0) or 0),
+                    "purchasable": True,
+                    "playerListing": True,
+                    "sellerKey": seller_key,
+                }
+            )
+
+    from evennia import search_script
+
+    disc = search_script("site_discovery_engine")
+    next_discovery_at = None
+    if disc:
+        eta = disc[0].db.next_discovery_at
+        if eta is not None:
+            next_discovery_at = eta.isoformat()
+
+    return JsonResponse({"claims": claims, "nextDiscoveryAt": next_discovery_at})
+
+
+@csrf_exempt
+@require_POST
+def claims_market_purchase(request):
+    """
+    Buy a claim deed for a listed unclaimed site.
+    Body: { "siteKey": "<MiningSite.key>" }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    site_key = body.get("siteKey")
+    if not site_key:
+        return JsonResponse({"ok": False, "message": "Missing siteKey."}, status=400)
+
+    from typeclasses.claim_market import (
+        get_property_listing_for_site_id,
+        purchase_property_listing,
+        purchase_site_claim_deed,
+        _resolve_mining_site_by_key,
+    )
+    from typeclasses.economy import get_economy
+
+    site = _resolve_mining_site_by_key(site_key)
+    if site and get_property_listing_for_site_id(site.id):
+        success, msg, claim = purchase_property_listing(buyer, site)
+    else:
+        success, msg, claim = purchase_site_claim_deed(buyer, site_key)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    econ = get_economy(create_missing=True)
+    buyer_credits = econ.get_character_balance(buyer)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": msg,
+            "claim": {"id": claim.id, "key": claim.key},
+            "buyerCredits": buyer_credits,
+            "dashboard": dash_data,
+        }
+    )
 
 
 @csrf_exempt
@@ -1124,7 +1294,7 @@ def shop_buy(request):
 @require_GET
 def mine_claims(request):
     """
-    List unclaimed mining sites for the deploy UI.
+    List mining sites open for listing (unclaimed and no outstanding claim deed).
     Query: none. Returns JSON with claims array.
     """
     if not request.user.is_authenticated:
@@ -1132,23 +1302,33 @@ def mine_claims(request):
 
     from evennia import search_tag
 
+    from typeclasses.claim_market import site_is_claims_market_listable
+    from typeclasses.mining import _volume_tier, _resource_rarity_tier
+
     sites = search_tag("mining_site", category="mining")
-    unclaimed = [s for s in sites if not getattr(s.db, "is_claimed", False)]
+    listable = [s for s in sites if site_is_claims_market_listable(s)]
 
     claims = []
-    for site in unclaimed:
+    for site in listable:
         room = site.location
         room_name = room.key if room else "unknown"
         deposit = site.db.deposit or {}
         comp = deposit.get("composition", {})
         families = ", ".join(comp.keys()) if comp else "unknown"
         richness = float(deposit.get("richness", 0.0))
+        base_tons = float(deposit.get("base_output_tons", 0) or 0)
         hazard = float(site.db.hazard_level or 0.0)
+        volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
+        resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
         claims.append({
             "siteKey": site.key,
             "roomKey": room_name,
             "resources": families,
             "richness": richness,
+            "volumeTier": volume_tier,
+            "volumeTierCls": volume_tier_cls,
+            "resourceRarityTier": resource_rarity_tier,
+            "resourceRarityTierCls": resource_rarity_tier_cls,
             "hazardLevel": hazard,
         })
 
@@ -1260,7 +1440,182 @@ def mine_undeploy(request):
 
     from typeclasses.packages import undeploy_mine_to_package
 
-    success, msg, _pkg = undeploy_mine_to_package(buyer, site)
+    success, msg, returned = undeploy_mine_to_package(buyer, site)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+    return JsonResponse({
+        "ok": True,
+        "message": msg,
+        "dashboard": dash_data,
+        "returnedEquipment": returned or {},
+    })
+
+
+@csrf_exempt
+@require_POST
+def mine_reactivate(request):
+    """
+    Reactivate an idle owned mine. Body: { "siteId": int, "packageId"?: int }
+    If packageId is set, that package is consumed; otherwise inventory gear is used.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    site_id = body.get("siteId")
+    package_id = body.get("packageId")
+
+    if site_id is None:
+        return JsonResponse({"ok": False, "message": "Missing siteId."}, status=400)
+
+    try:
+        sid = int(site_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Invalid siteId."}, status=400)
+
+    from evennia import search_tag
+
+    site = None
+    for s in search_tag("mining_site", category="mining"):
+        if s.id == sid and getattr(s.db, "is_claimed", False) and s.db.owner == buyer:
+            site = s
+            break
+    if not site:
+        return JsonResponse({"ok": False, "message": "Mine not found or you do not own it."}, status=404)
+
+    from typeclasses.packages import reactivate_mine_from_package, reactivate_mine_inventory_only
+
+    if package_id is not None:
+        try:
+            pid = int(package_id)
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "message": "Invalid packageId."}, status=400)
+        package = None
+        for obj in buyer.contents:
+            if obj.id == pid and obj.tags.has("mining_package", category="mining"):
+                package = obj
+                break
+        if not package:
+            return JsonResponse({"ok": False, "message": "Package not found."}, status=404)
+        success, msg = reactivate_mine_from_package(buyer, package, site)
+    else:
+        success, msg = reactivate_mine_inventory_only(buyer, site)
+
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+    return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
+
+
+@csrf_exempt
+@require_POST
+def claims_market_list_property(request):
+    """List an idle owned mining property for sale. Body: { "siteId": int, "price": number }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    site_id = body.get("siteId")
+    price = body.get("price")
+    if site_id is None:
+        return JsonResponse({"ok": False, "message": "Missing siteId."}, status=400)
+
+    from typeclasses.claim_market import list_property_for_sale
+
+    success, msg = list_property_for_sale(buyer, site_id, price)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+    return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
+
+
+@csrf_exempt
+@require_POST
+def package_list_for_sale(request):
+    """
+    List a mining package for sale. Body: { "packageId": int, "price": int }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    package_id = body.get("packageId")
+    price = body.get("price")
+
+    from typeclasses.packages import list_package_for_sale
+
+    success, msg = list_package_for_sale(buyer, package_id, price)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+    return JsonResponse({
+        "ok": True,
+        "message": msg,
+        "dashboard": dash_data,
+    })
+
+
+@require_GET
+def package_listings_state(request):
+    """Return all active package listings for sale."""
+    from typeclasses.packages import get_package_listings
+
+    listings = get_package_listings()
+    return JsonResponse({"listings": listings})
+
+
+@csrf_exempt
+@require_POST
+def package_buy_listed(request):
+    """
+    Buy a listed mining package. Body: { "packageId": int }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    package_id = body.get("packageId")
+
+    from typeclasses.packages import buy_listed_package
+
+    success, msg = buy_listed_package(buyer, package_id)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 

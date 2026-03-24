@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 
 import { ActionGrid } from "@/components/action-grid";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
-import { ExitGrid } from "@/components/exit-grid";
 import { MineDetailsPanel } from "@/components/mine-details-panel";
 import { StoryPanel } from "@/components/story-panel";
 import { getPlayState } from "@/lib/ui-api";
@@ -46,15 +45,10 @@ function PlayPageInner() {
 
       {data.roomName === MINING_OUTFITTERS_ROOM && <CommodityTickerStrip />}
 
-      <div className="grid gap-2 px-2 py-2 lg:grid-cols-[1.5fr_1fr]">
-        <div className="flex flex-col gap-2">
-          <StoryPanel title="Story Output" lines={data.storyLines} />
-          {data.site && <MineDetailsPanel site={data.site} />}
-        </div>
-        <div className="flex flex-col gap-2">
-          <ExitGrid exits={data.exits} />
-          <ActionGrid actions={data.actions} />
-        </div>
+      <div className="flex flex-col gap-2 px-2 py-2">
+        <ActionGrid actions={data.actions} />
+        <StoryPanel title="Story Output" lines={data.storyLines} />
+        {data.site && <MineDetailsPanel site={data.site} />}
       </div>
 
       {data.roomName === MINING_OUTFITTERS_ROOM && <CommodityTickerTable />}

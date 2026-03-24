@@ -6,11 +6,14 @@ sites is below MAX_UNCLAIMED_SITES, a new site is generated via
 claim_utils.generate_mining_site().
 """
 
+from datetime import timedelta
+
+from django.utils import timezone
 from evennia.scripts.scripts import DefaultScript
 
 
-DISCOVERY_INTERVAL_SECONDS = 3600  # 1 hour
-MAX_UNCLAIMED_SITES = 6
+DISCOVERY_INTERVAL_SECONDS = 900  # 15 minutes
+MAX_UNCLAIMED_SITES = 100
 
 
 class SiteDiscoveryEngine(DefaultScript):
@@ -23,11 +26,19 @@ class SiteDiscoveryEngine(DefaultScript):
         self.persistent = True
         self.start_delay = True
 
+    def _set_next_discovery_eta(self):
+        """Persist next repeat time for Django/UI (ndb task is not visible there)."""
+        self.db.next_discovery_at = timezone.now() + timedelta(seconds=int(self.interval))
+
+    def at_start(self):
+        self._set_next_discovery_eta()
+
     def at_repeat(self):
         from typeclasses.claim_utils import generate_mining_site, get_unclaimed_sites
 
         unclaimed = get_unclaimed_sites()
         if len(unclaimed) >= MAX_UNCLAIMED_SITES:
+            self._set_next_discovery_eta()
             return
 
         site = generate_mining_site()
@@ -35,3 +46,4 @@ class SiteDiscoveryEngine(DefaultScript):
             f"[site_discovery] New site discovered: {site.key} "
             f"(unclaimed total: {len(unclaimed) + 1})"
         )
+        self._set_next_discovery_eta()

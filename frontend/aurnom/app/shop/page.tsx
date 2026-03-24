@@ -132,12 +132,8 @@ function ShopPageInner() {
         </p>
       ) : null}
 
-      <div className="grid gap-2 px-2 py-2 lg:grid-cols-[1.2fr_1fr]">
-        <StoryPanel
-          title={isShips ? "Shipyard Output" : "Shop Output"}
-          lines={view.storyLines}
-        />
-
+      <div className="flex flex-col gap-2 px-2 py-2">
+        <ExitGrid exits={view.exits} />
         <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
           <h2 className="section-label">
             {isShips ? "Ships for Sale" : "Items for Sale"}
@@ -183,10 +179,11 @@ function ShopPageInner() {
             })}
           </ul>
         </section>
+        <StoryPanel
+          title={isShips ? "Shipyard Output" : "Shop Output"}
+          lines={view.storyLines}
+        />
       </div>
-
-      <hr className="section-divider" aria-hidden />
-      <ExitGrid exits={view.exits} />
     </main>
   );
 }

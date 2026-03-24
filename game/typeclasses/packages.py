@@ -10,7 +10,11 @@ deploy_package_from_inventory(buyer, package_obj, claim_obj)
     claim_obj must be a MiningClaim in buyer's inventory.
 
 undeploy_mine_to_package(buyer, site)
-    Full teardown of an owned mine; creates a fresh package and adds to inventory.
+    Teardown active operation: rig/storage/hauler to inventory; site stays claimed
+    by buyer (idle). Does not create a new package.
+
+reactivate_mine_from_package(buyer, package_obj, site)
+    Restart operations at an idle owned site using inventory equipment or spawns.
 """
 
 from evennia import create_object, search_object
@@ -102,6 +106,47 @@ def _spawn_hauler(spec, site_room, buyer):
     return hauler
 
 
+def _take_or_spawn_rig(spec, site_room, buyer):
+    """Use a loose rig in buyer inventory, or spawn a new one."""
+    for obj in list(buyer.contents):
+        if getattr(obj, "destination", None):
+            continue
+        if obj.tags.has("mining_rig", category="mining") and not getattr(obj.db, "is_installed", False):
+            obj.move_to(site_room, quiet=True)
+            obj.home = site_room
+            obj.db.owner = buyer
+            obj.locks.add("get:false()")
+            return obj
+    return _spawn_rig(spec, site_room, buyer)
+
+
+def _take_or_spawn_storage(spec, site_room, buyer):
+    for obj in list(buyer.contents):
+        if getattr(obj, "destination", None):
+            continue
+        if obj.tags.has("mining_storage", category="mining") and not getattr(obj.db, "site", None):
+            obj.move_to(site_room, quiet=True)
+            obj.home = site_room
+            obj.db.owner = buyer
+            return obj
+    return _spawn_storage(spec, site_room, buyer)
+
+
+def _take_or_spawn_hauler(spec, site_room, buyer):
+    for obj in list(buyer.contents):
+        if getattr(obj, "destination", None):
+            continue
+        if obj.tags.has("autonomous_hauler", category="mining") and obj.location == buyer:
+            obj.move_to(site_room, quiet=True)
+            obj.home = site_room
+            obj.db.owner = buyer
+            obj.db.hauler_owner = buyer
+            obj.db.allowed_boarders = [buyer]
+            obj.locks.add("get:false()")
+            return obj
+    return _spawn_hauler(spec, site_room, buyer)
+
+
 def _deploy_components_at_site(buyer, site, site_room, components, package_tier):
     """Core deployment: spawn rig/storage/hauler, claim site, link, start cycles."""
     from typeclasses.haulers import set_hauler_next_cycle
@@ -149,6 +194,7 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         owned_vehicles.append(hauler)
     buyer.db.owned_vehicles = owned_vehicles
 
+    site.db.mine_operation_active = True
     site.schedule_next_cycle()
 
     cycle_h = int(hauler.db.hauler_base_cycle_hours or 4)
@@ -159,6 +205,61 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         f"  Mining cycle: 12h  Hauler cycle: {cycle_h}h\n"
         f"  Ore will flow to {refinery_room.key} automatically.\n"
         f"  Use mines and haulerstatus to monitor progress."
+    )
+
+
+def _reactivate_components_at_site(buyer, site, site_room, components, package_tier):
+    """Restore rig/storage/hauler at an idle owned site; reuse inventory when possible."""
+    from typeclasses.haulers import set_hauler_next_cycle
+
+    refinery_rooms = search_object("Aurnom Ore Processing Plant")
+    refinery_room = refinery_rooms[0] if refinery_rooms else None
+    if not refinery_room:
+        return False, "No processing plant found. Contact an administrator."
+
+    rig = storage = hauler = None
+    for comp in components:
+        ct = comp.get("type")
+        if ct == "rig":
+            rig = _take_or_spawn_rig(comp, site_room, buyer)
+        elif ct == "storage":
+            storage = _take_or_spawn_storage(comp, site_room, buyer)
+        elif ct == "hauler":
+            hauler = _take_or_spawn_hauler(comp, site_room, buyer)
+
+    if not rig or not storage or not hauler:
+        return False, "Could not prepare rig, storage, and hauler. Check your inventory or buy a matching package."
+
+    site.db.package_tier = package_tier
+    site.db.mine_operation_active = True
+
+    rig.install(site, owner=buyer)
+    site.db.active_rig = rig
+
+    site.db.linked_storage = storage
+    storage.db.site = site
+    storage.db.owner = buyer
+
+    hauler.db.hauler_owner = buyer
+    hauler.db.allowed_boarders = [buyer]
+    hauler.db.hauler_mine_room = site_room
+    hauler.db.hauler_refinery_room = refinery_room
+    hauler.db.hauler_state = "at_mine"
+    set_hauler_next_cycle(hauler)
+
+    owned_vehicles = buyer.db.owned_vehicles or []
+    if hauler not in owned_vehicles:
+        owned_vehicles.append(hauler)
+    buyer.db.owned_vehicles = owned_vehicles
+
+    site.schedule_next_cycle()
+
+    cycle_h = int(hauler.db.hauler_base_cycle_hours or 4)
+    return True, (
+        f"Mining operation reactivated at {site.key}.\n"
+        f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
+        f"  Hauler cycle: {cycle_h}h\n"
+        f"  Ore will flow to {refinery_room.key} automatically."
     )
 
 
@@ -222,11 +323,97 @@ def deploy_package_from_inventory(buyer, package_obj, claim_obj):
     return ok, msg
 
 
+def reactivate_mine_inventory_only(buyer, site):
+    """
+    Restart an idle owned site using rig/storage/hauler already in inventory.
+    Returns (success: bool, message: str).
+    """
+    if not getattr(site.db, "is_claimed", False) or site.db.owner != buyer:
+        return False, "You do not own this mining site."
+    if getattr(site.db, "mine_operation_active", True):
+        return False, "This mine is already operating."
+
+    package_tier = getattr(site.db, "package_tier", None)
+    if not package_tier:
+        return False, "This site has no recorded package tier."
+
+    spec = _get_package_spec_by_tier(package_tier)
+    if not spec:
+        return False, f"Unknown package tier '{package_tier}'. Contact an administrator."
+
+    components = spec.get("components") or []
+    if not components:
+        return False, "Package has no components configured."
+
+    site_room = site.location
+    if not site_room:
+        return False, "Site has no room."
+
+    return _reactivate_components_at_site(buyer, site, site_room, components, package_tier)
+
+
+def reactivate_mine_from_package(buyer, package_obj, site):
+    """
+    Consume a mining package and restart an idle owned site.
+    Returns (success: bool, message: str).
+    """
+    if package_obj.location != buyer:
+        return False, "You do not have that package in your inventory."
+    if not getattr(site.db, "is_claimed", False) or site.db.owner != buyer:
+        return False, "You do not own this mining site."
+    if getattr(site.db, "mine_operation_active", True):
+        return False, "This mine is already operating."
+
+    package_tier = getattr(package_obj.db, "package_tier", None)
+    if not package_tier:
+        return False, "That item is not a deployable mining package."
+    if package_tier != getattr(site.db, "package_tier", None):
+        return False, "Package tier does not match this site."
+
+    spec = _get_package_spec_by_tier(package_tier)
+    if not spec:
+        return False, f"Unknown package tier '{package_tier}'. Contact an administrator."
+
+    components = spec.get("components") or []
+    if not components:
+        return False, "Package has no components configured."
+
+    site_room = site.location
+    if not site_room:
+        return False, "Site has no room."
+
+    ok, msg = _reactivate_components_at_site(buyer, site, site_room, components, package_tier)
+    if ok:
+        package_obj.delete()
+    return ok, msg
+
+
+def _estimated_package_value_from_site(site):
+    """
+    Compute estimated value for a package based on the site's deposit richness.
+    Uses same formula as claimSpecs.estimatedValuePerCycle (value per cycle).
+    Returns int (credits).
+    """
+    from typeclasses.mining import get_commodity_price
+
+    deposit = site.db.deposit or {}
+    richness = float(deposit.get("richness", 0) or 0)
+    base_tons = float(deposit.get("base_output_tons", 0) or 0)
+    comp = deposit.get("composition") or {}
+    estimated_value = 0
+    total_tons = base_tons * richness
+    for k, frac in comp.items():
+        price = get_commodity_price(k)
+        estimated_value += total_tons * float(frac) * price
+    return int(round(estimated_value))
+
+
 def undeploy_mine_to_package(buyer, site):
     """
-    Full teardown of owned mine: remove rig, storage, hauler; free site;
-    create a fresh package and add to buyer's inventory.
-    Returns (success: bool, message: str, package_obj or None).
+    Stop operations at an owned mine: delete rig, storage, and hauler; recreate
+    the deployable package and return it to buyer's inventory.
+    Site stays claimed by buyer (idle). Any ore in storage is lost.
+    Returns (success: bool, message: str, meta: dict).
     """
     if not getattr(site.db, "is_claimed", False) or site.db.owner != buyer:
         return False, "You do not own this mining site.", None
@@ -235,15 +422,13 @@ def undeploy_mine_to_package(buyer, site):
     if not package_tier:
         return False, "This site has no recorded package tier; cannot undeploy.", None
 
-    spec = _get_package_spec_by_tier(package_tier)
-    if not spec:
-        return False, f"Unknown package tier '{package_tier}'; cannot create package.", None
+    if not getattr(site.db, "mine_operation_active", True):
+        return False, "This mine is not operating.", None
 
     rig = site.db.active_rig
     storage = site.db.linked_storage
-    owned_vehicles = buyer.db.owned_vehicles or []
     hauler = None
-    for v in list(owned_vehicles):
+    for v in list(buyer.db.owned_vehicles or []):
         obj = v if hasattr(v, "tags") else None
         if not obj:
             continue
@@ -255,42 +440,226 @@ def undeploy_mine_to_package(buyer, site):
     site.db.next_cycle_at = None
     site.db.active_rig = None
     site.db.linked_storage = None
-    site.db.is_claimed = False
-    site.db.owner = None
-    site.db.package_tier = None
-
-    owned_sites = buyer.db.owned_sites or []
-    if site in owned_sites:
-        owned_sites = [s for s in owned_sites if s != site]
-        buyer.db.owned_sites = owned_sites
+    site.db.mine_operation_active = False
 
     if rig:
         rig.uninstall()
         rig.delete()
     if storage:
-        storage.db.site = None
-        storage.db.owner = None
         storage.delete()
     if hauler:
-        hauler.db.hauler_owner = None
-        hauler.db.hauler_mine_room = None
-        hauler.db.hauler_refinery_room = None
-        hauler.db.hauler_state = "idle"
-        hauler.tags.remove("autonomous_hauler", category="mining")
-        owned_vehicles = [v for v in (buyer.db.owned_vehicles or []) if v != hauler]
-        buyer.db.owned_vehicles = owned_vehicles
+        if hauler in (buyer.db.owned_vehicles or []):
+            owned = [v for v in buyer.db.owned_vehicles if v != hauler]
+            buyer.db.owned_vehicles = owned
         hauler.delete()
 
-    package = create_object("typeclasses.objects.Object", key=spec["key"], location=buyer, home=buyer)
-    package.db.desc = spec.get("desc", "A mining operation package.")
-    package.db.is_template = False
-    package.db.package_tier = package_tier
-    package.tags.add("mining_package", category="mining")
-    package.locks.add("get:true();drop:true();give:true()")
+    # Recreate the package from the template so it can be redeployed.
+    template_matches = search_object(package_tier)
+    template = next(
+        (
+            o for o in template_matches
+            if getattr(o.db, "is_template", False) and getattr(o.db, "is_sale_package", False)
+        ),
+        None,
+    )
+
+    new_pkg = None
+    if template:
+        new_pkg = template.copy(new_key=template.key)
+        new_pkg.db.is_template = False
+        new_pkg.db.package_tier = package_tier
+        new_pkg.db.owner = buyer
+        new_pkg.tags.add("mining_package", category="mining")
+        new_pkg.locks.add("get:true();drop:true();give:true()")
+        new_pkg.move_to(buyer, quiet=True)
 
     site_name = site.location.key if site.location else site.key
+    meta = {"package_tier": package_tier, "package_id": new_pkg.id if new_pkg else None}
+
+    if new_pkg:
+        return True, (
+            f"Mine at {site_name} undeployed.\n"
+            f"  {new_pkg.key} returned to your inventory.\n"
+            f"  Reactivate with deploymine, or list the property on the claims market."
+        ), meta
     return True, (
         f"Mine at {site_name} undeployed.\n"
-        f"  {package.key} returned to your inventory. "
-        f"Deploy again with deploymine {package.key} <claim>."
-    ), package
+        f"  Warning: could not recreate package (tier '{package_tier}' template not found).\n"
+        f"  Contact an administrator."
+    ), meta
+
+
+def _get_package_listings_script():
+    """Return the package listings script, or None if not found."""
+    from evennia import search_script
+    found = search_script("package_listings")
+    return found[0] if found else None
+
+
+def _get_listings_container():
+    """Return the container object for listed packages, or None."""
+    from evennia import search_object
+    from world.bootstrap_hub import get_hub_room
+    hub = get_hub_room()
+    if not hub:
+        return None
+    for obj in hub.contents:
+        if obj.key == "Package Listings" and getattr(obj.db, "is_listings_container", False):
+            return obj
+    return None
+
+
+def list_package_for_sale(seller, package_id, price):
+    """
+    List a mining package for sale. Package must be in seller's inventory.
+    Returns (success: bool, message: str).
+    """
+    from evennia import search_object
+
+    try:
+        pid = int(package_id)
+    except (TypeError, ValueError):
+        return False, "Invalid package id."
+
+    if price is None or (isinstance(price, (int, float)) and price < 0):
+        return False, "Price must be a non-negative number."
+    price = int(round(float(price)))
+
+    package = None
+    for obj in seller.contents:
+        if obj.id == pid and obj.tags.has("mining_package", category="mining"):
+            package = obj
+            break
+    if not package:
+        return False, "You do not have that mining package in your inventory."
+
+    script = _get_package_listings_script()
+    if not script:
+        return False, "Package market is not available."
+
+    container = _get_listings_container()
+    if not container:
+        return False, "Package market is not available."
+
+    listings = list(script.db.listings or [])
+    for ent in listings:
+        if ent.get("package_id") == pid:
+            return False, "That package is already listed."
+
+    package.move_to(container)
+    listings.append({"package_id": pid, "seller_id": seller.id, "price": price})
+    script.db.listings = listings
+    return True, f"{package.key} listed for {price:,} cr."
+
+
+def get_package_listings():
+    """
+    Return list of active package listings.
+    Each entry: {package_id, key, estimated_value, price, seller_key}
+    """
+    script = _get_package_listings_script()
+    if not script:
+        return []
+
+    result = []
+    listings = script.db.listings or []
+    container = _get_listings_container()
+    if not container:
+        return []
+
+    valid = []
+    for ent in listings:
+        pid = ent.get("package_id")
+        seller_id = ent.get("seller_id")
+        price = ent.get("price", 0)
+        package = None
+        for obj in container.contents:
+            if obj.id == pid:
+                package = obj
+                break
+        if not package or not package.tags.has("mining_package", category="mining"):
+            continue
+        valid.append(ent)
+        seller_key = "?"
+        if seller_id:
+            from evennia import search_object
+            found = search_object("#" + str(seller_id))
+            if found and hasattr(found[0], "key"):
+                seller_key = found[0].key
+        result.append({
+            "packageId": pid,
+            "key": package.key,
+            "estimatedValue": int(getattr(package.db, "estimated_value", 0) or 0),
+            "price": int(price),
+            "sellerKey": seller_key,
+        })
+    script.db.listings = valid
+    return result
+
+
+def buy_listed_package(buyer, package_id):
+    """
+    Buy a listed mining package. Transfers credits and moves package to buyer.
+    Returns (success: bool, message: str).
+    """
+    from typeclasses.economy import get_economy
+
+    try:
+        pid = int(package_id)
+    except (TypeError, ValueError):
+        return False, "Invalid package id."
+
+    script = _get_package_listings_script()
+    if not script:
+        return False, "Package market is not available."
+
+    container = _get_listings_container()
+    if not container:
+        return False, "Package market is not available."
+
+    listings = script.db.listings or []
+    entry = None
+    package = None
+    for obj in container.contents:
+        if obj.id == pid and obj.tags.has("mining_package", category="mining"):
+            package = obj
+            break
+    if not package:
+        return False, "That package is not for sale or has been sold."
+
+    for ent in listings:
+        if ent.get("package_id") == pid:
+            entry = ent
+            break
+    if not entry:
+        return False, "Listing not found."
+
+    price = int(entry.get("price", 0))
+    seller_id = entry.get("seller_id")
+    if not seller_id:
+        return False, "Invalid listing."
+
+    from evennia import search_object
+    found = search_object("#" + str(seller_id))
+    seller = found[0] if found else None
+    if not seller:
+        return False, "Seller no longer exists."
+
+    econ = get_economy(create_missing=False)
+    if not econ:
+        return False, "Economy system unavailable."
+
+    balance = econ.get_character_balance(buyer)
+    if balance < price:
+        return False, f"You need {price:,} cr but only have {balance:,} cr."
+
+    buyer_acct = econ.get_character_account(buyer)
+    seller_acct = econ.get_character_account(seller)
+    econ.ensure_account(buyer_acct, opening_balance=int(buyer.db.credits or 0))
+    econ.ensure_account(seller_acct, opening_balance=int(seller.db.credits or 0))
+    econ.transfer(buyer_acct, seller_acct, price, memo="package sale")
+    buyer.db.credits = econ.get_character_balance(buyer)
+    seller.db.credits = econ.get_character_balance(seller)
+    package.move_to(buyer)
+    script.db.listings = [e for e in listings if e.get("package_id") != pid]
+    return True, f"You bought {package.key} for {price:,} cr."

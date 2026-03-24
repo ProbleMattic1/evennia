@@ -168,42 +168,38 @@ export default function ProcessingPage() {
         <CommodityTickerStrip />
       </div>
 
-      <div className="grid gap-2 px-2 py-2 lg:grid-cols-[1.5fr_1fr]">
+      <div className="flex flex-col gap-2 px-2 py-2">
+        <ExitGrid exits={data.exits} />
         <StoryPanel title="Plant Output" lines={data.storyLines} />
+        <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
+          <h2 className="section-label">Ore Receiving Bay</h2>
+          <StorageBar used={data.rawStorageUsed} capacity={data.rawStorageCapacity} />
+        </section>
 
-        <div className="flex flex-col gap-2">
-          <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
-            <h2 className="section-label">Ore Receiving Bay</h2>
-            <StorageBar used={data.rawStorageUsed} capacity={data.rawStorageCapacity} />
-          </section>
+        <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
+          <h2 className="section-label">Shared Refinery</h2>
+          <div className="mt-1 space-y-0.5">
+            <StatRow
+              label="Input queue"
+              value={`${data.refineryInputTons.toLocaleString(undefined, { maximumFractionDigits: 1 })} t`}
+            />
+            <StatRow
+              label="Output value"
+              value={
+                <>
+                  {data.refineryOutputValue.toLocaleString()}{" "}
+                  <span className="text-amber-700 dark:text-amber-400">cr</span>
+                </>
+              }
+            />
+            <StatRow
+              label="Processing fee"
+              value={`${(data.processingFeeRate * 100).toFixed(0)}%`}
+            />
+          </div>
+        </section>
 
-          <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
-            <h2 className="section-label">Shared Refinery</h2>
-            <div className="mt-1 space-y-0.5">
-              <StatRow
-                label="Input queue"
-                value={`${data.refineryInputTons.toLocaleString(undefined, { maximumFractionDigits: 1 })} t`}
-              />
-              <StatRow
-                label="Output value"
-                value={
-                  <>
-                    {data.refineryOutputValue.toLocaleString()}{" "}
-                    <span className="text-amber-700 dark:text-amber-400">cr</span>
-                  </>
-                }
-              />
-              <StatRow
-                label="Processing fee"
-                value={`${(data.processingFeeRate * 100).toFixed(0)}%`}
-              />
-            </div>
-          </section>
-
-          <MinerSection data={data} />
-
-          <ExitGrid exits={data.exits} />
-        </div>
+        <MinerSection data={data} />
       </div>
 
       <div className="px-2 pb-4 pt-2">

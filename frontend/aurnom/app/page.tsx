@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 
+import { Countdown } from "@/components/countdown";
+
 import { getDashboardState, getResources, mineDeploy } from "@/lib/ui-api";
 import type { ResourceEntry } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
@@ -18,6 +20,24 @@ const ABILITY_COLORS: Record<string, string> = {
   int: "bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300",
   wis: "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300",
   cha: "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300",
+};
+
+const TIER_CLASSES: Record<string, { badge: string }> = {
+  sky: {
+    badge: "bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:ring-sky-700/50",
+  },
+  emerald: {
+    badge: "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
+  },
+  amber: {
+    badge: "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
+  },
+  violet: {
+    badge: "bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-700/50",
+  },
+  zinc: {
+    badge: "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50",
+  },
 };
 
 /** Strip bracketed segments containing "Unknown" from ship summary (e.g. [Unknown / Unknown]). */
@@ -257,10 +277,12 @@ export default function Home() {
                     {item.isMiningClaim && item.claimSpecs ? (
                       <div className="mt-1 space-y-0.5">
                         <p className="text-[12px] text-zinc-500 dark:text-cyan-500/80">
-                          {item.claimSpecs.roomKey} · Richness{" "}
-                          {Math.round(item.claimSpecs.richness * 100)}% ·{" "}
-                          {item.claimSpecs.baseOutputTons}t/cycle · Hazard{" "}
-                          {item.claimSpecs.hazardLabel}
+                          {item.claimSpecs.roomKey}
+                          {item.claimSpecs.volumeTier || item.claimSpecs.resourceRarityTier ? (
+                            <> · {[item.claimSpecs.volumeTier, item.claimSpecs.resourceRarityTier].filter(Boolean).join(" / ")}</>
+                          ) : null}
+                          {" · "}
+                          {item.claimSpecs.baseOutputTons}t/cycle · Hazard {item.claimSpecs.hazardLabel}
                         </p>
                         {Object.keys(item.claimSpecs.composition).length > 0 ? (
                           <p className="text-[12px] text-zinc-500 dark:text-cyan-500/80">
@@ -438,16 +460,54 @@ export default function Home() {
                     i % 2 === 0 ? "bg-emerald-100/40 dark:bg-emerald-950/30" : "bg-white/50 dark:bg-emerald-900/10"
                   }`}
                 >
-                  <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{mine.key}</span>
-                  <span className="ml-2 text-[12px] text-zinc-500 dark:text-cyan-500/80">
-                    {mine.location ?? "—"} · {mine.active ? "Active" : "Inactive"}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{mine.key}</span>
+                    {mine.volumeTier ? (
+                      <span
+                        className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
+                          TIER_CLASSES[mine.volumeTierCls ?? "zinc"]?.badge ?? TIER_CLASSES.zinc.badge
+                        }`}
+                      >
+                        {mine.volumeTier}
+                      </span>
+                    ) : null}
+                    {mine.resourceRarityTier ? (
+                      <span
+                        className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
+                          TIER_CLASSES[mine.resourceRarityTierCls ?? "zinc"]?.badge ?? TIER_CLASSES.zinc.badge
+                        }`}
+                      >
+                        {mine.resourceRarityTier}
+                      </span>
+                    ) : null}
+                    <span
+                      className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
+                        mine.active
+                          ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50"
+                          : "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50"
+                      }`}
+                    >
+                      {mine.active ? "Active" : "Inactive"}
+                    </span>
+                    <span className="text-[12px] text-zinc-500 dark:text-cyan-500/80">
+                      {mine.location ?? "—"}
+                    </span>
+                  </div>
                   <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-cyan-500/70">
                     Storage: {mine.storageUsed}/{mine.storageCapacity}t
-                    {mine.nextCycleAt
-                      ? ` · Next: ${new Date(mine.nextCycleAt).toLocaleString()}`
-                      : ""}
+                    {mine.nextCycleAt ? (
+                      <> · <Countdown targetIso={mine.nextCycleAt} prefix="Next cycle:" /></>
+                    ) : null}
                   </p>
+                  {((mine.estimatedOutputTons != null && mine.estimatedOutputTons > 0) ||
+                    (mine.estimatedValuePerCycle != null && mine.estimatedValuePerCycle > 0)) ? (
+                    <p className="text-[12px] text-zinc-500 dark:text-cyan-500/80">
+                      Est. ~{mine.estimatedOutputTons != null ? mine.estimatedOutputTons.toFixed(1) : "—"} t/cycle
+                      {" · "}
+                      ~{(mine.estimatedValuePerCycle ?? 0).toLocaleString()}{" "}
+                      <span className="text-amber-600 dark:text-amber-400">cr</span>/cycle
+                    </p>
+                  ) : null}
                   {mine.rig ? (
                     <p className="text-[12px] text-zinc-400 dark:text-cyan-500/70">
                       Rig: {mine.rig} ({mine.rigWear ?? 0}% wear)

@@ -40,8 +40,8 @@ from .objects import ObjectParent
 from .scripts import Script
 
 
-CYCLE_SECONDS = 43200   # 12 hours
-MAX_CATCHUP_CYCLES = 3  # cap back-fill after long downtime
+CYCLE_SECONDS = 14400   # 4 hours
+MAX_CATCHUP_CYCLES = 10  # cap back-fill after long downtime
 
 WEAR_PER_CYCLE_BASE = 0.02  # ~50 cycles (25 days) to full wear at base settings
 
@@ -91,65 +91,89 @@ FAMILY_CATEGORIES = {
 # ---------------------------------------------------------------------------
 
 RESOURCE_CATALOG = {
-    # Standard metals
+    # Standard metals (common)
     "iron_ore": {
         "name": "Iron Ore",
         "category": "standard_metal",
+        "rarity": "common",
         "base_price_cr_per_ton": 90,
         "desc": "Common iron ore suitable for basic smelting.",
     },
     "aluminum_ore": {
         "name": "Aluminum Ore",
         "category": "standard_metal",
+        "rarity": "common",
         "base_price_cr_per_ton": 110,
         "desc": "Lightweight bauxite-rich ore for industrial processing.",
     },
     "lead_zinc_ore": {
         "name": "Lead-Zinc Ore",
         "category": "standard_metal",
+        "rarity": "common",
         "base_price_cr_per_ton": 150,
         "desc": "Mixed sulfide ore carrying lead and zinc content.",
     },
     "copper_ore": {
         "name": "Copper Ore",
         "category": "standard_metal",
+        "rarity": "common",
         "base_price_cr_per_ton": 180,
         "desc": "Chalcopyrite-bearing ore for electrical and structural use.",
     },
     "nickel_ore": {
         "name": "Nickel Ore",
         "category": "standard_metal",
+        "rarity": "common",
         "base_price_cr_per_ton": 240,
         "desc": "Nickel-bearing pentlandite ore for alloys and coatings.",
     },
     "titanium_ore": {
         "name": "Titanium Ore",
         "category": "standard_metal",
+        "rarity": "common",
         "base_price_cr_per_ton": 520,
         "desc": "Ilmenite and rutile ore for aerospace-grade titanium.",
+    },
+    "sulfur_ore": {
+        "name": "Sulfur Ore",
+        "category": "standard_metal",
+        "rarity": "common",
+        "base_price_cr_per_ton": 80,
+        "desc": "Raw sulfur-bearing ore for chemical processing.",
+    },
+    "silicate_dust": {
+        "name": "Silicate Dust",
+        "category": "standard_metal",
+        "rarity": "common",
+        "base_price_cr_per_ton": 60,
+        "desc": "Fine silicate particulate for industrial use.",
     },
     # Exotic / strategic metals
     "cobalt_ore": {
         "name": "Cobalt Ore",
         "category": "exotic_metal",
+        "rarity": "uncommon",
         "base_price_cr_per_ton": 650,
         "desc": "Strategic cobalt ore critical for battery and catalyst production.",
     },
     "tungsten_ore": {
         "name": "Tungsten Ore",
         "category": "exotic_metal",
+        "rarity": "uncommon",
         "base_price_cr_per_ton": 780,
         "desc": "Wolframite-scheelite ore with extreme hardness applications.",
     },
     "rare_earth_concentrate": {
         "name": "Rare-Earth Concentrate",
         "category": "exotic_metal",
+        "rarity": "uncommon",
         "base_price_cr_per_ton": 950,
         "desc": "Mixed rare-earth oxide concentrate for advanced electronics.",
     },
     "platinum_group_ore": {
         "name": "Platinum-Group Ore",
         "category": "exotic_metal",
+        "rarity": "rare",
         "base_price_cr_per_ton": 3200,
         "desc": "Low-grade ore bearing platinum, palladium, and rhodium.",
     },
@@ -157,34 +181,42 @@ RESOURCE_CATALOG = {
     "quartz_matrix": {
         "name": "Quartz Matrix",
         "category": "gem_bearing",
+        "rarity": "common",
         "base_price_cr_per_ton": 260,
         "desc": "Silica-rich matrix with embedded quartz formations.",
     },
     "opal_seam": {
         "name": "Opal Seam",
         "category": "gem_bearing",
+        "rarity": "uncommon",
         "base_price_cr_per_ton": 1500,
         "desc": "Hydrated silica seam with play-of-color opal inclusions.",
     },
     "corundum_matrix": {
         "name": "Corundum Matrix",
         "category": "gem_bearing",
+        "rarity": "uncommon",
         "base_price_cr_per_ton": 1900,
         "desc": "Alumina-rich host rock bearing sapphire and ruby corundum.",
     },
     "emerald_beryl_ore": {
         "name": "Emerald Beryl Ore",
         "category": "gem_bearing",
+        "rarity": "uncommon",
         "base_price_cr_per_ton": 2300,
         "desc": "Beryllium-silicate matrix with chromium-rich emerald zones.",
     },
     "diamond_kimberlite": {
         "name": "Diamond Kimberlite",
         "category": "gem_bearing",
+        "rarity": "rare",
         "base_price_cr_per_ton": 3400,
         "desc": "Kimberlite pipe material bearing raw diamond crystals.",
     },
 }
+
+# Rarity scores for resource_rarity_tier (weighted average)
+RARITY_SCORES = {"common": 0, "uncommon": 1, "rare": 2}
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +324,46 @@ def _richness_tier(richness):
     if r < 1.10:
         return "rich"
     return "very rich"
+
+
+def _volume_tier(richness, base_tons):
+    """
+    Volume value classification: Lean -> Deep.
+    Based on effective output volume (base_tons * richness) in t/cycle.
+    """
+    volume = float(richness or 0) * float(base_tons or 0)
+    if volume >= 20:
+        return "Deep", "sky"
+    if volume >= 14:
+        return "Rich", "emerald"
+    if volume >= 8:
+        return "Moderate", "amber"
+    return "Lean", "zinc"
+
+
+def _resource_rarity_tier(composition):
+    """
+    Resource rarity classification: Common -> Rare.
+    Weighted average of resource rarities in composition.
+    """
+    if not composition:
+        return "Common", "zinc"
+    total_frac = 0
+    weighted_score = 0
+    for key, frac in composition.items():
+        rarity = RESOURCE_CATALOG.get(key, {}).get("rarity", "common")
+        score = RARITY_SCORES.get(rarity, 0)
+        f = float(frac)
+        weighted_score += f * score
+        total_frac += f
+    if total_frac <= 0:
+        return "Common", "zinc"
+    avg = weighted_score / total_frac
+    if avg >= 1.5:
+        return "Rare", "violet"
+    if avg >= 0.6:
+        return "Uncommon", "amber"
+    return "Common", "zinc"
 
 
 def _jitter(value, pct=0.15):

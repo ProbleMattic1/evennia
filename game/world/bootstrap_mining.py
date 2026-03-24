@@ -105,6 +105,40 @@ def bootstrap_mining():
         engine = create_script("typeclasses.mining.MiningEngine")
         print(f"[mining] Created engine: {engine.key}")
 
+    # -- Package listings script + container --
+    pkg_list = search_script("package_listings")
+    if pkg_list:
+        print(f"[mining] Package listings script already exists: {pkg_list[0].key}")
+    else:
+        from typeclasses.package_listings import PackageListingsScript
+        create_script(PackageListingsScript, key="package_listings")
+        print("[mining] Created package_listings script.")
+
+    prop_list = search_script("property_listings")
+    if prop_list:
+        print(f"[mining] Property listings script already exists: {prop_list[0].key}")
+    else:
+        from typeclasses.property_listings import PropertyListingsScript
+        create_script(PropertyListingsScript, key="property_listings")
+        print("[mining] Created property_listings script.")
+
+    # -- Hub for listings container (get_hub_room already imported above) --
+
+    from world.bootstrap_hub import get_hub_room
+    hub_for_listings = get_hub_room()
+    if hub_for_listings:
+        container = None
+        for obj in hub_for_listings.contents:
+            if obj.key == "Package Listings" and getattr(obj.db, "is_listings_container", False):
+                container = obj
+                break
+        if not container:
+            container = create_object("typeclasses.objects.Object", key="Package Listings", location=hub_for_listings, home=hub_for_listings)
+            container.db.desc = "A board where mining packages are listed for sale."
+            container.db.is_listings_container = True
+            container.locks.add("get:false();drop:false()")
+            print("[mining] Created Package Listings container in hub.")
+
     # -- Site discovery engine --
     from typeclasses.site_discovery import SiteDiscoveryEngine
 

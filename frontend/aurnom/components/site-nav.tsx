@@ -137,8 +137,25 @@ export function SiteNav() {
           <span className="px-2 py-1 text-[10px] text-zinc-400 dark:text-cyan-500/70">Loading…</span>
         ) : (
           <>
+            {(data.kiosks ?? []).length > 0 && (
+              <>
+                <NavSection
+                  title="Services"
+                  open={sections.kiosks}
+                  onToggle={() => setSection("kiosks", !sections.kiosks)}
+                >
+                  {(data.kiosks ?? []).map((k) => (
+                    <Link key={k.key} href={k.href} className={linkClass} title={k.label}>
+                      {k.label}
+                    </Link>
+                  ))}
+                </NavSection>
+              </>
+            )}
+
             {data.exits.length > 0 && (
               <>
+                <NavDivider />
                 <NavSection
                   title="Shops"
                   open={sections.places}
@@ -156,6 +173,28 @@ export function SiteNav() {
                         {ex.label}
                       </Link>
                     ))}
+                </NavSection>
+              </>
+            )}
+
+            {data.shops.length > 0 && (
+              <>
+                <NavDivider />
+                <NavSection
+                  title="Kiosks"
+                  open={sections.shops}
+                  onToggle={() => setSection("shops", !sections.shops)}
+                >
+                  {data.shops.map((s) => (
+                    <Link
+                      key={s.roomKey}
+                      href={`/shop?room=${encodeURIComponent(s.roomKey)}`}
+                      className={linkClass}
+                      title={s.label}
+                    >
+                      {s.label}
+                    </Link>
+                  ))}
                 </NavSection>
               </>
             )}
@@ -194,45 +233,6 @@ export function SiteNav() {
                 None yet
               </span>
             </NavSection>
-
-            {(data.kiosks ?? []).length > 0 && (
-              <>
-                <NavDivider />
-                <NavSection
-                  title="Services"
-                  open={sections.kiosks}
-                  onToggle={() => setSection("kiosks", !sections.kiosks)}
-                >
-                  {(data.kiosks ?? []).map((k) => (
-                    <Link key={k.key} href={k.href} className={linkClass} title={k.label}>
-                      {k.label}
-                    </Link>
-                  ))}
-                </NavSection>
-              </>
-            )}
-
-            {data.shops.length > 0 && (
-              <>
-                <NavDivider />
-                <NavSection
-                  title="Kiosks"
-                  open={sections.shops}
-                  onToggle={() => setSection("shops", !sections.shops)}
-                >
-                  {data.shops.map((s) => (
-                    <Link
-                      key={s.roomKey}
-                      href={`/shop?room=${encodeURIComponent(s.roomKey)}`}
-                      className={linkClass}
-                      title={s.label}
-                    >
-                      {s.label}
-                    </Link>
-                  ))}
-                </NavSection>
-              </>
-            )}
           </>
         )}
       </nav>
