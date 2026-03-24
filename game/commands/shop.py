@@ -77,7 +77,12 @@ class CmdShop(Command):
                 location=caller.location,
                 market_type=market_type,
             )
-            lines.append(f"  |c{item.key}|n — |y{price:,}|n cr")
+            if getattr(item.db, "is_sale_package", False):
+                lines.append(
+                    f"  |c{item.key}|n — |y{price:,}|n cr  |x[package + random claim — deploymine <package> <claim>]|n"
+                )
+            else:
+                lines.append(f"  |c{item.key}|n — |y{price:,}|n cr")
         caller.msg("\n".join(lines))
 
 
@@ -88,7 +93,8 @@ class CmdBuy(Command):
     Usage:
       buy <name>
 
-    Matches display names from |wshop|n. For spacecraft, use |wbuyship|n at a shipyard.
+    Matches display names from |wshop|n. Mining packages go to inventory;
+    use |wdeploymine <package> <claim>|n to deploy. For spacecraft, use |wbuyship|n.
     """
 
     key = "buy"
@@ -108,15 +114,18 @@ class CmdBuy(Command):
             return
 
         stock = _get_stock_for_vendor(vendor)
-        template = _find_template_by_name(self.args, stock)
-        if not template:
-            caller.msg(f"No item matching '{self.args.strip()}' is sold here. Use |wshop|n to list stock.")
-            return
 
         from typeclasses.economy import get_economy
 
         econ = get_economy(create_missing=True)
         market_type = getattr(vendor.db, "market_type", None) or "normal"
+
+        # Normal item purchase (includes mining packages — they go to inventory)
+        template = _find_template_by_name(self.args, stock)
+        if not template:
+            caller.msg(f"No item matching '{self.args.strip()}' is sold here. Use |wshop|n to list stock.")
+            return
+
         price = econ.get_final_price(
             template,
             buyer=caller,
@@ -144,6 +153,9 @@ class CmdBuy(Command):
             new_item.tags.remove(vid, category="vendor")
         new_item.db.owner = caller
         new_item.locks.add("get:true();drop:true();give:true()")
+        if getattr(template.db, "is_sale_package", False):
+            new_item.db.package_tier = getattr(template.db, "package_tier", None) or template.key
+            new_item.tags.add("mining_package", category="mining")
         new_item.move_to(caller, quiet=True)
 
         vendor_amount, tax_amount = vendor.record_sale(
@@ -157,6 +169,14 @@ class CmdBuy(Command):
             f"You buy |w{new_item.key}|n for |y{price:,}|n cr. "
             f"Remaining balance: |y{caller.db.credits:,}|n cr."
         )
+        if getattr(template.db, "is_sale_package", False):
+            from typeclasses.claim_utils import grant_random_claim_on_purchase
+            claim, jackpot = grant_random_claim_on_purchase(caller)
+            if claim:
+                if jackpot:
+                    msg += "\n|g★ JACKPOT! You received an |wElite Claim|n! ★|n"
+                else:
+                    msg += f"\nYou received a random claim: |w{claim.key}|n."
         if tax_amount > 0:
             msg += f" (|y{vendor_amount:,}|n cr to vendor, |y{tax_amount:,}|n cr tax)"
         caller.msg(msg)

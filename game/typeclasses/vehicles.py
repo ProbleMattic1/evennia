@@ -33,6 +33,9 @@ class Vehicle(DefaultObject):
         self.db.registration_id = self.db.registration_id or None
         self.db.fuel = self.db.fuel if self.db.fuel is not None else 100
         self.db.max_fuel = self.db.max_fuel if self.db.max_fuel is not None else 100
+        # Cargo hold (mining / freight integration)
+        self.db.cargo = self.db.cargo or {}
+        self.db.cargo_capacity_tons = self.db.cargo_capacity_tons if self.db.cargo_capacity_tons is not None else 0
 
         self.locks.add('get:false()')
         self.locks.add('puppet:false()')
@@ -209,6 +212,75 @@ class Vehicle(DefaultObject):
         self.db.fuel = max(0, fuel - 1)
         self.db.exterior_location = destination or self.location
 
+    # -----------------------------
+    # Cargo hold helpers
+    # -----------------------------
+
+    def cargo_total_mass(self):
+        """Return total tonnes currently loaded."""
+        return round(sum(float(v) for v in (self.db.cargo or {}).values()), 2)
+
+    def cargo_space_available(self):
+        cap = float(self.db.cargo_capacity_tons or 0)
+        return max(0.0, cap - self.cargo_total_mass())
+
+    def load_cargo(self, resource_key, tons):
+        """
+        Load up to `tons` of resource_key.  Returns actual tonnes loaded.
+        Raises ValueError if no cargo capacity is configured on this vehicle.
+        """
+        cap = float(self.db.cargo_capacity_tons or 0)
+        if cap <= 0:
+            raise ValueError(f"{self.key} has no cargo hold.")
+        space = self.cargo_space_available()
+        loaded = round(min(float(tons), space), 2)
+        if loaded <= 0:
+            return 0.0
+        cargo = self.db.cargo or {}
+        cargo[resource_key] = round(float(cargo.get(resource_key, 0.0)) + loaded, 2)
+        self.db.cargo = cargo
+        return loaded
+
+    def unload_cargo(self, resource_key, tons):
+        """
+        Remove up to `tons` of resource_key.  Returns actual tonnes removed.
+        """
+        cargo = self.db.cargo or {}
+        available = float(cargo.get(resource_key, 0.0))
+        removed = round(min(available, float(tons)), 2)
+        remaining = round(available - removed, 2)
+        if remaining <= 0:
+            cargo.pop(resource_key, None)
+        else:
+            cargo[resource_key] = remaining
+        self.db.cargo = cargo
+        return removed
+
+    def unload_all_cargo(self):
+        """Empty cargo hold; return copy of contents."""
+        contents = dict(self.db.cargo or {})
+        self.db.cargo = {}
+        return contents
+
+    def get_cargo_report(self):
+        from typeclasses.mining import RESOURCE_CATALOG
+        cap = float(self.db.cargo_capacity_tons or 0)
+        cargo = self.db.cargo or {}
+        used = self.cargo_total_mass()
+        if cap <= 0:
+            return f"|w{self.key}|n has no cargo hold configured."
+        if not cargo:
+            return f"|w{self.key} Cargo Hold|n — empty  [{used:.1f}/{cap:.0f} t]"
+        pct = int(used / cap * 100) if cap else 0
+        cap_color = "|g" if pct < 70 else "|y" if pct < 90 else "|r"
+        lines = [f"|w{self.key} Cargo Hold|n  [{cap_color}{used:.1f}/{cap:.0f} t  {pct}%|n]"]
+        for key in sorted(cargo):
+            tons = float(cargo[key])
+            info = RESOURCE_CATALOG.get(key, {})
+            name = info.get("name", key)
+            lines.append(f"  {name:<28} {tons:>8.2f} t")
+        return "\n".join(lines)
+
     def return_appearance(self, looker, **kwargs):
         base = super().return_appearance(looker, **kwargs)
         summary = self.get_vehicle_summary()
@@ -242,3 +314,11 @@ class Spacecraft(Vehicle):
 
     def is_spaceworthy(self):
         return True
+
+
+class Hauler(Vehicle):
+    """Autonomous ore hauler for mine-to-refinery routes."""
+
+    def at_object_creation(self):
+        super().at_object_creation()
+        self.db.vehicle_kind = 'hauler'

@@ -14,41 +14,41 @@ export default function BankPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto flex w-full max-w-6xl flex-1 px-6 py-10">
-        <p className="text-zinc-600">Loading bank state...</p>
+      <main className="main-content">
+        <p className="text-sm text-zinc-500">Loading bank state…</p>
       </main>
     );
   }
 
   if (error || !data) {
     return (
-      <main className="mx-auto flex w-full max-w-6xl flex-1 px-6 py-10">
-        <p className="text-red-600">Failed to load bank state: {error ?? "Unknown error"}</p>
+      <main className="main-content">
+        <p className="text-sm text-red-600">Failed to load bank state: {error ?? "Unknown error"}</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-10">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-zinc-950">{data.bankName}</h1>
-          <p className="mt-2 text-zinc-600">{data.roomName}</p>
+    <main className="main-content">
+      <header className="flex items-center justify-between border-b border-zinc-200 py-3 dark:border-zinc-700">
+        <div className="px-2">
+          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{data.bankName}</h1>
+          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{data.roomName}</p>
         </div>
         <Link
           href="/play?room=Alpha%20Prime%20Central%20Reserve"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+          className="rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           Back to Play
         </Link>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-2 px-2 py-2 lg:grid-cols-[1.5fr_1fr]">
         <StoryPanel title="Bank Output" lines={data.storyLines} />
-        <div className="flex flex-col gap-6">
-          <section className="rounded-xl border border-zinc-200 bg-white p-4">
-            <h2 className="text-lg font-semibold text-zinc-900">Treasury</h2>
-            <p className="mt-3 text-3xl font-bold text-zinc-950">
+        <div className="flex flex-col gap-2">
+          <section className="border-b border-zinc-100 px-2 py-2">
+            <h2 className="section-label">Treasury</h2>
+            <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
               {data.treasuryBalance.toLocaleString()} cr
             </p>
           </section>

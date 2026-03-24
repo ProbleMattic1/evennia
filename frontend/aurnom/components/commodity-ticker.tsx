@@ -1,0 +1,262 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { getMarketState } from "@/lib/ui-api";
+import type { MarketCommodity } from "@/lib/ui-api";
+import { useUiResource } from "@/lib/use-ui-resource";
+
+// ─── Category config ─────────────────────────────────────────────────────────
+
+const CAT: Record<string, { label: string; text: string; badge: string; heading: string }> = {
+  standard_metal: {
+    label:   "Metal",
+    text:    "text-emerald-600 dark:text-emerald-400",
+    badge:   "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
+    heading: "text-emerald-600/80 dark:text-emerald-500/60",
+  },
+  exotic_metal: {
+    label:   "Exotic",
+    text:    "text-amber-600 dark:text-amber-400",
+    badge:   "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
+    heading: "text-amber-600/80 dark:text-amber-500/60",
+  },
+  gem_bearing: {
+    label:   "Gem",
+    text:    "text-cyan-600 dark:text-cyan-400",
+    badge:   "bg-cyan-100 text-cyan-800 ring-1 ring-cyan-300 dark:bg-cyan-950 dark:text-cyan-400 dark:ring-cyan-700/50",
+    heading: "text-cyan-600/80 dark:text-cyan-500/60",
+  },
+};
+
+function cat(c: MarketCommodity) {
+  return CAT[c.category] ?? CAT.standard_metal;
+}
+
+// ─── Price delta helper ───────────────────────────────────────────────────────
+
+function priceDelta(sell: number, base: number) {
+  if (!base) return { icon: "—", pct: 0, cls: "text-zinc-600 dark:text-zinc-500" };
+  const pct = Math.round(((sell - base) / base) * 100);
+  if (pct > 0) return { icon: "▲", pct, cls: "text-emerald-600 dark:text-emerald-400" };
+  if (pct < 0) return { icon: "▼", pct: Math.abs(pct), cls: "text-red-600 dark:text-red-400" };
+  return { icon: "—", pct: 0, cls: "text-zinc-600 dark:text-zinc-500" };
+}
+
+// ─── Shared hook ─────────────────────────────────────────────────────────────
+
+function useMarket() {
+  const loader = useCallback(() => getMarketState(), []);
+  const resource = useUiResource(loader);
+
+  useEffect(() => {
+    const id = setInterval(resource.reload, 30_000);
+    return () => clearInterval(id);
+  }, [resource.reload]);
+
+  return resource;
+}
+
+// ─── Scrolling strip (top of page) ───────────────────────────────────────────
+
+export function CommodityTickerStrip() {
+  const { data, loading } = useMarket();
+
+  if (loading && !data) {
+    return (
+      <div className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700/60 dark:bg-zinc-950">
+        <p className="animate-pulse font-mono text-[13px] text-zinc-600 dark:text-zinc-500">
+          SYNCING MARKET FEED…
+        </p>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const items = [...data.commodities, ...data.commodities]; // duplicate for seamless loop
+
+  return (
+    <div className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-zinc-700/60 dark:bg-zinc-950">
+      {/* Header row */}
+      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 dark:bg-emerald-400" />
+          <span className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-zinc-300">
+            Aurnom Commodity Exchange · Live Pricing
+          </span>
+        </div>
+      </div>
+
+      {/* Scrolling strip */}
+      <div className="overflow-hidden py-1.5">
+        <div
+          className="flex w-max gap-10 whitespace-nowrap px-3"
+          style={{ animation: "ace-ticker 50s linear infinite" }}
+        >
+          {items.map((c, i) => {
+            const d = priceDelta(c.sellPriceCrPerTon, c.basePriceCrPerTon);
+            return (
+              <span
+                key={`${c.key}-${i}`}
+                className="inline-flex items-center gap-1.5 font-mono text-[13px]"
+              >
+                <span className={cat(c).text}>{c.name.toUpperCase()}</span>
+                <span className="text-zinc-600 dark:text-zinc-300">
+                  {c.sellPriceCrPerTon.toLocaleString()} cr/t
+                </span>
+                <span className={d.cls}>
+                  {d.icon}
+                  {d.pct > 0 ? ` ${d.pct}%` : ""}
+                </span>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes ace-ticker {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ─── Single commodity row ─────────────────────────────────────────────────────
+
+function CommodityRow({ c }: { c: MarketCommodity }) {
+  const d = priceDelta(c.sellPriceCrPerTon, c.basePriceCrPerTon);
+  const s = cat(c);
+  return (
+    <tr className="border-b border-zinc-200 transition-colors hover:bg-zinc-100 dark:border-zinc-800/60 dark:hover:bg-zinc-800/30">
+      <td className="py-1.5 pr-3">
+        <span className={`font-mono text-sm font-semibold ${s.text}`}>{c.name}</span>
+      </td>
+      <td className="py-1.5 pr-3">
+        <span className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${s.badge}`}>
+          {s.label}
+        </span>
+      </td>
+      <td className="py-1.5 pr-3 text-right font-mono text-sm text-zinc-500 dark:text-zinc-400">
+        {c.basePriceCrPerTon.toLocaleString()}
+      </td>
+      <td className="py-1.5 pr-3 text-right font-mono text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+        {c.sellPriceCrPerTon.toLocaleString()}
+      </td>
+      <td className="py-1.5 pr-3 text-right font-mono text-sm text-zinc-500 dark:text-zinc-400">
+        {c.buyPriceCrPerTon.toLocaleString()}
+      </td>
+      <td className={`py-1.5 pl-3 text-right font-mono text-sm font-bold tabular-nums ${d.cls}`}>
+        {d.icon} {d.pct > 0 ? `${d.pct}%` : "—"}
+      </td>
+    </tr>
+  );
+}
+
+function SectionRow({ label, className }: { label: string; className: string }) {
+  return (
+    <tr>
+      <td colSpan={6} className="pb-1 pt-3">
+        <span className={`font-mono text-[12px] uppercase tracking-widest ${className}`}>
+          — {label} —
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Full table (bottom of page) ─────────────────────────────────────────────
+
+export function CommodityTickerTable() {
+  const { data, loading, error, reload } = useMarket();
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (data) setLastUpdated(new Date());
+  }, [data]);
+
+  const groups = data
+    ? {
+        standard_metal: data.commodities.filter((c) => c.category === "standard_metal"),
+        exotic_metal:   data.commodities.filter((c) => c.category === "exotic_metal"),
+        gem_bearing:    data.commodities.filter((c) => c.category === "gem_bearing"),
+      }
+    : null;
+
+  return (
+    <section className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-zinc-700/60 dark:bg-zinc-950">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-zinc-300">
+          Market Rates — All Commodities
+        </h2>
+        <div className="flex items-center gap-2">
+          {lastUpdated && (
+            <span className="font-mono text-[12px] text-zinc-500 dark:text-zinc-600">
+              SYNC {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={reload}
+            disabled={loading}
+            className="rounded border border-zinc-300 px-1.5 py-0.5 font-mono text-[12px] text-zinc-600 transition hover:border-zinc-500 hover:text-zinc-900 disabled:opacity-30 dark:border-zinc-700 dark:text-zinc-500 dark:hover:border-zinc-500 dark:hover:text-zinc-200"
+          >
+            {loading ? "…" : "↻"}
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto px-3 pb-4 pt-1.5">
+        {error && (
+          <p className="py-1.5 font-mono text-sm text-red-600 dark:text-red-400">
+            Market feed unavailable: {error}
+          </p>
+        )}
+        {loading && !data && (
+          <p className="animate-pulse py-3 text-center font-mono text-sm text-zinc-600 dark:text-zinc-500">
+            SYNCING MARKET FEED…
+          </p>
+        )}
+        {groups && (
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                {(
+                  [
+                    ["Commodity", "text-left",  "pr-3"],
+                    ["Type",      "text-left",  "pr-3"],
+                    ["Base cr/t", "text-right", "pr-3"],
+                    ["Sell cr/t", "text-right", "pr-3"],
+                    ["Buy cr/t",  "text-right", ""],
+                    ["Δ Market",  "text-right", "pl-3"],
+                  ] as [string, string, string][]
+                ).map(([h, align, extra]) => (
+                  <th
+                    key={h}
+                    className={`pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 ${align} ${extra}`}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <SectionRow label="Standard Metals"           className={CAT.standard_metal.heading} />
+              {groups.standard_metal.map((c) => <CommodityRow key={c.key} c={c} />)}
+
+              <SectionRow label="Exotic & Strategic Metals" className={CAT.exotic_metal.heading} />
+              {groups.exotic_metal.map((c) => <CommodityRow key={c.key} c={c} />)}
+
+              <SectionRow label="Gem-Bearing Materials"     className={CAT.gem_bearing.heading} />
+              {groups.gem_bearing.map((c) => <CommodityRow key={c.key} c={c} />)}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </section>
+  );
+}

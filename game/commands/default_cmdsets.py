@@ -6,16 +6,49 @@ from evennia import default_cmds
 
 from commands.chargen_pointbuy import CmdCharCreate, CmdPointBuy
 from commands.banking import CmdBalance, CmdTreasury
+from commands.mining import (
+    CmdAvailableClaims,
+    CmdClaimSite,
+    CmdDeployMine,
+    CmdCollectOre,
+    CmdDeployRig,
+    CmdLicenseSite,
+    CmdLinkStorage,
+    CmdMineStatus,
+    CmdMines,
+    CmdRepairRig,
+    CmdSetRig,
+    CmdSurvey,
+    CmdUndeployMine,
+)
+from commands.refining import (
+    CmdCollectProduct,
+    CmdCollectRefined,
+    CmdFeedRefinery,
+    CmdRefine,
+    CmdRefineList,
+    CmdRefineStatus,
+)
+from commands.haulers import (
+    CmdAssignHauler,
+    CmdHaulerStatus,
+    CmdReleaseHauler,
+    CmdSetDeliveryMode,
+    CmdUpgradeHauler,
+)
 from commands.shipyard import CmdShipyard, CmdInspectShip, CmdBuyShip
 from commands.shop import CmdBuy, CmdShop
 from commands.vehicles import (
     CmdBoardVehicle,
+    CmdCargoStatus,
     CmdExitVehicle,
-    CmdPilotVehicle,
-    CmdUnpilotVehicle,
-    CmdVehicleTravel,
-    CmdVehicleStatus,
+    CmdLoadCargo,
     CmdMyShips,
+    CmdPilotVehicle,
+    CmdUnloadCargo,
+    CmdUnpilotVehicle,
+    CmdVehicleStatus,
+    CmdVehicleTravel,
 )
 
 
@@ -26,7 +59,34 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         super().at_cmdset_creation()
         self.add(CmdBalance())
         self.add(CmdTreasury())
+        self.add(CmdSurvey())
+        self.add(CmdClaimSite())
+        self.add(CmdDeployRig())
+        self.add(CmdLinkStorage())
+        self.add(CmdMines())
+        self.add(CmdMineStatus())
+        self.add(CmdCollectOre())
+        self.add(CmdLicenseSite())
+        self.add(CmdSetRig())
+        self.add(CmdRepairRig())
+        self.add(CmdAvailableClaims())
+        self.add(CmdDeployMine())
+        self.add(CmdUndeployMine())
+        self.add(CmdRefineList())
+        self.add(CmdRefineStatus())
+        self.add(CmdFeedRefinery())
+        self.add(CmdRefine())
+        self.add(CmdCollectProduct())
+        self.add(CmdCollectRefined())
+        self.add(CmdAssignHauler())
+        self.add(CmdUpgradeHauler())
+        self.add(CmdHaulerStatus())
+        self.add(CmdReleaseHauler())
+        self.add(CmdSetDeliveryMode())
         self.add(CmdBoardVehicle())
+        self.add(CmdCargoStatus())
+        self.add(CmdLoadCargo())
+        self.add(CmdUnloadCargo())
         self.add(CmdExitVehicle())
         self.add(CmdPilotVehicle())
         self.add(CmdUnpilotVehicle())

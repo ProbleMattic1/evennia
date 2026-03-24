@@ -55,8 +55,12 @@ def at_server_cold_start():
     """
     from world.bootstrap_character_abilities import bootstrap_character_abilities
     from world.bootstrap_economy import bootstrap_economy
+    from world.bootstrap_haulers import bootstrap_haulers
     from world.bootstrap_hub import bootstrap_hub
     from world.bootstrap_marcus_killstar import bootstrap_marcus_killstar
+    from world.bootstrap_mining import bootstrap_mining
+    from world.bootstrap_mining_packages import bootstrap_mining_packages
+    from world.bootstrap_processors import bootstrap_processors
     from world.bootstrap_shipyard import bootstrap_shipyard
     from world.bootstrap_shops import bootstrap_shops
     from world.bootstrap_vehicle_catalog import bootstrap_vehicle_catalog
@@ -68,6 +72,10 @@ def at_server_cold_start():
     _run("vehicle catalog CSV import", bootstrap_vehicle_catalog)
     _run("shipyard rooms + stock templates", bootstrap_shipyard)
     _run("general catalog shops (tech, mining, supply, toy)", bootstrap_shops)
+    _run("mining engine + sample sites + Ashfall Basin", bootstrap_mining)
+    _run("hauler engine + refinery engine + receiving bay", bootstrap_haulers)
+    _run("mining sale packages (Starter Pack, Pro Pack)", bootstrap_mining_packages)
+    _run("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)
 
 
 def at_server_cold_stop():

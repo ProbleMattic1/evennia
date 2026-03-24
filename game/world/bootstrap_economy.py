@@ -57,6 +57,8 @@ def bootstrap_economy():
     econ.set_modifier("regional_modifiers", "frontier", 0.94)
     econ.set_modifier("location_modifiers", "black-market-exchange", 1.40)
     econ.set_modifier("faction_modifiers", "allied-traders-guild", 0.95)
+    # Mining category modifier — base multiplier for raw commodity pricing
+    econ.set_modifier("category_modifiers", "mining", 1.00)
     if econ.db.accounts is None:
         econ.db.accounts = {}
     if econ.db.transactions is None:

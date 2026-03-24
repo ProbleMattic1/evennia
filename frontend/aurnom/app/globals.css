@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,17 +19,55 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Compact main content wrapper — used across all pages */
+.main-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0;
+  margin-left: 0;
+  margin-right: auto;
+  max-width: 42rem;
+  padding: 1rem 1.25rem;
+  width: 100%;
+  background: white;
+  border-left: 1px solid rgb(228 228 231);
+}
+
+.dark .main-content {
+  background: rgb(23 23 23);
+  border-left-color: rgb(63 63 70);
+}
+
+/* Section label — small uppercase headers */
+.section-label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(161 161 170);
+}
+
+.dark .section-label {
+  color: rgb(113 113 122);
+}
+
+/* Section divider — thin separator between sections */
+.section-divider {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  border: 0;
+  border-top: 1px solid rgb(228 228 231);
+}
+
+.dark .section-divider {
+  border-top-color: rgb(63 63 70);
 }
 
 /* Dashboard header — space HUD: nebula wash + star field + slow gradient drift */

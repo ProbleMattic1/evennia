@@ -69,9 +69,15 @@ def _tag_legacy_catalog(shop):
     vendor_id = shop.db.vendor_id
     if not vendor_id:
         return
-    for vehicle_id in ("sparrow-mk-v", "kestrel-mk-vi", "wayfarer-mk-vii"):
+    _SHIPYARD_VEHICLE_IDS = ("sparrow-mk-v", "kestrel-mk-vi", "wayfarer-mk-vii")
+    for vehicle_id in _SHIPYARD_VEHICLE_IDS:
         matches = search_tag(vehicle_id, category="vehicle_id")
         for obj in matches:
+            # Never add haulers to the shipyard catalog
+            if getattr(obj.db, "vehicle_kind", None) == "hauler":
+                if obj.tags.has(vendor_id, category="vendor"):
+                    obj.tags.remove(vendor_id, category="vendor")
+                continue
             if getattr(obj.db, "owner", None):
                 if obj.tags.has(vendor_id, category="vendor"):
                     obj.tags.remove(vendor_id, category="vendor")

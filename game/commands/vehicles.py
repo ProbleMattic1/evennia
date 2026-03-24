@@ -304,3 +304,230 @@ class CmdMyShips(Command):
             lines.append(f'- {obj.key} | location: {location} | pilot: {pilot}')
 
         caller.msg('\n'.join(lines))
+
+
+class CmdCargoStatus(VehicleCommandMixin, Command):
+    """
+    Show the cargo hold contents of the vehicle you are in.
+
+    Usage:
+      cargo
+      cargostatus
+    """
+
+    key = 'cargo'
+    aliases = ['cargostatus', 'hold']
+    help_category = 'Vehicles'
+
+    def func(self):
+        caller = self.caller
+        vehicle = self._current_vehicle(caller)
+        if not vehicle:
+            caller.msg('You are not inside a vehicle.')
+            return
+        caller.msg(vehicle.get_cargo_report())
+
+
+class CmdLoadCargo(VehicleCommandMixin, Command):
+    """
+    Load ore from a nearby mining storage unit into this vehicle's cargo hold.
+
+    Usage:
+      loadcargo <resource> <tons>
+
+    You must be piloting (or aboard) a vehicle with a cargo hold, docked next
+    to a mining storage unit you own.  Resource names are partial-match.
+
+    Example:
+      loadcargo iron 50
+      loadcargo copper 20
+    """
+
+    key = 'loadcargo'
+    aliases = ['loadore']
+    help_category = 'Vehicles'
+
+    def func(self):
+        caller = self.caller
+        vehicle = self._current_vehicle(caller)
+        if not vehicle:
+            caller.msg('You must be inside a vehicle to load cargo.')
+            return
+        if not vehicle.is_allowed_boarder(caller):
+            caller.msg('You are not authorised to manage this vehicle\'s cargo.')
+            return
+
+        args = self.args.strip().split(None, 1)
+        if len(args) < 2:
+            caller.msg('Usage: loadcargo <resource name> <tons>')
+            return
+        resource_query, tons_str = args
+        try:
+            tons_req = float(tons_str)
+        except ValueError:
+            caller.msg('Tons must be a number.')
+            return
+        if tons_req <= 0:
+            caller.msg('Tons must be greater than zero.')
+            return
+
+        # Find a mining storage unit in the vehicle's exterior location
+        ext = vehicle.get_exterior_location()
+        if not ext:
+            caller.msg('The vehicle has no known docking location.')
+            return
+
+        storage = None
+        for obj in ext.contents:
+            if obj.tags.has('mining_storage', category='mining'):
+                if getattr(obj.db, 'owner', None) == caller or getattr(obj.db, 'owner', None) is None:
+                    storage = obj
+                    break
+        if not storage:
+            caller.msg('No accessible mining storage unit found at this location.')
+            return
+
+        from typeclasses.mining import RESOURCE_CATALOG
+        inventory = storage.db.inventory or {}
+
+        # Partial-match resource key
+        matched_key = None
+        for key in inventory:
+            name = RESOURCE_CATALOG.get(key, {}).get('name', key)
+            if resource_query.lower() in name.lower() or resource_query.lower() in key.lower():
+                matched_key = key
+                break
+        if not matched_key:
+            caller.msg(
+                f"No resource matching '{resource_query}' found in {storage.key}.\n"
+                f"Use |wcargo|n to see the storage inventory."
+            )
+            return
+
+        available = float(inventory.get(matched_key, 0.0))
+        if available <= 0:
+            caller.msg(f'{RESOURCE_CATALOG.get(matched_key, {}).get("name", matched_key)} is not in storage.')
+            return
+
+        try:
+            actual = vehicle.load_cargo(matched_key, min(tons_req, available))
+        except ValueError as err:
+            caller.msg(str(err))
+            return
+
+        storage.withdraw(matched_key, actual)
+        name = RESOURCE_CATALOG.get(matched_key, {}).get('name', matched_key)
+        caller.msg(
+            f'Loaded |w{actual}t|n of {name} into |w{vehicle.key}|n cargo hold. '
+            f'({vehicle.cargo_total_mass():.1f}/{vehicle.db.cargo_capacity_tons:.0f} t used)'
+        )
+
+
+class CmdUnloadCargo(VehicleCommandMixin, Command):
+    """
+    Unload ore from this vehicle's cargo hold into a nearby mining storage unit.
+
+    Usage:
+      unloadcargo <resource> <tons>
+      unloadcargo all
+
+    Transfers to the first accessible mining storage unit at the docking location.
+
+    Examples:
+      unloadcargo iron 50
+      unloadcargo all
+    """
+
+    key = 'unloadcargo'
+    aliases = ['unloadore', 'offload']
+    help_category = 'Vehicles'
+
+    def func(self):
+        caller = self.caller
+        vehicle = self._current_vehicle(caller)
+        if not vehicle:
+            caller.msg('You must be inside a vehicle to unload cargo.')
+            return
+        if not vehicle.is_allowed_boarder(caller):
+            caller.msg('You are not authorised to manage this vehicle\'s cargo.')
+            return
+
+        cargo = vehicle.db.cargo or {}
+        if not cargo:
+            caller.msg(f'|w{vehicle.key}|n cargo hold is empty.')
+            return
+
+        ext = vehicle.get_exterior_location()
+        if not ext:
+            caller.msg('The vehicle has no known docking location.')
+            return
+
+        storage = None
+        for obj in ext.contents:
+            if obj.tags.has('mining_storage', category='mining'):
+                if getattr(obj.db, 'owner', None) == caller or getattr(obj.db, 'owner', None) is None:
+                    storage = obj
+                    break
+        if not storage:
+            caller.msg('No accessible mining storage unit found at this location.')
+            return
+
+        from typeclasses.mining import RESOURCE_CATALOG
+
+        args = self.args.strip().lower()
+
+        if args == 'all':
+            contents = vehicle.unload_all_cargo()
+            inventory = storage.db.inventory or {}
+            lines = [f'Unloaded from |w{vehicle.key}|n into |w{storage.key}|n:']
+            for key, tons in contents.items():
+                # Respect storage capacity
+                cap = float(getattr(storage.db, 'capacity_tons', 500.0) or 500.0)
+                space = max(0.0, cap - storage.total_mass())
+                deposited = round(min(float(tons), space), 2)
+                if deposited > 0:
+                    inventory[key] = round(float(inventory.get(key, 0.0)) + deposited, 2)
+                    name = RESOURCE_CATALOG.get(key, {}).get('name', key)
+                    lines.append(f'  {name}: {deposited}t')
+            storage.db.inventory = inventory
+            caller.msg('\n'.join(lines))
+            return
+
+        parts = args.split(None, 1)
+        if len(parts) < 2:
+            caller.msg('Usage: unloadcargo <resource> <tons>  OR  unloadcargo all')
+            return
+        resource_query, tons_str = parts
+        try:
+            tons_req = float(tons_str)
+        except ValueError:
+            caller.msg('Tons must be a number.')
+            return
+
+        matched_key = None
+        for key in cargo:
+            name = RESOURCE_CATALOG.get(key, {}).get('name', key)
+            if resource_query in name.lower() or resource_query in key.lower():
+                matched_key = key
+                break
+        if not matched_key:
+            caller.msg(f"No resource matching '{resource_query}' in cargo.")
+            return
+
+        cap = float(getattr(storage.db, 'capacity_tons', 500.0) or 500.0)
+        space = max(0.0, cap - storage.total_mass())
+        tons_req = min(tons_req, space)
+        if tons_req <= 0:
+            caller.msg(f'|w{storage.key}|n is at capacity.')
+            return
+
+        actual = vehicle.unload_cargo(matched_key, tons_req)
+        inventory = storage.db.inventory or {}
+        inventory[matched_key] = round(float(inventory.get(matched_key, 0.0)) + actual, 2)
+        storage.db.inventory = inventory
+
+        name = RESOURCE_CATALOG.get(matched_key, {}).get('name', matched_key)
+        caller.msg(
+            f'Unloaded |w{actual}t|n of {name} into |w{storage.key}|n. '
+            f'Vehicle hold: {vehicle.cargo_total_mass():.1f}/{vehicle.db.cargo_capacity_tons:.0f} t'
+        )

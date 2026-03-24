@@ -8,3 +8,7 @@ https://www.evennia.com/docs/latest/py-modindex.html
 Every update I delete the postgres db and do a clean install so whatever changes you make should reflect a clean deployment. We never patch the existing one. 
 
 I never want batchcode to implement. Make updates to the core files for me to redeploy.
+
+The repo is local and accessed via git. You may never delete files but you can search for reference. 
+
+No defensive code, ever!! That only masks errors and makes diagnosis difficult.

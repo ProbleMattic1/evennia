@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback } from "react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { getNavState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
@@ -11,20 +12,16 @@ const PRIMARY = [
   { href: "/play", label: "Play" },
 ] as const;
 
-/** Hub exits that use kiosk / dedicated pages in the third section */
-const HUB_EXIT_KEYS_HIDDEN = new Set(["bank", "shipyard"]);
-
-const SHIPYARD_KIOSK = {
-  key: "meridian-shipyard",
-  label: "Shipyard",
-  href: "/shipyard",
-} as const;
-
 const linkClass =
-  "shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-100";
+  "block w-full truncate px-2 py-1 text-[12px] text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200";
 
-function Separator() {
-  return <span className="mx-1 h-4 w-px shrink-0 bg-zinc-200" aria-hidden />;
+function NavDivider() {
+  return (
+    <hr
+      className="my-1.5 mx-1 border-0 border-t border-zinc-200 dark:border-zinc-700"
+      aria-hidden
+    />
+  );
 }
 
 export function SiteNav() {
@@ -32,66 +29,72 @@ export function SiteNav() {
   const { data, error, loading } = useUiResource(loader);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <div className="mx-auto w-full max-w-6xl px-4 py-2">
-        <nav
-          className="flex flex-nowrap items-center gap-1.5 overflow-x-auto"
-          aria-label="Main"
-        >
-          {PRIMARY.map((item) => (
-            <Link key={item.href} href={item.href} className={linkClass}>
-              {item.label}
-            </Link>
-          ))}
+    <aside
+      className="sticky top-0 flex h-screen w-28 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50/80 py-2 dark:border-zinc-700 dark:bg-zinc-900/80"
+      aria-label="Main"
+    >
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
+        {PRIMARY.map((item) => (
+          <Link key={item.href} href={item.href} className={linkClass} title={item.label}>
+            {item.label}
+          </Link>
+        ))}
 
-          <Separator />
+        <NavDivider />
 
-          {error ? (
-            <span className="shrink-0 text-xs text-red-600">Places unavailable: {error}</span>
-          ) : loading || !data ? (
-            <span className="shrink-0 text-xs text-zinc-500">Loading places…</span>
-          ) : (
-            <>
-              {data.exits
-                .filter(
-                  (ex) =>
-                    ex.destination && !HUB_EXIT_KEYS_HIDDEN.has(ex.key.toLowerCase()),
-                )
-                .map((ex) => (
-                  <Link
-                    key={`${ex.key}-${ex.destination}`}
-                    href={`/play?room=${encodeURIComponent(ex.destination!)}`}
-                    className={linkClass}
-                  >
-                    {ex.label}
-                  </Link>
-                ))}
-              {data.exits.some(
-                (ex) =>
-                  ex.destination && !HUB_EXIT_KEYS_HIDDEN.has(ex.key.toLowerCase()),
-              ) ? (
-                <Separator />
-              ) : null}
-              {data.shops.map((s) => (
+        {error ? (
+          <span className="px-2 py-1 text-[10px] text-red-600 dark:text-red-400">
+            Places unavailable
+          </span>
+        ) : loading || !data ? (
+          <span className="px-2 py-1 text-[10px] text-zinc-400 dark:text-zinc-500">Loading…</span>
+        ) : (
+          <>
+            {data.exits
+              .filter((ex) => ex.destination)
+              .map((ex) => (
                 <Link
-                  key={s.roomKey}
-                  href={`/shop?room=${encodeURIComponent(s.roomKey)}`}
+                  key={`${ex.key}-${ex.destination}`}
+                  href={`/play?room=${encodeURIComponent(ex.destination!)}`}
                   className={linkClass}
+                  title={ex.label}
                 >
-                  {s.label}
+                  {ex.label}
                 </Link>
               ))}
-              <Link
-                key={SHIPYARD_KIOSK.key}
-                href={SHIPYARD_KIOSK.href}
-                className={linkClass}
-              >
-                {SHIPYARD_KIOSK.label}
-              </Link>
-            </>
-          )}
-        </nav>
+
+            {(data.kiosks ?? []).length > 0 && (
+              <>
+                <NavDivider />
+                {(data.kiosks ?? []).map((k) => (
+                  <Link key={k.key} href={k.href} className={linkClass} title={k.label}>
+                    {k.label}
+                  </Link>
+                ))}
+              </>
+            )}
+
+            {data.shops.length > 0 && (
+              <>
+                <NavDivider />
+                {data.shops.map((s) => (
+                  <Link
+                    key={s.roomKey}
+                    href={`/shop?room=${encodeURIComponent(s.roomKey)}`}
+                    className={linkClass}
+                    title={s.label}
+                  >
+                    {s.label}
+                  </Link>
+                ))}
+              </>
+            )}
+          </>
+        )}
+      </nav>
+      <div className="shrink-0 border-t border-zinc-200 px-1 py-2 dark:border-zinc-700">
+        <ThemeToggle />
       </div>
-    </header>
+    </aside>
   );
 }

@@ -36,13 +36,21 @@ function ShopPageInner() {
 
   const view = useMemo(() => state ?? data ?? null, [state, data]);
 
-  async function onInspect(itemId: string, itemName: string) {
+  const isShips = view?.catalogMode === "ships";
+  const catalog = isShips ? view?.ships ?? [] : view?.items ?? [];
+
+  async function onInspect(id: string, name: string) {
     try {
       setActionError(null);
-      setBusyKey(itemId);
+      setBusyKey(id);
       setBusyAction("inspect");
 
-      const res = await inspectItem({ room, itemId, name: itemName });
+      const res = await inspectItem({
+        room,
+        itemId: id,
+        shipId: id,
+        name,
+      });
       if (res.state) {
         setState(res.state);
       }
@@ -59,13 +67,18 @@ function ShopPageInner() {
     }
   }
 
-  async function onBuy(itemId: string, itemName: string) {
+  async function onBuy(id: string, name: string) {
     try {
       setActionError(null);
-      setBusyKey(itemId);
+      setBusyKey(id);
       setBusyAction("buy");
 
-      const res = await buyItem({ room, itemId, name: itemName });
+      const res = await buyItem({
+        room,
+        itemId: id,
+        shipId: id,
+        name,
+      });
       if (res.state) {
         setState(res.state);
       }
@@ -84,82 +97,95 @@ function ShopPageInner() {
 
   if (loading) {
     return (
-      <main className="mx-auto flex w-full max-w-6xl flex-1 px-6 py-10">
-        <p className="text-zinc-600">Loading shop state...</p>
+      <main className="main-content">
+        <p className="text-sm text-zinc-500">Loading shop state…</p>
       </main>
     );
   }
 
   if (error || !view) {
     return (
-      <main className="mx-auto flex w-full max-w-6xl flex-1 px-6 py-10">
-        <p className="text-red-600">Failed to load shop state: {error ?? "Unknown error"}</p>
+      <main className="main-content">
+        <p className="text-sm text-red-600">Failed to load shop state: {error ?? "Unknown error"}</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-10">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-zinc-950">{view.shopName}</h1>
-          <p className="mt-2 text-zinc-600">{view.roomName}</p>
+    <main className="main-content">
+      <header className="flex items-center justify-between border-b border-zinc-200 py-3 dark:border-zinc-700">
+        <div className="px-2">
+          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{view.shopName}</h1>
+          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{view.roomName}</p>
         </div>
         <Link
           href={`/play?room=${encodeURIComponent(view.roomName)}`}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+          className="rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           Back to Play
         </Link>
       </header>
 
       {actionError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="mx-2 mt-2 rounded border border-red-200/60 bg-red-50/80 px-2 py-1.5 text-[12px] text-red-700">
           {actionError}
         </p>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <StoryPanel title="Shop Output" lines={view.storyLines} />
+      <div className="grid gap-2 px-2 py-2 lg:grid-cols-[1.2fr_1fr]">
+        <StoryPanel
+          title={isShips ? "Shipyard Output" : "Shop Output"}
+          lines={view.storyLines}
+        />
 
-        <section className="rounded-xl border border-zinc-200 bg-white p-4">
-          <h2 className="mb-3 text-lg font-semibold text-zinc-900">Items for Sale</h2>
-          <div className="space-y-4">
-            {view.items.map((item) => {
-              const rowBusy = busyKey === item.id;
+        <section className="border-b border-zinc-100 px-2 py-2 dark:border-zinc-800">
+          <h2 className="section-label">
+            {isShips ? "Ships for Sale" : "Items for Sale"}
+          </h2>
+          <ul className="mt-1 space-y-1">
+            {catalog.map((entry) => {
+              const rowBusy = busyKey === entry.id;
               return (
-                <article key={item.id} className="rounded-lg border border-zinc-200 p-4">
-                  <h3 className="text-base font-semibold text-zinc-950">{item.key}</h3>
-                  <p className="mt-2 text-sm text-zinc-600">{item.description}</p>
-                  <p className="mt-3 text-sm text-zinc-800">{item.summary}</p>
-                  <p className="mt-3 text-sm font-medium text-zinc-950">
-                    Price: {item.price?.toLocaleString() ?? "N/A"} cr
-                  </p>
-                  <div className="mt-4 flex gap-2">
+                <li
+                  key={entry.id}
+                  className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-zinc-800"
+                >
+                  <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{entry.key}</span>
+                  <span className="ml-2 text-[12px] text-zinc-500 dark:text-zinc-400">
+                    {entry.price != null ? `${entry.price.toLocaleString()} cr` : "N/A"}
+                  </span>
+                  {entry.description ? (
+                    <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{entry.description}</p>
+                  ) : null}
+                  {entry.summary ? (
+                    <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-zinc-500">{entry.summary}</p>
+                  ) : null}
+                  <div className="mt-1 flex gap-1.5">
                     <button
                       type="button"
-                      className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-800 disabled:text-zinc-500"
+                      className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-700 disabled:text-zinc-400 dark:border-zinc-600 dark:text-zinc-300 dark:disabled:text-zinc-500"
                       disabled={rowBusy}
-                      onClick={() => onInspect(item.id, item.key)}
+                      onClick={() => onInspect(entry.id, entry.key)}
                     >
-                      {rowBusy && busyAction === "inspect" ? "Inspecting..." : "Inspect"}
+                      {rowBusy && busyAction === "inspect" ? "…" : "Inspect"}
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white disabled:opacity-60"
+                      className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-800 hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:bg-zinc-700"
                       disabled={rowBusy}
-                      onClick={() => onBuy(item.id, item.key)}
+                      onClick={() => onBuy(entry.id, entry.key)}
                     >
-                      {rowBusy && busyAction === "buy" ? "Buying..." : "Buy"}
+                      {rowBusy && busyAction === "buy" ? "…" : "Buy"}
                     </button>
                   </div>
-                </article>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </section>
       </div>
 
+      <hr className="section-divider" aria-hidden />
       <ExitGrid exits={view.exits} />
     </main>
   );
@@ -169,8 +195,8 @@ export default function ShopPage() {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto flex w-full max-w-6xl flex-1 px-6 py-10">
-          <p className="text-zinc-600">Loading shop state...</p>
+        <main className="main-content">
+          <p className="text-sm text-zinc-500">Loading shop state…</p>
         </main>
       }
     >
