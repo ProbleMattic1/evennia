@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import Link from "next/link";
 
+import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
 import { ExitGrid } from "@/components/exit-grid";
 import { StoryPanel } from "@/components/story-panel";
 import { getProcessingState } from "@/lib/ui-api";
@@ -102,7 +103,7 @@ function MinerSection({ data }: { data: ProcessingState }) {
           </p>
           <div className="mt-1 space-y-0.5">
             {myHaulers.map((h) => (
-              <div key={h.key} className="flex items-center justify-between gap-2">
+              <div key={h.id} className="flex items-center justify-between gap-2">
                 <span className="truncate text-[12px] text-zinc-600 dark:text-zinc-300">{h.key}</span>
                 <span
                   className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
@@ -163,6 +164,10 @@ export default function ProcessingPage() {
         </Link>
       </header>
 
+      <div className="px-2 py-2">
+        <CommodityTickerStrip />
+      </div>
+
       <div className="grid gap-2 px-2 py-2 lg:grid-cols-[1.5fr_1fr]">
         <StoryPanel title="Plant Output" lines={data.storyLines} />
 
@@ -199,6 +204,10 @@ export default function ProcessingPage() {
 
           <ExitGrid exits={data.exits} />
         </div>
+      </div>
+
+      <div className="px-2 pb-4 pt-2">
+        <CommodityTickerTable />
       </div>
     </main>
   );

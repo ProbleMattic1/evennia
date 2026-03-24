@@ -20,6 +20,14 @@ const ABILITY_COLORS: Record<string, string> = {
   cha: "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300",
 };
 
+/** Strip bracketed segments containing "Unknown" from ship summary (e.g. [Unknown / Unknown]). */
+function formatShipSummary(summary: string): string {
+  return summary
+    .replace(/\s*\[[^\]]*Unknown[^\]]*\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function resourceNameByKey(resources: ResourceEntry[]): Record<string, string> {
   return Object.fromEntries(resources.map((r) => [r.key, r.name]));
 }
@@ -383,7 +391,14 @@ export default function Home() {
                     }`}
                   >
                     <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{ship.key}</span>
-                    <span className="ml-2 text-[12px] text-zinc-500 dark:text-cyan-500/80">{ship.summary}</span>
+                    {(() => {
+                      const formatted = formatShipSummary(ship.summary);
+                      return formatted && formatted !== ship.key ? (
+                        <span className="ml-2 text-[12px] text-zinc-500 dark:text-cyan-500/80">
+                          {formatted}
+                        </span>
+                      ) : null;
+                    })()}
                     <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-cyan-500/70">
                       {ship.location ?? "—"} · {ship.state ?? "—"} · {ship.pilot ?? "—"}
                     </p>

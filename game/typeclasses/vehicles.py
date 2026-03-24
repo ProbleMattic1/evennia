@@ -75,9 +75,18 @@ class Vehicle(DefaultObject):
         specs = self.db.specs or {}
         economy = self.db.economy or {}
         combat = self.db.combat or {}
-        return (
+        is_autonomous = (
+            hasattr(self, "tags")
+            and self.tags.has("autonomous_hauler", category="mining")
+        )
+        base = (
             f"{self.key} "
-            f"[{specs.get('domain', specs.get('domain_slug', 'Unknown'))} / {specs.get('vehicle_type', specs.get('vehicle_type_slug', 'Unknown'))}] | "
+            f"[{specs.get('domain', specs.get('domain_slug', 'Unknown'))} / {specs.get('vehicle_type', specs.get('vehicle_type_slug', 'Unknown'))}]"
+        )
+        if is_autonomous:
+            return base
+        return (
+            f"{base} | "
             f"crew {specs.get('crew_min', '?')}-{specs.get('crew_std', '?')} | "
             f"hp {combat.get('hp', '?')} | "
             f"price {economy.get('total_price_cr', economy.get('base_price_cr', '?'))} cr"

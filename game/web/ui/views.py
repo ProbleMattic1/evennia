@@ -504,6 +504,7 @@ def processing_state(request):
                 h = entry if hasattr(entry, "key") else None
                 if h and h.tags.has("autonomous_hauler", category="mining"):
                     haulers.append({
+                        "id": h.id,
                         "key": h.key,
                         "deliveryMode": h.db.hauler_delivery_mode or "sell",
                     })
@@ -656,6 +657,9 @@ def dashboard_state(request):
         if pilot is not None:
             pilot_key = getattr(pilot, "key", str(pilot))
         summary = obj.get_vehicle_summary() if hasattr(obj, "get_vehicle_summary") else obj.key
+        is_autonomous = (
+            hasattr(obj, "tags") and obj.tags.has("autonomous_hauler", category="mining")
+        )
         ships.append(
             {
                 "id": obj.id,
@@ -664,6 +668,7 @@ def dashboard_state(request):
                 "pilot": pilot_key,
                 "state": getattr(obj.db, "state", None),
                 "summary": summary,
+                "is_autonomous": is_autonomous,
             }
         )
 

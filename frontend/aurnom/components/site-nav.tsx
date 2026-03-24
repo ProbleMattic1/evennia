@@ -131,7 +131,7 @@ export function SiteNav() {
 
         {error ? (
           <span className="px-2 py-1 text-[10px] text-red-600 dark:text-red-400">
-            Places unavailable
+            Shops unavailable
           </span>
         ) : loading || !data ? (
           <span className="px-2 py-1 text-[10px] text-zinc-400 dark:text-cyan-500/70">Loading…</span>
@@ -140,7 +140,7 @@ export function SiteNav() {
             {data.exits.length > 0 && (
               <>
                 <NavSection
-                  title="Places"
+                  title="Shops"
                   open={sections.places}
                   onToggle={() => setSection("places", !sections.places)}
                 >
@@ -199,7 +199,7 @@ export function SiteNav() {
               <>
                 <NavDivider />
                 <NavSection
-                  title="Kiosks"
+                  title="Services"
                   open={sections.kiosks}
                   onToggle={() => setSection("kiosks", !sections.kiosks)}
                 >
@@ -216,7 +216,7 @@ export function SiteNav() {
               <>
                 <NavDivider />
                 <NavSection
-                  title="Shops"
+                  title="Kiosks"
                   open={sections.shops}
                   onToggle={() => setSection("shops", !sections.shops)}
                 >
