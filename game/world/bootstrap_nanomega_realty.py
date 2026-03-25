@@ -21,7 +21,7 @@ from typeclasses.characters import (
     NANOMEGA_REALTY_ABILITY_BASES,
 )
 
-NANOMEGA_REALTY_CREDITS = 1_000_000_000_000
+NANOMEGA_REALTY_CREDITS = 0
 
 
 def _reset_credits_requested():

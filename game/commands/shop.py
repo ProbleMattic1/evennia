@@ -152,12 +152,27 @@ class CmdBuy(Command):
             return
 
         if getattr(template.db, "grants_random_claim_only", False):
-            vendor_amount, tax_amount = vendor.record_sale(
-                caller,
-                price,
-                tx_type="catalog_purchase",
-                memo=f"{caller.key} bought {template.key} from {vendor.key}",
-            )
+            from typeclasses.claim_market import collect_primary_deed_sale, get_primary_deed_broker
+
+            broker = get_primary_deed_broker()
+            if broker:
+                vendor_amount, tax_amount = collect_primary_deed_sale(
+                    caller,
+                    price,
+                    broker,
+                    tx_type="catalog_purchase",
+                    memo=f"{caller.key} bought {template.key} from {vendor.key}",
+                    withdraw_memo=f"Purchase at {vendor.key}",
+                )
+                revenue_to = "broker"
+            else:
+                vendor_amount, tax_amount = vendor.record_sale(
+                    caller,
+                    price,
+                    tx_type="catalog_purchase",
+                    memo=f"{caller.key} bought {template.key} from {vendor.key}",
+                )
+                revenue_to = "vendor"
             msg = (
                 f"You purchase |w{template.key}|n for |y{price:,}|n cr. "
                 f"Remaining balance: |y{caller.db.credits:,}|n cr."
@@ -171,7 +186,9 @@ class CmdBuy(Command):
                 else:
                     msg += f"\nYou received a random claim: |w{claim.key}|n."
             if tax_amount > 0:
-                msg += f" (|y{vendor_amount:,}|n cr to vendor, |y{tax_amount:,}|n cr tax)"
+                msg += (
+                    f" (|y{vendor_amount:,}|n cr to {revenue_to}, |y{tax_amount:,}|n cr tax)"
+                )
             caller.msg(msg)
             return
 

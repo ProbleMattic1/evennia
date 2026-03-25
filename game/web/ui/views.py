@@ -191,6 +191,10 @@ def _room_actions(room):
         obj.is_typeclass("typeclasses.bank.CentralBank", exact=False)
         for obj in room.contents
     )
+    has_realty_office = any(
+        obj.tags.has("property_lot", category="realty")
+        for obj in room.contents
+    )
 
     if has_shipyard:
         actions.append(
@@ -216,6 +220,15 @@ def _room_actions(room):
                 "key": "open_bank",
                 "label": "Open Bank",
                 "href": "/bank",
+            }
+        )
+
+    if has_realty_office:
+        actions.append(
+            {
+                "key": "open_real_estate",
+                "label": "Real Estate Office",
+                "href": "/real-estate",
             }
         )
 
@@ -511,6 +524,66 @@ def claim_detail_state(request):
 
 
 @require_GET
+def property_claim_detail_state(request):
+    """
+    Property claim (deed) detail. Query: claimId=int
+
+    Owner-only for now. When player property resale exists, allow listed deeds
+    to be readable without ownership (mirror claim_detail_state + escrow).
+    """
+    from evennia import search_object
+
+    from typeclasses.property_claim_market import serialize_property_lot_detail
+    from typeclasses.property_claims import get_property_claim_kind
+
+    raw = request.GET.get("claimId")
+    try:
+        cid = int(raw)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid claimId."}, status=400)
+
+    found = search_object("#" + str(cid))
+    claim = found[0] if found else None
+    if not claim or not claim.tags.has("property_claim", category="realty"):
+        return JsonResponse({"ok": False, "message": "Property claim not found."}, status=404)
+
+    char = None
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
+
+    is_owner = bool(char and claim.location == char)
+    if not is_owner:
+        return JsonResponse({"ok": False, "message": "Not allowed."}, status=403)
+
+    kind = get_property_claim_kind(claim)
+    lot = getattr(claim.db, "lot_ref", None)
+    lot_payload = serialize_property_lot_detail(lot) if lot else None
+
+    preview = None
+    if char:
+        preview = _dashboard_inventory_item_for_obj(char, claim)
+
+    desc = getattr(claim.db, "desc", None) or ""
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "claim": {
+                "id": claim.id,
+                "key": claim.key,
+                "description": desc,
+                "lotKey": getattr(claim.db, "lot_key", None) or "",
+                "lotTier": int(getattr(claim.db, "lot_tier", None) or 1),
+                "kind": kind,
+            },
+            "lot": lot_payload,
+            "inventoryPreview": preview,
+            "isOwner": is_owner,
+        }
+    )
+
+
+@require_GET
 def play_state(request):
     room_key = request.GET.get("room") or DEFAULT_PLAY_ROOM
     room = _first_object(room_key)
@@ -536,6 +609,7 @@ NAV_KIOSKS = {
     "bank": {"label": "Bank", "href": "/bank"},
     "claims market": {"label": "Claims Market", "href": "/claims-market"},
     "processing plant": {"label": "Processing Pl.", "href": "/processing"},
+    "real estate": {"label": "Real Estate", "href": "/real-estate"},
 }
 
 SHIPYARD_SHOP_ENTRY = {"roomKey": SHIPYARD_ROOM_KEY, "label": "Shipyard"}
@@ -585,6 +659,7 @@ def nav_state(request):
     shops.append(SHIPYARD_SHOP_ENTRY)
 
     claims_nav = [{"label": "Claims Market", "href": "/claims-market"}]
+    properties_nav = []
     if char:
         for obj in char.contents:
             if getattr(obj, "destination", None):
@@ -593,6 +668,8 @@ def nav_state(request):
                 continue
             if obj.tags.has("mining_claim", category="mining"):
                 claims_nav.append({"label": obj.key, "href": f"/claims/{obj.id}"})
+            if obj.tags.has("property_claim", category="realty"):
+                properties_nav.append({"label": obj.key, "href": f"/properties/{obj.id}"})
 
     return JsonResponse(
         {
@@ -600,6 +677,7 @@ def nav_state(request):
             "exits": exits,
             "mines": mines,
             "claims": claims_nav,
+            "properties": properties_nav,
             "shops": shops,
             "kiosks": kiosks,
         }
@@ -718,6 +796,84 @@ def bank_state(request):
             payload["transactionLog"] = tx_log
 
     return JsonResponse(payload)
+
+
+@require_GET
+def real_estate_state(request):
+    """
+    Real Estate Office state: broker copy and listable property lots.
+    Public — no auth required for the listing.
+    """
+    from evennia import search_script
+
+    from typeclasses.property_claim_market import get_listable_lots, serialize_lot_row
+    from typeclasses.characters import NANOMEGA_REALTY_CHARACTER_KEY
+
+    broker      = _first_object(NANOMEGA_REALTY_CHARACTER_KEY)
+    broker_name = broker.key if broker else "NanoMegaPlex Real Estate"
+
+    lot_rows = [serialize_lot_row(lot) for lot in get_listable_lots()]
+
+    story_lines = [
+        {"id": "re-title", "text": broker_name, "kind": "title"},
+        {
+            "id":   "re-desc",
+            "text": (
+                "Welcome to NanoMegaPlex Real Estate. "
+                "The exchange periodically lists new parcels when inventory runs low. "
+                "Purchase a deed here; owned properties appear under Properties in the nav."
+            ),
+            "kind": "room",
+        },
+    ]
+
+    disc = search_script("property_lot_discovery_engine")
+    next_property_discovery_at = None
+    if disc:
+        eta = disc[0].db.next_discovery_at
+        if eta is not None:
+            next_property_discovery_at = eta.isoformat()
+
+    return JsonResponse({
+        "brokerName": broker_name,
+        "storyLines": story_lines,
+        "lots": lot_rows,
+        "nextPropertyDiscoveryAt": next_property_discovery_at,
+    })
+
+
+@csrf_exempt
+@require_POST
+def real_estate_purchase(request):
+    """
+    Buy a property deed for an unclaimed lot.
+    Body: { "lotKey": "<PropertyLot.key>" }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body    = _json_body(request)
+    lot_key = body.get("lotKey")
+    if not lot_key:
+        return JsonResponse({"ok": False, "message": "Missing lotKey."}, status=400)
+
+    from typeclasses.property_claim_market import purchase_property_deed
+
+    success, msg, claim = purchase_property_deed(buyer, lot_key)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash      = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+
+    return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
 
 
 @require_GET
@@ -865,6 +1021,42 @@ def _dashboard_inventory_item_for_obj(char, obj):
     return inv_entry
 
 
+def _dashboard_property_portfolio(char):
+    """
+    Property deeds carried by the character.  Reference values use the same
+    sovereign list-price formula as the realty office when db.lot_ref resolves.
+    """
+    from typeclasses.property_claim_market import lot_listing_price
+    from typeclasses.property_claims import get_property_claim_kind
+
+    rows = []
+    ref_total = 0
+    for obj in char.contents:
+        if getattr(obj, "destination", None):
+            continue
+        if getattr(obj.db, "is_template", False):
+            continue
+        if not obj.tags.has("property_claim", category="realty"):
+            continue
+        lot = getattr(obj.db, "lot_ref", None)
+        ref_cr = None
+        if lot is not None and lot.tags.has("property_lot", category="realty"):
+            ref_cr = int(lot_listing_price(lot))
+            ref_total += ref_cr
+        rows.append(
+            {
+                "claimId": obj.id,
+                "claimKey": obj.key,
+                "lotKey": obj.db.lot_key or "",
+                "tier": int(obj.db.lot_tier or 1),
+                "zone": get_property_claim_kind(obj),
+                "referenceListPriceCr": ref_cr,
+            }
+        )
+    rows.sort(key=lambda r: r["claimKey"])
+    return rows, int(ref_total)
+
+
 @require_GET
 def dashboard_state(request):
     """
@@ -895,6 +1087,8 @@ def dashboard_state(request):
                 "inventory": [],
                 "ships": [],
                 "mines": [],
+                "properties": [],
+                "propertyReferenceListValueTotalCr": 0,
                 "miningEstimatedValuePerCycle": 0,
                 "miningTotalStoredValue": 0,
                 "message": None,
@@ -924,6 +1118,8 @@ def dashboard_state(request):
                 "inventory": [],
                 "ships": [],
                 "mines": [],
+                "properties": [],
+                "propertyReferenceListValueTotalCr": 0,
                 "miningEstimatedValuePerCycle": 0,
                 "miningTotalStoredValue": 0,
                 "message": msg,
@@ -1109,6 +1305,8 @@ def dashboard_state(request):
             "hazardLevel": float(site.db.hazard_level),
         })
 
+    properties, property_ref_total_cr = _dashboard_property_portfolio(char)
+
     room_key = char.location.key if char.location else None
     rpg = char.get_rpg_dashboard_snapshot()
 
@@ -1121,6 +1319,8 @@ def dashboard_state(request):
             "inventory": inventory,
             "ships": ships,
             "mines": mines,
+            "properties": properties,
+            "propertyReferenceListValueTotalCr": property_ref_total_cr,
             "miningEstimatedValuePerCycle": int(round(mining_value_per_cycle)),
             "miningTotalStoredValue": int(round(mining_total_stored)),
             "message": None,
@@ -1598,12 +1798,25 @@ def shop_buy(request):
         )
 
     if getattr(template.db, "grants_random_claim_only", False):
-        vendor_amount, tax_amount = vendor.record_sale(
-            buyer,
-            price,
-            tx_type="catalog_purchase",
-            memo=f"{buyer.key} bought {template.key} from {vendor.key}",
-        )
+        from typeclasses.claim_market import collect_primary_deed_sale, get_primary_deed_broker
+
+        broker = get_primary_deed_broker()
+        if broker:
+            vendor_amount, tax_amount = collect_primary_deed_sale(
+                buyer,
+                price,
+                broker,
+                tx_type="catalog_purchase",
+                memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+                withdraw_memo=f"Purchase at {vendor.key}",
+            )
+        else:
+            vendor_amount, tax_amount = vendor.record_sale(
+                buyer,
+                price,
+                tx_type="catalog_purchase",
+                memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+            )
         message = (
             f"Purchased {template.key} for {price:,} cr. "
             f"Remaining balance: {buyer.db.credits:,} cr."

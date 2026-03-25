@@ -15,12 +15,32 @@ const EVENNIA_ORIGIN = process.env.NEXT_PUBLIC_EVENNIA_ORIGIN ?? "";
 const ABILITY_ORDER = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
 const ABILITY_COLORS: Record<string, string> = {
-  str: "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300",
-  dex: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
-  con: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
-  int: "bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300",
-  wis: "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300",
-  cha: "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300",
+  str: "bg-red-100 text-red-800 ring-red-200/70 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-800/40",
+  dex: "bg-amber-100 text-amber-800 ring-amber-200/70 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-800/40",
+  con: "bg-emerald-100 text-emerald-800 ring-emerald-200/70 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800/40",
+  int: "bg-sky-100 text-sky-800 ring-sky-200/70 dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-800/40",
+  wis: "bg-violet-100 text-violet-800 ring-violet-200/70 dark:bg-violet-950/50 dark:text-violet-300 dark:ring-violet-800/40",
+  cha: "bg-rose-100 text-rose-800 ring-rose-200/70 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800/40",
+};
+
+function formatAbilityModifier(mod: number): string {
+  return mod >= 0 ? `+${mod}` : `${mod}`;
+}
+
+/** Shared layout + type scale for header stat tiles (economy, combat, abilities). */
+const DASH_STAT_TILE = "shrink-0 rounded-lg px-2 py-1 ring-1";
+const DASH_STAT_DT = "text-[10px] font-medium uppercase tracking-wide leading-tight";
+const DASH_STAT_DD =
+  "mt-0.5 font-mono text-xs tabular-nums leading-tight text-zinc-800 dark:text-zinc-200";
+const DASH_STAT_DD_HP =
+  "mt-0.5 font-mono text-xs tabular-nums leading-tight text-emerald-800 dark:text-emerald-300";
+const DASH_STAT_CR = "text-amber-600 dark:text-amber-400";
+const DASH_STAT_DD_MOD = "text-zinc-600 dark:text-zinc-400";
+
+const PROPERTY_ZONE_LABEL: Record<string, string> = {
+  residential: "Residential",
+  commercial: "Commercial",
+  industrial: "Industrial",
 };
 
 /** Strip bracketed segments containing "Unknown" from ship summary (e.g. [Unknown / Unknown]). */
@@ -197,54 +217,71 @@ export default function Home() {
             <UtcDailyClock />
           </div>
         </div>
-        {data.character && data.credits !== null ? (
-          <dl className="mt-2 flex flex-wrap gap-2 border-t border-zinc-200 px-2 pt-2 dark:border-cyan-900/50">
-            <div className="rounded-lg px-2 py-1 ring-1 ring-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:ring-amber-700/30">
-              <dt className="text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                Credits
-              </dt>
-              <dd className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
-                {data.credits.toLocaleString()}{" "}
-                <span className="text-amber-600 dark:text-amber-400">cr</span>
-              </dd>
-            </div>
+        {data.character ? (
+          <dl className="mt-2 flex flex-wrap items-stretch gap-x-1.5 gap-y-1.5 border-t border-zinc-200 px-2 pt-2 dark:border-cyan-900/50">
+            {data.credits !== null ? (
+              <div
+                className={`${DASH_STAT_TILE} ring-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:ring-amber-700/30`}
+              >
+                <dt className={`${DASH_STAT_DT} text-amber-700 dark:text-amber-400`}>Credits</dt>
+                <dd className={DASH_STAT_DD}>
+                  {data.credits.toLocaleString()} <span className={DASH_STAT_CR}>cr</span>
+                </dd>
+              </div>
+            ) : null}
             {(data.miningEstimatedValuePerCycle ?? 0) > 0 ||
-            (data.miningTotalStoredValue ?? 0) > 0 ? (
+            (data.miningTotalStoredValue ?? 0) > 0 ||
+            (data.properties?.length ?? 0) > 0 ? (
               <>
-                <div className="rounded-lg px-2 py-1 ring-1 ring-teal-200 bg-teal-50 dark:bg-teal-950/30 dark:ring-teal-700/30">
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-teal-700 dark:text-teal-400">
-                    Est. value / cycle
+                <div
+                  className={`${DASH_STAT_TILE} ring-teal-200 bg-teal-50 dark:bg-teal-950/30 dark:ring-teal-700/30`}
+                >
+                  <dt className={`${DASH_STAT_DT} text-teal-700 dark:text-teal-400`}>
+                    Est Cr/cycle
                   </dt>
-                  <dd className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
+                  <dd className={DASH_STAT_DD}>
                     {(data.miningEstimatedValuePerCycle ?? 0).toLocaleString()}{" "}
-                    <span className="text-amber-600 dark:text-amber-400">cr</span>
+                    <span className={DASH_STAT_CR}>cr</span>
                   </dd>
                 </div>
-                <div className="rounded-lg px-2 py-1 ring-1 ring-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:ring-emerald-700/30">
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-                    Stored value
+                <div
+                  className={`${DASH_STAT_TILE} ring-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:ring-emerald-700/30`}
+                >
+                  <dt className={`${DASH_STAT_DT} text-emerald-700 dark:text-emerald-400`}>
+                    Res Val
                   </dt>
-                  <dd className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
+                  <dd className={DASH_STAT_DD}>
                     {(data.miningTotalStoredValue ?? 0).toLocaleString()}{" "}
-                    <span className="text-amber-600 dark:text-amber-400">cr</span>
+                    <span className={DASH_STAT_CR}>cr</span>
                   </dd>
                 </div>
+                {(data.properties?.length ?? 0) > 0 && (data.propertyReferenceListValueTotalCr ?? 0) > 0 ? (
+                  <div
+                    className={`${DASH_STAT_TILE} ring-fuchsia-200 bg-fuchsia-50 dark:bg-fuchsia-950/30 dark:ring-fuchsia-700/30`}
+                  >
+                    <dt className={`${DASH_STAT_DT} text-fuchsia-700 dark:text-fuchsia-400`}>
+                      Tot Prop Val
+                    </dt>
+                    <dd className={DASH_STAT_DD}>
+                      {(data.propertyReferenceListValueTotalCr ?? 0).toLocaleString()}{" "}
+                      <span className={DASH_STAT_CR}>cr</span>
+                    </dd>
+                  </div>
+                ) : null}
               </>
             ) : null}
-            <div className="rounded-lg px-2 py-1 ring-1 ring-sky-200 bg-sky-50 dark:bg-sky-950/30 dark:ring-sky-700/30">
-              <dt className="text-[10px] font-medium uppercase tracking-wide text-sky-700 dark:text-sky-400">
-                Armor class
-              </dt>
-              <dd className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
-                {data.character.armorClass}
-              </dd>
+            <div
+              className={`${DASH_STAT_TILE} ring-sky-200 bg-sky-50 dark:bg-sky-950/30 dark:ring-sky-700/30`}
+            >
+              <dt className={`${DASH_STAT_DT} text-sky-700 dark:text-sky-400`}>Armor</dt>
+              <dd className={DASH_STAT_DD}>{data.character.armorClass}</dd>
             </div>
             {data.character.vitals.hp ? (
-              <div className="rounded-lg px-2 py-1 ring-1 ring-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:ring-emerald-700/30">
-                <dt className="text-[10px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-                  {data.character.vitals.hp.name}
-                </dt>
-                <dd className="font-mono text-sm tabular-nums text-emerald-800 dark:text-emerald-300">
+              <div
+                className={`${DASH_STAT_TILE} ring-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:ring-emerald-700/30`}
+              >
+                <dt className={`${DASH_STAT_DT} text-emerald-700 dark:text-emerald-400`}>HP</dt>
+                <dd className={DASH_STAT_DD_HP}>
                   {data.character.vitals.hp.current}
                   {data.character.vitals.hp.max != null ? (
                     <> / {data.character.vitals.hp.max}</>
@@ -252,34 +289,32 @@ export default function Home() {
                 </dd>
               </div>
             ) : null}
-          </dl>
-        ) : null}
-        {data.character ? (
-          <div className="mx-2 mt-2 rounded-lg border border-teal-200/60 bg-teal-50/50 px-3 py-2 dark:border-teal-800/40 dark:bg-teal-950/20">
-            <p className="mb-1.5 section-label">Ability scores</p>
-            <div className="flex flex-wrap gap-2">
-              {ABILITY_ORDER.map((key) => {
-                const row = data.character!.abilities[key];
-                if (!row) return null;
-                const label = key.toUpperCase();
-                return (
-                  <span
-                    key={key}
-                    className={`inline-flex items-baseline gap-1.5 rounded px-1.5 py-0.5 text-[12px] font-mono ${
-                      ABILITY_COLORS[key] ?? "bg-zinc-100 dark:bg-zinc-800"
-                    }`}
-                  >
-                    <span className="font-semibold">{label}</span>
-                    <span className="tabular-nums">{row.score}</span>
-                    <span className="text-zinc-500 dark:text-zinc-400">
-                      (Mod {row.abilityMod >= 0 ? "+" : ""}
-                      {row.abilityMod})
+            {ABILITY_ORDER.map((key) => {
+              const row = data.character.abilities[key];
+              if (!row) return null;
+              const label = key.toUpperCase();
+              const mod = formatAbilityModifier(row.abilityMod);
+              return (
+                <div
+                  key={key}
+                  className={`${DASH_STAT_TILE} ${
+                    ABILITY_COLORS[key] ??
+                    "bg-zinc-100 text-zinc-800 ring-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-600/50"
+                  }`}
+                  aria-label={`${label} ${row.score}, modifier ${mod}`}
+                >
+                  <dt className={DASH_STAT_DT}>{label}</dt>
+                  <dd className={DASH_STAT_DD}>
+                    <span title={`${label} score`}>{row.score}</span>
+                    <span className={DASH_STAT_DD_MOD} title="Ability modifier">
+                      {" "}
+                      {mod}
                     </span>
-                  </span>
-                );
-              })}
-            </div>
-          </div>
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
         ) : null}
       </header>
 
@@ -724,6 +759,68 @@ export default function Home() {
                 </li>
               ))}
             </ul>
+              </div>
+            </details>
+          </section>
+        </>
+      ) : null}
+
+      {data.character && data.properties && data.properties.length > 0 ? (
+        <>
+          <SectionDivider />
+          <section className="mx-2 rounded-lg border border-rose-200/60 bg-rose-50/50 px-3 py-2 dark:border-rose-800/40 dark:bg-rose-950/20">
+            <details className="group">
+              <summary className="section-label flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+                <span>My Properties</span>
+                <svg
+                  className="size-3 shrink-0 transition-transform group-open:rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </summary>
+              <div className="mt-1">
+                <ul className="space-y-1">
+                  {data.properties.map((p, i) => (
+                    <li
+                      key={p.claimId}
+                      className={`rounded py-1.5 px-2 -mx-2 ${
+                        i % 2 === 0 ? "bg-rose-100/40 dark:bg-rose-950/30" : "bg-white/50 dark:bg-rose-900/10"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{p.claimKey}</span>
+                        <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                          Tier {p.tier}
+                        </span>
+                        <span className="rounded bg-violet-100 px-1.5 py-0.5 font-mono text-[11px] text-violet-800 dark:bg-violet-900/40 dark:text-violet-300">
+                          {PROPERTY_ZONE_LABEL[p.zone] ?? p.zone}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">
+                        {p.lotKey || "—"}
+                        {p.referenceListPriceCr != null ? (
+                          <>
+                            {" "}
+                            · ref.{" "}
+                            <span className="font-mono tabular-nums text-amber-700 dark:text-amber-400">
+                              {p.referenceListPriceCr.toLocaleString()} cr
+                            </span>
+                          </>
+                        ) : null}
+                      </p>
+                      <Link
+                        href={`/properties/${p.claimId}`}
+                        className="mt-1 inline-block text-[12px] text-zinc-600 underline hover:text-zinc-800 dark:text-cyan-400 dark:hover:text-cyan-300"
+                      >
+                        Deed details →
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </details>
           </section>

@@ -425,16 +425,31 @@ def purchase_site_claim_deed(buyer, site_key):
     if not ok:
         return False, err, None
 
+    broker = get_primary_deed_broker()
     vendor = _get_claims_vendor()
-    vendor_amount = tax_amount = None
-    if vendor:
-        vendor_amount, tax_amount = vendor.record_sale(
+    net_amount = tax_amount = None
+    payment_broker = None
+    payment_vendor = None
+
+    if broker:
+        net_amount, tax_amount = collect_primary_deed_sale(
+            buyer,
+            price,
+            broker,
+            tx_type="claim_deed_purchase",
+            memo=f"{buyer.key} purchased claim deed for {site.key}",
+            withdraw_memo="Claim deed purchase",
+        )
+        payment_broker = broker
+    elif vendor:
+        net_amount, tax_amount = vendor.record_sale(
             buyer,
             price,
             tx_type="claim_deed_purchase",
             memo=f"{buyer.key} purchased claim deed for {site.key}",
             withdraw_memo="Claim deed purchase",
         )
+        payment_vendor = vendor
     else:
         account = econ.get_character_account(buyer)
         econ.ensure_account(account, opening_balance=int(buyer.db.credits or 0))
@@ -446,22 +461,43 @@ def purchase_site_claim_deed(buyer, site_key):
 
     ok, err = _validate_site_purchasable(site, buyer)
     if not ok:
-        _refund_purchase(buyer, price, vendor, vendor_amount, tax_amount)
+        _refund_claim_deed_purchase(
+            buyer,
+            price,
+            net_amount=net_amount,
+            tax_amount=tax_amount,
+            broker=payment_broker,
+            vendor=payment_vendor,
+        )
         return False, err, None
 
     if getattr(site.db, "is_claimed", False):
-        _refund_purchase(buyer, price, vendor, vendor_amount, tax_amount)
+        _refund_claim_deed_purchase(
+            buyer,
+            price,
+            net_amount=net_amount,
+            tax_amount=tax_amount,
+            broker=payment_broker,
+            vendor=payment_vendor,
+        )
         return False, "That site is already claimed.", None
 
     existing = _existing_deed_for_site(site)
     if existing:
-        _refund_purchase(buyer, price, vendor, vendor_amount, tax_amount)
+        _refund_claim_deed_purchase(
+            buyer,
+            price,
+            net_amount=net_amount,
+            tax_amount=tax_amount,
+            broker=payment_broker,
+            vendor=payment_vendor,
+        )
         if getattr(existing.location, "id", None) == getattr(buyer, "id", None):
             return False, "You already hold a claim deed for this site.", None
         return False, "This site already has an outstanding claim deed.", None
 
     claim = create_claim_for_site(site, buyer, is_jackpot=False)
     msg = f"Purchased claim deed {claim.key} for {price:,} cr."
-    if vendor:
+    if broker or vendor:
         msg += f" Remaining balance: {econ.get_character_balance(buyer):,} cr."
     return True, msg, claim

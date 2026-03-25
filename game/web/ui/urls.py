@@ -9,6 +9,8 @@ urlpatterns = [
     path("dashboard", views.dashboard_state, name="ui-dashboard"),
     path("dashboard/ack-alert", views.dashboard_ack_alert, name="ui-dashboard-ack-alert"),
     path("bank", views.bank_state, name="ui-bank"),
+    path("real-estate", views.real_estate_state, name="ui-real-estate"),
+    path("real-estate/purchase", views.real_estate_purchase, name="ui-real-estate-purchase"),
     path("processing", views.processing_state, name="ui-processing"),
     path(
         "shipyard",
@@ -32,6 +34,7 @@ urlpatterns = [
         name="ui-claims-market-purchase-listed-claim",
     ),
     path("claim/detail", views.claim_detail_state, name="ui-claim-detail"),
+    path("property/detail", views.property_claim_detail_state, name="ui-property-detail"),
     path("resources", views.resources_state, name="ui-resources"),
     path("mine/claims", views.mine_claims, name="ui-mine-claims"),
     path("mine/deploy", views.mine_deploy, name="ui-mine-deploy"),

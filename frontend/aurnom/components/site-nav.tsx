@@ -74,7 +74,7 @@ function NavSection({
   );
 }
 
-const SECTION_KEYS = ["places", "mines", "claims", "bases", "kiosks", "shops"] as const;
+const SECTION_KEYS = ["places", "mines", "claims", "properties", "kiosks", "shops"] as const;
 
 const NAV_SECTIONS_SESSION_KEY = "aurnom-nav-sections";
 
@@ -83,7 +83,7 @@ function defaultSections() {
     places: false,
     mines: false,
     claims: false,
-    bases: false,
+    properties: false,
     kiosks: false,
     shops: false,
   };
@@ -361,16 +361,28 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
             ))}
           </NavSection>
 
-          <NavDivider />
-          <NavSection
-            title="Bases"
-            open={sections.bases}
-            onToggle={() => setSection("bases", !sections.bases)}
-          >
-            <span className="px-2 py-1 text-[10px] text-zinc-400 dark:text-cyan-500/70">
-              None yet
-            </span>
-          </NavSection>
+          {(data.properties ?? []).length > 0 && (
+            <>
+              <NavDivider />
+              <NavSection
+                title="Properties"
+                open={sections.properties}
+                onToggle={() => setSection("properties", !sections.properties)}
+              >
+                {(data.properties ?? []).map((b) => (
+                  <Link
+                    key={b.href}
+                    href={b.href}
+                    className={linkClass}
+                    title={b.label}
+                    onClick={afterNav}
+                  >
+                    {b.label}
+                  </Link>
+                ))}
+              </NavSection>
+            </>
+          )}
         </>
       )}
     </nav>

@@ -61,6 +61,20 @@ def at_server_start():
         else:
             print("[startup] WARNING: SiteDiscoveryEngine not found. Run bootstrap_mining.")
 
+        prop_disc = search_script("property_lot_discovery_engine")
+        if prop_disc:
+            ps = prop_disc[0]
+            eta = ps.db.next_discovery_at
+            threshold = timezone.now() - timedelta(seconds=int(ps.interval) * 2)
+            if eta is None or eta < threshold:
+                ps.db.next_discovery_at = timezone.now() + timedelta(seconds=int(ps.interval))
+                print("[startup] PropertyLotDiscoveryEngine ETA was stale — reset.")
+            if not ps.is_active:
+                ps.start()
+                print("[startup] PropertyLotDiscoveryEngine was stopped — restarted.")
+        else:
+            print("[startup] WARNING: PropertyLotDiscoveryEngine not found. Run bootstrap_realty_office.")
+
     except Exception:
         import traceback
 
@@ -95,6 +109,7 @@ def at_server_cold_start():
     from world.bootstrap_hub import bootstrap_hub
     from world.bootstrap_marcus_killstar import bootstrap_marcus_killstar
     from world.bootstrap_nanomega_realty import bootstrap_nanomega_realty
+    from world.bootstrap_realty_office import bootstrap_realty_office
     from world.bootstrap_mining import bootstrap_mining
     from world.bootstrap_mining_claim_sale import bootstrap_mining_claim_sale
     from world.bootstrap_mining_packages import bootstrap_mining_packages
@@ -112,6 +127,7 @@ def at_server_cold_start():
         "NanoMegaPlex Real Estate (account link; credits on create only)",
         bootstrap_nanomega_realty,
     )
+    _run("NanoMegaPlex Real Estate Office room and base lots", bootstrap_realty_office)
     _run("vehicle catalog CSV import", bootstrap_vehicle_catalog)
     _run("shipyard rooms + stock templates", bootstrap_shipyard)
     _run("general catalog shops (tech, mining, supply, toy)", bootstrap_shops)
