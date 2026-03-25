@@ -37,6 +37,7 @@ urlpatterns = [
     path("mine/deploy", views.mine_deploy, name="ui-mine-deploy"),
     path("mine/undeploy", views.mine_undeploy, name="ui-mine-undeploy"),
     path("mine/reactivate", views.mine_reactivate, name="ui-mine-reactivate"),
+    path("mine/repair-rig", views.mine_repair_rig, name="ui-mine-repair-rig"),
     path("package/list", views.package_list_for_sale, name="ui-package-list"),
     path("package/listings", views.package_listings_state, name="ui-package-listings"),
     path("package/buy", views.package_buy_listed, name="ui-package-buy"),

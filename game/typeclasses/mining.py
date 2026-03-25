@@ -79,6 +79,14 @@ HAZARD_GEO_OUTPUT_MAX  = 0.80
 LICENSE_COST = {1: 2000, 2: 8000}   # cr cost to register each level
 LICENSE_TAX_RATE_DEFAULT = 0.05     # 5 % extraction tax for licensed operations
 
+# Rig field repair — ledger vendor:rig-repair; RIG_REPAIR_TAX_RATE to treasury:alpha-prime (shop-style split)
+RIG_REPAIR_VENDOR_ID = "rig-repair"
+RIG_REPAIR_TAX_RATE = 0.03
+RIG_REPAIR_BASE_CR = 800
+RIG_REPAIR_PER_RATING_CR = 400
+RIG_REPAIR_WEAR_UNIT_CR = 25  # credits per wear percentage point
+RIG_REPAIR_MIN_TOTAL_CR = 350
+
 # Survey tiers — what each level reveals
 SURVEY_LEVELS = {
     0: "unsurveyed",
@@ -1175,3 +1183,143 @@ class MiningEngine(Script):
             logger.log_info(
                 f"[mining_engine] Tick complete — {processed} cycle(s), {errors} error(s)."
             )
+
+
+# ---------------------------------------------------------------------------
+# Rig repair (credits + ledger, parallel to shop sales tax split)
+# ---------------------------------------------------------------------------
+
+
+def rig_needs_service(rig):
+    """True if wear > 0 or rig is not operational."""
+    if not rig:
+        return False
+    wear = float(getattr(rig.db, "wear", 0) or 0)
+    if wear > 0:
+        return True
+    return not bool(getattr(rig.db, "is_operational", True))
+
+
+def compute_rig_repair_charge(rig):
+    """Total credits charged for one repair (before tax split)."""
+    wear_pct = int(round(float(getattr(rig.db, "wear", 0) or 0) * 100))
+    rating = float(getattr(rig.db, "rig_rating", 1.0) or 1.0)
+    total = (
+        RIG_REPAIR_BASE_CR
+        + int(rating * RIG_REPAIR_PER_RATING_CR)
+        + wear_pct * RIG_REPAIR_WEAR_UNIT_CR
+    )
+    return max(RIG_REPAIR_MIN_TOTAL_CR, int(total))
+
+
+def split_rig_repair_revenue(total_cr):
+    """Return (vendor_credits, tax_credits) for a total repair bill (same rounding as shops)."""
+    total_cr = int(total_cr)
+    tax = int(round(total_cr * RIG_REPAIR_TAX_RATE))
+    vendor = total_cr - tax
+    return vendor, tax
+
+
+def get_rig_for_repair(site, name_fragment=None):
+    """
+    Pick which rig to repair (same rules as CmdRepairRig).
+
+    Returns:
+        (rig, None) on success, or (None, error_message) with a player-facing string (no color codes).
+    """
+    installed = [r for r in (site.db.rigs or []) if r]
+    if not installed:
+        return None, f"{site.key} has no installed rigs to repair."
+
+    if name_fragment:
+        nf = str(name_fragment).strip().lower()
+        matches = [r for r in installed if nf in r.key.lower()]
+        if not matches:
+            return None, f"No installed rig matching '{name_fragment}' at {site.key}."
+        return matches[0], None
+
+    if len(installed) == 1:
+        return installed[0], None
+
+    broken = [r for r in installed if not r.db.is_operational]
+    if broken:
+        return broken[0], None
+    return max(installed, key=lambda r: float(getattr(r.db, "wear", 0) or 0)), None
+
+
+def pay_rig_repair(owner, rig, site=None):
+    """
+    Charge ``owner`` for one rig service: split vendor / treasury, then ``rig.repair()``.
+
+    Args:
+        owner: Character paying (must own ``site`` when ``site`` is used for rescheduling).
+        rig: MiningRig instance.
+        site: Optional MiningSite for rescheduling production after a breakdown fix.
+
+    Returns:
+        (ok, message, info) where ``info`` is a dict with totals on success, else None.
+    """
+    from typeclasses.economy import get_economy
+
+    if not rig_needs_service(rig):
+        return False, "That rig does not need repair.", None
+
+    total = compute_rig_repair_charge(rig)
+    vendor_amt, tax_amt = split_rig_repair_revenue(total)
+
+    econ = get_economy(create_missing=True)
+    player_acct = econ.get_character_account(owner)
+    vendor_acct = econ.get_vendor_account(RIG_REPAIR_VENDOR_ID)
+    treasury_acct = econ.get_treasury_account("alpha-prime")
+
+    econ.ensure_account(player_acct, opening_balance=int(owner.db.credits or 0))
+    econ.ensure_account(vendor_acct, opening_balance=0)
+    econ.ensure_account(treasury_acct, opening_balance=int(econ.db.tax_pool or 0))
+
+    balance = econ.get_balance(player_acct)
+    if balance < total:
+        return (
+            False,
+            f"Repair costs {total:,} cr. You have {balance:,} cr.",
+            None,
+        )
+
+    was_broken = not bool(getattr(rig.db, "is_operational", True))
+    old_wear_pct = int(round(float(getattr(rig.db, "wear", 0) or 0) * 100))
+
+    wmemo = f"Rig repair: {rig.key}"
+    econ.withdraw(player_acct, total, memo=wmemo)
+    econ.deposit(vendor_acct, vendor_amt, memo=f"Rig repair service: {rig.key}")
+    if tax_amt > 0:
+        econ.deposit(treasury_acct, tax_amt, memo=f"Rig repair tax (3%): {rig.key}")
+
+    econ.record_transaction(
+        tx_type="rig_repair",
+        amount=total,
+        from_account=player_acct,
+        to_account=vendor_acct,
+        memo=f"{owner.key} rig repair {rig.key}",
+        extra={
+            "tax_amount": tax_amt,
+            "treasury_account": treasury_acct,
+            "vendor_account": vendor_acct,
+            "rig_id": getattr(rig, "id", None),
+        },
+    )
+
+    owner.db.credits = econ.get_balance(player_acct)
+    econ.db.tax_pool = econ.get_balance(treasury_acct)
+
+    rig.repair()
+
+    if was_broken and site is not None:
+        if site.db.linked_storage and not site.db.next_cycle_at:
+            site.schedule_next_cycle()
+
+    return True, "", {
+        "total": total,
+        "vendor_amount": vendor_amt,
+        "tax_amount": tax_amt,
+        "was_broken": was_broken,
+        "old_wear_pct": old_wear_pct,
+    }

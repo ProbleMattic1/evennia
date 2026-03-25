@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { getMarketState } from "@/lib/ui-api";
 import type { MarketCommodity } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
@@ -78,10 +78,10 @@ export function CommodityTickerStrip() {
   return (
     <div className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-cyan-900/50 dark:bg-zinc-950/80">
       {/* Header row */}
-      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-1.5 dark:border-cyan-800/50 dark:bg-cyan-950/40">
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 dark:bg-cyan-400" />
-          <span className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
+      <div className="flex min-w-0 items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-1.5 dark:border-cyan-800/50 dark:bg-cyan-950/40">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500 dark:bg-cyan-400" />
+          <span className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
             Aurnom Commodity Exchange · Live Pricing
           </span>
         </div>
@@ -171,11 +171,7 @@ function SectionRow({ label, className }: { label: string; className: string }) 
 
 export function CommodityTickerTable() {
   const { data, loading, error, reload } = useMarket();
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  useEffect(() => {
-    if (data) setLastUpdated(new Date());
-  }, [data]);
+  const lastUpdated = useMemo(() => (data != null ? new Date() : null), [data]);
 
   const groups = data
     ? {
@@ -188,11 +184,11 @@ export function CommodityTickerTable() {
   return (
     <section className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-cyan-900/50 dark:bg-zinc-950/80">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-2 dark:border-cyan-800/50 dark:bg-cyan-950/40">
-        <h2 className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
+      <div className="flex min-w-0 flex-col gap-2 border-b border-zinc-200 bg-zinc-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between dark:border-cyan-800/50 dark:bg-cyan-950/40">
+        <h2 className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
           Market Rates — All Commodities
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {lastUpdated && (
             <span className="font-mono text-[12px] text-zinc-500 dark:text-zinc-600">
               SYNC {lastUpdated.toLocaleTimeString()}

@@ -126,14 +126,14 @@ function ShopPageInner() {
 
   return (
     <main className="main-content">
-      <header className="page-header flex items-center justify-between border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
-        <div className="px-2">
+      <header className="page-header flex flex-col gap-2 border-b border-zinc-200 py-3 pl-2 sm:flex-row sm:items-center sm:justify-between dark:border-cyan-900/50">
+        <div className="min-w-0 px-2">
           <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{view.shopName}</h1>
           <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">{view.roomName}</p>
         </div>
         <Link
           href={`/play?room=${encodeURIComponent(view.roomName)}`}
-          className="rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-300"
+          className="shrink-0 self-start rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 sm:self-auto dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-300"
         >
           Back to Play
         </Link>
@@ -151,7 +151,7 @@ function ShopPageInner() {
           <h2 className="section-label">
             {isShips ? "Ships for Sale" : "Items for Sale"}
           </h2>
-          <ul className="mt-1 grid grid-cols-2 gap-3">
+          <ul className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {catalog.map((entry) => {
               const rowBusy = busyKey === entry.id;
               const expanded = expandedIds.has(entry.id);

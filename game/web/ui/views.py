@@ -3,6 +3,7 @@ from collections import defaultdict
 from urllib.parse import quote
 
 from django.http import Http404, JsonResponse
+from django.test import RequestFactory
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from evennia import search_object
@@ -275,13 +276,17 @@ def _serialize_mining_site(site, char=None):
         hazard_label = "High"
 
     from typeclasses.mining import (
+        compute_rig_repair_charge,
         get_commodity_bid,
         MODE_OUTPUT_MODIFIERS,
         POWER_OUTPUT_MODIFIERS,
+        rig_needs_service,
+        split_rig_repair_revenue,
         WEAR_OUTPUT_PENALTY,
     )
 
     installed_rigs = [r for r in (site.db.rigs or []) if r]
+    owner_view = bool(char and site.db.is_claimed and site.db.owner == char)
     operational_rigs = [r for r in installed_rigs if r.db.is_operational]
     active_rig = min(operational_rigs, key=lambda r: r.db.wear) if operational_rigs else None
 
@@ -313,8 +318,9 @@ def _serialize_mining_site(site, char=None):
     families = ", ".join(sorted(raw_comp.keys())) if raw_comp else "unknown"
     owner_key = site.db.owner.key if site.db.owner else None
 
-    rigs_payload = [
-        {
+    rigs_payload = []
+    for r in installed_rigs:
+        entry = {
             "key": r.key,
             "rating": float(r.db.rig_rating),
             "wear": int(r.db.wear * 100),
@@ -325,8 +331,19 @@ def _serialize_mining_site(site, char=None):
             "purityCutoff": r.db.purity_cutoff,
             "maintenanceLevel": r.db.maintenance_level,
         }
-        for r in installed_rigs
-    ]
+        if owner_view:
+            entry["needsRepair"] = rig_needs_service(r)
+            if entry["needsRepair"]:
+                tot = compute_rig_repair_charge(r)
+                v, t = split_rig_repair_revenue(tot)
+                entry["repairTotalCr"] = tot
+                entry["repairTaxCr"] = t
+                entry["repairVendorCr"] = v
+            else:
+                entry["repairTotalCr"] = None
+                entry["repairTaxCr"] = None
+                entry["repairVendorCr"] = None
+        rigs_payload.append(entry)
 
     payload = {
         "id": site.id,
@@ -589,6 +606,19 @@ def nav_state(request):
     )
 
 
+def _json_safe_ledger_extra(extra):
+    """Strip ledger ``extra`` to JSON-serializable primitives."""
+    if not extra or not isinstance(extra, dict):
+        return {}
+    out = {}
+    for k, v in extra.items():
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            out[str(k)] = v
+        else:
+            out[str(k)] = str(v)
+    return out
+
+
 @require_GET
 def bank_state(request):
     from typeclasses.economy import get_economy
@@ -600,29 +630,94 @@ def bank_state(request):
         raise Http404(f"Room '{BANK_ROOM_KEY}' was not found.")
 
     treasury_balance = econ.get_balance("treasury:alpha-prime")
+    treasury_acct = econ.get_treasury_account("alpha-prime")
 
-    return JsonResponse(
-        {
-            "bankName": "Alpha Prime",
-            "roomName": room.key,
-            "roomDescription": room.db.desc or "",
-            "treasuryBalance": treasury_balance,
-            "storyLines": [
-                {"id": "bank-title", "text": "Alpha Prime", "kind": "title"},
-                {
-                    "id": "bank-desc",
-                    "text": room.db.desc or "No description available.",
-                    "kind": "room",
-                },
-                {
-                    "id": "bank-treasury",
-                    "text": f"Treasury balance: {treasury_balance:,} cr",
-                    "kind": "system",
-                },
-            ],
-            "exits": _room_exits(room),
-        }
-    )
+    raw = list(econ.db.transactions or [])
+    treasury_log = []
+    for tx in reversed(raw):
+        if len(treasury_log) >= 200:
+            break
+        fa = tx.get("from_account")
+        ta = tx.get("to_account")
+        if fa != treasury_acct and ta != treasury_acct:
+            continue
+        amt = int(tx.get("amount") or 0)
+        signed = 0
+        if fa == treasury_acct:
+            signed -= amt
+        if ta == treasury_acct:
+            signed += amt
+        treasury_log.append(
+            {
+                "timestamp": tx.get("timestamp") or "",
+                "type": tx.get("type") or "",
+                "amount": amt,
+                "memo": tx.get("memo") or "",
+                "fromAccount": fa,
+                "toAccount": ta,
+                "signedAmount": signed,
+                "extra": _json_safe_ledger_extra(tx.get("extra")),
+            }
+        )
+
+    payload = {
+        "bankName": "Alpha Prime",
+        "roomName": room.key,
+        "roomDescription": room.db.desc or "",
+        "treasuryBalance": treasury_balance,
+        "treasuryAccount": treasury_acct,
+        "storyLines": [
+            {"id": "bank-title", "text": "Alpha Prime", "kind": "title"},
+            {
+                "id": "bank-desc",
+                "text": room.db.desc or "No description available.",
+                "kind": "room",
+            },
+            {
+                "id": "bank-treasury",
+                "text": f"Treasury balance: {treasury_balance:,} cr",
+                "kind": "system",
+            },
+        ],
+        "exits": _room_exits(room),
+        "treasuryTransactionLog": treasury_log,
+    }
+
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
+        if char:
+            player_acct = econ.get_character_account(char)
+            credits = econ.get_character_balance(char)
+            tx_log = []
+            for tx in reversed(raw):
+                if len(tx_log) >= 150:
+                    break
+                fa = tx.get("from_account")
+                ta = tx.get("to_account")
+                if fa != player_acct and ta != player_acct:
+                    continue
+                amt = int(tx.get("amount") or 0)
+                signed = 0
+                if fa == player_acct:
+                    signed -= amt
+                if ta == player_acct:
+                    signed += amt
+                tx_log.append(
+                    {
+                        "timestamp": tx.get("timestamp") or "",
+                        "type": tx.get("type") or "",
+                        "amount": amt,
+                        "memo": tx.get("memo") or "",
+                        "fromAccount": fa,
+                        "toAccount": ta,
+                        "signedAmount": signed,
+                        "extra": _json_safe_ledger_extra(tx.get("extra")),
+                    }
+                )
+            payload["credits"] = credits
+            payload["transactionLog"] = tx_log
+
+    return JsonResponse(payload)
 
 
 @require_GET
@@ -1812,6 +1907,84 @@ def mine_reactivate(request):
     except Exception:
         dash_data = {}
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
+
+
+@csrf_exempt
+@require_POST
+def mine_repair_rig(request):
+    """
+    Pay for rig repair (3% treasury, rest vendor:rig-repair). Body: { "siteId": int, "rigKey"?: str }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    site_id = body.get("siteId")
+    rig_key = (body.get("rigKey") or "").strip()
+
+    if site_id is None:
+        return JsonResponse({"ok": False, "message": "Missing siteId."}, status=400)
+    try:
+        sid = int(site_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Invalid siteId."}, status=400)
+
+    from evennia import search_tag
+    from typeclasses.mining import get_rig_for_repair, pay_rig_repair
+
+    site = None
+    for s in search_tag("mining_site", category="mining"):
+        if s.id == sid and getattr(s.db, "is_claimed", False) and s.db.owner == buyer:
+            site = s
+            break
+    if not site:
+        return JsonResponse({"ok": False, "message": "Mine not found or you do not own it."}, status=404)
+
+    rig, rerr = get_rig_for_repair(site, rig_key or None)
+    if rerr:
+        return JsonResponse({"ok": False, "message": rerr}, status=400)
+
+    ok, msg, info = pay_rig_repair(buyer, rig, site=site)
+    if not ok:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from typeclasses.economy import get_economy
+
+    econ = get_economy(create_missing=True)
+    credits = econ.get_character_balance(buyer)
+
+    rk = (body.get("roomKey") or "").strip()
+    if not rk and getattr(buyer, "location", None):
+        rk = buyer.location.key
+    if not rk:
+        rk = DEFAULT_PLAY_ROOM
+
+    factory = RequestFactory()
+    get_req = factory.get("/ui/play", {"room": rk})
+    get_req.user = request.user
+    try:
+        play = play_state(get_req)
+        play_data = json.loads(play.content.decode("utf-8")) if hasattr(play, "content") else {}
+    except Exception:
+        play_data = {}
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": f"Repaired {rig.key}.",
+            "credits": credits,
+            "repair": {
+                "totalCr": info["total"],
+                "taxCr": info["tax_amount"],
+                "vendorCr": info["vendor_amount"],
+            },
+            "play": play_data,
+        }
+    )
 
 
 @csrf_exempt

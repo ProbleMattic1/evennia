@@ -4,7 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { MineSiteDetails } from "@/lib/ui-api";
-import { listMinePropertyForClaims, mineReactivate, mineUndeploy } from "@/lib/ui-api";
+import {
+  listMinePropertyForClaims,
+  mineReactivate,
+  mineRepairRig,
+  mineUndeploy,
+} from "@/lib/ui-api";
 import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
 import { Countdown } from "@/components/countdown";
 
@@ -75,6 +80,9 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
 
   const [reactivateBusy, setReactivateBusy] = useState(false);
   const [reactivateError, setReactivateError] = useState<string | null>(null);
+
+  const [repairBusyRigKey, setRepairBusyRigKey] = useState<string | null>(null);
+  const [repairError, setRepairError] = useState<string | null>(null);
 
   const showUndeploy = site.canUndeploy;
   const showIdleActions = site.canListProperty && site.canReactivate;
@@ -147,6 +155,24 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
   function handleDismissUndeployBanner() {
     setPostUndeploy(null);
     router.refresh();
+  }
+
+  async function handleRepairRig(rigKey: string) {
+    if (repairBusyRigKey) return;
+    setRepairError(null);
+    setRepairBusyRigKey(rigKey);
+    try {
+      await mineRepairRig({
+        siteId: site.id,
+        rigKey,
+        roomKey: site.roomKey,
+      });
+      router.refresh();
+    } catch (err) {
+      setRepairError(String(err instanceof Error ? err.message : "Repair failed."));
+    } finally {
+      setRepairBusyRigKey(null);
+    }
   }
 
   const equipmentLines =
@@ -343,6 +369,41 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
             <Kv label="Mode" value={site.rigMode ?? "—"} />
           </Card>
         )}
+
+        {site.rigs?.some((r) => r.needsRepair) ? (
+          <Card title="Field service">
+            {site.rigs
+              ?.filter((r) => r.needsRepair)
+              .map((r) => (
+                <div
+                  key={r.key}
+                  className="flex flex-col gap-1 border-b border-zinc-200 pb-2 last:border-0 dark:border-cyan-900/40"
+                >
+                  <span className="font-mono text-[12px] text-zinc-700 dark:text-zinc-300">
+                    {r.key}
+                  </span>
+                  {r.repairTotalCr != null ? (
+                    <span className="text-xs text-zinc-600 dark:text-cyan-500/80">
+                      Total {r.repairTotalCr.toLocaleString()} cr — service{" "}
+                      {(r.repairVendorCr ?? 0).toLocaleString()} cr, tax{" "}
+                      {(r.repairTaxCr ?? 0).toLocaleString()} cr (3%)
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => handleRepairRig(r.key)}
+                    disabled={repairBusyRigKey !== null}
+                    className="w-fit rounded border border-sky-600 bg-sky-50 px-2 py-1 text-sm font-medium text-sky-900 hover:bg-sky-100 disabled:opacity-50 dark:border-sky-500 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:bg-sky-900/50"
+                  >
+                    {repairBusyRigKey === r.key ? "Repairing…" : "Pay and repair"}
+                  </button>
+                </div>
+              ))}
+            {repairError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">{repairError}</p>
+            ) : null}
+          </Card>
+        ) : null}
 
         <Card title="Cycle log">
           {site.cycleLog.length > 0 ? (

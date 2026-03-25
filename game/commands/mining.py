@@ -12,7 +12,7 @@ minestatus    Show full status for a site (defaults to site in current room).
 collectore    Sell all ore in the site's linked storage at base price.
 setrig        Tune rig settings (mode, power_level, target_family,
               purity_cutoff, maintenance_level).
-repairrig     Repair a broken rig, resetting wear to 0.
+repairrig     Repair a rig (credits; 3% tax to treasury, rest to vendor:rig-repair).
 
 Design notes
 ------------
@@ -597,7 +597,7 @@ class CmdSetRig(Command):
 
 class CmdRepairRig(Command):
     """
-    Repair a broken or worn mining rig.
+    Repair a broken or worn mining rig (credits + 3% treasury tax).
 
     Usage:
       repairrig
@@ -607,8 +607,8 @@ class CmdRepairRig(Command):
     With one rig installed the name is optional; repairs the broken rig
     (or the most-worn rig if all are operational).
     You must be at the site where the rig is installed and own the site.
-
-    In Pass 3 this command will require a repair kit or credit cost.
+    Cost scales with rig rating and wear; 3% goes to Alpha Prime treasury,
+    the remainder to field service (vendor:rig-repair).
     """
 
     key = "repairrig"
@@ -616,6 +616,8 @@ class CmdRepairRig(Command):
     help_category = "Mining"
 
     def func(self):
+        from typeclasses.mining import get_rig_for_repair, pay_rig_repair
+
         caller = self.caller
         site = _find_site_in_room(caller)
         if not site:
@@ -625,45 +627,38 @@ class CmdRepairRig(Command):
             caller.msg("You do not own this site.")
             return
 
-        installed = [r for r in (site.db.rigs or []) if r]
-        if not installed:
-            caller.msg(f"|w{site.key}|n has no installed rigs to repair.")
+        frag = self.args.strip().lower()
+        rig, err = get_rig_for_repair(site, frag or None)
+        if err:
+            caller.msg(f"|r{err}|n")
             return
 
-        name = self.args.strip().lower()
-        if name:
-            matches = [r for r in installed if name in r.key.lower()]
-            if not matches:
-                caller.msg(f"No installed rig matching '{name}' at |w{site.key}|n.")
-                return
-            rig = matches[0]
-        elif len(installed) == 1:
-            rig = installed[0]
-        else:
-            broken = [r for r in installed if not r.db.is_operational]
-            if broken:
-                rig = broken[0]
-            else:
-                rig = max(installed, key=lambda r: r.db.wear)
+        ok, msg, info = pay_rig_repair(caller, rig, site=site)
+        if not ok:
+            caller.msg(f"|r{msg}|n")
+            return
 
-        was_broken = not rig.db.is_operational
-        old_wear = int(rig.db.wear * 100)
-        rig.repair()
+        total = info["total"]
+        tax = info["tax_amount"]
+        net = info["vendor_amount"]
+        old_wear = info["old_wear_pct"]
+        was_broken = info["was_broken"]
 
+        caller.msg(
+            f"|w{rig.key}|n serviced — |y{old_wear}%|n wear reset to 0%.\n"
+            f"Paid |y{total:,}|n cr (|y{net:,}|n cr to field service, |y{tax:,}|n cr tax).\n"
+            f"Balance: |y{caller.db.credits:,}|n cr."
+        )
         if was_broken:
-            caller.msg(
-                f"|w{rig.key}|n repaired and back online. "
-                f"Wear reset from {old_wear}% to 0%."
-            )
-            if site.db.linked_storage and not site.db.next_cycle_at:
-                site.schedule_next_cycle()
+            caller.msg(f"|g{rig.key}|n is back online.")
+            if site.db.linked_storage and site.db.next_cycle_at:
+                caller.msg(
+                    "Production on schedule — next global delivery (UTC, every 30m)."
+                )
+            elif site.db.linked_storage:
                 caller.msg(
                     "Production rescheduled — next global delivery (UTC, every 30m)."
                 )
-        else:
-            caller.msg(
-                f"|w{rig.key}|n serviced. Wear reset from {old_wear}% to 0%."
-            )
 
 
 class CmdAvailableClaims(Command):
