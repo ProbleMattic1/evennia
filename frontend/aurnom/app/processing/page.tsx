@@ -174,6 +174,16 @@ export default function ProcessingPage() {
         <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
           <h2 className="section-label">Ore Receiving Bay</h2>
           <StorageBar used={data.rawStorageUsed} capacity={data.rawStorageCapacity} />
+          <div className="mt-2 space-y-0.5">
+            <StatRow
+              label="Plant buys your raw (haul sell)"
+              value={`${(data.rawSaleFeeRate * 100).toFixed(0)}% hassle fee on bid total; you receive the rest`}
+            />
+            <StatRow
+              label="You buy raw from the plant"
+              value={`Ask = bid + ${(data.rawAskPremiumRate * 100).toFixed(0)}%`}
+            />
+          </div>
         </section>
 
         <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">

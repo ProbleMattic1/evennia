@@ -152,6 +152,8 @@ def create_claim_for_site(site, owner, is_jackpot=False):
     else:
         claim.db.desc = f"Deed to deploy at {room_key}."
     claim.move_to(owner, quiet=True)
+    ap = getattr(site.db, "allowed_purposes", None) or ["mining"]
+    claim.db.allowed_purposes = list(ap)
     return claim
 
 

@@ -10,7 +10,7 @@ from evennia.utils.evmenu import EvMenu
 
 from commands.command import Command
 
-from typeclasses.characters import ABILITY_KEYS, ABILITY_NAMES, MARCUS_CHARACTER_KEY
+from typeclasses.characters import ABILITY_KEYS, ABILITY_NAMES, character_key_skips_pointbuy
 
 POINT_BUY_POOL = 27
 
@@ -72,7 +72,7 @@ def node_main(caller, raw_string=None, **kwargs):
     char = _get_char(caller)
     if not char:
         return "|rNo character selected.|n", None
-    if char.key == MARCUS_CHARACTER_KEY:
+    if character_key_skips_pointbuy(char.key):
         return "|rThat character does not use point buy.|n", None
     if getattr(char.db, "rpg_pointbuy_done", None) is not False:
         return "|rThat character has already finished ability setup.|n", None
@@ -224,7 +224,7 @@ class CmdPointBuy(Command):
                 return
             char = utils.make_iter(found)[0]
 
-        if char.key == MARCUS_CHARACTER_KEY:
+        if character_key_skips_pointbuy(char.key):
             self.msg("That character does not use point-buy.")
             return
         if getattr(char.db, "rpg_pointbuy_done", None) is not False:

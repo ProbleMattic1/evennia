@@ -8,10 +8,12 @@ Helpers        - effective_capacity, effective_cycle_seconds, resolve_room.
 from datetime import UTC, datetime, timedelta
 
 from evennia import search_object, search_tag
+
+from world.time import MINING_DELIVERY_PERIOD, ceil_period, to_iso, utc_now
 from evennia.utils import logger
 
 from .scripts import Script
-from .mining import get_commodity_price
+from .mining import get_commodity_bid
 
 
 HAULER_ENGINE_INTERVAL = 1800   # 30 min wake
@@ -83,7 +85,8 @@ def get_hauler_next_cycle_at(hauler):
 
 def set_hauler_next_cycle(hauler):
     secs = effective_cycle_seconds(hauler)
-    hauler.db.hauler_next_cycle_at = _fmt_ts(_now() + timedelta(seconds=secs))
+    raw = utc_now() + timedelta(seconds=secs)
+    hauler.db.hauler_next_cycle_at = to_iso(ceil_period(raw, MINING_DELIVERY_PERIOD))
 
 
 def get_mining_storage_in_room(room):
@@ -233,7 +236,7 @@ def hauler_process_one(hauler):
             set_hauler_next_cycle(hauler)
             return True, "No receiving storage at refinery — returning to mine."
 
-        total_credits = 0
+        gross_total = 0
         for key, tons in list(cargo.items()):
             removed = hauler.unload_cargo(key, tons)
             if removed > 0:
@@ -241,17 +244,27 @@ def hauler_process_one(hauler):
                 inv[key] = round(float(inv.get(key, 0)) + removed, 2)
                 storage.db.inventory = inv
                 if delivery_mode == "sell":
-                    total_credits += int(removed * get_commodity_price(key))
+                    price = get_commodity_bid(key, location=loc)
+                    gross_total += int(removed * price)
 
-        if delivery_mode == "sell" and total_credits > 0 and owner:
+        if delivery_mode == "sell" and gross_total > 0 and owner:
             from typeclasses.economy import get_economy
+            from typeclasses.refining import RAW_SALE_FEE_RATE, split_raw_sale_payout
+
+            net, fee = split_raw_sale_payout(gross_total, RAW_SALE_FEE_RATE)
             econ = get_economy(create_missing=True)
             owner_acct = econ.get_character_account(owner)
-            econ.deposit(owner_acct, total_credits, memo=f"Ore sale at {loc.key}")
+            plant_acct = "vendor:processing-plant"
+            econ.ensure_account(plant_acct, opening_balance=0)
+            econ.deposit(owner_acct, net, memo=f"Ore sale (net) at {loc.key}")
+            if fee > 0:
+                econ.deposit(plant_acct, fee, memo=f"Plant raw hassle fee at {loc.key}")
             owner.db.credits = econ.get_character_balance(owner)
             if owner.sessions.count():
                 owner.msg(
-                    f"|g[Hauler: {hauler.key}]|n Ore sold — |y{total_credits:,}|n cr deposited."
+                    f"|g[Hauler: {hauler.key}]|n Ore sold — gross |y{gross_total:,}|n cr, "
+                    f"hassle fee ({int(RAW_SALE_FEE_RATE * 100)}%) |r{fee:,}|n cr, "
+                    f"net |g{net:,}|n cr deposited."
                 )
 
         hauler.db.hauler_state = "transit_mine"

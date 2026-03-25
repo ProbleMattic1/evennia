@@ -27,6 +27,19 @@ function ShopPageInner() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"inspect" | "buy" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (data) {
@@ -138,42 +151,70 @@ function ShopPageInner() {
           <h2 className="section-label">
             {isShips ? "Ships for Sale" : "Items for Sale"}
           </h2>
-          <ul className="mt-1 space-y-1">
+          <ul className="mt-1 grid grid-cols-2 gap-3">
             {catalog.map((entry) => {
               const rowBusy = busyKey === entry.id;
+              const expanded = expandedIds.has(entry.id);
               return (
                 <li
                   key={entry.id}
-                  className="border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30"
+                  className="rounded border border-zinc-100 p-2 dark:border-cyan-900/30"
                 >
-                  <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{entry.key}</span>
-                  <span className="ml-2 text-[12px] text-zinc-500 dark:text-zinc-400">
-                    {entry.price != null ? `${entry.price.toLocaleString()} cr` : "N/A"}
-                  </span>
-                  {entry.description ? (
-                    <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{entry.description}</p>
-                  ) : null}
-                  {entry.summary ? (
-                    <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-zinc-500">{entry.summary}</p>
-                  ) : null}
-                  <div className="mt-1 flex gap-1.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{entry.key}</span>
+                    <span className="text-[12px] text-zinc-500 dark:text-zinc-400">
+                      {entry.price != null ? `${entry.price.toLocaleString()} cr` : "N/A"}
+                    </span>
                     <button
                       type="button"
-                      className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-700 disabled:text-zinc-400 dark:border-cyan-700/50 dark:text-cyan-400 dark:disabled:text-cyan-500/50"
-                      disabled={rowBusy}
-                      onClick={() => onInspect(entry.id, entry.key)}
+                      className="inline-flex shrink-0 items-center justify-center rounded border border-zinc-300 p-1 text-zinc-700 hover:bg-zinc-100 dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40"
+                      aria-expanded={expanded}
+                      aria-label={expanded ? "Hide details" : "Show details"}
+                      onClick={() => toggleExpanded(entry.id)}
                     >
-                      {rowBusy && busyAction === "inspect" ? "…" : "Inspect"}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-800 hover:bg-zinc-100 disabled:opacity-60 dark:border-cyan-700/50 dark:bg-cyan-950/40 dark:text-cyan-400 dark:hover:bg-cyan-900/50 dark:hover:text-cyan-300"
-                      disabled={rowBusy}
-                      onClick={() => onBuy(entry.id, entry.key)}
-                    >
-                      {rowBusy && busyAction === "buy" ? "…" : "Buy"}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className={`h-4 w-4 transition-transform ${expanded ? "rotate-90" : ""}`}
+                        aria-hidden
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.22 5.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 010-1.06z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
                     </button>
                   </div>
+                  {expanded ? (
+                    <>
+                      {entry.description ? (
+                        <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{entry.description}</p>
+                      ) : null}
+                      {entry.summary ? (
+                        <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-zinc-500">{entry.summary}</p>
+                      ) : null}
+                      <div className="mt-1 flex gap-1.5">
+                        <button
+                          type="button"
+                          className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-700 disabled:text-zinc-400 dark:border-cyan-700/50 dark:text-cyan-400 dark:disabled:text-cyan-500/50"
+                          disabled={rowBusy}
+                          onClick={() => onInspect(entry.id, entry.key)}
+                        >
+                          {rowBusy && busyAction === "inspect" ? "…" : "Inspect"}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-800 hover:bg-zinc-100 disabled:opacity-60 dark:border-cyan-700/50 dark:bg-cyan-950/40 dark:text-cyan-400 dark:hover:bg-cyan-900/50 dark:hover:text-cyan-300"
+                          disabled={rowBusy}
+                          onClick={() => onBuy(entry.id, entry.key)}
+                        >
+                          {rowBusy && busyAction === "buy" ? "…" : "Buy"}
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
                 </li>
               );
             })}

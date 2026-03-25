@@ -9,6 +9,7 @@ import { Countdown } from "@/components/countdown";
 
 type Props = {
   site: MineSiteDetails;
+  onCycleCountdownExpired?: () => void;
 };
 
 const TIER_CLASSES: Record<string, { badge: string }> = {
@@ -84,7 +85,7 @@ type ReturnedEquipment = NonNullable<
   import("@/lib/ui-api").MineUndeployResult["returnedEquipment"]
 >;
 
-export function MineDetailsPanel({ site }: Props) {
+export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
   const router = useRouter();
   const [undeployBusy, setUndeployBusy] = useState(false);
   const [undeployError, setUndeployError] = useState<string | null>(null);
@@ -333,6 +334,7 @@ export function MineDetailsPanel({ site }: Props) {
                     targetIso={site.nextCycleAt}
                     prefix=""
                     className="text-[11px] text-amber-600 dark:text-amber-400"
+                    onExpired={onCycleCountdownExpired}
                   />
                 </span>
               ) : "—"

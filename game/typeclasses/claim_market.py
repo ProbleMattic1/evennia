@@ -216,7 +216,7 @@ def listing_price_cr(site):
     Deterministic listing from deposit value and hazard (buyer-agnostic).
     Mirrors dashboard estimated value logic, scaled with a hazard factor.
     """
-    from typeclasses.mining import get_commodity_price
+    from typeclasses.mining import get_commodity_bid
 
     deposit = site.db.deposit or {}
     comp = deposit.get("composition") or {}
@@ -226,7 +226,7 @@ def listing_price_cr(site):
     total_tons = base_tons * richness
     ev = 0.0
     for k, frac in comp.items():
-        ev += total_tons * float(frac) * float(get_commodity_price(k))
+        ev += total_tons * float(frac) * float(get_commodity_bid(k))
     hazard_factor = max(0.55, min(1.0, 1.0 - 0.35 * hazard))
     return int(max(500, round(ev * 4 * hazard_factor)))
 

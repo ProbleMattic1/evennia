@@ -1,10 +1,12 @@
 import json
+from collections import defaultdict
 from urllib.parse import quote
 
 from django.http import Http404, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from evennia import search_object
+from evennia.utils import utils
 
 from world.bootstrap_hub import HUB_ROOM_KEY
 
@@ -256,7 +258,7 @@ def _serialize_mining_site(site, char=None):
         hazard_label = "High"
 
     from typeclasses.mining import (
-        get_commodity_price,
+        get_commodity_bid,
         MODE_OUTPUT_MODIFIERS,
         POWER_OUTPUT_MODIFIERS,
         WEAR_OUTPUT_PENALTY,
@@ -279,12 +281,14 @@ def _serialize_mining_site(site, char=None):
         power_mod = POWER_OUTPUT_MODIFIERS.get(power, 1.0)
         wear_mod = 1.0 - (wear * WEAR_OUTPUT_PENALTY)
         total_tons = base_tons * richness * rig_rating * mode_mod * power_mod * wear_mod
+        loc = site.location
         for k, frac in raw_comp.items():
-            estimated_value_per_cycle += total_tons * float(frac) * get_commodity_price(k)
+            estimated_value_per_cycle += total_tons * float(frac) * get_commodity_bid(k, location=loc)
     else:
         total_tons = base_tons * richness
+        loc = site.location
         for k, frac in raw_comp.items():
-            estimated_value_per_cycle += total_tons * float(frac) * get_commodity_price(k)
+            estimated_value_per_cycle += total_tons * float(frac) * get_commodity_bid(k, location=loc)
     estimated_value_per_cycle = int(round(estimated_value_per_cycle))
 
     families = ", ".join(sorted(raw_comp.keys())) if raw_comp else "unknown"
@@ -342,6 +346,116 @@ def _serialize_mining_site(site, char=None):
                 payload["canListProperty"] = True
                 payload["canReactivate"] = True
     return payload
+
+
+@csrf_exempt
+@require_POST
+def claims_market_list_claim(request):
+    """List a mining claim deed from inventory. Body: { "claimId": int, "price": number }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    from typeclasses.claim_listings import list_claim_for_sale
+
+    success, msg = list_claim_for_sale(char, body.get("claimId"), body.get("price"))
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+    return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
+
+
+@csrf_exempt
+@require_POST
+def claims_market_purchase_listed_claim(request):
+    """Buy a player-listed claim deed. Body: { "claimId": int }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    from typeclasses.claim_listings import buy_listed_claim
+
+    success, msg = buy_listed_claim(buyer, body.get("claimId"))
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+    return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
+
+
+@require_GET
+def claim_detail_state(request):
+    """Mining claim detail. Query: claimId=int"""
+    from evennia import search_object
+
+    raw = request.GET.get("claimId")
+    try:
+        cid = int(raw)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid claimId."}, status=400)
+
+    found = search_object("#" + str(cid))
+    claim = found[0] if found else None
+    if not claim or not claim.tags.has("mining_claim", category="mining"):
+        return JsonResponse({"ok": False, "message": "Claim not found."}, status=404)
+
+    char = None
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
+
+    site = getattr(claim.db, "site_ref", None)
+    site_payload = _serialize_mining_site(site, char=char) if site else None
+
+    from typeclasses.claim_listings import claim_is_publicly_listed
+
+    is_owner = bool(char and claim.location == char)
+    listed = claim_is_publicly_listed(claim)
+
+    if not is_owner and not listed:
+        return JsonResponse({"ok": False, "message": "Not allowed."}, status=403)
+
+    preview = None
+    if char:
+        preview = _dashboard_inventory_item_for_obj(char, claim)
+    elif listed:
+        preview = _dashboard_inventory_item_for_obj(claim.location, claim)
+
+    desc = getattr(claim.db, "desc", None) or ""
+    allowed = list(getattr(claim.db, "allowed_purposes", None) or ["mining"])
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "claim": {
+                "id": claim.id,
+                "key": claim.key,
+                "description": desc,
+                "isJackpot": bool(getattr(claim.db, "is_jackpot", False)),
+                "allowedPurposes": allowed,
+            },
+            "site": site_payload,
+            "inventoryPreview": preview,
+            "isOwner": is_owner,
+            "isListed": listed,
+        }
+    )
 
 
 @require_GET
@@ -417,15 +531,23 @@ def nav_state(request):
 
     shops = [{"roomKey": entry["room_key"], "label": entry["vendor_name"]} for entry in SHOPS]
     shops.append(SHIPYARD_SHOP_ENTRY)
-    kiosks.append(
-        {"key": "claims-market", "label": "Claims Market", "href": "/claims-market"}
-    )
+
+    claims_nav = [{"label": "Claims Market", "href": "/claims-market"}]
+    if char:
+        for obj in char.contents:
+            if getattr(obj, "destination", None):
+                continue
+            if getattr(obj.db, "is_template", False):
+                continue
+            if obj.tags.has("mining_claim", category="mining"):
+                claims_nav.append({"label": obj.key, "href": f"/claims/{obj.id}"})
 
     return JsonResponse(
         {
             "hubRoomKey": hub.key,
             "exits": exits,
             "mines": mines,
+            "claims": claims_nav,
             "shops": shops,
             "kiosks": kiosks,
         }
@@ -470,7 +592,8 @@ def bank_state(request):
 
 @require_GET
 def processing_state(request):
-    from typeclasses.refining import PROCESSING_FEE_RATE, REFINING_RECIPES
+    from typeclasses.mining import COMMODITY_ASK_OVER_BID
+    from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE, REFINING_RECIPES
 
     room = _first_object(PROCESSING_PLANT_ROOM_KEY)
     if not room:
@@ -557,11 +680,59 @@ def processing_state(request):
         "refineryInputTons": refinery_input_tons,
         "refineryOutputValue": refinery_output_value,
         "processingFeeRate": PROCESSING_FEE_RATE,
+        "rawSaleFeeRate": RAW_SALE_FEE_RATE,
+        "rawAskPremiumRate": float(COMMODITY_ASK_OVER_BID) - 1.0,
         "myOreQueued": my_ore_queued,
         "myRefinedOutput": my_refined_output,
         "myRefinedOutputValue": my_refined_output_value,
         "myHaulers": my_delivery_modes,
     })
+
+
+def _dashboard_inventory_item_for_obj(char, obj):
+    """Single carried-object payload for dashboard JSON (one physical object)."""
+    desc = getattr(obj.db, "desc", None) or ""
+    inv_entry = {
+        "id": obj.id,
+        "key": obj.key,
+        "description": desc,
+    }
+    if obj.tags.has("mining_package", category="mining"):
+        inv_entry["isMiningPackage"] = True
+        inv_entry["estimatedValue"] = int(getattr(obj.db, "estimated_value", 0) or 0)
+    if obj.tags.has("mining_claim", category="mining"):
+        inv_entry["isMiningClaim"] = True
+        site = getattr(obj.db, "site_ref", None)
+        if site and hasattr(site, "db"):
+            from typeclasses.mining import get_commodity_bid, _volume_tier, _resource_rarity_tier
+
+            deposit = site.db.deposit or {}
+            comp = deposit.get("composition") or {}
+            richness = float(deposit.get("richness", 0) or 0)
+            base_tons = float(deposit.get("base_output_tons", 0) or 0)
+            hazard = float(site.db.hazard_level or 0)
+            estimated_value = 0
+            total_tons = base_tons * richness
+            loc = site.location
+            for k, frac in comp.items():
+                price = get_commodity_bid(k, location=loc)
+                estimated_value += total_tons * float(frac) * price
+            volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
+            resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
+            inv_entry["claimSpecs"] = {
+                "roomKey": site.location.key if site.location else site.key,
+                "richness": round(richness, 2),
+                "baseOutputTons": base_tons,
+                "composition": {str(k): float(v) for k, v in comp.items()},
+                "hazardLevel": round(hazard, 2),
+                "hazardLabel": "Low" if hazard <= 0.20 else "Medium" if hazard <= 0.50 else "High",
+                "estimatedValuePerCycle": int(round(estimated_value)),
+                "volumeTier": volume_tier,
+                "volumeTierCls": volume_tier_cls,
+                "resourceRarityTier": resource_rarity_tier,
+                "resourceRarityTierCls": resource_rarity_tier_cls,
+            }
+    return inv_entry
 
 
 @require_GET
@@ -617,57 +788,29 @@ def dashboard_state(request):
 
     credits = econ.get_character_balance(char)
 
-    inventory = []
+    claim_inventory = []
+    stackable_objs = []
     for obj in char.contents:
         if getattr(obj, "destination", None):
             continue
         if getattr(obj.db, "is_template", False):
             continue
-        desc = getattr(obj.db, "desc", None) or ""
-        if len(desc) > 500:
-            desc = desc[:500] + "…"
-        inv_entry = {
-            "id": obj.id,
-            "key": obj.key,
-            "description": desc,
-        }
-        if obj.tags.has("mining_package", category="mining"):
-            inv_entry["isMiningPackage"] = True
-            inv_entry["estimatedValue"] = int(getattr(obj.db, "estimated_value", 0) or 0)
         if obj.tags.has("mining_claim", category="mining"):
-            inv_entry["isMiningClaim"] = True
-            site = getattr(obj.db, "site_ref", None)
-            if site and hasattr(site, "db"):
-                from typeclasses.mining import get_commodity_price, _volume_tier, _resource_rarity_tier
+            claim_inventory.append(_dashboard_inventory_item_for_obj(char, obj))
+        else:
+            stackable_objs.append(obj)
 
-                deposit = site.db.deposit or {}
-                comp = deposit.get("composition") or {}
-                richness = float(deposit.get("richness", 0) or 0)
-                base_tons = float(deposit.get("base_output_tons", 0) or 0)
-                hazard = float(site.db.hazard_level or 0)
-                estimated_value = 0
-                total_tons = base_tons * richness
-                for k, frac in comp.items():
-                    price = get_commodity_price(k)
-                    estimated_value += total_tons * float(frac) * price
-                volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-                resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
-                inv_entry["claimSpecs"] = {
-                    "roomKey": site.location.key if site.location else site.key,
-                    "richness": round(richness, 2),
-                    "baseOutputTons": base_tons,
-                    "composition": {str(k): float(v) for k, v in comp.items()},
-                    "hazardLevel": round(hazard, 2),
-                    "hazardLabel": "Low" if hazard <= 0.20 else "Medium" if hazard <= 0.50 else "High",
-                    "estimatedValuePerCycle": int(round(estimated_value)),
-                    "volumeTier": volume_tier,
-                    "volumeTierCls": volume_tier_cls,
-                    "resourceRarityTier": resource_rarity_tier,
-                    "resourceRarityTierCls": resource_rarity_tier_cls,
-                }
+    inventory = list(claim_inventory)
+    for _numbered_name, _desc, objs in utils.group_objects_by_key_and_desc(stackable_objs, caller=char):
+        inv_entry = _dashboard_inventory_item_for_obj(char, objs[0])
+        if len(objs) > 1:
+            inv_entry["count"] = len(objs)
+            inv_entry["stacked"] = True
+            inv_entry["ids"] = [o.id for o in objs]
         inventory.append(inv_entry)
 
-    ships = []
+    autonomous_by_key = defaultdict(list)
+    ships_other = []
     for entry in char.db.owned_vehicles or []:
         if hasattr(entry, "key"):
             obj = entry
@@ -685,20 +828,45 @@ def dashboard_state(request):
         is_autonomous = (
             hasattr(obj, "tags") and obj.tags.has("autonomous_hauler", category="mining")
         )
-        ships.append(
-            {
-                "id": obj.id,
-                "key": obj.key,
-                "location": loc,
-                "pilot": pilot_key,
-                "state": getattr(obj.db, "state", None),
-                "summary": summary,
-                "is_autonomous": is_autonomous,
-            }
-        )
+        row = {
+            "id": obj.id,
+            "key": obj.key,
+            "location": loc,
+            "pilot": pilot_key,
+            "state": getattr(obj.db, "state", None),
+            "summary": summary,
+            "is_autonomous": is_autonomous,
+        }
+        if is_autonomous:
+            autonomous_by_key[obj.key].append(row)
+        else:
+            ships_other.append(row)
+
+    ships = []
+    for ship_key in sorted(autonomous_by_key.keys()):
+        rows = autonomous_by_key[ship_key]
+        if len(rows) == 1:
+            ships.append(rows[0])
+        else:
+            ships.append(
+                {
+                    "id": rows[0]["id"],
+                    "key": ship_key,
+                    "location": None,
+                    "pilot": rows[0]["pilot"],
+                    "state": rows[0]["state"],
+                    "summary": rows[0]["summary"],
+                    "is_autonomous": True,
+                    "count": len(rows),
+                    "stacked": True,
+                    "ids": [r["id"] for r in rows],
+                    "locations": [r["location"] for r in rows],
+                }
+            )
+    ships.extend(ships_other)
 
     from typeclasses.mining import (
-        get_commodity_price,
+        get_commodity_bid,
         MODE_OUTPUT_MODIFIERS,
         POWER_OUTPUT_MODIFIERS,
         WEAR_OUTPUT_PENALTY,
@@ -726,8 +894,9 @@ def dashboard_state(request):
         cap = float(getattr(storage.db, "capacity_tons", 500) or 500) if storage else 500
         used = sum(inv.values()) if inv else 0
 
+        sloc = site.location
         for k, tons in inv.items():
-            price = get_commodity_price(k)
+            price = get_commodity_bid(k, location=sloc)
             mining_total_stored += tons * price
 
         base_tons = float(deposit.get("base_output_tons", 0) or 0)
@@ -744,14 +913,14 @@ def dashboard_state(request):
             total_tons = base_tons * richness * rig_rating * mode_mod * power_mod * wear_mod
             estimated_output_tons = total_tons
             for k, frac in raw_comp.items():
-                price = get_commodity_price(k)
+                price = get_commodity_bid(k, location=sloc)
                 val = total_tons * float(frac) * price
                 estimated_value_per_cycle += val
                 mining_value_per_cycle += val
         else:
             estimated_output_tons = base_tons * richness
             for k, frac in raw_comp.items():
-                price = get_commodity_price(k)
+                price = get_commodity_bid(k, location=sloc)
                 estimated_value_per_cycle += estimated_output_tons * float(frac) * price
 
         from typeclasses.mining import _volume_tier, _resource_rarity_tier
@@ -925,12 +1094,12 @@ def market_state(request):
     Live commodity prices for all mining resources.
     Applies all EconomyEngine modifiers so the frontend always shows current rates.
     """
-    from typeclasses.mining import RESOURCE_CATALOG, get_commodity_price
+    from typeclasses.mining import RESOURCE_CATALOG, get_commodity_ask, get_commodity_bid
 
     commodities = []
     for resource_key, info in RESOURCE_CATALOG.items():
-        sell_price = get_commodity_price(resource_key)
-        buy_price  = get_commodity_price(resource_key)
+        sell_price = get_commodity_bid(resource_key)
+        buy_price = get_commodity_ask(resource_key)
         commodities.append(
             {
                 "key":               resource_key,
@@ -1053,6 +1222,11 @@ def claims_market_state(request):
                     "sellerKey": seller_key,
                 }
             )
+
+    from typeclasses.claim_listings import get_claim_listings_rows
+
+    for row in get_claim_listings_rows():
+        claims.append(row)
 
     from evennia import search_script
 
@@ -1242,6 +1416,36 @@ def shop_buy(request):
             status=400,
         )
 
+    if getattr(template.db, "grants_random_claim_only", False):
+        vendor_amount, tax_amount = vendor.record_sale(
+            buyer,
+            price,
+            tx_type="catalog_purchase",
+            memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+        )
+        message = (
+            f"Purchased {template.key} for {price:,} cr. "
+            f"Remaining balance: {buyer.db.credits:,} cr."
+        )
+        from typeclasses.claim_utils import grant_random_claim_on_purchase
+
+        claim, jackpot = grant_random_claim_on_purchase(buyer)
+        if claim:
+            if jackpot:
+                message += " ★ JACKPOT! You received an Elite Claim! ★"
+            else:
+                message += f" Random claim: {claim.key}."
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": message,
+                "vendorAmount": vendor_amount,
+                "taxAmount": tax_amount,
+                "buyerCredits": buyer.db.credits,
+                "state": vendor.get_shop_state_for_api(buyer=buyer),
+            }
+        )
+
     new_item = template.copy(new_key=template.key)
     new_item.db.is_template = False
     if new_item.tags.has("for_sale", category="shop_stock"):
@@ -1264,7 +1468,9 @@ def shop_buy(request):
     )
 
     message = f"Purchased {new_item.key} for {price:,} cr. Remaining balance: {buyer.db.credits:,} cr."
-    if getattr(template.db, "is_sale_package", False):
+    if getattr(template.db, "is_sale_package", False) and getattr(
+        template.db, "includes_random_claim", True
+    ):
         from typeclasses.claim_utils import grant_random_claim_on_purchase
 
         claim, jackpot = grant_random_claim_on_purchase(buyer)

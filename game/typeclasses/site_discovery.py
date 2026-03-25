@@ -34,16 +34,23 @@ class SiteDiscoveryEngine(DefaultScript):
         self._set_next_discovery_eta()
 
     def at_repeat(self):
+        from evennia.utils import logger
         from typeclasses.claim_utils import generate_mining_site, get_unclaimed_sites
 
-        unclaimed = get_unclaimed_sites()
-        if len(unclaimed) >= MAX_UNCLAIMED_SITES:
+        try:
+            unclaimed = get_unclaimed_sites()
+            if len(unclaimed) >= MAX_UNCLAIMED_SITES:
+                logger.log_info(
+                    f"[site_discovery] Cap reached ({len(unclaimed)}/{MAX_UNCLAIMED_SITES})"
+                    f" — skipping discovery this tick."
+                )
+            else:
+                site = generate_mining_site()
+                logger.log_info(
+                    f"[site_discovery] New site discovered: {site.key} "
+                    f"(unclaimed total: {len(unclaimed) + 1})"
+                )
+        except Exception as err:
+            logger.log_err(f"[site_discovery] Error during discovery: {err}")
+        finally:
             self._set_next_discovery_eta()
-            return
-
-        site = generate_mining_site()
-        print(
-            f"[site_discovery] New site discovered: {site.key} "
-            f"(unclaimed total: {len(unclaimed) + 1})"
-        )
-        self._set_next_discovery_eta()

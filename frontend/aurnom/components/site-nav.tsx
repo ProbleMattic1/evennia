@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getNavState } from "@/lib/ui-api";
@@ -66,19 +66,65 @@ function NavSection({
   );
 }
 
-const SECTION_KEYS = ["places", "mines", "bases", "kiosks", "shops"] as const;
+const SECTION_KEYS = ["places", "mines", "claims", "bases", "kiosks", "shops"] as const;
+
+const NAV_SECTIONS_SESSION_KEY = "aurnom-nav-sections";
+
+function defaultSections() {
+  return {
+    places: false,
+    mines: false,
+    claims: false,
+    bases: false,
+    kiosks: false,
+    shops: false,
+  };
+}
+
+type SectionsState = ReturnType<typeof defaultSections>;
+
+function parseStoredSections(raw: string | null): SectionsState | null {
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw) as unknown;
+    if (!o || typeof o !== "object") return null;
+    const out = defaultSections();
+    for (const k of SECTION_KEYS) {
+      const v = (o as Record<string, unknown>)[k];
+      if (typeof v !== "boolean") return null;
+      out[k] = v;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
 
 export function SiteNav() {
   const loader = useCallback(() => getNavState(), []);
   const { data, error, loading } = useUiResource(loader);
 
-  const [sections, setSections] = useState({
-    places: true,
-    mines: true,
-    bases: false,
-    kiosks: true,
-    shops: true,
-  });
+  const [sections, setSections] = useState<SectionsState>(() => defaultSections());
+  const [sectionsHydrated, setSectionsHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const parsed = parseStoredSections(sessionStorage.getItem(NAV_SECTIONS_SESSION_KEY));
+      if (parsed) setSections(parsed);
+    } catch {
+      /* ignore */
+    }
+    setSectionsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sectionsHydrated) return;
+    try {
+      sessionStorage.setItem(NAV_SECTIONS_SESSION_KEY, JSON.stringify(sections));
+    } catch {
+      /* ignore */
+    }
+  }, [sections, sectionsHydrated]);
 
   const allOpen = SECTION_KEYS.every((k) => sections[k]);
   const toggleAllSections = useCallback(() => {
@@ -93,6 +139,10 @@ export function SiteNav() {
   const setSection = useCallback((key: keyof typeof sections, open: boolean) => {
     setSections((prev) => ({ ...prev, [key]: open }));
   }, []);
+
+  const claimLinks = data?.claims?.length
+    ? data.claims
+    : [{ label: "Claims Market", href: "/claims-market" }];
 
   return (
     <aside
@@ -222,6 +272,19 @@ export function SiteNav() {
                 </NavSection>
               </>
             )}
+
+            <NavDivider />
+            <NavSection
+              title="Claims"
+              open={sections.claims}
+              onToggle={() => setSection("claims", !sections.claims)}
+            >
+              {claimLinks.map((c) => (
+                <Link key={c.href} href={c.href} className={linkClass} title={c.label}>
+                  {c.label}
+                </Link>
+              ))}
+            </NavSection>
 
             <NavDivider />
             <NavSection

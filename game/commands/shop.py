@@ -78,8 +78,15 @@ class CmdShop(Command):
                 market_type=market_type,
             )
             if getattr(item.db, "is_sale_package", False):
+                if getattr(item.db, "includes_random_claim", True):
+                    extra = "package + random claim — deploymine <package> <claim>"
+                else:
+                    extra = "equipment only — deploymine <package> <claim>"
+                lines.append(f"  |c{item.key}|n — |y{price:,}|n cr  |x[{extra}]|n")
+            elif getattr(item.db, "grants_random_claim_only", False):
                 lines.append(
-                    f"  |c{item.key}|n — |y{price:,}|n cr  |x[package + random claim — deploymine <package> <claim>]|n"
+                    f"  |c{item.key}|n — |y{price:,}|n cr  "
+                    f"|x[random claim deed — deploymine with a package]|n"
                 )
             else:
                 lines.append(f"  |c{item.key}|n — |y{price:,}|n cr")
@@ -144,6 +151,30 @@ class CmdBuy(Command):
             )
             return
 
+        if getattr(template.db, "grants_random_claim_only", False):
+            vendor_amount, tax_amount = vendor.record_sale(
+                caller,
+                price,
+                tx_type="catalog_purchase",
+                memo=f"{caller.key} bought {template.key} from {vendor.key}",
+            )
+            msg = (
+                f"You purchase |w{template.key}|n for |y{price:,}|n cr. "
+                f"Remaining balance: |y{caller.db.credits:,}|n cr."
+            )
+            from typeclasses.claim_utils import grant_random_claim_on_purchase
+
+            claim, jackpot = grant_random_claim_on_purchase(caller)
+            if claim:
+                if jackpot:
+                    msg += "\n|g★ JACKPOT! You received an |wElite Claim|n! ★|n"
+                else:
+                    msg += f"\nYou received a random claim: |w{claim.key}|n."
+            if tax_amount > 0:
+                msg += f" (|y{vendor_amount:,}|n cr to vendor, |y{tax_amount:,}|n cr tax)"
+            caller.msg(msg)
+            return
+
         new_item = template.copy(new_key=template.key)
         new_item.db.is_template = False
         if new_item.tags.has("for_sale", category="shop_stock"):
@@ -169,8 +200,11 @@ class CmdBuy(Command):
             f"You buy |w{new_item.key}|n for |y{price:,}|n cr. "
             f"Remaining balance: |y{caller.db.credits:,}|n cr."
         )
-        if getattr(template.db, "is_sale_package", False):
+        if getattr(template.db, "is_sale_package", False) and getattr(
+            template.db, "includes_random_claim", True
+        ):
             from typeclasses.claim_utils import grant_random_claim_on_purchase
+
             claim, jackpot = grant_random_claim_on_purchase(caller)
             if claim:
                 if jackpot:

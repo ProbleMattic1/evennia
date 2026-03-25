@@ -24,6 +24,13 @@ urlpatterns = [
     path("claims-market", views.claims_market_state, name="ui-claims-market"),
     path("claims-market/purchase", views.claims_market_purchase, name="ui-claims-market-purchase"),
     path("claims-market/list-property", views.claims_market_list_property, name="ui-claims-market-list-property"),
+    path("claims-market/list-claim", views.claims_market_list_claim, name="ui-claims-market-list-claim"),
+    path(
+        "claims-market/purchase-listed-claim",
+        views.claims_market_purchase_listed_claim,
+        name="ui-claims-market-purchase-listed-claim",
+    ),
+    path("claim/detail", views.claim_detail_state, name="ui-claim-detail"),
     path("resources", views.resources_state, name="ui-resources"),
     path("mine/claims", views.mine_claims, name="ui-mine-claims"),
     path("mine/deploy", views.mine_deploy, name="ui-mine-deploy"),

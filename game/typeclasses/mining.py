@@ -13,9 +13,9 @@ Pass-1/2 db fields are preserved; all new fields use .get() with safe defaults.
 
 Pass-3 additions
 ----------------
-get_commodity_price()   apply EconomyEngine modifiers to a raw resource
-                        (global, category "mining", regional, location, scarcity,
-                         buy/sell rate)
+get_commodity_bid()     per-ton when a miner sells raw (bid; basis when the Plant buys ore).
+get_commodity_ask()     per-ton when a buyer purchases raw from the Plant (bid × COMMODITY_ASK_OVER_BID).
+get_commodity_price()  alias for get_commodity_bid() (backward compatibility).
 
 MiningSite.db additions:
   license_level   int    0=unlicensed, 1=standard, 2=certified
@@ -30,18 +30,30 @@ Production formula (unchanged from Pass 2 — see that docstring).
 """
 
 import random
-from datetime import UTC, datetime, timedelta
 
 from evennia import search_tag
 from evennia.objects.objects import DefaultObject
 from evennia.utils import logger
 
+from world.time import (
+    MINING_DELIVERY_PERIOD,
+    ceil_period,
+    floor_period,
+    next_period_after_completed,
+    parse_iso,
+    to_iso,
+    utc_now,
+)
+
 from .objects import ObjectParent
 from .scripts import Script
 
 
-CYCLE_SECONDS = 14400   # 4 hours
+CYCLE_SECONDS = MINING_DELIVERY_PERIOD  # backward compat; global UTC grid (3h)
 MAX_CATCHUP_CYCLES = 10  # cap back-fill after long downtime
+
+# Spread process_cycle work across engine ticks (logical due times unchanged).
+MINING_ENGINE_STAGGER_MOD = 4
 
 WEAR_PER_CYCLE_BASE = 0.02  # ~50 cycles (25 days) to full wear at base settings
 
@@ -220,31 +232,21 @@ RARITY_SCORES = {"common": 0, "uncommon": 1, "rare": 2}
 
 
 # ---------------------------------------------------------------------------
-# Timestamp helpers
+# Timestamp helpers (delegate to world.time)
 # ---------------------------------------------------------------------------
 
 def _now():
-    return datetime.now(UTC)
+    return utc_now()
 
 
 def _parse_ts(ts_str):
     """Return a timezone-aware datetime from an isoformat string, or None."""
-    if not ts_str:
-        return None
-    try:
-        dt = datetime.fromisoformat(ts_str)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=UTC)
-        return dt
-    except (ValueError, TypeError):
-        return None
+    return parse_iso(ts_str)
 
 
 def _fmt_ts(dt):
     """Return isoformat string from a datetime, or None."""
-    if not dt:
-        return None
-    return dt.isoformat()
+    return to_iso(dt)
 
 
 # ---------------------------------------------------------------------------
@@ -271,43 +273,32 @@ def get_mining_engine(create_missing=True):
     return None
 
 
-def get_commodity_price(resource_key, location=None):
-    """
-    Return the market credit value per ton for a mined commodity.
+COMMODITY_BID_DISCOUNT = 0.97   # Plant buys ore at 3% below catalog base price
+COMMODITY_ASK_PREMIUM  = 1.03   # Plant sells ore at 3% above catalog base price
+COMMODITY_ASK_OVER_BID = COMMODITY_ASK_PREMIUM  # backward-compat alias
 
-    Applies EconomyEngine modifiers in order:
-        global_modifier × category["mining"] × region × location × scarcity
 
-    The shop buy/sell rate is intentionally excluded — RESOURCE_CATALOG base
-    prices represent open-market commodity values, not retail shop prices.
-
-    Falls back to the catalog base_price_cr_per_ton if the engine is unavailable.
-    The result is always a non-negative integer (price per metric ton).
-    """
+def get_commodity_bid(resource_key, location=None):
+    """Credits per ton when a miner sells raw ore to the Plant (bid = base price − 3%)."""
     info = RESOURCE_CATALOG.get(resource_key, {})
     base = float(info.get("base_price_cr_per_ton", 0))
     if base <= 0:
         return 0
+    return max(0, int(round(base * COMMODITY_BID_DISCOUNT)))
 
-    try:
-        from .economy import get_economy
-        econ = get_economy(create_missing=False)
-        if not econ:
-            return int(base)
 
-        state = econ.state or {}
-        global_mod   = float(state.get("global_modifier", 1.0))
-        category_mod = float(
-            econ.get_modifier_table("category_modifiers").get("mining", 1.0)
-        )
-        region_mod   = float(econ.get_region_modifier(location))
-        location_mod = float(econ.get_location_modifier(location))
-        scarcity_mod = float(econ.get_scarcity_modifier(location=location))
+def get_commodity_ask(resource_key, location=None):
+    """Credits per ton when a buyer purchases raw from the Processing Plant (ask = base price + 3%)."""
+    info = RESOURCE_CATALOG.get(resource_key, {})
+    base = float(info.get("base_price_cr_per_ton", 0))
+    if base <= 0:
+        return 0
+    return max(0, int(round(base * COMMODITY_ASK_PREMIUM)))
 
-        price = base * global_mod * category_mod * region_mod * location_mod * scarcity_mod
-        return max(0, int(round(price)))
-    except Exception:
-        return int(base)
+
+def get_commodity_price(resource_key, location=None):
+    """Backward-compatible alias for get_commodity_bid."""
+    return get_commodity_bid(resource_key, location=location)
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +413,7 @@ class MiningSite(ObjectParent, DefaultObject):
         self.db.hazard_level = 0.0
         self.db.hazard_log = []
         self.tags.add("mining_site", category="mining")
+        self.db.allowed_purposes = ["mining"]
         self.locks.add("get:false()")
 
     # ------------------------------------------------------------------
@@ -609,9 +601,23 @@ class MiningSite(ObjectParent, DefaultObject):
     # Cycle scheduling
     # ------------------------------------------------------------------
 
-    def schedule_next_cycle(self, from_time=None):
-        base = from_time or _now()
-        self.db.next_cycle_at = _fmt_ts(base + timedelta(seconds=CYCLE_SECONDS))
+    def schedule_next_cycle(self, completed_boundary=None):
+        """
+        Set next_cycle_at on the global UTC 3h grid (MINING_DELIVERY_PERIOD).
+
+        Args:
+            completed_boundary: Grid instant for the cycle just processed; next is +period.
+            If None: earliest grid instant >= now (deploy, storage full skip, engine init).
+        """
+        if completed_boundary is not None:
+            nxt = next_period_after_completed(
+                completed_boundary, MINING_DELIVERY_PERIOD
+            )
+            self.db.next_cycle_at = to_iso(nxt)
+        else:
+            self.db.next_cycle_at = to_iso(
+                ceil_period(utc_now(), MINING_DELIVERY_PERIOD)
+            )
 
     def _append_log(self, entry):
         log = self.db.cycle_log or []
@@ -641,7 +647,13 @@ class MiningSite(ObjectParent, DefaultObject):
         The return signature is unchanged from Pass 1.
         """
         if not self.is_active:
+            self.schedule_next_cycle()
             return "Site inactive; no output."
+
+        due_raw = _parse_ts(self.db.next_cycle_at)
+        due_boundary = (
+            floor_period(due_raw, MINING_DELIVERY_PERIOD) if due_raw else None
+        )
 
         rig = self.db.active_rig
         storage = self.db.linked_storage
@@ -693,6 +705,42 @@ class MiningSite(ObjectParent, DefaultObject):
             tons = round(total_tons * (frac / total_frac), 2)
             if tons > 0:
                 output[key] = tons
+
+        # -- Hazard events (Pass 3) — before deposit so stored amounts match log --
+        hazard_note = ""
+        hazard_level = float(getattr(self.db, "hazard_level", 0.0) or 0.0)
+        if hazard_level > 0 and random.random() < hazard_level * HAZARD_CHANCE_BASE:
+            hazard_type = random.choice(["raid", "geological"])
+            hazard_log = self.db.hazard_log or []
+
+            if hazard_type == "raid":
+                # Raid steals from existing stored inventory, not from this cycle's output
+                inv = storage.db.inventory or {}
+                stolen = {}
+                for k, v in inv.items():
+                    amount = round(float(v) * HAZARD_RAID_STEAL_FRAC, 2)
+                    if amount > 0:
+                        stolen[k] = amount
+                        inv[k] = round(float(v) - amount, 2)
+                storage.db.inventory = {k: v for k, v in inv.items() if v > 0}
+                parts_stolen = [
+                    f"{RESOURCE_CATALOG.get(k, {}).get('name', k)}: {v}t"
+                    for k, v in stolen.items()
+                ]
+                hazard_note = f" |r[RAID — stolen: {', '.join(parts_stolen) or 'nothing'}]|n"
+                hazard_log.append(f"[{_fmt_ts(_now())[:16].replace('T', ' ')}] Raid: {parts_stolen}")
+
+            elif hazard_type == "geological":
+                geo_mod = random.uniform(HAZARD_GEO_OUTPUT_MIN, HAZARD_GEO_OUTPUT_MAX)
+                output = {k: round(v * geo_mod, 2) for k, v in output.items() if round(v * geo_mod, 2) > 0}
+                geo_pct = int(geo_mod * 100)
+                hazard_note = f" |y[GEOLOGICAL EVENT — output reduced to {geo_pct}%]|n"
+                hazard_log.append(
+                    f"[{_fmt_ts(_now())[:16].replace('T', ' ')}] "
+                    f"Geological event: output at {geo_pct}%"
+                )
+
+            self.db.hazard_log = hazard_log[-10:]
 
         # -- Deposit to storage (respect capacity) --
         remaining_space = max(0.0, capacity - storage.total_mass())
@@ -767,44 +815,6 @@ class MiningSite(ObjectParent, DefaultObject):
                 except Exception as tax_err:
                     logger.log_err(f"[mining] Tax error on {self.key}: {tax_err}")
 
-        # -- Hazard events (Pass 3) --
-        hazard_note = ""
-        hazard_level = float(getattr(self.db, "hazard_level", 0.0) or 0.0)
-        if hazard_level > 0 and random.random() < hazard_level * HAZARD_CHANCE_BASE:
-            hazard_type = random.choice(["raid", "geological"])
-            hazard_log = self.db.hazard_log or []
-
-            if hazard_type == "raid":
-                storage = self.db.linked_storage
-                if storage:
-                    inv = storage.db.inventory or {}
-                    stolen = {}
-                    for k, v in inv.items():
-                        amount = round(float(v) * HAZARD_RAID_STEAL_FRAC, 2)
-                        if amount > 0:
-                            stolen[k] = amount
-                            inv[k] = round(float(v) - amount, 2)
-                    storage.db.inventory = {k: v for k, v in inv.items() if v > 0}
-                    parts_stolen = [
-                        f"{RESOURCE_CATALOG.get(k, {}).get('name', k)}: {v}t"
-                        for k, v in stolen.items()
-                    ]
-                    hazard_note = f" |r[RAID — stolen: {', '.join(parts_stolen) or 'nothing'}]|n"
-                    hazard_log.append(f"[{_fmt_ts(_now())[:16].replace('T', ' ')}] Raid: {parts_stolen}")
-
-            elif hazard_type == "geological":
-                geo_mod = random.uniform(HAZARD_GEO_OUTPUT_MIN, HAZARD_GEO_OUTPUT_MAX)
-                for k in output:
-                    output[k] = round(output[k] * geo_mod, 2)
-                geo_pct = int(geo_mod * 100)
-                hazard_note = f" |y[GEOLOGICAL EVENT — output reduced to {geo_pct}%]|n"
-                hazard_log.append(
-                    f"[{_fmt_ts(_now())[:16].replace('T', ' ')}] "
-                    f"Geological event: output at {geo_pct}%"
-                )
-
-            self.db.hazard_log = hazard_log[-10:]
-
         # -- Summary --
         ts = _fmt_ts(_now())
         parts = [
@@ -820,7 +830,10 @@ class MiningSite(ObjectParent, DefaultObject):
         )
         self._append_log(plain_summary)
         self.db.last_processed_at = ts
-        self.schedule_next_cycle()
+        if due_boundary is not None:
+            self.schedule_next_cycle(completed_boundary=due_boundary)
+        else:
+            self.schedule_next_cycle()
 
         full_summary = plain_summary + hazard_note + breakdown_note
         return full_summary
@@ -1019,7 +1032,10 @@ class MiningEngine(Script):
 
     Wakes every 30 minutes (interval = 1800 s), scans all MiningSite objects
     via tag search, and processes any active site whose next_cycle_at has passed.
+    Delivery times use the shared UTC grid (world.time.MINING_DELIVERY_PERIOD).
     Catch-up is capped at MAX_CATCHUP_CYCLES per wakeup.
+
+    Execution is staggered by MINING_ENGINE_STAGGER_MOD (logical due times unchanged).
 
     Online owners receive an in-game notification on each cycle, including
     breakdown warnings from Pass 2.
@@ -1027,14 +1043,16 @@ class MiningEngine(Script):
 
     def at_script_creation(self):
         self.key = "mining_engine"
-        self.desc = "Drives 12-hour mining site production cycles."
+        self.desc = "Drives global UTC mining delivery cycles (world.time grid)."
         self.persistent = True
-        self.interval = 1800
-        self.start_delay = True
+        self.interval = 60
+        self.start_delay = False
         self.repeats = 0
 
     def at_repeat(self, **kwargs):
         now = _now()
+        self.ndb.stagger_tick = (self.ndb.stagger_tick or 0) + 1
+        tick = self.ndb.stagger_tick
         sites = search_tag("mining_site", category="mining")
         processed = 0
         errors = 0
@@ -1043,12 +1061,40 @@ class MiningEngine(Script):
             try:
                 if not getattr(site.db, "is_mining_site", False):
                     continue
-                if not site.is_active:
-                    continue
 
                 next_cycle = _parse_ts(site.db.next_cycle_at)
+
+                if not site.is_active:
+                    # Advance an overdue timestamp even when inactive (broken rig,
+                    # missing storage, etc.) so the frontend does not poll forever
+                    # showing a stuck "now".
+                    if next_cycle is not None and next_cycle <= now:
+                        rig = site.db.active_rig
+                        if not rig:
+                            reason = "no rig installed"
+                        elif not getattr(rig.db, "is_operational", False):
+                            reason = (
+                                f"rig '{rig.key}' not operational "
+                                f"(wear={getattr(rig.db, 'wear', '?')})"
+                            )
+                        elif not site.db.linked_storage:
+                            reason = "no linked storage"
+                        else:
+                            reason = "unknown"
+                        logger.log_info(
+                            f"[mining_engine] {site.key}: cycle due but site inactive "
+                            f"({reason}) — advancing clock without production."
+                        )
+                        site.schedule_next_cycle()
+                    continue
                 if next_cycle is None:
                     site.schedule_next_cycle()
+                    continue
+
+                sid = int(site.id) if site.id is not None else 0
+                stagger_ok = sid % MINING_ENGINE_STAGGER_MOD == tick % MINING_ENGINE_STAGGER_MOD
+                # Due/overdue sites run every tick; stagger only spreads future-due checks.
+                if not stagger_ok and next_cycle > now:
                     continue
 
                 catchup = 0

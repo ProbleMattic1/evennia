@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback } from "react";
+import { Suspense, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { ActionGrid } from "@/components/action-grid";
@@ -16,7 +16,15 @@ function PlayPageInner() {
   const searchParams = useSearchParams();
   const room = searchParams.get("room") ?? undefined;
   const loader = useCallback(() => getPlayState(room), [room]);
-  const { data, error, loading } = useUiResource(loader);
+  const { data, error, loading, reload } = useUiResource(loader);
+
+  useEffect(() => {
+    const iso = data?.site?.nextCycleAt;
+    if (!iso) return;
+    if (new Date(iso).getTime() > Date.now()) return;
+    const id = setInterval(() => reload(), 15000);
+    return () => clearInterval(id);
+  }, [data?.site?.nextCycleAt, reload]);
 
   if (loading) {
     return (
@@ -48,7 +56,9 @@ function PlayPageInner() {
       <div className="flex flex-col gap-2 px-2 py-2">
         <ActionGrid actions={data.actions} />
         <StoryPanel title="Story Output" lines={data.storyLines} />
-        {data.site && <MineDetailsPanel site={data.site} />}
+        {data.site && (
+          <MineDetailsPanel site={data.site} onCycleCountdownExpired={reload} />
+        )}
       </div>
 
       {data.roomName === MINING_OUTFITTERS_ROOM && <CommodityTickerTable />}

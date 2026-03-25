@@ -1,0 +1,213 @@
+"use client";
+
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+
+import {
+  getClaimDetail,
+  listClaimForSale,
+  type ClaimDetailState,
+} from "@/lib/ui-api";
+
+const TIER_CLASSES: Record<string, { badge: string }> = {
+  sky: {
+    badge:
+      "bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:ring-sky-700/50",
+  },
+  emerald: {
+    badge:
+      "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
+  },
+  amber: {
+    badge:
+      "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
+  },
+  violet: {
+    badge:
+      "bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-700/50",
+  },
+  zinc: {
+    badge:
+      "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50",
+  },
+};
+
+export default function ClaimDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const raw = params.claimId;
+  const claimId = Number(Array.isArray(raw) ? raw[0] : raw);
+
+  const [data, setData] = useState<ClaimDetailState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [price, setPrice] = useState("");
+  const [listBusy, setListBusy] = useState(false);
+  const [listMsg, setListMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!Number.isFinite(claimId)) {
+      setError("Invalid claim.");
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getClaimDetail(claimId);
+      if (!res.ok) {
+        setError(res.message ?? "Unable to load claim.");
+        setData(null);
+      } else {
+        setData(res);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load claim.");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [claimId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleList() {
+    if (!Number.isFinite(claimId) || listBusy) return;
+    const p = parseInt(price, 10);
+    if (Number.isNaN(p) || p < 0) {
+      setListMsg("Enter a valid non-negative price.");
+      return;
+    }
+    setListMsg(null);
+    setListBusy(true);
+    try {
+      const res = await listClaimForSale({ claimId, price: p });
+      setListMsg(res.message ?? "Listed.");
+      router.push("/claims-market");
+      router.refresh();
+    } catch (e) {
+      setListMsg(e instanceof Error ? e.message : "List failed.");
+    } finally {
+      setListBusy(false);
+    }
+  }
+
+  const site = data?.site;
+  const volT = TIER_CLASSES[site?.volumeTierCls ?? "zinc"] ?? TIER_CLASSES.zinc;
+  const rarT = TIER_CLASSES[site?.resourceRarityTierCls ?? "zinc"] ?? TIER_CLASSES.zinc;
+
+  return (
+    <main className="main-content">
+      <header className="page-header border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
+        <div className="px-2">
+          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+            {data?.claim?.key ?? "Claim"}
+          </h1>
+          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">
+            {data?.claim?.description ?? "Mining claim deed"}
+          </p>
+        </div>
+      </header>
+
+      {loading && <p className="px-2 py-3 font-mono text-sm text-zinc-500">Loading…</p>}
+      {error && <p className="px-2 py-3 font-mono text-sm text-red-600">{error}</p>}
+
+      {data?.ok && site && (
+        <section className="mt-4 space-y-3 px-2">
+          <div className="rounded border border-zinc-200 bg-zinc-50 p-3 dark:border-cyan-900/50 dark:bg-zinc-950/80">
+            <h2 className="section-label">Deposit</h2>
+            <dl className="mt-2 grid gap-1 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Location</dt>
+                <dd className="font-mono text-zinc-800 dark:text-zinc-200">{site.roomKey}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Volume</dt>
+                <dd>
+                  <span className={`rounded px-1.5 py-0.5 font-mono text-[12px] ${volT.badge}`}>
+                    {site.volumeTier}
+                  </span>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Rarity</dt>
+                <dd>
+                  <span className={`rounded px-1.5 py-0.5 font-mono text-[12px] ${rarT.badge}`}>
+                    {site.resourceRarityTier}
+                  </span>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Hazard</dt>
+                <dd className="font-mono">{site.hazardLabel}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Allowed purposes</dt>
+                <dd className="text-right font-mono text-[12px]">
+                  {(data.claim?.allowedPurposes ?? ["mining"]).join(", ")}
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-3">
+              <Link
+                href={`/play?room=${encodeURIComponent(site.roomKey)}`}
+                className="font-mono text-[12px] text-sky-700 underline dark:text-sky-400"
+              >
+                Visit site →
+              </Link>
+            </p>
+          </div>
+
+          {data.isOwner && !data.isListed && (
+            <div className="rounded border border-zinc-200 bg-white p-3 dark:border-cyan-900/50 dark:bg-zinc-900/40">
+              <h2 className="section-label">Sell deed</h2>
+              <p className="mt-1 text-[12px] text-zinc-500">
+                List this claim on the claims market at your price (escrow until sold).
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  className="w-32 rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-sm dark:border-cyan-800 dark:bg-zinc-950"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="Price (cr)"
+                />
+                <button
+                  type="button"
+                  className="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 font-mono text-[12px] dark:border-cyan-800 dark:bg-cyan-950/50"
+                  disabled={listBusy}
+                  onClick={() => void handleList()}
+                >
+                  {listBusy ? "Listing…" : "List for sale"}
+                </button>
+              </div>
+              {listMsg && <p className="mt-2 font-mono text-[12px] text-zinc-600">{listMsg}</p>}
+            </div>
+          )}
+
+          {data.isListed && (
+            <p className="font-mono text-[12px] text-amber-800 dark:text-amber-400">
+              This deed is listed on the{" "}
+              <Link href="/claims-market" className="underline">
+                claims market
+              </Link>
+              .
+            </p>
+          )}
+
+          <p className="text-[12px] text-zinc-500">
+            <Link href="/" className="underline">
+              Home dashboard
+            </Link>{" "}
+            — deploy a mining package with this claim when you are ready.
+          </p>
+        </section>
+      )}
+    </main>
+  );
+}

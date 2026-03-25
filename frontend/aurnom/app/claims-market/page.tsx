@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   getClaimsMarketState,
   getDashboardState,
   purchaseClaimDeed,
+  purchaseListedClaim,
 } from "@/lib/ui-api";
 import type { ClaimsMarketClaim } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
@@ -14,45 +15,61 @@ import { Countdown } from "@/components/countdown";
 
 const TIER_CLASSES: Record<string, { text: string; badge: string }> = {
   sky: {
-    text:  "text-sky-600 dark:text-sky-400",
-    badge: "bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:ring-sky-700/50",
+    text: "text-sky-600 dark:text-sky-400",
+    badge:
+      "bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:ring-sky-700/50",
   },
   emerald: {
-    text:  "text-emerald-600 dark:text-emerald-400",
-    badge: "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
+    text: "text-emerald-600 dark:text-emerald-400",
+    badge:
+      "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
   },
   amber: {
-    text:  "text-amber-600 dark:text-amber-400",
-    badge: "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
+    text: "text-amber-600 dark:text-amber-400",
+    badge:
+      "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
   },
   violet: {
-    text:  "text-violet-600 dark:text-violet-400",
-    badge: "bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-700/50",
+    text: "text-violet-600 dark:text-violet-400",
+    badge:
+      "bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-700/50",
   },
   zinc: {
-    text:  "text-zinc-600 dark:text-zinc-400",
-    badge: "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50",
+    text: "text-zinc-600 dark:text-zinc-400",
+    badge:
+      "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50",
   },
 };
+
+function rowBusyKey(c: ClaimsMarketClaim): string {
+  if (c.listingKind === "deed" && c.claimId != null) {
+    return `deed:${c.claimId}`;
+  }
+  return `site:${c.siteKey}`;
+}
 
 function ClaimRow({
   c,
   authenticated,
   hasCharacter,
   characterMessage,
-  buyingSiteKey,
-  onBuyDeed,
+  buyingKey,
+  onBuySiteDeed,
+  onBuyListedDeed,
 }: {
   c: ClaimsMarketClaim;
   authenticated: boolean;
   hasCharacter: boolean;
   characterMessage: string | null;
-  buyingSiteKey: string | null;
-  onBuyDeed: (siteKey: string) => void;
+  buyingKey: string | null;
+  onBuySiteDeed: (siteKey: string) => void;
+  onBuyListedDeed: (claimId: number) => void;
 }) {
   const volT = TIER_CLASSES[c.volumeTierCls] ?? TIER_CLASSES.zinc;
   const rarT = TIER_CLASSES[c.resourceRarityTierCls] ?? TIER_CLASSES.zinc;
-  const busy = buyingSiteKey === c.siteKey;
+  const busyKey = rowBusyKey(c);
+  const busy = buyingKey === busyKey;
+  const isDeed = c.listingKind === "deed" && c.claimId != null;
   const btnClass =
     "rounded border border-zinc-300 bg-white px-2 py-0.5 font-mono text-[12px] text-zinc-800 hover:bg-zinc-100 disabled:opacity-50 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-200 dark:hover:bg-cyan-900/40";
 
@@ -95,8 +112,10 @@ function ClaimRow({
           <button
             type="button"
             className={btnClass}
-            disabled={buyingSiteKey !== null}
-            onClick={() => onBuyDeed(c.siteKey)}
+            disabled={buyingKey !== null}
+            onClick={() =>
+              isDeed ? onBuyListedDeed(c.claimId!) : onBuySiteDeed(c.siteKey)
+            }
           >
             {busy ? "Buying…" : `Buy deed (${c.listingPriceCr.toLocaleString()} cr)`}
           </button>
@@ -112,7 +131,7 @@ export default function ClaimsMarketPage() {
   const { data, error, loading, reload } = useUiResource(claimsLoader);
   const { data: dash, reload: reloadDash } = useUiResource(dashLoader);
 
-  const [buyingSiteKey, setBuyingSiteKey] = useState<string | null>(null);
+  const [buyingKey, setBuyingKey] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
 
@@ -120,11 +139,20 @@ export default function ClaimsMarketPage() {
   const hasCharacter = !!dash?.character;
   const characterMessage = dash?.message ?? null;
 
-  const handleBuyDeed = useCallback(
+  useEffect(() => {
+    const iso = data?.nextDiscoveryAt;
+    if (!iso) return;
+    const t = new Date(iso).getTime();
+    if (t > Date.now()) return;
+    const id = setInterval(() => reload(), 15000);
+    return () => clearInterval(id);
+  }, [data?.nextDiscoveryAt, reload]);
+
+  const handleBuySiteDeed = useCallback(
     async (siteKey: string) => {
       setPurchaseError(null);
       setPurchaseSuccess(null);
-      setBuyingSiteKey(siteKey);
+      setBuyingKey(`site:${siteKey}`);
       try {
         const res = await purchaseClaimDeed({ siteKey });
         setPurchaseSuccess(
@@ -136,7 +164,26 @@ export default function ClaimsMarketPage() {
       } catch (e) {
         setPurchaseError(e instanceof Error ? e.message : "Purchase failed");
       } finally {
-        setBuyingSiteKey(null);
+        setBuyingKey(null);
+      }
+    },
+    [reload, reloadDash]
+  );
+
+  const handleBuyListedDeed = useCallback(
+    async (claimId: number) => {
+      setPurchaseError(null);
+      setPurchaseSuccess(null);
+      setBuyingKey(`deed:${claimId}`);
+      try {
+        const res = await purchaseListedClaim({ claimId });
+        setPurchaseSuccess(res.message ?? "Claim deed purchased.");
+        reload();
+        reloadDash();
+      } catch (e) {
+        setPurchaseError(e instanceof Error ? e.message : "Purchase failed");
+      } finally {
+        setBuyingKey(null);
       }
     },
     [reload, reloadDash]
@@ -148,13 +195,12 @@ export default function ClaimsMarketPage() {
         <div className="px-2">
           <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Claims Market</h1>
           <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">
-            Unclaimed mining sites. Buy a deed for a listed site, or purchase a package at Mining Outfitters for a
-            random claim.
+            Unclaimed mining sites and player-listed deeds. Buy a deed, or list one from your claim page.
           </p>
         </div>
       </header>
 
-      <section className="mt-4 overflow-hidden rounded border border-zinc-200 bg-zinc-50 px-2 py-4 dark:border-cyan-900/50 dark:bg-zinc-950/80">
+      <section className="mt-4 overflow-x-auto rounded border border-zinc-200 bg-zinc-50 px-2 py-4 dark:border-cyan-900/50 dark:bg-zinc-950/80">
         <div className="-mx-2 mb-2 flex items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-2 dark:border-cyan-800/50 dark:bg-cyan-950/40">
           <h2 className="font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
             Available Claims — Unclaimed Sites
@@ -163,6 +209,7 @@ export default function ClaimsMarketPage() {
             targetIso={data?.nextDiscoveryAt ?? null}
             prefix="Next discovery:"
             className="font-mono text-[11px] text-zinc-500 dark:text-cyan-500/80"
+            onExpired={reload}
           />
         </div>
 
@@ -180,49 +227,56 @@ export default function ClaimsMarketPage() {
           <p className="animate-pulse py-3 font-mono text-sm text-zinc-600 dark:text-zinc-500">Loading…</p>
         )}
         {data && data.claims.length > 0 && (
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-zinc-200 dark:border-cyan-800/50">
-                <th className="pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 text-left pr-3">
-                  Location
-                </th>
-                <th className="pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 text-left pr-3">
-                  Volume
-                </th>
-                <th className="pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 text-left pr-3">
-                  Rarity
-                </th>
-                <th className="pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 text-left pr-3">
-                  Hazard
-                </th>
-                <th className="pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 text-right pr-3">
-                  Base t
-                </th>
-                <th className="pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 text-left pr-3">
-                  Resources
-                </th>
-                <th className="pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 text-left pr-3">
-                  Seller
-                </th>
-                <th className="pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 text-left pl-3">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.claims.map((c) => (
-                <ClaimRow
-                  key={c.siteKey}
-                  c={c}
-                  authenticated={authenticated}
-                  hasCharacter={hasCharacter}
-                  characterMessage={characterMessage}
-                  buyingSiteKey={buyingSiteKey}
-                  onBuyDeed={handleBuyDeed}
-                />
-              ))}
-            </tbody>
-          </table>
+          <div className="-mx-2 overflow-x-auto px-2">
+            <table className="w-full min-w-[56rem] text-left">
+              <thead>
+                <tr className="border-b border-zinc-200 dark:border-cyan-800/50">
+                  <th className="pb-1.5 pr-3 text-left font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">
+                    Location
+                  </th>
+                  <th className="pb-1.5 pr-3 text-left font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">
+                    Volume
+                  </th>
+                  <th className="pb-1.5 pr-3 text-left font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">
+                    Rarity
+                  </th>
+                  <th className="pb-1.5 pr-3 text-left font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">
+                    Hazard
+                  </th>
+                  <th className="pb-1.5 pr-3 text-right font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">
+                    Base t
+                  </th>
+                  <th className="pb-1.5 pr-3 text-left font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">
+                    Resources
+                  </th>
+                  <th className="pb-1.5 pr-3 text-left font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">
+                    Seller
+                  </th>
+                  <th className="pb-1.5 pl-3 text-left font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.claims.map((c) => (
+                  <ClaimRow
+                    key={
+                      c.listingKind === "deed" && c.claimId != null
+                        ? `deed-${c.claimId}`
+                        : c.siteKey
+                    }
+                    c={c}
+                    authenticated={authenticated}
+                    hasCharacter={hasCharacter}
+                    characterMessage={characterMessage}
+                    buyingKey={buyingKey}
+                    onBuySiteDeed={handleBuySiteDeed}
+                    onBuyListedDeed={handleBuyListedDeed}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         {data && data.claims.length === 0 && (
           <p className="py-3 font-mono text-sm text-zinc-600 dark:text-zinc-500">No unclaimed sites available.</p>
@@ -232,16 +286,14 @@ export default function ClaimsMarketPage() {
       <p className="mt-4 px-2 text-[12px] text-zinc-500 dark:text-zinc-400">
         <Link href="/" className="underline dark:text-cyan-400 dark:hover:text-cyan-300">
           Home dashboard
-        </Link>
-        {" "}
+        </Link>{" "}
         — Deploy a mining package with your claim to start production.{" "}
         <Link
           href="/shop?room=Aurnom%20Mining%20Outfitters"
           className="underline dark:text-cyan-400 dark:hover:text-cyan-300"
         >
           Mining Outfitters
-        </Link>
-        {" "}
+        </Link>{" "}
         sells packages (random new site + claim). Jackpot chance for elite claims.
       </p>
     </main>

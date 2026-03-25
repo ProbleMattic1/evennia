@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Countdown } from "@/components/countdown";
 
 import { getDashboardState, getResources, mineDeploy } from "@/lib/ui-api";
-import type { ResourceEntry } from "@/lib/ui-api";
+import type { DashboardInventoryItem, ResourceEntry } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 const EVENNIA_ORIGIN = process.env.NEXT_PUBLIC_EVENNIA_ORIGIN ?? "";
@@ -52,6 +52,44 @@ function resourceNameByKey(resources: ResourceEntry[]): Record<string, string> {
   return Object.fromEntries(resources.map((r) => [r.key, r.name]));
 }
 
+/** Live UTC calendar date and time (server world clock). Client-only after mount to avoid hydration mismatch. */
+function UtcDailyClock() {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+  const formatted = useMemo(() => {
+    if (!now) return "";
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "UTC",
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(now);
+  }, [now]);
+  return (
+    <div className="text-left">
+      <p className="text-[10px] font-medium uppercase tracking-wide leading-tight text-zinc-500 dark:text-zinc-400">
+        World time (UTC)
+      </p>
+      <time
+        dateTime={now ? now.toISOString() : undefined}
+        className="mt-1 block min-h-[1rem] font-mono text-[11px] tabular-nums leading-tight text-zinc-600 dark:text-zinc-400"
+      >
+        {now ? formatted : "—"}
+      </time>
+    </div>
+  );
+}
+
 export default function Home() {
   const loader = useCallback(() => getDashboardState(), []);
   const { data, error, loading, reload } = useUiResource(loader);
@@ -65,14 +103,29 @@ export default function Home() {
   const [deployError, setDeployError] = useState<string | null>(null);
   const [deploySuccess, setDeploySuccess] = useState<string | null>(null);
 
-  const packages = useMemo(
-    () => (data?.inventory ?? []).filter((i) => i.isMiningPackage),
-    [data?.inventory]
-  );
-  const claims = useMemo(
-    () => (data?.inventory ?? []).filter((i) => i.isMiningClaim),
-    [data?.inventory]
-  );
+  const packages = useMemo(() => {
+    const rows: DashboardInventoryItem[] = [];
+    for (const i of data?.inventory ?? []) {
+      if (!i.isMiningPackage) continue;
+      const idList = i.stacked && i.ids?.length ? i.ids : [i.id];
+      for (const id of idList) {
+        rows.push({ ...i, id });
+      }
+    }
+    return rows;
+  }, [data?.inventory]);
+
+  const claims = useMemo(() => {
+    const rows: DashboardInventoryItem[] = [];
+    for (const i of data?.inventory ?? []) {
+      if (!i.isMiningClaim) continue;
+      const idList = i.stacked && i.ids?.length ? i.ids : [i.id];
+      for (const id of idList) {
+        rows.push({ ...i, id });
+      }
+    }
+    return rows;
+  }, [data?.inventory]);
   const canDeploy = !!(data?.character && packages.length > 0 && claims.length > 0);
 
   async function handleDeploy() {
@@ -99,6 +152,17 @@ export default function Home() {
     [resourcesData]
   );
 
+  useEffect(() => {
+    const mines = data?.mines ?? [];
+    const overdue = mines.some((m) => {
+      if (!m.nextCycleAt) return false;
+      return new Date(m.nextCycleAt).getTime() <= Date.now();
+    });
+    if (!overdue) return;
+    const id = setInterval(() => reload(), 15000);
+    return () => clearInterval(id);
+  }, [data?.mines, reload]);
+
   function SectionDivider() {
     return <hr className="section-divider" aria-hidden />;
   }
@@ -106,7 +170,10 @@ export default function Home() {
   if (loading) {
     return (
       <main className="main-content">
-        <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading dashboard…</p>
+        <div className="space-y-2 border-b border-zinc-200 px-2 py-3 dark:border-cyan-900/50">
+          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading dashboard…</p>
+          <UtcDailyClock />
+        </div>
       </main>
     );
   }
@@ -114,7 +181,12 @@ export default function Home() {
   if (error || !data) {
     return (
       <main className="main-content">
-        <p className="text-sm text-red-600 dark:text-red-400">Failed to load dashboard: {error ?? "Unknown error"}</p>
+        <div className="space-y-2 border-b border-zinc-200 px-2 py-3 dark:border-cyan-900/50">
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Failed to load dashboard: {error ?? "Unknown error"}
+          </p>
+          <UtcDailyClock />
+        </div>
       </main>
     );
   }
@@ -122,13 +194,16 @@ export default function Home() {
   return (
     <main className="main-content">
       <header className="page-header border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
-        <div className="px-2">
+        <div className="px-2 pr-4">
           <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Aurnom</h1>
           <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">
             {data.character
               ? `Signed in as ${data.character.key}. Location: ${data.character.room ?? "Unknown"}.`
               : "Character dashboard and entry point for the Evennia-powered world."}
           </p>
+          <div className="mt-1.5">
+            <UtcDailyClock />
+          </div>
         </div>
         {data.character && data.credits !== null ? (
           <dl className="mt-2 flex flex-wrap gap-2 border-t border-zinc-200 px-2 pt-2 dark:border-cyan-900/50">
@@ -241,7 +316,7 @@ export default function Home() {
         <>
           <SectionDivider />
           <section className="mx-2 rounded-lg border border-violet-200/60 bg-violet-50/50 px-3 py-2 dark:border-violet-800/40 dark:bg-violet-950/20">
-            <details open className="group">
+            <details className="group">
               <summary className="section-label flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
                 <span>Inventory</span>
                 <svg
@@ -261,17 +336,36 @@ export default function Home() {
               <ul className="mt-1 space-y-0.5">
                 {data.inventory.map((item, i) => (
                   <li
-                    key={item.id}
+                    key={
+                      item.stacked && item.ids?.length
+                        ? `inv-stack-${item.ids.join("-")}`
+                        : String(item.id)
+                    }
                     className={`rounded py-1.5 px-2 -mx-2 ${
                       i % 2 === 0 ? "bg-violet-100/40 dark:bg-violet-950/30" : "bg-white/50 dark:bg-violet-900/10"
                     }`}
                   >
-                    <div className="flex justify-between gap-2">
-                      <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.key}</span>
-                      {item.description ? (
-                        <span className="max-w-[12rem] shrink-0 truncate text-[12px] text-zinc-500 dark:text-cyan-500/80">
-                          {item.description}
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                          {item.key}
+                          {(item.count ?? 1) > 1 ? (
+                            <span className="ml-1.5 tabular-nums text-zinc-500 dark:text-zinc-400">
+                              ×{item.count}
+                            </span>
+                          ) : null}
                         </span>
+                        {item.isMiningPackage && item.estimatedValue != null ? (
+                          <span className="text-[11px] tabular-nums text-amber-700/90 dark:text-amber-400/90">
+                            ~{item.estimatedValue.toLocaleString()}{" "}
+                            <span className="text-amber-600 dark:text-amber-500">cr</span>
+                          </span>
+                        ) : null}
+                      </div>
+                      {item.description ? (
+                        <p className="text-[12px] leading-snug text-zinc-500 break-words dark:text-cyan-500/85">
+                          {item.description}
+                        </p>
                       ) : null}
                     </div>
                     {item.isMiningClaim && item.claimSpecs ? (
@@ -378,7 +472,7 @@ export default function Home() {
         <>
           <SectionDivider />
           <section className="mx-2 rounded-lg border border-sky-200/60 bg-sky-50/50 px-3 py-2 dark:border-sky-800/40 dark:bg-sky-950/20">
-            <details open className="group">
+            <details className="group">
               <summary className="section-label flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
                 <span>Ships</span>
                 <svg
@@ -407,23 +501,54 @@ export default function Home() {
               <ul className="mt-1 space-y-1">
                 {data.ships.map((ship, i) => (
                   <li
-                    key={ship.id}
+                    key={
+                      ship.stacked && ship.ids?.length
+                        ? `ship-stack-${ship.ids.join("-")}`
+                        : String(ship.id)
+                    }
                     className={`rounded py-1.5 px-2 -mx-2 ${
                       i % 2 === 0 ? "bg-sky-100/40 dark:bg-sky-950/30" : "bg-white/50 dark:bg-sky-900/10"
                     }`}
                   >
-                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{ship.key}</span>
-                    {(() => {
-                      const formatted = formatShipSummary(ship.summary);
-                      return formatted && formatted !== ship.key ? (
-                        <span className="ml-2 text-[12px] text-zinc-500 dark:text-cyan-500/80">
-                          {formatted}
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                          {ship.key}
+                          {(ship.count ?? 1) > 1 ? (
+                            <span className="ml-1.5 tabular-nums text-zinc-500 dark:text-zinc-400">
+                              ×{ship.count}
+                            </span>
+                          ) : null}
                         </span>
-                      ) : null;
-                    })()}
-                    <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-cyan-500/70">
-                      {ship.location ?? "—"} · {ship.state ?? "—"} · {ship.pilot ?? "—"}
-                    </p>
+                      </div>
+                      {(() => {
+                        const formatted = formatShipSummary(ship.summary);
+                        return formatted && formatted !== ship.key ? (
+                          <p className="text-[12px] leading-snug text-zinc-500 break-words dark:text-cyan-500/80">
+                            {formatted}
+                          </p>
+                        ) : null;
+                      })()}
+                      {ship.stacked && ship.locations?.length ? (
+                        <p className="text-[11px] leading-snug text-zinc-500 break-words dark:text-cyan-500/75">
+                          <span className="font-medium text-zinc-400 dark:text-zinc-500">Locations: </span>
+                          {ship.locations.map((loc, i) => (
+                            <span key={i}>
+                              {i > 0 ? ", " : null}
+                              {loc ?? "—"}
+                            </span>
+                          ))}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] leading-snug text-zinc-500 break-words dark:text-cyan-500/75">
+                          <span className="font-medium text-zinc-400 dark:text-zinc-500">Location: </span>
+                          {ship.location ?? "—"}
+                        </p>
+                      )}
+                      <p className="text-[11px] leading-snug text-zinc-400 dark:text-cyan-500/70">
+                        {ship.state ?? "—"} · {ship.pilot ?? "—"}
+                      </p>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -438,7 +563,7 @@ export default function Home() {
         <>
           <SectionDivider />
           <section className="mx-2 rounded-lg border border-emerald-200/60 bg-emerald-50/50 px-3 py-2 dark:border-emerald-800/40 dark:bg-emerald-950/20">
-            <details open className="group">
+            <details className="group">
               <summary className="section-label flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
                 <span>My Mines</span>
                 <svg
@@ -496,7 +621,15 @@ export default function Home() {
                   <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-cyan-500/70">
                     Storage: {mine.storageUsed}/{mine.storageCapacity}t
                     {mine.nextCycleAt ? (
-                      <> · <Countdown targetIso={mine.nextCycleAt} prefix="Next cycle:" /></>
+                      <>
+                        {" "}
+                        ·{" "}
+                        <Countdown
+                          targetIso={mine.nextCycleAt}
+                          prefix="Next cycle:"
+                          onExpired={reload}
+                        />
+                      </>
                     ) : null}
                   </p>
                   {((mine.estimatedOutputTons != null && mine.estimatedOutputTons > 0) ||

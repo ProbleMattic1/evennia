@@ -100,7 +100,12 @@ def bootstrap_mining():
     found = search_script("mining_engine")
     if found:
         engine = found[0]
-        print(f"[mining] Engine already exists: {engine.key}")
+        if engine.interval != 60:
+            engine.interval = 60
+            engine.restart()
+            print(f"[mining] Engine already exists: {engine.key} — interval updated to 60s.")
+        else:
+            print(f"[mining] Engine already exists: {engine.key}")
     else:
         engine = create_script("typeclasses.mining.MiningEngine")
         print(f"[mining] Created engine: {engine.key}")
@@ -122,6 +127,14 @@ def bootstrap_mining():
         create_script(PropertyListingsScript, key="property_listings")
         print("[mining] Created property_listings script.")
 
+    claim_list = search_script("claim_listings")
+    if claim_list:
+        print(f"[mining] Claim listings script already exists: {claim_list[0].key}")
+    else:
+        from typeclasses.claim_listings import ClaimListingsScript
+        create_script(ClaimListingsScript, key="claim_listings")
+        print("[mining] Created claim_listings script.")
+
     # -- Hub for listings container (get_hub_room already imported above) --
 
     from world.bootstrap_hub import get_hub_room
@@ -138,6 +151,23 @@ def bootstrap_mining():
             container.db.is_listings_container = True
             container.locks.add("get:false();drop:false()")
             print("[mining] Created Package Listings container in hub.")
+
+        ccontainer = None
+        for obj in hub_for_listings.contents:
+            if obj.key == "Claim Listings" and getattr(obj.db, "is_claim_listings_container", False):
+                ccontainer = obj
+                break
+        if not ccontainer:
+            ccontainer = create_object(
+                "typeclasses.objects.Object",
+                key="Claim Listings",
+                location=hub_for_listings,
+                home=hub_for_listings,
+            )
+            ccontainer.db.desc = "Escrow for mining claim deeds listed for sale."
+            ccontainer.db.is_claim_listings_container = True
+            ccontainer.locks.add("get:false();drop:false()")
+            print("[mining] Created Claim Listings container in hub.")
 
     # -- Site discovery engine --
     from typeclasses.site_discovery import SiteDiscoveryEngine

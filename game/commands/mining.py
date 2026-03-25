@@ -220,7 +220,7 @@ class CmdDeployRig(Command):
             site.schedule_next_cycle()
             caller.msg(
                 f"You install |w{rig.key}|n at |w{site.key}|n. "
-                f"Production scheduled — first cycle in 12 hours."
+                f"Production scheduled — next global delivery (UTC, every 30m)."
             )
         else:
             caller.msg(
@@ -239,7 +239,7 @@ class CmdLinkStorage(Command):
 
     Searches your inventory then the room for a MiningStorage object.
     You must own the site.  Once linked, ore output will be deposited here
-    every 12-hour cycle.
+    every global UTC delivery (30m grid).
     """
 
     key = "linkstorage"
@@ -281,7 +281,9 @@ class CmdLinkStorage(Command):
         if site.db.active_rig and site.db.active_rig.db.is_operational:
             if not site.db.next_cycle_at:
                 site.schedule_next_cycle()
-                caller.msg("Production scheduled — first cycle in 12 hours.")
+                caller.msg(
+                    "Production scheduled — next global delivery (UTC, every 30m)."
+                )
 
 
 class CmdMines(Command):
@@ -398,9 +400,8 @@ class CmdCollectOre(Command):
             caller.msg(f"|w{storage.key}|n is empty — nothing to collect.")
             return
 
-        from typeclasses.mining import get_commodity_price
+        from typeclasses.mining import get_commodity_bid
         license_level = int(site.db.license_level or 0)
-        sell_type = "sell" if license_level > 0 else "sell"
 
         total_value = 0
         lines = [
@@ -411,7 +412,7 @@ class CmdCollectOre(Command):
             tons = float(inventory[key])
             info = RESOURCE_CATALOG.get(key, {})
             name = info.get("name", key)
-            price = get_commodity_price(key, location=caller.location, transaction_type=sell_type)
+            price = get_commodity_bid(key, location=caller.location)
             value = int(tons * price)
             total_value += value
             lines.append(f"  {name:<28} {tons:>8.2f}t  @ {price:,} cr/t  |y{value:>10,}|n cr")
@@ -611,7 +612,9 @@ class CmdRepairRig(Command):
             # Reschedule next cycle now that the rig is operational again
             if site.db.linked_storage and not site.db.next_cycle_at:
                 site.schedule_next_cycle()
-                caller.msg("Production rescheduled — next cycle in 12 hours.")
+                caller.msg(
+                    "Production rescheduled — next global delivery (UTC, every 30m)."
+                )
         else:
             caller.msg(
                 f"|w{rig.key}|n serviced. Wear reset from {old_wear}% to 0%."

@@ -45,16 +45,37 @@ MARCUS_ABILITY_BASES = {
     "cha": 24,
 }
 
+NANOMEGA_REALTY_CHARACTER_KEY = "NanoMegaPlex Real Estate"
+
+NANOMEGA_REALTY_ABILITY_BASES = {
+    "str": 10,
+    "dex": 12,
+    "con": 12,
+    "int": 15,
+    "wis": 14,
+    "cha": 18,
+}
+
+CHARACTER_TYPECLASS_PATH = "typeclasses.characters.Character"
+
+
+def character_key_skips_pointbuy(character_key):
+    """Pre-configured NPCs that never use OOC point-buy."""
+    return character_key in (MARCUS_CHARACTER_KEY, NANOMEGA_REALTY_CHARACTER_KEY)
+
 
 def ability_bases_for_character_key(character_key, *, rpg_pointbuy_done):
     """
     Base scores when creating missing ability traits.
 
-    Marcus: fixed god-tier. rpg_pointbuy_done False: 8s until point-buy finishes.
+    Marcus: fixed god-tier. NanoMegaPlex Real Estate: fixed broker spread.
+    rpg_pointbuy_done False: 8s until point-buy finishes (normal PCs).
     None (legacy) or True: DEFAULT_ABILITY_BASES for any still-missing trait.
     """
     if character_key == MARCUS_CHARACTER_KEY:
         return MARCUS_ABILITY_BASES
+    if character_key == NANOMEGA_REALTY_CHARACTER_KEY:
+        return NANOMEGA_REALTY_ABILITY_BASES
     if rpg_pointbuy_done is False:
         return {k: 8 for k in ABILITY_KEYS}
     return DEFAULT_ABILITY_BASES
@@ -86,7 +107,7 @@ class Character(ObjectParent, DefaultCharacter):
         super().at_object_creation()
         if self.db.credits is None:
             self.db.credits = 1000
-        if self.key == MARCUS_CHARACTER_KEY:
+        if self.key == MARCUS_CHARACTER_KEY or self.key == NANOMEGA_REALTY_CHARACTER_KEY:
             self.db.rpg_pointbuy_done = True
         else:
             self.db.rpg_pointbuy_done = False
@@ -124,7 +145,7 @@ class Character(ObjectParent, DefaultCharacter):
     def at_pre_puppet(self, account, session=None, **kwargs):
         if not account.check_permstring("Developer"):
             if (
-                self.key != MARCUS_CHARACTER_KEY
+                not character_key_skips_pointbuy(self.key)
                 and getattr(self.db, "rpg_pointbuy_done", None) is False
             ):
                 raise RuntimeError(

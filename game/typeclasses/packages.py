@@ -20,11 +20,32 @@ reactivate_mine_from_package(buyer, package_obj, site)
 from evennia import create_object, search_object
 
 
-def _get_package_spec_by_tier(package_tier):
-    """Look up MINING_PACKAGES spec by tier key. Returns None if not found."""
+def _deploy_profile_for_tier_string(tier_str):
+    """Map legacy SKU keys or deploy_profile ids to deploy_profile for matching."""
     from world.bootstrap_mining_packages import MINING_PACKAGES
+
+    if not tier_str:
+        return None
+    for spec in MINING_PACKAGES:
+        if spec["key"] == tier_str:
+            return spec.get("deploy_profile") or tier_str
+    for spec in MINING_PACKAGES:
+        if spec.get("deploy_profile") == tier_str:
+            return spec.get("deploy_profile") or tier_str
+    return tier_str
+
+
+def _get_package_spec_by_tier(package_tier):
+    """Look up MINING_PACKAGES spec by display key or deploy_profile. Returns None if not found."""
+    from world.bootstrap_mining_packages import MINING_PACKAGES
+
+    if not package_tier:
+        return None
     for spec in MINING_PACKAGES:
         if spec["key"] == package_tier:
+            return spec
+    for spec in MINING_PACKAGES:
+        if spec.get("deploy_profile") == package_tier:
             return spec
     return None
 
@@ -202,7 +223,7 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         f"Mining operation deployed at {site.key}.\n"
         f"  Site: {site_room.key}\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Mining cycle: 12h  Hauler cycle: {cycle_h}h\n"
+        f"  Mining delivery: UTC 30m grid  Hauler cycle: {cycle_h}h\n"
         f"  Ore will flow to {refinery_room.key} automatically.\n"
         f"  Use mines and haulerstatus to monitor progress."
     )
@@ -258,7 +279,7 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
     return True, (
         f"Mining operation reactivated at {site.key}.\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Hauler cycle: {cycle_h}h\n"
+        f"  Mining delivery: UTC 30m grid  Hauler cycle: {cycle_h}h\n"
         f"  Ore will flow to {refinery_room.key} automatically."
     )
 
@@ -316,6 +337,10 @@ def deploy_package_from_inventory(buyer, package_obj, claim_obj):
     if not site_room:
         return False, "Claim site has no room."
 
+    allowed = getattr(site.db, "allowed_purposes", None) or ["mining"]
+    if "mining" not in allowed:
+        return False, "This site cannot be used for mining."
+
     ok, msg = _deploy_components_at_site(buyer, site, site_room, components, package_tier)
     if ok:
         package_obj.delete()
@@ -367,7 +392,8 @@ def reactivate_mine_from_package(buyer, package_obj, site):
     package_tier = getattr(package_obj.db, "package_tier", None)
     if not package_tier:
         return False, "That item is not a deployable mining package."
-    if package_tier != getattr(site.db, "package_tier", None):
+    site_tier = getattr(site.db, "package_tier", None)
+    if _deploy_profile_for_tier_string(package_tier) != _deploy_profile_for_tier_string(site_tier):
         return False, "Package tier does not match this site."
 
     spec = _get_package_spec_by_tier(package_tier)
@@ -394,7 +420,7 @@ def _estimated_package_value_from_site(site):
     Uses same formula as claimSpecs.estimatedValuePerCycle (value per cycle).
     Returns int (credits).
     """
-    from typeclasses.mining import get_commodity_price
+    from typeclasses.mining import get_commodity_bid
 
     deposit = site.db.deposit or {}
     richness = float(deposit.get("richness", 0) or 0)
@@ -403,7 +429,7 @@ def _estimated_package_value_from_site(site):
     estimated_value = 0
     total_tons = base_tons * richness
     for k, frac in comp.items():
-        price = get_commodity_price(k)
+        price = get_commodity_bid(k)
         estimated_value += total_tons * float(frac) * price
     return int(round(estimated_value))
 
@@ -421,6 +447,9 @@ def undeploy_mine_to_package(buyer, site):
     package_tier = getattr(site.db, "package_tier", None)
     if not package_tier:
         return False, "This site has no recorded package tier; cannot undeploy.", None
+
+    spec = _get_package_spec_by_tier(package_tier)
+    template_key = spec["key"] if spec else package_tier
 
     if not getattr(site.db, "mine_operation_active", True):
         return False, "This mine is not operating.", None
@@ -454,7 +483,7 @@ def undeploy_mine_to_package(buyer, site):
         hauler.delete()
 
     # Recreate the package from the template so it can be redeployed.
-    template_matches = search_object(package_tier)
+    template_matches = search_object(template_key)
     template = next(
         (
             o for o in template_matches
@@ -467,7 +496,7 @@ def undeploy_mine_to_package(buyer, site):
     if template:
         new_pkg = template.copy(new_key=template.key)
         new_pkg.db.is_template = False
-        new_pkg.db.package_tier = package_tier
+        new_pkg.db.package_tier = getattr(template.db, "package_tier", None) or template.key
         new_pkg.db.owner = buyer
         new_pkg.tags.add("mining_package", category="mining")
         new_pkg.locks.add("get:true();drop:true();give:true()")

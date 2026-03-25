@@ -14,6 +14,7 @@ from typeclasses.characters import (
     DEFAULT_ABILITY_BASES,
     Character,
     MARCUS_CHARACTER_KEY,
+    NANOMEGA_REALTY_CHARACTER_KEY,
 )
 
 BASELINE_VERSION = 1
@@ -38,7 +39,7 @@ def bootstrap_character_abilities():
         if not char.is_typeclass(Character, exact=False):
             continue
 
-        if char.key == MARCUS_CHARACTER_KEY:
+        if char.key in (MARCUS_CHARACTER_KEY, NANOMEGA_REALTY_CHARACTER_KEY):
             skipped += 1
             continue
 

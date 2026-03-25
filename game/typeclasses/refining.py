@@ -33,6 +33,19 @@ from typeclasses.mining import RESOURCE_CATALOG
 # processed output.  Applied to gross refined value at collect time.
 PROCESSING_FEE_RATE = 0.10  # 10 %
 
+# When the Processing Plant buys raw from a miner (e.g. haul unload "sell"), 2% hassle fee on bid gross.
+RAW_SALE_FEE_RATE = 0.02  # 2 %
+
+
+def split_raw_sale_payout(gross_cr, fee_rate=None):
+    if fee_rate is None:
+        fee_rate = RAW_SALE_FEE_RATE
+    gross_cr = max(0, int(gross_cr))
+    fee = max(0, int(round(gross_cr * float(fee_rate))))
+    net = max(0, gross_cr - fee)
+    return net, fee
+
+
 # ---------------------------------------------------------------------------
 # Refining recipes
 # ---------------------------------------------------------------------------
