@@ -225,7 +225,8 @@ export default function Home() {
               >
                 <dt className={`${DASH_STAT_DT} text-amber-700 dark:text-amber-400`}>Credits</dt>
                 <dd className={DASH_STAT_DD}>
-                  {data.credits.toLocaleString()} <span className={DASH_STAT_CR}>cr</span>
+                  {data.credits.toLocaleString()}
+                  <span className={DASH_STAT_CR}>cr</span>
                 </dd>
               </div>
             ) : null}
@@ -240,7 +241,7 @@ export default function Home() {
                     Est Cr/cycle
                   </dt>
                   <dd className={DASH_STAT_DD}>
-                    {(data.miningEstimatedValuePerCycle ?? 0).toLocaleString()}{" "}
+                    {(data.miningEstimatedValuePerCycle ?? 0).toLocaleString()}
                     <span className={DASH_STAT_CR}>cr</span>
                   </dd>
                 </div>
@@ -251,7 +252,7 @@ export default function Home() {
                     Res Val
                   </dt>
                   <dd className={DASH_STAT_DD}>
-                    {(data.miningTotalStoredValue ?? 0).toLocaleString()}{" "}
+                    {(data.miningTotalStoredValue ?? 0).toLocaleString()}
                     <span className={DASH_STAT_CR}>cr</span>
                   </dd>
                 </div>
@@ -263,7 +264,7 @@ export default function Home() {
                       Tot Prop Val
                     </dt>
                     <dd className={DASH_STAT_DD}>
-                      {(data.propertyReferenceListValueTotalCr ?? 0).toLocaleString()}{" "}
+                      {(data.propertyReferenceListValueTotalCr ?? 0).toLocaleString()}
                       <span className={DASH_STAT_CR}>cr</span>
                     </dd>
                   </div>
@@ -284,7 +285,7 @@ export default function Home() {
                 <dd className={DASH_STAT_DD_HP}>
                   {data.character.vitals.hp.current}
                   {data.character.vitals.hp.max != null ? (
-                    <> / {data.character.vitals.hp.max}</>
+                    <>/{data.character.vitals.hp.max}</>
                   ) : null}
                 </dd>
               </div>
@@ -307,7 +308,6 @@ export default function Home() {
                   <dd className={DASH_STAT_DD}>
                     <span title={`${label} score`}>{row.score}</span>
                     <span className={DASH_STAT_DD_MOD} title="Ability modifier">
-                      {" "}
                       {mod}
                     </span>
                   </dd>
@@ -668,6 +668,15 @@ export default function Home() {
                   }`}
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
+                        mine.active
+                          ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50"
+                          : "bg-red-100 text-red-800 ring-1 ring-red-300 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-700/50"
+                      }`}
+                    >
+                      {mine.active ? "Active" : "Inactive"}
+                    </span>
                     <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{mine.key}</span>
                     {mine.volumeTier ? (
                       <span
@@ -687,15 +696,6 @@ export default function Home() {
                         {mine.resourceRarityTier}
                       </span>
                     ) : null}
-                    <span
-                      className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
-                        mine.active
-                          ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50"
-                          : "bg-red-100 text-red-800 ring-1 ring-red-300 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-700/50"
-                      }`}
-                    >
-                      {mine.active ? "Active" : "Inactive"}
-                    </span>
                     <span className="text-[12px] text-zinc-500 dark:text-cyan-500/80">
                       {mine.location ?? "—"}
                     </span>
