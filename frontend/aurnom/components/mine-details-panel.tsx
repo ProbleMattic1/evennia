@@ -5,34 +5,12 @@ import { useRouter } from "next/navigation";
 
 import type { MineSiteDetails } from "@/lib/ui-api";
 import { listMinePropertyForClaims, mineReactivate, mineUndeploy } from "@/lib/ui-api";
+import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
 import { Countdown } from "@/components/countdown";
 
 type Props = {
   site: MineSiteDetails;
   onCycleCountdownExpired?: () => void;
-};
-
-const TIER_CLASSES: Record<string, { badge: string }> = {
-  sky: {
-    badge:
-      "bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:ring-sky-700/50",
-  },
-  emerald: {
-    badge:
-      "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
-  },
-  amber: {
-    badge:
-      "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
-  },
-  violet: {
-    badge:
-      "bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-700/50",
-  },
-  zinc: {
-    badge:
-      "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50",
-  },
 };
 
 function formatDate(s: string | null) {
@@ -291,7 +269,7 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
               <span className="text-zinc-500 dark:text-cyan-500/80">Volume</span>
               <span
                 className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${
-                  TIER_CLASSES[site.volumeTierCls]?.badge ?? TIER_CLASSES.zinc.badge
+                  volumeTierStyle(site.volumeTierCls).badge
                 }`}
               >
                 {site.volumeTier}
@@ -301,7 +279,7 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
               <span className="text-zinc-500 dark:text-cyan-500/80">Rarity</span>
               <span
                 className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${
-                  TIER_CLASSES[site.resourceRarityTierCls]?.badge ?? TIER_CLASSES.zinc.badge
+                  rarityTierStyle(site.resourceRarityTierCls).badge
                 }`}
               >
                 {site.resourceRarityTier}

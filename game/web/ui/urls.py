@@ -7,6 +7,7 @@ urlpatterns = [
     path("play", views.play_state, name="ui-play"),
     path("nav", views.nav_state, name="ui-nav"),
     path("dashboard", views.dashboard_state, name="ui-dashboard"),
+    path("dashboard/ack-alert", views.dashboard_ack_alert, name="ui-dashboard-ack-alert"),
     path("bank", views.bank_state, name="ui-bank"),
     path("processing", views.processing_state, name="ui-processing"),
     path(

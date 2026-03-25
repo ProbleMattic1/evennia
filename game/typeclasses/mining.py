@@ -394,7 +394,7 @@ class MiningSite(ObjectParent, DefaultObject):
         self.db.is_mining_site = True
         self.db.is_claimed = False
         self.db.owner = None
-        self.db.active_rig = None
+        self.db.rigs = []
         self.db.linked_storage = None
         self.db.next_cycle_at = None
         self.db.last_processed_at = None
@@ -416,6 +416,35 @@ class MiningSite(ObjectParent, DefaultObject):
         self.db.allowed_purposes = ["mining"]
         self.locks.add("get:false()")
 
+    def at_init(self):
+        """
+        Persisted sites may predate db.rigs or list fields; normalize so
+        iteration never sees None (avoids 500s in dashboard/API).
+        """
+        super().at_init()
+        if self.db.rigs is None:
+            self.db.rigs = []
+        if self.db.cycle_log is None:
+            self.db.cycle_log = []
+        if self.db.hazard_log is None:
+            self.db.hazard_log = []
+        if self.db.deposit is None:
+            self.db.deposit = {
+                "richness": 1.0,
+                "base_output_tons": 10.0,
+                "composition": {"iron_ore": 1.0},
+                "depletion_rate": 0.002,
+                "richness_floor": 0.10,
+            }
+        if self.db.survey_level is None:
+            self.db.survey_level = 0
+        if self.db.license_level is None:
+            self.db.license_level = 0
+        if self.db.tax_rate is None:
+            self.db.tax_rate = 0.0
+        if self.db.hazard_level is None:
+            self.db.hazard_level = 0.0
+
     # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------
@@ -424,12 +453,12 @@ class MiningSite(ObjectParent, DefaultObject):
     def is_active(self):
         if not self.db.is_claimed or not self.db.owner:
             return False
-        rig = self.db.active_rig
-        if not rig or not getattr(rig.db, "is_operational", False):
-            return False
         if not self.db.linked_storage:
             return False
-        return True
+        rigs = self.db.rigs
+        if not rigs:
+            return False
+        return any(rig.db.is_operational for rig in rigs if rig)
 
     # ------------------------------------------------------------------
     # Survey
@@ -527,8 +556,7 @@ class MiningSite(ObjectParent, DefaultObject):
 
     def get_status_report(self, looker=None):
         owner_str = self.db.owner.key if self.db.owner else "unclaimed"
-        rig = self.db.active_rig
-        rig_str = rig.key if rig else "none"
+        rigs = [r for r in (self.db.rigs or []) if r]
         storage = self.db.linked_storage
         storage_str = storage.key if storage else "none"
 
@@ -560,16 +588,19 @@ class MiningSite(ObjectParent, DefaultObject):
         tax_str = f"{int(float(self.db.tax_rate or 0) * 100)}%"
         hazard_str = f"{int(float(self.db.hazard_level or 0) * 100)}%"
 
-        wear_str = ""
-        if rig:
-            wear = float(getattr(rig.db, "wear", 0.0) or 0.0)
-            wear_pct = int(wear * 100)
+        rig_lines = []
+        for r in rigs:
+            wear_pct = int(r.db.wear * 100)
             wear_color = "|g" if wear_pct < 40 else "|y" if wear_pct < 75 else "|r"
-            wear_str = f"\n  Rig wear   : {wear_color}{wear_pct}%|n"
+            op_label = "|gOP|n" if r.db.is_operational else "|rBROKEN|n"
+            rig_lines.append(
+                f"    {r.key}  {op_label}  wear {wear_color}{wear_pct}%|n"
+            )
+        rig_block = "\n".join(rig_lines) if rig_lines else "    none"
 
         storage_cap_str = ""
         if storage:
-            cap = float(getattr(storage.db, "capacity_tons", 500.0) or 500.0)
+            cap = float(storage.db.capacity_tons)
             used = storage.total_mass()
             storage_cap_str = f"\n  Storage    : {used:.1f}/{cap:.0f} t"
 
@@ -581,7 +612,8 @@ class MiningSite(ObjectParent, DefaultObject):
             f"  Tax rate   : {tax_str}",
             f"  Hazard     : {hazard_str}",
             f"  Claimed    : {'yes' if self.db.is_claimed else 'no'}",
-            f"  Rig        : {rig_str}{wear_str}",
+            f"  Rigs ({len(rigs)}):",
+            rig_block,
             f"  Storage    : {storage_str}{storage_cap_str}",
             f"  Active     : {active_flag}",
             f"  Richness   : {richness}  (depletes {dep_rate}/cycle)",
@@ -632,62 +664,69 @@ class MiningSite(ObjectParent, DefaultObject):
         """
         Run one production cycle and deposit output into linked storage.
 
-        Pass-2 formula:
+        Formula:
             total_tons = base_output_tons * richness * rig_rating
                          * mode_output_mod * power_output_mod
                          * (1 - wear * WEAR_OUTPUT_PENALTY)
 
-        Also applies:
-          - storage capacity check (skips cycle if full)
-          - depletion (richness decays each cycle)
-          - wear accumulation
-          - random breakdown check
-
-        Returns a short summary string appended to cycle_log.
-        The return signature is unchanged from Pass 1.
+        The best available rig (lowest wear among operational rigs) is used.
+        Raises RuntimeError if called when no operational rigs exist — the
+        engine guards against this via is_active; the error surfaces bugs.
         """
-        if not self.is_active:
-            self.schedule_next_cycle()
-            return "Site inactive; no output."
+        from typeclasses.system_alerts import enqueue_system_alert
+
+        operational_rigs = [r for r in (self.db.rigs or []) if r and r.db.is_operational]
+        if not operational_rigs:
+            raise RuntimeError(
+                f"[mining] {self.key}: process_cycle called with no operational rigs"
+            )
+        rig = min(operational_rigs, key=lambda r: r.db.wear)
 
         due_raw = _parse_ts(self.db.next_cycle_at)
         due_boundary = (
             floor_period(due_raw, MINING_DELIVERY_PERIOD) if due_raw else None
         )
 
-        rig = self.db.active_rig
         storage = self.db.linked_storage
-        deposit = self.db.deposit or {}
+        deposit = self.db.deposit
 
         # -- Storage capacity check --
-        capacity = float(getattr(storage.db, "capacity_tons", 500.0) or 500.0)
+        capacity = float(storage.db.capacity_tons)
         if storage.total_mass() >= capacity:
             msg = "Storage full — cycle skipped. Collect ore to resume production."
             self._append_log(f"[{_fmt_ts(_now())[:16].replace('T', ' ')}] {msg}")
+            enqueue_system_alert(
+                severity="warning",
+                category="mining",
+                title="Mine storage full",
+                detail=f"{self.key} is at capacity; production skipped.",
+                source=self.key,
+                dedupe_key=f"storage-full:{self.id}",
+            )
             self.schedule_next_cycle()
             return msg
 
-        # -- Extract rig settings (with defaults for Pass-1 rigs) --
-        richness = float(deposit.get("richness", 1.0))
-        base_tons = float(deposit.get("base_output_tons", 10.0))
-        rig_rating = float(getattr(rig.db, "rig_rating", 1.0) or 1.0)
-        mode = str(getattr(rig.db, "mode", "balanced") or "balanced")
-        power_level = str(getattr(rig.db, "power_level", "normal") or "normal")
-        target_family = str(getattr(rig.db, "target_family", "mixed") or "mixed")
-        purity_cutoff = str(getattr(rig.db, "purity_cutoff", "low") or "low")
-        maintenance = str(getattr(rig.db, "maintenance_level", "standard") or "standard")
-        wear = float(getattr(rig.db, "wear", 0.0) or 0.0)
+        # -- Rig settings --
+        richness = float(deposit["richness"])
+        base_tons = float(deposit["base_output_tons"])
+        rig_rating = float(rig.db.rig_rating)
+        mode = rig.db.mode
+        power_level = rig.db.power_level
+        target_family = rig.db.target_family
+        purity_cutoff = rig.db.purity_cutoff
+        maintenance = rig.db.maintenance_level
+        wear = float(rig.db.wear)
 
-        mode_out = MODE_OUTPUT_MODIFIERS.get(mode, 1.0)
-        power_out = POWER_OUTPUT_MODIFIERS.get(power_level, 1.0)
+        mode_out = MODE_OUTPUT_MODIFIERS[mode]
+        power_out = POWER_OUTPUT_MODIFIERS[power_level]
         wear_out = 1.0 - (wear * WEAR_OUTPUT_PENALTY)
 
         total_tons = base_tons * richness * rig_rating * mode_out * power_out * wear_out
 
         # -- Composition filtering (target_family + purity_cutoff) --
-        composition = deposit.get("composition", {})
-        allowed_cats = FAMILY_CATEGORIES.get(target_family, FAMILY_CATEGORIES["mixed"])
-        min_price = PURITY_THRESHOLDS.get(purity_cutoff, 0)
+        composition = deposit["composition"]
+        allowed_cats = FAMILY_CATEGORIES[target_family]
+        min_price = PURITY_THRESHOLDS[purity_cutoff]
 
         eligible = {}
         for key, frac in composition.items():
@@ -698,7 +737,6 @@ class MiningSite(ObjectParent, DefaultObject):
                 continue
             eligible[key] = float(frac)
 
-        # Renormalize fractions if filtering removed some resources
         total_frac = sum(eligible.values()) or 1.0
         output = {}
         for key, frac in eligible.items():
@@ -706,16 +744,15 @@ class MiningSite(ObjectParent, DefaultObject):
             if tons > 0:
                 output[key] = tons
 
-        # -- Hazard events (Pass 3) — before deposit so stored amounts match log --
+        # -- Hazard events — before deposit so stored amounts match log --
         hazard_note = ""
-        hazard_level = float(getattr(self.db, "hazard_level", 0.0) or 0.0)
+        hazard_level = float(self.db.hazard_level)
         if hazard_level > 0 and random.random() < hazard_level * HAZARD_CHANCE_BASE:
             hazard_type = random.choice(["raid", "geological"])
-            hazard_log = self.db.hazard_log or []
+            hazard_log = self.db.hazard_log
 
             if hazard_type == "raid":
-                # Raid steals from existing stored inventory, not from this cycle's output
-                inv = storage.db.inventory or {}
+                inv = storage.db.inventory
                 stolen = {}
                 for k, v in inv.items():
                     amount = round(float(v) * HAZARD_RAID_STEAL_FRAC, 2)
@@ -745,30 +782,29 @@ class MiningSite(ObjectParent, DefaultObject):
         # -- Deposit to storage (respect capacity) --
         remaining_space = max(0.0, capacity - storage.total_mass())
         if remaining_space < sum(output.values()):
-            # Partial fill: scale down proportionally
             scale = remaining_space / max(sum(output.values()), 0.001)
             output = {k: round(v * scale, 2) for k, v in output.items() if round(v * scale, 2) > 0}
 
-        inventory = storage.db.inventory or {}
+        inventory = storage.db.inventory
         for key, tons in output.items():
             inventory[key] = round(float(inventory.get(key, 0.0)) + tons, 2)
         storage.db.inventory = inventory
 
         # -- Depletion --
-        dep_rate = float(deposit.get("depletion_rate", 0.002))
-        dep_floor = float(deposit.get("richness_floor", 0.10))
+        dep_rate = float(deposit["depletion_rate"])
+        dep_floor = float(deposit["richness_floor"])
         new_richness = max(dep_floor, richness - dep_rate)
         deposit["richness"] = round(new_richness, 4)
         self.db.deposit = deposit
 
         # -- Wear accumulation --
-        mode_wear = MODE_WEAR_MODIFIERS.get(mode, 1.0)
-        power_wear = POWER_WEAR_MODIFIERS.get(power_level, 1.0)
-        maint_wear = MAINTENANCE_WEAR_MODIFIERS.get(maintenance, 1.0)
+        mode_wear = MODE_WEAR_MODIFIERS[mode]
+        power_wear = POWER_WEAR_MODIFIERS[power_level]
+        maint_wear = MAINTENANCE_WEAR_MODIFIERS[maintenance]
         new_wear = min(1.0, wear + WEAR_PER_CYCLE_BASE * mode_wear * power_wear * maint_wear)
 
-        # -- Breakdown check (before wear is saved) --
-        breakdown_base = BREAKDOWN_BASE.get(maintenance, 0.03)
+        # -- Breakdown check --
+        breakdown_base = BREAKDOWN_BASE[maintenance]
         breakdown_chance = breakdown_base * (1.0 + wear * 2.0)
         broke_down = random.random() < breakdown_chance or new_wear >= 1.0
 
@@ -776,12 +812,19 @@ class MiningSite(ObjectParent, DefaultObject):
         if broke_down:
             rig.db.is_operational = False
             rig.db.wear = 1.0
+            enqueue_system_alert(
+                severity="critical",
+                category="mining",
+                title="Mining rig breakdown",
+                detail=f"{rig.key} at {self.key} requires repair.",
+                source=self.key,
+                dedupe_key=f"rig-breakdown:{self.id}:{rig.id}",
+            )
 
-        # -- Extraction tax (Pass 3) --
+        # -- Extraction tax --
         tax_note = ""
-        tax_rate = float(getattr(self.db, "tax_rate", 0.0) or 0.0)
+        tax_rate = float(self.db.tax_rate)
         if tax_rate > 0 and output:
-            # Value output at base price for tax calculation
             output_value = sum(
                 int(float(tons) * RESOURCE_CATALOG.get(k, {}).get("base_price_cr_per_ton", 0))
                 for k, tons in output.items()
@@ -789,31 +832,28 @@ class MiningSite(ObjectParent, DefaultObject):
             tax_amount = int(output_value * tax_rate)
             if tax_amount > 0:
                 owner = self.db.owner
-                try:
-                    from .economy import get_economy
-                    econ = get_economy(create_missing=False)
-                    if econ and owner:
-                        player_acct = econ.get_character_account(owner)
-                        treasury_acct = econ.get_treasury_account("alpha-prime")
-                        econ.ensure_account(
+                from .economy import get_economy
+                econ = get_economy(create_missing=False)
+                if econ and owner:
+                    player_acct = econ.get_character_account(owner)
+                    treasury_acct = econ.get_treasury_account("alpha-prime")
+                    econ.ensure_account(
+                        player_acct,
+                        opening_balance=int(owner.db.credits),
+                    )
+                    econ.ensure_account(treasury_acct)
+                    bal = econ.get_balance(player_acct)
+                    if bal >= tax_amount:
+                        econ.transfer(
                             player_acct,
-                            opening_balance=int(getattr(owner.db, "credits", 0) or 0),
+                            treasury_acct,
+                            tax_amount,
+                            memo=f"Extraction tax: {self.key}",
                         )
-                        econ.ensure_account(treasury_acct)
-                        bal = econ.get_balance(player_acct)
-                        if bal >= tax_amount:
-                            econ.transfer(
-                                player_acct,
-                                treasury_acct,
-                                tax_amount,
-                                memo=f"Extraction tax: {self.key}",
-                            )
-                            owner.db.credits = econ.get_balance(player_acct)
-                            tax_note = f" [tax: {tax_amount:,} cr]"
-                        else:
-                            tax_note = " [tax due but insufficient balance]"
-                except Exception as tax_err:
-                    logger.log_err(f"[mining] Tax error on {self.key}: {tax_err}")
+                        owner.db.credits = econ.get_balance(player_acct)
+                        tax_note = f" [tax: {tax_amount:,} cr]"
+                    else:
+                        tax_note = " [tax due but insufficient balance]"
 
         # -- Summary --
         ts = _fmt_ts(_now())
@@ -826,7 +866,7 @@ class MiningSite(ObjectParent, DefaultObject):
             f"[{ts[:16].replace('T', ' ')}] "
             f"{', '.join(parts) or 'no output'}"
             f"{' [BREAKDOWN]' if broke_down else ''}"
-            f"{tax_note.replace('|r', '').replace('|n', '').replace('|y', '') if tax_note else ''}"
+            f"{tax_note if tax_note else ''}"
         )
         self._append_log(plain_summary)
         self.db.last_processed_at = ts
@@ -888,8 +928,18 @@ class MiningRig(ObjectParent, DefaultObject):
         self.db.is_operational = True
         if owner:
             self.db.owner = owner
+        rigs = list(site.db.rigs or [])
+        if self not in rigs:
+            rigs.append(self)
+        site.db.rigs = rigs
 
     def uninstall(self):
+        site = self.db.site
+        if site:
+            rigs = list(site.db.rigs or [])
+            if self in rigs:
+                rigs.remove(self)
+            site.db.rigs = rigs
         self.db.site = None
         self.db.is_installed = False
         self.db.is_operational = False
@@ -1065,18 +1115,19 @@ class MiningEngine(Script):
                 next_cycle = _parse_ts(site.db.next_cycle_at)
 
                 if not site.is_active:
-                    # Advance an overdue timestamp even when inactive (broken rig,
-                    # missing storage, etc.) so the frontend does not poll forever
-                    # showing a stuck "now".
+                    # Advance an overdue timestamp even when inactive so the
+                    # frontend does not show a permanently stuck "now".
+                    # Use the missed boundary as the completed_boundary so the
+                    # clock steps forward by exactly one period on the grid
+                    # (avoids ceil_period edge case when now == boundary).
                     if next_cycle is not None and next_cycle <= now:
-                        rig = site.db.active_rig
-                        if not rig:
-                            reason = "no rig installed"
-                        elif not getattr(rig.db, "is_operational", False):
-                            reason = (
-                                f"rig '{rig.key}' not operational "
-                                f"(wear={getattr(rig.db, 'wear', '?')})"
-                            )
+                        site_rigs = site.db.rigs or []
+                        operational = [r for r in site_rigs if r and r.db.is_operational]
+                        if not site_rigs:
+                            reason = "no rigs installed"
+                        elif not operational:
+                            broken = [r.key for r in site_rigs if r]
+                            reason = f"all rigs broken ({', '.join(broken)})"
                         elif not site.db.linked_storage:
                             reason = "no linked storage"
                         else:
@@ -1085,7 +1136,9 @@ class MiningEngine(Script):
                             f"[mining_engine] {site.key}: cycle due but site inactive "
                             f"({reason}) — advancing clock without production."
                         )
-                        site.schedule_next_cycle()
+                        site.schedule_next_cycle(
+                            completed_boundary=floor_period(next_cycle, MINING_DELIVERY_PERIOD)
+                        )
                     continue
                 if next_cycle is None:
                     site.schedule_next_cycle()

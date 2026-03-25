@@ -65,7 +65,7 @@ def list_property_for_sale(seller, site_id, price):
         return False, "Site not found."
     if not getattr(site.db, "is_claimed", False) or site.db.owner != seller:
         return False, "You do not own that mining site."
-    if site.db.active_rig or getattr(site.db, "mine_operation_active", True):
+    if (site.db.rigs or []) or site.db.mine_operation_active:
         return False, "Undeploy the mine before listing the property."
 
     script = _get_property_listings_script()

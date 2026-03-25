@@ -9,29 +9,7 @@ import {
   listClaimForSale,
   type ClaimDetailState,
 } from "@/lib/ui-api";
-
-const TIER_CLASSES: Record<string, { badge: string }> = {
-  sky: {
-    badge:
-      "bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:ring-sky-700/50",
-  },
-  emerald: {
-    badge:
-      "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
-  },
-  amber: {
-    badge:
-      "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
-  },
-  violet: {
-    badge:
-      "bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-700/50",
-  },
-  zinc: {
-    badge:
-      "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50",
-  },
-};
+import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
 
 export default function ClaimDetailPage() {
   const params = useParams();
@@ -97,8 +75,8 @@ export default function ClaimDetailPage() {
   }
 
   const site = data?.site;
-  const volT = TIER_CLASSES[site?.volumeTierCls ?? "zinc"] ?? TIER_CLASSES.zinc;
-  const rarT = TIER_CLASSES[site?.resourceRarityTierCls ?? "zinc"] ?? TIER_CLASSES.zinc;
+  const volT = volumeTierStyle(site?.volumeTierCls);
+  const rarT = rarityTierStyle(site?.resourceRarityTierCls);
 
   return (
     <main className="main-content">

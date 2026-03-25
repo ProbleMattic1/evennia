@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Countdown } from "@/components/countdown";
 
-import { getDashboardState, getResources, mineDeploy } from "@/lib/ui-api";
+import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
+import { dashboardAckAlert, getDashboardState, getResources, mineDeploy } from "@/lib/ui-api";
 import type { DashboardInventoryItem, ResourceEntry } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
@@ -20,24 +21,6 @@ const ABILITY_COLORS: Record<string, string> = {
   int: "bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300",
   wis: "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300",
   cha: "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300",
-};
-
-const TIER_CLASSES: Record<string, { badge: string }> = {
-  sky: {
-    badge: "bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:ring-sky-700/50",
-  },
-  emerald: {
-    badge: "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
-  },
-  amber: {
-    badge: "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
-  },
-  violet: {
-    badge: "bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-700/50",
-  },
-  zinc: {
-    badge: "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50",
-  },
 };
 
 /** Strip bracketed segments containing "Unknown" from ship summary (e.g. [Unknown / Unknown]). */
@@ -144,6 +127,15 @@ export default function Home() {
       setDeployError(String(err instanceof Error ? err.message : "Deploy failed"));
     } finally {
       setDeployBusy(false);
+    }
+  }
+
+  async function handleAckAlert(alertId: string) {
+    try {
+      await dashboardAckAlert({ alertId });
+      reload();
+    } catch {
+      // no-op; dashboard reload path remains available
     }
   }
 
@@ -310,6 +302,61 @@ export default function Home() {
         <p className="mx-2 mt-2 rounded border border-amber-200/60 bg-amber-50/80 px-2 py-1.5 text-[12px] text-amber-800 dark:border-cyan-700/50 dark:bg-cyan-950/30 dark:text-amber-200">
           {data.message}
         </p>
+      ) : null}
+
+      {data.character && data.groupedAlerts ? (
+        <>
+          <SectionDivider />
+          <section className="mx-2 rounded-lg border border-red-200/60 bg-red-50/40 px-3 py-2 dark:border-red-800/40 dark:bg-red-950/20">
+            <h2 className="section-label">System Alerts</h2>
+            {(["critical", "warning", "info"] as const).map((sev) => {
+              const rows = data.groupedAlerts?.[sev] ?? [];
+              if (!rows.length) return null;
+              return (
+                <div key={sev} className="mt-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300">
+                    {sev}
+                  </p>
+                  <ul className="mt-1 space-y-1">
+                    {rows.map((a) => (
+                      <li
+                        key={a.id}
+                        className={`rounded border px-2 py-1 ${
+                          sev === "critical"
+                            ? "border-red-300 bg-red-100/70 dark:border-red-700/60 dark:bg-red-900/30"
+                            : sev === "warning"
+                              ? "border-amber-300 bg-amber-100/70 dark:border-amber-700/60 dark:bg-amber-900/30"
+                              : "border-sky-300 bg-sky-100/70 dark:border-sky-700/60 dark:bg-sky-900/30"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-semibold text-zinc-900 dark:text-zinc-100">
+                              {a.title} {a.source ? `(${a.source})` : ""}
+                            </p>
+                            {a.detail ? (
+                              <p className="text-[12px] text-zinc-700 dark:text-zinc-300">{a.detail}</p>
+                            ) : null}
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                              {new Date(a.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAckAlert(a.id)}
+                            className="shrink-0 rounded border border-zinc-400 bg-zinc-100 px-2 py-0.5 text-[11px] hover:bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                          >
+                            Acknowledge
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </section>
+        </>
       ) : null}
 
       {data.character ? (
@@ -590,7 +637,7 @@ export default function Home() {
                     {mine.volumeTier ? (
                       <span
                         className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
-                          TIER_CLASSES[mine.volumeTierCls ?? "zinc"]?.badge ?? TIER_CLASSES.zinc.badge
+                          volumeTierStyle(mine.volumeTierCls).badge
                         }`}
                       >
                         {mine.volumeTier}
@@ -599,7 +646,7 @@ export default function Home() {
                     {mine.resourceRarityTier ? (
                       <span
                         className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
-                          TIER_CLASSES[mine.resourceRarityTierCls ?? "zinc"]?.badge ?? TIER_CLASSES.zinc.badge
+                          rarityTierStyle(mine.resourceRarityTierCls).badge
                         }`}
                       >
                         {mine.resourceRarityTier}
@@ -609,7 +656,7 @@ export default function Home() {
                       className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
                         mine.active
                           ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50"
-                          : "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50"
+                          : "bg-red-100 text-red-800 ring-1 ring-red-300 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-700/50"
                       }`}
                     >
                       {mine.active ? "Active" : "Inactive"}

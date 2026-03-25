@@ -178,7 +178,8 @@ class CmdDeployRig(Command):
       deployrig <rig name>
 
     Searches your inventory then the room for a MiningRig object.
-    You must own the site.  Only one rig can be active per site.
+    You must own the site.  Multiple rigs can be installed; the engine
+    uses the one with the lowest wear each cycle.
     Once deployed the rig is linked to the site and production will begin
     as soon as storage is also linked.
     """
@@ -196,12 +197,6 @@ class CmdDeployRig(Command):
         if not site.db.is_claimed or site.db.owner != caller:
             caller.msg("You do not own this site.")
             return
-        if site.db.active_rig:
-            caller.msg(
-                f"|w{site.key}|n already has a rig installed: {site.db.active_rig.key}. "
-                f"Uninstall it first."
-            )
-            return
 
         name = self.args.strip() or None
         rig = _find_tagged_object(caller, "mining_rig", name=name)
@@ -213,11 +208,15 @@ class CmdDeployRig(Command):
             caller.msg(msg)
             return
 
+        if rig in (site.db.rigs or []):
+            caller.msg(f"|w{rig.key}|n is already installed at |w{site.key}|n.")
+            return
+
         rig.install(site, owner=caller)
-        site.db.active_rig = rig
 
         if site.db.linked_storage:
-            site.schedule_next_cycle()
+            if not site.db.next_cycle_at:
+                site.schedule_next_cycle()
             caller.msg(
                 f"You install |w{rig.key}|n at |w{site.key}|n. "
                 f"Production scheduled — next global delivery (UTC, every 30m)."
@@ -278,7 +277,7 @@ class CmdLinkStorage(Command):
         else:
             caller.msg(f"Storage unit |w{storage.key}|n linked to |w{site.key}|n.")
 
-        if site.db.active_rig and site.db.active_rig.db.is_operational:
+        if any(r.db.is_operational for r in (site.db.rigs or []) if r):
             if not site.db.next_cycle_at:
                 site.schedule_next_cycle()
                 caller.msg(
@@ -307,13 +306,16 @@ class CmdMines(Command):
 
         lines = ["|wYour Mining Sites|n"]
         for site in sites:
-            rig = site.db.active_rig
+            rigs = [r for r in (site.db.rigs or []) if r]
             storage = site.db.linked_storage
             status = "|gactive|n" if site.is_active else "|rinactive|n"
             loc = site.location.key if site.location else "?"
+            rig_summary = (
+                ", ".join(r.key for r in rigs) if rigs else "none"
+            )
             lines.append(
                 f"  {site.key:<30} {status}  "
-                f"rig: {rig.key if rig else 'none':<20} "
+                f"rigs: {rig_summary:<30} "
                 f"storage: {storage.key if storage else 'none':<20} "
                 f"at: {loc}"
             )
@@ -511,6 +513,7 @@ class CmdSetRig(Command):
 
     Usage:
       setrig <field> <value>
+      setrig <rig name> <field> <value>
 
     Fields and valid values:
       mode            balanced | selective | overdrive
@@ -519,8 +522,10 @@ class CmdSetRig(Command):
       purity_cutoff   low | medium | high
       maintenance_level  low | standard | premium
 
-    You must be standing at the site where the rig is installed and own
-    the site.  Changes take effect on the next production cycle.
+    When one rig is installed the rig name is optional.
+    With multiple rigs, provide the rig name as the first argument.
+    You must be standing at the site where the rig is installed and own it.
+    Changes take effect on the next production cycle.
 
     Effects summary:
       mode balanced    — normal output, normal wear
@@ -538,15 +543,13 @@ class CmdSetRig(Command):
 
     def func(self):
         caller = self.caller
-        args = self.args.strip().split(None, 1)
+        args = self.args.strip().split()
         if len(args) < 2:
             caller.msg(
-                "Usage: setrig <field> <value>\n"
+                "Usage: setrig <field> <value>  or  setrig <rig name> <field> <value>\n"
                 "Fields: mode, power_level, target_family, purity_cutoff, maintenance_level"
             )
             return
-
-        field, value = args[0].lower(), args[1].lower()
 
         site = _find_site_in_room(caller)
         if not site:
@@ -556,10 +559,34 @@ class CmdSetRig(Command):
             caller.msg("You do not own this site.")
             return
 
-        rig = site.db.active_rig
-        if not rig:
-            caller.msg(f"|w{site.key}|n has no installed rig.")
+        installed = [r for r in (site.db.rigs or []) if r]
+        if not installed:
+            caller.msg(f"|w{site.key}|n has no installed rigs.")
             return
+
+        from typeclasses.mining import MiningRig
+        KNOWN_FIELDS = {"mode", "power_level", "target_family", "purity_cutoff", "maintenance_level"}
+
+        if len(args) >= 3 and args[0].lower() not in KNOWN_FIELDS:
+            rig_name = args[0].lower()
+            field = args[1].lower()
+            value = args[2].lower()
+            matches = [r for r in installed if rig_name in r.key.lower()]
+            if not matches:
+                caller.msg(f"No installed rig matching '{rig_name}' at |w{site.key}|n.")
+                return
+            rig = matches[0]
+        else:
+            if len(installed) > 1:
+                names = ", ".join(r.key for r in installed)
+                caller.msg(
+                    f"|w{site.key}|n has multiple rigs: {names}\n"
+                    f"Usage: setrig <rig name> <field> <value>"
+                )
+                return
+            rig = installed[0]
+            field = args[0].lower()
+            value = args[1].lower()
 
         ok, msg = rig.set_option(field, value)
         if ok:
@@ -574,8 +601,11 @@ class CmdRepairRig(Command):
 
     Usage:
       repairrig
+      repairrig <rig name>
 
     Resets the rig's wear to 0 and restores it to operational status.
+    With one rig installed the name is optional; repairs the broken rig
+    (or the most-worn rig if all are operational).
     You must be at the site where the rig is installed and own the site.
 
     In Pass 3 this command will require a repair kit or credit cost.
@@ -595,13 +625,29 @@ class CmdRepairRig(Command):
             caller.msg("You do not own this site.")
             return
 
-        rig = site.db.active_rig
-        if not rig:
-            caller.msg(f"|w{site.key}|n has no installed rig to repair.")
+        installed = [r for r in (site.db.rigs or []) if r]
+        if not installed:
+            caller.msg(f"|w{site.key}|n has no installed rigs to repair.")
             return
 
+        name = self.args.strip().lower()
+        if name:
+            matches = [r for r in installed if name in r.key.lower()]
+            if not matches:
+                caller.msg(f"No installed rig matching '{name}' at |w{site.key}|n.")
+                return
+            rig = matches[0]
+        elif len(installed) == 1:
+            rig = installed[0]
+        else:
+            broken = [r for r in installed if not r.db.is_operational]
+            if broken:
+                rig = broken[0]
+            else:
+                rig = max(installed, key=lambda r: r.db.wear)
+
         was_broken = not rig.db.is_operational
-        old_wear = int(float(getattr(rig.db, "wear", 0.0) or 0.0) * 100)
+        old_wear = int(rig.db.wear * 100)
         rig.repair()
 
         if was_broken:
@@ -609,7 +655,6 @@ class CmdRepairRig(Command):
                 f"|w{rig.key}|n repaired and back online. "
                 f"Wear reset from {old_wear}% to 0%."
             )
-            # Reschedule next cycle now that the rig is operational again
             if site.db.linked_storage and not site.db.next_cycle_at:
                 site.schedule_next_cycle()
                 caller.msg(

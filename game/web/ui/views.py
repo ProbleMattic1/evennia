@@ -33,6 +33,23 @@ def _first_object(key):
     return found[0] if found else None
 
 
+def _group_alerts(rows):
+    sev_order = {"critical": 0, "warning": 1, "info": 2}
+    rows = sorted(
+        [dict(r) for r in rows],
+        key=lambda r: (
+            sev_order.get(str(r.get("severity")), 9),
+            str(r.get("createdAt") or ""),
+        ),
+        reverse=False,
+    )
+    return {
+        "critical": [r for r in rows if r.get("severity") == "critical"],
+        "warning": [r for r in rows if r.get("severity") == "warning"],
+        "info": [r for r in rows if r.get("severity") == "info"],
+    }
+
+
 def _json_body(request):
     try:
         return json.loads(request.body.decode("utf-8") or "{}")
@@ -264,29 +281,31 @@ def _serialize_mining_site(site, char=None):
         WEAR_OUTPUT_PENALTY,
     )
 
-    rig = site.db.active_rig
+    installed_rigs = [r for r in (site.db.rigs or []) if r]
+    operational_rigs = [r for r in installed_rigs if r.db.is_operational]
+    active_rig = min(operational_rigs, key=lambda r: r.db.wear) if operational_rigs else None
+
     storage = site.db.linked_storage
-    raw_inv = storage.db.inventory if storage and hasattr(storage, "db") else {}
-    inv = {str(k): float(v) for k, v in (raw_inv or {}).items()}
-    cap = float(getattr(storage.db, "capacity_tons", 500) or 500) if storage else 500
+    raw_inv = storage.db.inventory if storage else {}
+    inv = {str(k): float(v) for k, v in raw_inv.items()}
+    cap = float(storage.db.capacity_tons) if storage else 500.0
     used = round(sum(inv.values()), 1) if inv else 0
 
     estimated_value_per_cycle = 0
-    if getattr(site, "is_active", False) and rig:
-        rig_rating = float(getattr(rig.db, "rig_rating", 1.0) or 1.0)
-        mode = str(getattr(rig.db, "mode", "balanced") or "balanced")
-        power = str(getattr(rig.db, "power_level", "normal") or "normal")
-        wear = float(getattr(rig.db, "wear", 0) or 0)
-        mode_mod = MODE_OUTPUT_MODIFIERS.get(mode, 1.0)
-        power_mod = POWER_OUTPUT_MODIFIERS.get(power, 1.0)
+    loc = site.location
+    if site.is_active and active_rig:
+        rig_rating = float(active_rig.db.rig_rating)
+        mode = active_rig.db.mode
+        power = active_rig.db.power_level
+        wear = float(active_rig.db.wear)
+        mode_mod = MODE_OUTPUT_MODIFIERS[mode]
+        power_mod = POWER_OUTPUT_MODIFIERS[power]
         wear_mod = 1.0 - (wear * WEAR_OUTPUT_PENALTY)
         total_tons = base_tons * richness * rig_rating * mode_mod * power_mod * wear_mod
-        loc = site.location
         for k, frac in raw_comp.items():
             estimated_value_per_cycle += total_tons * float(frac) * get_commodity_bid(k, location=loc)
     else:
         total_tons = base_tons * richness
-        loc = site.location
         for k, frac in raw_comp.items():
             estimated_value_per_cycle += total_tons * float(frac) * get_commodity_bid(k, location=loc)
     estimated_value_per_cycle = int(round(estimated_value_per_cycle))
@@ -294,15 +313,30 @@ def _serialize_mining_site(site, char=None):
     families = ", ".join(sorted(raw_comp.keys())) if raw_comp else "unknown"
     owner_key = site.db.owner.key if site.db.owner else None
 
+    rigs_payload = [
+        {
+            "key": r.key,
+            "rating": float(r.db.rig_rating),
+            "wear": int(r.db.wear * 100),
+            "operational": r.db.is_operational,
+            "mode": r.db.mode,
+            "powerLevel": r.db.power_level,
+            "targetFamily": r.db.target_family,
+            "purityCutoff": r.db.purity_cutoff,
+            "maintenanceLevel": r.db.maintenance_level,
+        }
+        for r in installed_rigs
+    ]
+
     payload = {
         "id": site.id,
         "key": site.key,
         "siteKey": site.key,
         "roomKey": site.location.key if site.location else site.key,
         "location": site.location.key if site.location else None,
-        "isClaimed": bool(getattr(site.db, "is_claimed", False)),
+        "isClaimed": bool(site.db.is_claimed),
         "owner": owner_key,
-        "surveyLevel": int(site.db.survey_level or 0),
+        "surveyLevel": int(site.db.survey_level),
         "richness": round(richness, 4),
         "volumeTier": volume_tier,
         "volumeTierCls": volume_tier_cls,
@@ -313,25 +347,26 @@ def _serialize_mining_site(site, char=None):
         "resources": families,
         "depletionRate": dep_rate,
         "richnessFloor": richness_floor,
-        "licenseLevel": int(site.db.license_level or 0),
-        "taxRate": float(site.db.tax_rate or 0),
+        "licenseLevel": int(site.db.license_level),
+        "taxRate": float(site.db.tax_rate),
         "hazardLevel": round(hazard, 4),
         "hazardLabel": hazard_label,
         "nextCycleAt": site.db.next_cycle_at,
         "lastProcessedAt": site.db.last_processed_at,
-        "cycleLog": list(site.db.cycle_log or [])[-20:],
-        "hazardLog": list(site.db.hazard_log or [])[-10:],
+        "cycleLog": list(site.db.cycle_log)[-20:],
+        "hazardLog": list(site.db.hazard_log)[-10:],
         "estimatedValuePerCycle": estimated_value_per_cycle,
-        "active": getattr(site, "is_active", False),
-        "rig": rig.key if rig else None,
-        "rigRating": float(getattr(rig.db, "rig_rating", 1.0) or 1.0) if rig else None,
-        "rigWear": int(100 * (float(getattr(rig.db, "wear", 0) or 0))) if rig else None,
-        "rigOperational": bool(getattr(rig.db, "is_operational", True)) if rig else True,
-        "rigMode": str(getattr(rig.db, "mode", "balanced") or "balanced") if rig else None,
-        "rigPowerLevel": str(getattr(rig.db, "power_level", "normal") or "normal") if rig else None,
-        "rigTargetFamily": str(getattr(rig.db, "target_family", "mixed") or "mixed") if rig else None,
-        "rigPurityCutoff": str(getattr(rig.db, "purity_cutoff", "low") or "low") if rig else None,
-        "rigMaintenanceLevel": str(getattr(rig.db, "maintenance_level", "standard") or "standard") if rig else None,
+        "active": site.is_active,
+        "rigs": rigs_payload,
+        "rig": active_rig.key if active_rig else None,
+        "rigRating": float(active_rig.db.rig_rating) if active_rig else None,
+        "rigWear": int(active_rig.db.wear * 100) if active_rig else None,
+        "rigOperational": active_rig.db.is_operational if active_rig else False,
+        "rigMode": active_rig.db.mode if active_rig else None,
+        "rigPowerLevel": active_rig.db.power_level if active_rig else None,
+        "rigTargetFamily": active_rig.db.target_family if active_rig else None,
+        "rigPurityCutoff": active_rig.db.purity_cutoff if active_rig else None,
+        "rigMaintenanceLevel": active_rig.db.maintenance_level if active_rig else None,
         "storageUsed": used,
         "storageCapacity": cap,
         "inventory": inv,
@@ -753,6 +788,8 @@ def dashboard_state(request):
         "treasuryBalance": treasury_balance,
     }
 
+    empty_alerts = {"critical": [], "warning": [], "info": []}
+
     if not request.user.is_authenticated:
         return JsonResponse(
             {
@@ -766,8 +803,20 @@ def dashboard_state(request):
                 "miningEstimatedValuePerCycle": 0,
                 "miningTotalStoredValue": 0,
                 "message": None,
+                "alerts": [],
+                "groupedAlerts": empty_alerts,
             }
         )
+
+    from typeclasses.system_alerts import get_system_alerts_script
+
+    alerts = []
+    grouped_alerts = empty_alerts
+    script = get_system_alerts_script(create_missing=True)
+    if script:
+        raw_alerts = script.get_visible_for_account(request.user.id, limit=200)
+        alerts = [dict(a) for a in raw_alerts]
+        grouped_alerts = _group_alerts(alerts)
 
     char, msg = _resolve_character_for_web(request.user)
     if char is None:
@@ -783,6 +832,8 @@ def dashboard_state(request):
                 "miningEstimatedValuePerCycle": 0,
                 "miningTotalStoredValue": 0,
                 "message": msg,
+                "alerts": alerts,
+                "groupedAlerts": grouped_alerts,
             }
         )
 
@@ -879,19 +930,20 @@ def dashboard_state(request):
     for site in (char.db.owned_sites or []):
         if not site or not getattr(site, "db", None):
             continue
-        rig = site.db.active_rig
+        site_installed_rigs = [r for r in (site.db.rigs or []) if r]
+        site_operational_rigs = [r for r in site_installed_rigs if r.db.is_operational]
+        site_active_rig = min(site_operational_rigs, key=lambda r: r.db.wear) if site_operational_rigs else None
+
         storage = site.db.linked_storage
-        deposit = site.db.deposit or {}
-        richness = float(deposit.get("richness", 0) or 0)
+        deposit = site.db.deposit
+        richness = float(deposit.get("richness", 0))
         raw_comp = deposit.get("composition") or {}
         comp = {str(k): float(v) for k, v in raw_comp.items()}
         next_cycle = site.db.next_cycle_at
 
-        raw_inv = {}
-        if storage and hasattr(storage, "total_mass"):
-            raw_inv = storage.db.inventory or {}
+        raw_inv = storage.db.inventory if storage else {}
         inv = {str(k): float(v) for k, v in raw_inv.items()}
-        cap = float(getattr(storage.db, "capacity_tons", 500) or 500) if storage else 500
+        cap = float(storage.db.capacity_tons) if storage else 500.0
         used = sum(inv.values()) if inv else 0
 
         sloc = site.location
@@ -899,16 +951,16 @@ def dashboard_state(request):
             price = get_commodity_bid(k, location=sloc)
             mining_total_stored += tons * price
 
-        base_tons = float(deposit.get("base_output_tons", 0) or 0)
+        base_tons = float(deposit.get("base_output_tons", 0))
         estimated_value_per_cycle = 0
         estimated_output_tons = 0
-        if getattr(site, "is_active", False) and rig:
-            rig_rating = float(getattr(rig.db, "rig_rating", 1.0) or 1.0)
-            mode = str(getattr(rig.db, "mode", "balanced") or "balanced")
-            power = str(getattr(rig.db, "power_level", "normal") or "normal")
-            wear = float(getattr(rig.db, "wear", 0) or 0)
-            mode_mod = MODE_OUTPUT_MODIFIERS.get(mode, 1.0)
-            power_mod = POWER_OUTPUT_MODIFIERS.get(power, 1.0)
+        if site.is_active and site_active_rig:
+            rig_rating = float(site_active_rig.db.rig_rating)
+            mode = site_active_rig.db.mode
+            power = site_active_rig.db.power_level
+            wear = float(site_active_rig.db.wear)
+            mode_mod = MODE_OUTPUT_MODIFIERS[mode]
+            power_mod = POWER_OUTPUT_MODIFIERS[power]
             wear_mod = 1.0 - (wear * WEAR_OUTPUT_PENALTY)
             total_tons = base_tons * richness * rig_rating * mode_mod * power_mod * wear_mod
             estimated_output_tons = total_tons
@@ -932,7 +984,7 @@ def dashboard_state(request):
             "id": site.id,
             "key": site.key,
             "location": site.location.key if site.location else None,
-            "active": getattr(site, "is_active", False),
+            "active": site.is_active,
             "richness": richness,
             "volumeTier": volume_tier,
             "volumeTierCls": volume_tier_cls,
@@ -943,15 +995,23 @@ def dashboard_state(request):
             "estimatedValuePerCycle": int(round(estimated_value_per_cycle)),
             "composition": comp,
             "nextCycleAt": next_cycle,
-            "rig": rig.key if rig else None,
-            "rigWear": int(100 * (float(getattr(rig.db, "wear", 0) or 0))) if rig else None,
-            "rigOperational": bool(getattr(rig.db, "is_operational", True)) if rig else True,
+            "rigs": [
+                {
+                    "key": r.key,
+                    "wear": int(r.db.wear * 100),
+                    "operational": r.db.is_operational,
+                }
+                for r in site_installed_rigs
+            ],
+            "rig": site_active_rig.key if site_active_rig else None,
+            "rigWear": int(site_active_rig.db.wear * 100) if site_active_rig else None,
+            "rigOperational": site_active_rig.db.is_operational if site_active_rig else False,
             "storageUsed": round(used, 1),
             "storageCapacity": cap,
             "inventory": inv,
-            "licenseLevel": int(site.db.license_level or 0),
-            "taxRate": float(site.db.tax_rate or 0),
-            "hazardLevel": float(site.db.hazard_level or 0),
+            "licenseLevel": int(site.db.license_level),
+            "taxRate": float(site.db.tax_rate),
+            "hazardLevel": float(site.db.hazard_level),
         })
 
     room_key = char.location.key if char.location else None
@@ -969,8 +1029,34 @@ def dashboard_state(request):
             "miningEstimatedValuePerCycle": int(round(mining_value_per_cycle)),
             "miningTotalStoredValue": int(round(mining_total_stored)),
             "message": None,
+            "alerts": alerts,
+            "groupedAlerts": grouped_alerts,
         }
     )
+
+
+@csrf_exempt
+@require_POST
+def dashboard_ack_alert(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    body = _json_body(request)
+    alert_id = str(body.get("alertId") or "").strip()
+    if not alert_id:
+        return JsonResponse({"ok": False, "message": "Missing alertId."}, status=400)
+
+    from typeclasses.system_alerts import get_system_alerts_script
+
+    script = get_system_alerts_script(create_missing=True)
+    if not script:
+        return JsonResponse({"ok": False, "message": "Alerts script unavailable."}, status=500)
+
+    script.ack_for_account(request.user.id, alert_id)
+
+    dash = dashboard_state(request)
+    dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    return JsonResponse({"ok": True, "message": "Alert acknowledged.", "dashboard": dash_data})
 
 
 @require_GET

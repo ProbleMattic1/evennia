@@ -11,35 +11,8 @@ import {
 } from "@/lib/ui-api";
 import type { ClaimsMarketClaim } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
+import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
 import { Countdown } from "@/components/countdown";
-
-const TIER_CLASSES: Record<string, { text: string; badge: string }> = {
-  sky: {
-    text: "text-sky-600 dark:text-sky-400",
-    badge:
-      "bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:bg-sky-950 dark:text-sky-400 dark:ring-sky-700/50",
-  },
-  emerald: {
-    text: "text-emerald-600 dark:text-emerald-400",
-    badge:
-      "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
-  },
-  amber: {
-    text: "text-amber-600 dark:text-amber-400",
-    badge:
-      "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
-  },
-  violet: {
-    text: "text-violet-600 dark:text-violet-400",
-    badge:
-      "bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-700/50",
-  },
-  zinc: {
-    text: "text-zinc-600 dark:text-zinc-400",
-    badge:
-      "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700/50",
-  },
-};
 
 function rowBusyKey(c: ClaimsMarketClaim): string {
   if (c.listingKind === "deed" && c.claimId != null) {
@@ -65,8 +38,8 @@ function ClaimRow({
   onBuySiteDeed: (siteKey: string) => void;
   onBuyListedDeed: (claimId: number) => void;
 }) {
-  const volT = TIER_CLASSES[c.volumeTierCls] ?? TIER_CLASSES.zinc;
-  const rarT = TIER_CLASSES[c.resourceRarityTierCls] ?? TIER_CLASSES.zinc;
+  const volT = volumeTierStyle(c.volumeTierCls);
+  const rarT = rarityTierStyle(c.resourceRarityTierCls);
   const busyKey = rowBusyKey(c);
   const busy = buyingKey === busyKey;
   const isDeed = c.listingKind === "deed" && c.claimId != null;

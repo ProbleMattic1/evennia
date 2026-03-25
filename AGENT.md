@@ -15,4 +15,6 @@ No defensive code, ever!! That only masks errors and makes diagnosis difficult.
 
 Always review and check existing typeclasses before making changes or making new ones.
 
-No Fallbacks or Defensive code allowed!!
+No Fallbacks or Defensive code allowed.
+
+Always adhere to Evennia best practices for long term play, flexiblity, and scaling.

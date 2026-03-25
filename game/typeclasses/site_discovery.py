@@ -50,6 +50,18 @@ class SiteDiscoveryEngine(DefaultScript):
                     f"[site_discovery] New site discovered: {site.key} "
                     f"(unclaimed total: {len(unclaimed) + 1})"
                 )
+                try:
+                    from typeclasses.system_alerts import enqueue_system_alert
+                    enqueue_system_alert(
+                        severity="info",
+                        category="market",
+                        title="New claim discovered",
+                        detail=f"{site.key} is now available on the claims market.",
+                        source=site.key,
+                        dedupe_key=f"new-claim:{site.id}",
+                    )
+                except Exception:
+                    pass
         except Exception as err:
             logger.log_err(f"[site_discovery] Error during discovery: {err}")
         finally:

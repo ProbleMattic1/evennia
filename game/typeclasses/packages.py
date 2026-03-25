@@ -199,7 +199,6 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
     buyer.db.owned_sites = owned_sites
 
     rig.install(site, owner=buyer)
-    site.db.active_rig = rig
 
     site.db.linked_storage = storage
     storage.db.site = site
@@ -255,7 +254,6 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
     site.db.mine_operation_active = True
 
     rig.install(site, owner=buyer)
-    site.db.active_rig = rig
 
     site.db.linked_storage = storage
     storage.db.site = site
@@ -454,7 +452,6 @@ def undeploy_mine_to_package(buyer, site):
     if not getattr(site.db, "mine_operation_active", True):
         return False, "This mine is not operating.", None
 
-    rig = site.db.active_rig
     storage = site.db.linked_storage
     hauler = None
     for v in list(buyer.db.owned_vehicles or []):
@@ -467,13 +464,15 @@ def undeploy_mine_to_package(buyer, site):
                 break
 
     site.db.next_cycle_at = None
-    site.db.active_rig = None
     site.db.linked_storage = None
     site.db.mine_operation_active = False
 
-    if rig:
-        rig.uninstall()
-        rig.delete()
+    for rig in list(site.db.rigs or []):
+        if rig:
+            rig.uninstall()
+            rig.delete()
+    site.db.rigs = []
+
     if storage:
         storage.delete()
     if hauler:

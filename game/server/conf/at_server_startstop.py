@@ -102,6 +102,7 @@ def at_server_cold_start():
     from world.bootstrap_shipyard import bootstrap_shipyard
     from world.bootstrap_shops import bootstrap_shops
     from world.bootstrap_vehicle_catalog import bootstrap_vehicle_catalog
+    from typeclasses.system_alerts import get_system_alerts_script
 
     _run("NanoMegaPlex hub (#2 → Promenade)", bootstrap_hub)
     _run("global economy script", bootstrap_economy)
@@ -119,6 +120,7 @@ def at_server_cold_start():
     _run("mining sale packages (Starter Pack, Pro Pack)", bootstrap_mining_packages)
     _run("random mining claim deed at Mining Outfitters", bootstrap_mining_claim_sale)
     _run("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)
+    _run("system alerts queue", lambda: get_system_alerts_script(create_missing=True))
 
 
 def at_server_cold_stop():
