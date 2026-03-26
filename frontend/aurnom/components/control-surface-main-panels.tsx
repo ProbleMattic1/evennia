@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { Countdown } from "@/components/countdown";
+import { DashboardMissionsPanel } from "@/components/dashboard-missions-panel";
 import type { ControlSurfaceState, CsInventory, CsProcessing } from "@/lib/control-surface-api";
 import type {
   DashboardAlert,
@@ -12,14 +13,38 @@ import type {
   DashboardProperty,
   DashboardShip,
   MarketCommodity,
-  MissionActive,
-  MissionOpportunity,
-  MissionsState,
 } from "@/lib/ui-api";
-import { acceptMission, chooseMission, dashboardAckAlert, mineDeploy } from "@/lib/ui-api";
+import { dashboardAckAlert, mineDeploy } from "@/lib/ui-api";
 
-function Panel({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
-  const [open, setOpen] = useState(true);
+function Panel({
+  panelKey,
+  title,
+  children,
+  className = "",
+}: {
+  panelKey: string;
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  const storageKey = `aurnom:dashboard-panel:${panelKey}`;
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.sessionStorage.getItem(storageKey);
+      return raw == null ? true : raw === "1";
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(storageKey, open ? "1" : "0");
+    } catch {
+      // ignore storage errors and keep UI functional
+    }
+  }, [open, storageKey]);
 
   return (
     <section className={`mb-1 ${className}`}>
@@ -43,7 +68,7 @@ function Kv({ k, v, dim }: { k: string; v: ReactNode; dim?: boolean }) {
   return (
     <div className="flex min-w-0 gap-1">
       <span className="shrink-0 text-zinc-500">{k}</span>
-      <span className={`min-w-0 truncate font-mono ${dim ? "text-zinc-600" : "text-zinc-200"}`}>{v}</span>
+      <span className={`min-w-0 truncate font-mono ${dim ? "text-zinc-500" : "text-zinc-200"}`}>{v}</span>
     </div>
   );
 }
@@ -130,7 +155,7 @@ function AlertsPanel({
   };
 
   return (
-    <Panel title={`Alerts (${all.length})`}>
+    <Panel panelKey="alerts" title={`Alerts (${all.length})`}>
       {all.map((a: DashboardAlert) => (
         <Row key={a.id} className="mb-0.5 items-start">
           <span className={`shrink-0 text-[9px] font-bold uppercase ${sevColor(a.severity)}`}>
@@ -144,66 +169,13 @@ function AlertsPanel({
   );
 }
 
-function MissionsPanel({
-  missions,
-  onAccept,
-  onChoose,
-}: {
-  missions: MissionsState;
-  onAccept: (id: string) => void;
-  onChoose: (missionId: string, choiceId: string) => void;
-}) {
-  const { opportunities, active } = missions;
-
-  return (
-    <Panel title={`Missions (${active.length} active / ${opportunities.length} avail)`}>
-      {active.map((m: MissionActive) => (
-        <div key={m.id} className="mb-1 border-b border-zinc-800 pb-1 last:border-0 last:pb-0">
-          <Row>
-            <span className="font-semibold text-zinc-200">{m.title}</span>
-            <span className="ml-auto text-[9px] text-zinc-500">{m.status}</span>
-          </Row>
-          {m.currentObjective ? (
-            <div className="mt-0.5 text-zinc-400">{m.currentObjective.text ?? m.currentObjective.prompt}</div>
-          ) : null}
-          {m.currentObjective?.choices && m.currentObjective.choices.length > 0 ? (
-            <div className="mt-0.5 flex flex-wrap gap-1">
-              {m.currentObjective.choices.map((c) => (
-                <TinyButton key={c.id} onClick={() => onChoose(m.id, c.id)}>
-                  {c.label}
-                </TinyButton>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ))}
-
-      {opportunities.length > 0 ? (
-        <>
-          <div className="mt-1 text-[10px] uppercase text-zinc-600">Available</div>
-          {opportunities.map((op: MissionOpportunity) => (
-            <Row key={op.id} className="mb-0.5">
-              <span className="flex-1 text-zinc-400">{op.title}</span>
-              <TinyButton onClick={() => onAccept(op.id)}>Accept</TinyButton>
-            </Row>
-          ))}
-        </>
-      ) : null}
-
-      {active.length === 0 && opportunities.length === 0 ? (
-        <span className="text-zinc-600">No missions available.</span>
-      ) : null}
-    </Panel>
-  );
-}
-
 function MarketPanel({ commodities }: { commodities: MarketCommodity[] }) {
   if (commodities.length === 0) return null;
   return (
-    <Panel title="Market">
+    <Panel panelKey="market" title="Market">
       <table className="w-full table-fixed text-[10px]">
         <thead>
-          <tr className="text-zinc-600">
+          <tr className="text-zinc-500">
             <th className="w-1/2 text-left font-normal">resource</th>
             <th className="w-1/4 text-right font-normal">sell</th>
             <th className="w-1/4 text-right font-normal">buy</th>
@@ -228,10 +200,10 @@ function InventoryPanel({ inventory }: { inventory: CsInventory }) {
   if (total === 0) return null;
 
   return (
-    <Panel title={`Inventory (${total})`}>
+    <Panel panelKey="inventory" title={`Inventory (${total})`}>
       {inventory.claims.length > 0 ? (
         <>
-          <div className="text-[10px] uppercase text-zinc-600">Claims</div>
+          <div className="text-[10px] uppercase text-zinc-500">Claims</div>
           {inventory.claims.map((item) => (
             <Row key={item.id}>
               <span className="flex-1 truncate text-zinc-300">{item.key}</span>
@@ -248,7 +220,7 @@ function InventoryPanel({ inventory }: { inventory: CsInventory }) {
       ) : null}
       {inventory.packages.length > 0 ? (
         <>
-          <div className="mt-0.5 text-[10px] uppercase text-zinc-600">Packages</div>
+          <div className="mt-0.5 text-[10px] uppercase text-zinc-500">Packages</div>
           {inventory.packages.map((item) => (
             <Row key={item.id}>
               <span className="flex-1 truncate text-zinc-300">{item.key}</span>
@@ -259,7 +231,7 @@ function InventoryPanel({ inventory }: { inventory: CsInventory }) {
       ) : null}
       {inventory.other.length > 0 ? (
         <>
-          <div className="mt-0.5 text-[10px] uppercase text-zinc-600">Other</div>
+          <div className="mt-0.5 text-[10px] uppercase text-zinc-500">Other</div>
           {inventory.other.map((item) => (
             <Row key={item.id}>
               <span className="flex-1 truncate text-zinc-300">
@@ -295,19 +267,21 @@ function MineDeploymentPanel({
   const [packageId, setPackageId] = useState<number | "">("");
   const [claimId, setClaimId] = useState<number | "">("");
 
+  // Only show when deploy is possible: at least one package and one mining claim.
+  if (packageRows.length === 0 || claimRows.length === 0) {
+    return null;
+  }
+
   const canDeploy = typeof packageId === "number" && typeof claimId === "number";
 
   return (
-    <Panel title="Mine Operations">
+    <Panel panelKey="mine-operations" title="Mine Operations">
       <div className="space-y-1">
         <Kv k="packages" v={packageRows.length} />
         <Kv k="claims" v={claimRows.length} />
       </div>
-      {packageRows.length === 0 || claimRows.length === 0 ? (
-        <div className="mt-1 text-zinc-500">Need at least one mining package and one mining claim to deploy.</div>
-      ) : (
-        <>
-          <label className="mt-1 block text-[10px] uppercase tracking-wide text-zinc-600">Package</label>
+      <>
+          <label className="mt-1 block text-[10px] uppercase tracking-wide text-zinc-500">Package</label>
           <select
             className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-200"
             value={packageId}
@@ -321,7 +295,7 @@ function MineDeploymentPanel({
             ))}
           </select>
 
-          <label className="mt-1 block text-[10px] uppercase tracking-wide text-zinc-600">Claim</label>
+          <label className="mt-1 block text-[10px] uppercase tracking-wide text-zinc-500">Claim</label>
           <select
             className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-200"
             value={claimId}
@@ -341,8 +315,7 @@ function MineDeploymentPanel({
             </TinyButton>
             {typeof claimId === "number" ? <TinyLink href={`/claims/${claimId}`}>Claim detail →</TinyLink> : null}
           </div>
-        </>
-      )}
+      </>
     </Panel>
   );
 }
@@ -350,7 +323,7 @@ function MineDeploymentPanel({
 function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
   if (ships.length === 0) return null;
   return (
-    <Panel title={`Ships (${ships.length})`}>
+    <Panel panelKey="ships" title={`Ships (${ships.length})`}>
       {ships.map((s) => (
         <Row key={s.id}>
           <span className="flex-1 truncate font-semibold text-zinc-200">
@@ -358,7 +331,7 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
             {s.key}
           </span>
           {s.state ? <span className="text-[10px] text-zinc-500">{s.state}</span> : null}
-          {s.location ? <span className="text-[10px] text-zinc-600">{s.location}</span> : null}
+          {s.location ? <span className="text-[10px] text-zinc-500">{s.location}</span> : null}
         </Row>
       ))}
     </Panel>
@@ -368,7 +341,7 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
 function MinesPanel({ mines, onReload }: { mines: DashboardMine[]; onReload: () => void }) {
   if (mines.length === 0) return null;
   return (
-    <Panel title={`Mines (${mines.length})`}>
+    <Panel panelKey="mines" title={`Mines (${mines.length})`}>
       {mines.map((m) => (
         <div key={m.key} className="mb-1 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0">
           <Row>
@@ -421,7 +394,7 @@ function MinesPanel({ mines, onReload }: { mines: DashboardMine[]; onReload: () 
 function PropertiesPanel({ properties }: { properties: DashboardProperty[] }) {
   if (properties.length === 0) return null;
   return (
-    <Panel title={`Properties (${properties.length})`}>
+    <Panel panelKey="properties" title={`Properties (${properties.length})`}>
       {properties.map((p) => (
         <Row key={p.claimId}>
           <span className="flex-1 truncate text-zinc-300">{p.claimKey}</span>
@@ -438,7 +411,7 @@ function PropertiesPanel({ properties }: { properties: DashboardProperty[] }) {
 
 function ProcessingPanel({ processing }: { processing: CsProcessing }) {
   return (
-    <Panel title="Processing">
+    <Panel panelKey="processing" title="Processing">
       <Kv k="ore bay" v={`${processing.rawStorageUsed.toFixed(1)} / ${processing.rawStorageCapacity.toFixed(0)} t`} />
       <Kv k="refinery in" v={`${processing.refineryInputTons.toFixed(1)} t`} />
       <Kv k="refinery out" v={cr(processing.refineryOutputValue)} />
@@ -449,7 +422,7 @@ function ProcessingPanel({ processing }: { processing: CsProcessing }) {
           {processing.myHaulers.length} hauler{processing.myHaulers.length !== 1 ? "s" : ""}
         </div>
       ) : null}
-      <div className="mt-0.5 flex gap-2 text-[10px] text-zinc-600">
+      <div className="mt-0.5 flex gap-2 text-[10px] text-zinc-500">
         <span>fee {pct(processing.processingFeeRate)}</span>
         <span>raw fee {pct(processing.rawSaleFeeRate)}</span>
       </div>
@@ -482,11 +455,6 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
   );
 
   const ackAlert = useCallback((alertId: string) => run(() => dashboardAckAlert({ alertId })), [run]);
-  const acceptMissionCb = useCallback((opportunityId: string) => run(() => acceptMission({ opportunityId })), [run]);
-  const chooseMissionCb = useCallback(
-    (missionId: string, choiceId: string) => run(() => chooseMission({ missionId, choiceId })),
-    [run],
-  );
   const deployMineCb = useCallback(
     (packageId: number, claimId: number) => run(() => mineDeploy({ packageId, claimId })),
     [run],
@@ -504,7 +472,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       ) : null}
       <div className="grid min-h-svh grid-cols-2">
         <div className="min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
-          {data.missions ? <MissionsPanel missions={data.missions} onAccept={acceptMissionCb} onChoose={chooseMissionCb} /> : null}
+          {data.missions ? <DashboardMissionsPanel missions={data.missions} onChanged={onReload} /> : null}
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
           <MinesPanel mines={data.mines} onReload={onReload} />
         </div>

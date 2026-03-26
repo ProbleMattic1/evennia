@@ -24,7 +24,7 @@ import { useUiResource } from "@/lib/use-ui-resource";
 const REALTY_OFFICE_ROOM = "NanoMegaPlex Real Estate Office";
 
 const TIER_COLOR: Record<number, string> = {
-  1: "text-zinc-600 dark:text-cyan-500/80",
+  1: "text-zinc-500 dark:text-cyan-500/80",
   2: "text-sky-700 dark:text-sky-400",
   3: "text-amber-700 dark:text-amber-400",
 };
@@ -45,7 +45,7 @@ const RANDOM_ZONE_BTN: Record<PropertyZone, string> = {
 };
 
 function ZoneBadge({ zone, label }: { zone: string; label: string }) {
-  const cls = ZONE_BADGE[zone] ?? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
+  const cls = ZONE_BADGE[zone] ?? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400";
   return (
     <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>
       {label}
@@ -63,7 +63,7 @@ function LotCard({
   buying: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded border border-zinc-200 px-3 py-2.5 dark:border-cyan-900/40">
+    <div className="flex items-center justify-between gap-3 rounded border border-cyan-900/40 bg-zinc-950/60 px-3 py-2.5">
       <div className="flex min-w-0 flex-col gap-1">
         <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
           {lot.lotKey}
@@ -154,19 +154,19 @@ export default function RealEstatePage() {
 
   if (loading) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading real estate office…</p>
-      </main>
+      </CsPage>
     );
   }
 
   if (error || !data) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-red-600 dark:text-red-400">
           Failed to load real estate office: {error ?? "Unknown error"}
         </p>
-      </main>
+      </CsPage>
     );
   }
 
@@ -223,8 +223,8 @@ export default function RealEstatePage() {
                   </div>
                 )}
 
-                <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-cyan-900/40">
-                  <p className="text-[11px] leading-snug text-zinc-600 dark:text-cyan-500/75">
+                <div className="mt-3 space-y-2 border-t border-cyan-900/40 pt-3">
+                  <p className="text-[11px] leading-snug text-zinc-500">
                     Buy a random listable parcel by zone (price follows tier and zone, same as choosing a
                     specific lot).
                   </p>

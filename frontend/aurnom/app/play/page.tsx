@@ -3,10 +3,10 @@
 import { Suspense, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { ActionGrid } from "@/components/action-grid";
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
-import { MineDetailsPanel } from "@/components/mine-details-panel";
+import { ExitGrid } from "@/components/exit-grid";
+import { MineDetailsPanel, MinePlayRightColumn, PlayMissionsPanel } from "@/components/mine-details-panel";
 import { StoryPanel } from "@/components/story-panel";
 import { getPlayState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
@@ -29,19 +29,40 @@ function PlayPageInner() {
 
   if (loading) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading play state…</p>
-      </main>
+      </CsPage>
     );
   }
 
   if (error || !data) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-red-600 dark:text-red-400">Failed to load play state: {error ?? "Unknown error"}</p>
-      </main>
+      </CsPage>
     );
   }
+
+  const mineRight =
+    data.site && data.roomName === MINING_OUTFITTERS_ROOM ? (
+      <>
+        <CsPanel title="Market Snapshot">
+          <CommodityTickerStrip />
+        </CsPanel>
+        <CsPanel title="Commodity Board">
+          <CommodityTickerTable />
+        </CsPanel>
+      </>
+    ) : data.site ? (
+      <>
+        <CsPanel title="Missions">
+          <PlayMissionsPanel onPlayReload={reload} />
+        </CsPanel>
+        <CsPanel title="Mine detail">
+          <MinePlayRightColumn site={data.site} playActions={data.actions} onPlayReload={reload} />
+        </CsPanel>
+      </>
+    ) : undefined;
 
   return (
     <CsPage>
@@ -53,11 +74,11 @@ function PlayPageInner() {
       <CsColumns
         left={
           <>
-            <CsPanel title="Actions">
-              <ActionGrid actions={data.actions} />
-            </CsPanel>
             <CsPanel title="Story Output">
-              <StoryPanel title="Story Output" lines={data.storyLines} />
+              <StoryPanel lines={data.storyLines} compact />
+            </CsPanel>
+            <CsPanel title="Exits">
+              <ExitGrid exits={data.exits} />
             </CsPanel>
             {data.site ? (
               <CsPanel title="Mine Site">
@@ -66,18 +87,7 @@ function PlayPageInner() {
             ) : null}
           </>
         }
-        right={
-          data.roomName === MINING_OUTFITTERS_ROOM ? (
-            <>
-              <CsPanel title="Market Snapshot">
-                <CommodityTickerStrip />
-              </CsPanel>
-              <CsPanel title="Commodity Board">
-                <CommodityTickerTable />
-              </CsPanel>
-            </>
-          ) : undefined
-        }
+        right={mineRight}
       />
     </CsPage>
   );
@@ -87,9 +97,9 @@ export default function PlayPage() {
   return (
     <Suspense
       fallback={
-        <main className="main-content">
+        <CsPage>
           <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading play state…</p>
-        </main>
+        </CsPage>
       }
     >
       <PlayPageInner />

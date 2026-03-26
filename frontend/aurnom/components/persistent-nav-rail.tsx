@@ -1,13 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { ControlSurfaceNav, CsCharacter } from "@/lib/control-surface-api";
 import { useControlSurface } from "@/components/control-surface-provider";
 
-function Panel({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
-  const [open, setOpen] = useState(true);
+function Panel({
+  panelKey,
+  title,
+  children,
+  className = "",
+}: {
+  panelKey: string;
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  const storageKey = `aurnom:nav-panel:${panelKey}`;
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.sessionStorage.getItem(storageKey);
+      return raw == null ? true : raw === "1";
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(storageKey, open ? "1" : "0");
+    } catch {
+      // ignore storage errors and keep UI functional
+    }
+  }, [open, storageKey]);
 
   return (
     <section className={`mb-1 ${className}`}>
@@ -94,7 +121,7 @@ function PlayerPanel({
   const abilityRows = Object.entries(char.abilities || {}).sort(([a], [b]) => a.localeCompare(b));
 
   return (
-    <Panel title="Character">
+    <Panel panelKey="character" title="Character">
       <Row>
         <span className="font-bold text-zinc-100">{char.key}</span>
       </Row>
@@ -136,7 +163,7 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
   return (
     <>
       {nav.kiosks.length > 0 && (
-        <Panel title="Services">
+        <Panel panelKey="services" title="Services">
           {nav.kiosks.map((k) => (
             <div key={k.key}>
               <TinyLink href={k.href}>{k.label}</TinyLink>
@@ -145,7 +172,7 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
         </Panel>
       )}
       {nav.shops.length > 0 && (
-        <Panel title="Shops">
+        <Panel panelKey="shops" title="Shops">
           {nav.shops.map((s) => (
             <div key={s.roomKey}>
               <TinyLink href={`/shop?room=${encodeURIComponent(s.roomKey)}`}>{s.label}</TinyLink>
@@ -154,7 +181,7 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
         </Panel>
       )}
       {nav.claims.length > 0 && (
-        <Panel title="Claims">
+        <Panel panelKey="claims" title="Claims">
           {nav.claims.map((c) => (
             <div key={c.href}>
               <TinyLink href={c.href}>{c.label}</TinyLink>
@@ -163,7 +190,7 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
         </Panel>
       )}
       {nav.properties.length > 0 && (
-        <Panel title="Property Deeds">
+        <Panel panelKey="property-deeds" title="Property Deeds">
           {nav.properties.map((p) => (
             <div key={p.href}>
               <TinyLink href={p.href}>{p.label}</TinyLink>
@@ -171,18 +198,8 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
           ))}
         </Panel>
       )}
-      {nav.mines.length > 0 && (
-        <Panel title="Mines">
-          {nav.mines.map((m) => (
-            <Row key={m.href}>
-              <TinyLink href={m.href}>{m.label}</TinyLink>
-              {m.active && <span className="text-[9px] text-green-400">●</span>}
-            </Row>
-          ))}
-        </Panel>
-      )}
       {nav.exits.length > 0 && (
-        <Panel title="Hub Exits">
+        <Panel panelKey="hub-exits" title="Hub Exits">
           {nav.exits.map((e) => (
             <div key={e.key} className="text-zinc-400">
               {e.label}
@@ -218,7 +235,7 @@ export function PersistentNavRail() {
           onReload={reload}
         />
       ) : (
-        <div className="text-zinc-600">Not logged in.</div>
+        <div className="text-zinc-500">Not logged in.</div>
       )}
 
       <NavPanel nav={data?.nav ?? { hubRoomKey: "", exits: [], kiosks: [], shops: [], claims: [], properties: [], mines: [] }} />

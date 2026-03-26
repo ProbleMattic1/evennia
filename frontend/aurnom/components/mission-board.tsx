@@ -107,7 +107,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
   return (
     <section className="mx-2 rounded-lg border border-fuchsia-200/60 bg-fuchsia-50/40 px-3 py-2 dark:border-fuchsia-800/40 dark:bg-fuchsia-950/20">
       <details className="group" open>
-        <summary className="section-label flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-bold uppercase tracking-widest text-cyan-500 [&::-webkit-details-marker]:hidden">
           <span>Mission Board</span>
           <svg
             className="size-3 shrink-0 transition-transform group-open:rotate-90"
@@ -135,7 +135,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
           {notice ? <p className="mt-2 text-[12px] text-emerald-600 dark:text-emerald-400">{notice}</p> : null}
 
           <details className="group mt-2" open>
-            <summary className="section-label cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-cyan-500 [&::-webkit-details-marker]:hidden">
               Opportunities
             </summary>
             {opportunities.length === 0 ? (
@@ -161,7 +161,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
           </details>
 
           <details className="group mt-2" open>
-            <summary className="section-label cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-cyan-500 [&::-webkit-details-marker]:hidden">
               Active
             </summary>
             {active.length === 0 ? (
@@ -179,8 +179,8 @@ export function MissionBoard({ missions, onChanged }: Props) {
                         </p>
                       ) : null}
                       {objective ? (
-                        <div className="mt-1 rounded border border-zinc-300/60 bg-zinc-50/60 px-2 py-1 dark:border-zinc-700/60 dark:bg-zinc-900/30">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300">
+                        <div className="mt-1 rounded border border-cyan-900/40 bg-zinc-900/50 px-2 py-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-300">
                             Next step
                           </p>
 
@@ -257,7 +257,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
           </details>
 
           <details className="group mt-2">
-            <summary className="section-label cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-cyan-500 [&::-webkit-details-marker]:hidden">
               Completed ({completed.length})
             </summary>
             {completed.length === 0 ? (

@@ -1,30 +1,39 @@
 import type { StoryLine } from "@/lib/ui-api";
 
 type Props = {
-  title: string;
+  /** Omit when the parent panel already shows the same heading (e.g. CsPanel). */
+  title?: string;
   lines: StoryLine[];
+  /** Tighter box; avoids empty terminal feel when few lines (Play / two-column layouts). */
+  compact?: boolean;
 };
 
-export function StoryPanel({ title, lines }: Props) {
+export function StoryPanel({ title, lines, compact }: Props) {
+  const boxClass = compact
+    ? "max-h-[min(200px,40vh)] min-h-0 overflow-y-auto border border-cyan-900/40 bg-zinc-950/80 p-2 font-mono text-[11px] leading-5 text-zinc-200"
+    : "max-h-[min(320px,50vh)] min-h-[200px] overflow-y-auto border border-cyan-900/40 bg-zinc-950/80 p-2 font-mono text-[11px] leading-5 text-zinc-200";
+
   return (
-    <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
-      <h2 className="section-label">{title}</h2>
-      <div className="mt-1 min-h-[200px] max-h-[min(280px,50vh)] overflow-y-auto rounded border border-zinc-200 bg-zinc-50 p-2 font-mono text-sm leading-5 text-zinc-800 sm:max-h-[320px] dark:border-cyan-900/50 dark:bg-zinc-950/80 dark:text-zinc-200">
+    <div>
+      {title ? (
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-500">{title}</div>
+      ) : null}
+      <div className={boxClass}>
         {lines.map((line) => (
           <p
             key={line.id}
             className={
               line.kind === "title"
-                ? "mb-2 text-sm font-semibold text-amber-700 dark:text-amber-300"
+                ? "mb-2 text-[11px] font-semibold text-amber-300"
                 : line.kind === "system"
-                  ? "mb-1.5 text-sm text-sky-700 dark:text-cyan-400"
-                  : "mb-1.5 text-sm text-zinc-800 dark:text-zinc-200"
+                  ? "mb-1.5 text-[11px] text-cyan-400"
+                  : "mb-1.5 text-[11px] text-zinc-200"
             }
           >
             {line.text}
           </p>
         ))}
       </div>
-    </section>
+    </div>
   );
 }

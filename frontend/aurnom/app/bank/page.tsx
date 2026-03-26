@@ -14,17 +14,17 @@ export default function BankPage() {
 
   if (loading) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading bank state…</p>
-      </main>
+      </CsPage>
     );
   }
 
   if (error || !data) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-red-600 dark:text-red-400">Failed to load bank state: {error ?? "Unknown error"}</p>
-      </main>
+      </CsPage>
     );
   }
 

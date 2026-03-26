@@ -117,59 +117,59 @@ export function PropertyDeedMarketPanel({ defaultClaimId }: PropertyDeedMarketPa
         <p
           className={`mx-2 mt-2 rounded px-2 py-1.5 text-xs ${
             feedback.ok
-              ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-900/25 dark:text-emerald-400"
-              : "bg-red-50 text-red-700 dark:bg-red-900/25 dark:text-red-400"
+              ? "bg-zinc-900 text-emerald-400"
+              : "bg-zinc-900 text-red-400"
           }`}
         >
           {feedback.message}
         </p>
       )}
 
-      <div className="mt-3 border-t border-zinc-200 px-2 py-2 dark:border-cyan-900/40">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-cyan-500/80">
+      <div className="mt-3 border-t border-cyan-900/40 px-2 py-2">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
           List your deed
         </p>
         <div className="mt-2 flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+          <label className="flex flex-col gap-0.5 text-[11px] text-zinc-500">
             Claim id
             <input
               type="text"
               inputMode="numeric"
               value={listClaimId}
               onChange={(ev) => setListClaimId(ev.target.value)}
-              className="w-28 rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-sm dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+              className="w-28 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 font-mono text-sm text-zinc-200"
               placeholder="#id"
             />
           </label>
-          <label className="flex flex-col gap-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+          <label className="flex flex-col gap-0.5 text-[11px] text-zinc-500">
             Price (cr)
             <input
               type="text"
               inputMode="numeric"
               value={listPrice}
               onChange={(ev) => setListPrice(ev.target.value)}
-              className="w-32 rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-sm dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+              className="w-32 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 font-mono text-sm text-zinc-200"
             />
           </label>
           <button
             type="button"
             disabled={listBusy}
             onClick={() => void handleList()}
-            className="rounded bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-cyan-800 dark:hover:bg-cyan-700"
+            className="rounded border border-cyan-800/60 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
           >
             {listBusy ? "…" : "List deed"}
           </button>
         </div>
       </div>
 
-      <div className="mt-2 border-t border-zinc-200 px-2 py-2 dark:border-cyan-900/40">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-cyan-500/80">
+      <div className="mt-2 border-t border-cyan-900/40 px-2 py-2">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
           Listed deeds
         </p>
         {loading ? (
           <p className="mt-2 text-sm text-zinc-500">Loading…</p>
         ) : error ? (
-          <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="mt-2 text-sm text-red-400">{error}</p>
         ) : listings.length === 0 ? (
           <p className={`mt-2 ${exchangePanelEmptyClass}`}>No deeds listed.</p>
         ) : (
@@ -177,25 +177,25 @@ export function PropertyDeedMarketPanel({ defaultClaimId }: PropertyDeedMarketPa
             {listings.map((row) => (
               <li
                 key={row.claimId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-200 px-2 py-2 dark:border-cyan-900/40"
+                className="flex flex-wrap items-center justify-between gap-2 rounded border border-cyan-900/40 bg-zinc-950/60 px-2 py-2"
               >
                 <div className="min-w-0">
-                  <div className="truncate font-mono text-sm text-zinc-900 dark:text-zinc-100">
+                  <div className="truncate font-mono text-sm text-zinc-100">
                     {row.key}
                   </div>
-                  <div className="text-[11px] text-zinc-500 dark:text-cyan-500/70">
+                  <div className="text-[11px] text-zinc-500">
                     #{row.claimId} · {row.kind} · {row.lotKey || "—"} · seller {row.sellerKey}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="font-mono text-sm tabular-nums text-amber-700 dark:text-amber-400">
+                  <span className="font-mono text-sm tabular-nums text-amber-400">
                     {row.price.toLocaleString()} cr
                   </span>
                   <button
                     type="button"
                     disabled={buyingId === row.claimId}
                     onClick={() => void handleBuy(row)}
-                    className="rounded bg-cyan-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 dark:bg-cyan-700"
+                    className="rounded border border-cyan-800/60 bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
                   >
                     {buyingId === row.claimId ? "…" : "Buy"}
                   </button>

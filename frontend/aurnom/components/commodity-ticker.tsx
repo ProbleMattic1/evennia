@@ -35,11 +35,11 @@ function cat(c: MarketCommodity) {
 // ─── Price delta helper ───────────────────────────────────────────────────────
 
 function priceDelta(sell: number, base: number) {
-  if (!base) return { icon: "—", pct: 0, cls: "text-zinc-600 dark:text-zinc-500" };
+  if (!base) return { icon: "—", pct: 0, cls: "text-zinc-500 dark:text-zinc-500" };
   const pct = Math.round(((sell - base) / base) * 100);
   if (pct > 0) return { icon: "▲", pct, cls: "text-emerald-600 dark:text-emerald-400" };
   if (pct < 0) return { icon: "▼", pct: Math.abs(pct), cls: "text-red-600 dark:text-red-400" };
-  return { icon: "—", pct: 0, cls: "text-zinc-600 dark:text-zinc-500" };
+  return { icon: "—", pct: 0, cls: "text-zinc-500 dark:text-zinc-500" };
 }
 
 // ─── Shared hook ─────────────────────────────────────────────────────────────
@@ -63,8 +63,8 @@ export function CommodityTickerStrip() {
 
   if (loading && !data) {
     return (
-      <div className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-cyan-900/50 dark:bg-zinc-950/80">
-        <p className="animate-pulse font-mono text-[13px] text-zinc-600 dark:text-zinc-500">
+      <div className="overflow-hidden rounded border border-cyan-900/40 bg-zinc-950/80 px-3 py-2">
+        <p className="animate-pulse font-mono text-[13px] text-zinc-500">
           SYNCING MARKET FEED…
         </p>
       </div>
@@ -76,12 +76,12 @@ export function CommodityTickerStrip() {
   const items = [...data.commodities, ...data.commodities]; // duplicate for seamless loop
 
   return (
-    <div className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-cyan-900/50 dark:bg-zinc-950/80">
+    <div className="overflow-hidden rounded border border-cyan-900/40 bg-zinc-950/80">
       {/* Header row */}
-      <div className="flex min-w-0 items-center justify-between border-b border-zinc-200 bg-zinc-100 px-3 py-1.5 dark:border-cyan-800/50 dark:bg-cyan-950/40">
+      <div className="flex min-w-0 items-center justify-between border-b border-cyan-900/50 bg-cyan-950/40 px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500 dark:bg-cyan-400" />
-          <span className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
+          <span className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-cyan-400/90">
             Aurnom Commodity Exchange · Live Pricing
           </span>
         </div>
@@ -101,7 +101,7 @@ export function CommodityTickerStrip() {
                 className="inline-flex items-center gap-1.5 font-mono text-[13px]"
               >
                 <span className={cat(c).text}>{c.name.toUpperCase()}</span>
-                <span className="text-zinc-600 dark:text-zinc-300">
+                <span className="text-zinc-500 dark:text-zinc-300">
                   {c.sellPriceCrPerTon.toLocaleString()} cr/t
                 </span>
                 <span className={d.cls}>
@@ -130,7 +130,7 @@ function CommodityRow({ c }: { c: MarketCommodity }) {
   const d = priceDelta(c.sellPriceCrPerTon, c.basePriceCrPerTon);
   const s = cat(c);
   return (
-    <tr className="border-b border-zinc-200 transition-colors hover:bg-zinc-100 dark:border-cyan-900/40 dark:hover:bg-cyan-950/30">
+    <tr className="border-b border-cyan-900/40 transition-colors hover:bg-cyan-950/30">
       <td className="py-1.5 pr-3">
         <span className={`font-mono text-sm font-semibold ${s.text}`}>{c.name}</span>
       </td>
@@ -139,13 +139,13 @@ function CommodityRow({ c }: { c: MarketCommodity }) {
           {s.label}
         </span>
       </td>
-      <td className="py-1.5 pr-3 text-right font-mono text-sm text-zinc-500 dark:text-zinc-400">
+      <td className="py-1.5 pr-3 text-right font-mono text-sm text-zinc-500">
         {c.basePriceCrPerTon.toLocaleString()}
       </td>
-      <td className="py-1.5 pr-3 text-right font-mono text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+      <td className="py-1.5 pr-3 text-right font-mono text-sm font-semibold text-zinc-100">
         {c.sellPriceCrPerTon.toLocaleString()}
       </td>
-      <td className="py-1.5 pr-3 text-right font-mono text-sm text-zinc-500 dark:text-zinc-400">
+      <td className="py-1.5 pr-3 text-right font-mono text-sm text-zinc-500">
         {c.buyPriceCrPerTon.toLocaleString()}
       </td>
       <td className={`py-1.5 pl-3 text-right font-mono text-sm font-bold tabular-nums ${d.cls}`}>
@@ -182,15 +182,15 @@ export function CommodityTickerTable() {
     : null;
 
   return (
-    <section className="overflow-hidden rounded border border-zinc-200 bg-zinc-50 dark:border-cyan-900/50 dark:bg-zinc-950/80">
+    <section className="overflow-hidden rounded border border-cyan-900/40 bg-zinc-950/80">
       {/* Header */}
-      <div className="flex min-w-0 flex-col gap-2 border-b border-zinc-200 bg-zinc-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between dark:border-cyan-800/50 dark:bg-cyan-950/40">
-        <h2 className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
+      <div className="flex min-w-0 flex-col gap-2 border-b border-cyan-900/50 bg-cyan-950/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-cyan-400/90">
           Market Rates — All Commodities
         </h2>
         <div className="flex shrink-0 items-center gap-2">
           {lastUpdated && (
-            <span className="font-mono text-[12px] text-zinc-500 dark:text-zinc-600">
+            <span className="font-mono text-[12px] text-zinc-500">
               SYNC {lastUpdated.toLocaleTimeString()}
             </span>
           )}
@@ -198,7 +198,7 @@ export function CommodityTickerTable() {
             type="button"
             onClick={reload}
             disabled={loading}
-            className="rounded border border-zinc-300 px-1.5 py-0.5 font-mono text-[12px] text-zinc-600 transition hover:border-zinc-500 hover:text-zinc-900 disabled:opacity-30 dark:border-cyan-700/50 dark:text-cyan-400/90 dark:hover:border-cyan-500 dark:hover:text-cyan-300"
+            className="rounded border border-cyan-700/50 px-1.5 py-0.5 font-mono text-[12px] text-cyan-400/90 transition hover:border-cyan-500 hover:text-cyan-300 disabled:opacity-30"
           >
             {loading ? "…" : "↻"}
           </button>
@@ -213,14 +213,14 @@ export function CommodityTickerTable() {
           </p>
         )}
         {loading && !data && (
-          <p className="animate-pulse py-3 text-center font-mono text-sm text-zinc-600 dark:text-zinc-500">
+          <p className="animate-pulse py-3 text-center font-mono text-sm text-zinc-500 dark:text-zinc-500">
             SYNCING MARKET FEED…
           </p>
         )}
         {groups && (
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-zinc-200 dark:border-cyan-800/50">
+              <tr className="border-b border-cyan-900/50">
                 {(
                   [
                     ["Commodity", "text-left",  "pr-3"],
@@ -233,7 +233,7 @@ export function CommodityTickerTable() {
                 ).map(([h, align, extra]) => (
                   <th
                     key={h}
-                    className={`pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 dark:text-zinc-600 ${align} ${extra}`}
+                    className={`pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 ${align} ${extra}`}
                   >
                     {h}
                   </th>

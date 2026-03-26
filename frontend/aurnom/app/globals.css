@@ -34,46 +34,6 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Compact main content wrapper — used across all pages */
-.main-content {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 0;
-  margin-left: auto;
-  margin-right: auto;
-  max-width: min(100%, 88rem);
-  padding: 1rem 1.25rem;
-  width: 100%;
-  background: linear-gradient(to bottom, rgb(248 250 252), white);
-  border-left: 2px solid rgb(148 163 184);
-}
-
-@media (max-width: 640px) {
-  .main-content {
-    padding: 0.75rem 0.875rem;
-  }
-}
-
-.dark .main-content {
-  background: linear-gradient(135deg, rgb(15 15 18) 0%, rgb(12 15 20) 100%);
-  border-left-color: var(--border-accent);
-}
-
-/* Section label — small uppercase headers */
-.section-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: rgb(15 118 110);
-}
-
-.dark .section-label {
-  color: var(--accent-cyan);
-  text-shadow: 0 0 8px var(--accent-glow);
-}
-
 /* Section divider — thin separator between sections */
 .section-divider {
   margin-top: 0.5rem;
@@ -84,15 +44,6 @@ body {
 
 .dark .section-divider {
   border-top-color: var(--border-subtle);
-}
-
-/* Page header accent — consistent left border across all pages */
-.page-header {
-  border-left: 4px solid rgb(13 148 136);
-}
-
-.dark .page-header {
-  border-left-color: rgb(34 211 238);
 }
 
 /* Dashboard header — space HUD: nebula wash + star field + slow gradient drift */

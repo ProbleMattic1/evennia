@@ -110,17 +110,17 @@ function ShopPageInner() {
 
   if (loading) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading shop state…</p>
-      </main>
+      </CsPage>
     );
   }
 
   if (error || !view) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-red-600 dark:text-red-400">Failed to load shop state: {error ?? "Unknown error"}</p>
-      </main>
+      </CsPage>
     );
   }
 
@@ -223,9 +223,9 @@ export default function ShopPage() {
   return (
     <Suspense
       fallback={
-        <main className="main-content">
+        <CsPage>
           <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading shop state…</p>
-        </main>
+        </CsPage>
       }
     >
       <ShopPageInner />

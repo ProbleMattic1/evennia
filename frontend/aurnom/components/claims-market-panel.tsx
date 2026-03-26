@@ -56,10 +56,10 @@ function ClaimCard({
     "rounded bg-cyan-600 px-3 py-1 text-xs font-semibold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-700 dark:hover:bg-cyan-600";
 
   return (
-    <div className="rounded border border-zinc-200 px-3 py-2.5 dark:border-cyan-900/40">
+    <div className="rounded border border-cyan-900/40 bg-zinc-950/60 px-3 py-2.5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <span className="truncate text-sm font-medium text-zinc-100">
             {c.roomKey}
           </span>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -69,37 +69,34 @@ function ClaimCard({
             <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${rarT.badge}`}>
               {c.resourceRarityTier}
             </span>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{c.hazardLabel}</span>
-            <span className="text-[11px] tabular-nums text-zinc-400 dark:text-cyan-500/60">
+            <span className="text-[11px] text-zinc-500">{c.hazardLabel}</span>
+            <span className="text-[11px] tabular-nums text-zinc-500">
               {c.baseOutputTons.toFixed(1)} t
             </span>
           </div>
-          <p className="text-[11px] leading-snug break-words text-zinc-500 dark:text-zinc-400">
+          <p className="text-[11px] leading-snug break-words text-zinc-500">
             {c.resources}
           </p>
           {c.sellerKey ? (
-            <p
-              className="truncate text-[11px] text-zinc-400 dark:text-cyan-500/50"
-              title={c.sellerKey}
-            >
+            <p className="truncate text-[11px] text-zinc-500" title={c.sellerKey}>
               Seller: {c.sellerKey}
             </p>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <span className="font-mono text-sm font-semibold tabular-nums text-zinc-700 dark:text-cyan-300">
+          <span className="font-mono text-sm font-semibold tabular-nums text-cyan-300">
             {c.listingPriceCr.toLocaleString()}{" "}
-            <span className="text-[11px] font-normal text-amber-700 dark:text-amber-400">cr</span>
+            <span className="text-[11px] font-normal text-amber-400">cr</span>
           </span>
           {!authenticated ? (
             <Link
               href="/"
-              className="text-center text-xs text-zinc-500 underline hover:text-zinc-900 dark:text-cyan-400 dark:hover:text-cyan-300"
+              className="text-center text-xs text-zinc-500 underline hover:text-cyan-300 dark:text-cyan-400 dark:hover:text-cyan-300"
             >
               Sign in
             </Link>
           ) : !hasCharacter ? (
-            <span className="max-w-[10rem] text-right text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+            <span className="max-w-[10rem] text-right text-[10px] leading-snug text-zinc-500">
               {characterMessage ?? "Link a character to buy."}
             </span>
           ) : (
@@ -220,14 +217,14 @@ export function ClaimsMarketPanel() {
       </div>
 
       {purchaseSuccess && (
-        <p className="mb-2 font-mono text-[12px] text-emerald-700 dark:text-emerald-400">{purchaseSuccess}</p>
+        <p className="mb-2 font-mono text-[12px] text-emerald-400">{purchaseSuccess}</p>
       )}
       {purchaseError && (
-        <p className="mb-2 font-mono text-[12px] text-red-600 dark:text-red-400">{purchaseError}</p>
+        <p className="mb-2 font-mono text-[12px] text-red-400">{purchaseError}</p>
       )}
 
       {error && (
-        <p className="py-1.5 font-mono text-sm text-red-600 dark:text-red-400">Market unavailable: {error}</p>
+        <p className="py-1.5 font-mono text-sm text-red-400">Market unavailable: {error}</p>
       )}
       {loading && !data && (
         <p className={`animate-pulse ${exchangePanelEmptyClass}`}>Loading…</p>
@@ -256,31 +253,31 @@ export function ClaimsMarketPanel() {
         <p className={exchangePanelEmptyClass}>No unclaimed sites available.</p>
       )}
 
-      <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-cyan-900/40">
-        <p className="px-0.5 text-[11px] leading-snug text-zinc-600 dark:text-cyan-500/75">
+      <div className="mt-3 space-y-2 border-t border-cyan-900/40 pt-3">
+        <p className="px-0.5 text-[11px] leading-snug text-zinc-500">
           Survey services register a new unclaimed deposit and issue a deed. You receive one random
           mining claim; use{" "}
-          <Link href="/" className="underline dark:text-cyan-400 dark:hover:text-cyan-300">
+          <Link href="/" className="underline text-cyan-400 hover:text-cyan-300">
             deploymine
           </Link>{" "}
           on the home dashboard with a mining package from{" "}
           <Link
             href="/shop?room=Aurnom%20Mining%20Outfitters"
-            className="underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            className="underline text-cyan-400 hover:text-cyan-300"
           >
             Mining Outfitters
           </Link>{" "}
           to develop it. Small chance for an elite (jackpot) claim.
         </p>
         {!authenticated ? (
-          <p className="text-[11px] text-zinc-500 dark:text-cyan-500/70">
-            <Link href="/" className="underline dark:text-cyan-400 dark:hover:text-cyan-300">
+          <p className="text-[11px] text-zinc-500">
+            <Link href="/" className="underline text-cyan-400 hover:text-cyan-300">
               Sign in
             </Link>{" "}
             to purchase a random claim.
           </p>
         ) : !hasCharacter ? (
-          <p className="text-[11px] text-zinc-500 dark:text-cyan-500/70">
+          <p className="text-[11px] text-zinc-500">
             {characterMessage ?? "Link a character to purchase."}
           </p>
         ) : randomQuote ? (
@@ -297,21 +294,21 @@ export function ClaimsMarketPanel() {
             </button>
           </div>
         ) : (
-          <p className="text-[11px] text-zinc-500 dark:text-cyan-500/70">
+          <p className="text-[11px] text-zinc-500">
             Random mining claim deed is not available.
           </p>
         )}
       </div>
 
       <p className={exchangePanelFooterClass}>
-        <Link href="/" className="underline dark:text-cyan-400 dark:hover:text-cyan-300">
+        <Link href="/" className="underline text-cyan-400 hover:text-cyan-300">
           Home dashboard
         </Link>{" "}
         — Deploy a mining package with your claim to start production. Mining packages and gear are
         sold at{" "}
         <Link
           href="/shop?room=Aurnom%20Mining%20Outfitters"
-          className="underline dark:text-cyan-400 dark:hover:text-cyan-300"
+          className="underline text-cyan-400 hover:text-cyan-300"
         >
           Mining Outfitters
         </Link>

@@ -45,8 +45,8 @@ function MinerSection({ data }: { data: ProcessingState }) {
 
   if (myOreQueued === null) {
     return (
-      <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
-        <h2 className="section-label">Your Activity</h2>
+      <section>
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-500">Your Activity</div>
         <p className="mt-1 text-[12px] text-zinc-400 dark:text-cyan-500/70">Sign in to see your ore queue and output.</p>
       </section>
     );
@@ -55,8 +55,8 @@ function MinerSection({ data }: { data: ProcessingState }) {
   const hasOutput = myRefinedOutput && Object.keys(myRefinedOutput).length > 0;
 
   return (
-    <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
-      <h2 className="section-label">Your Activity</h2>
+    <section>
+      <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-500">Your Activity</div>
       <div className="mt-1 space-y-0.5">
         <StatRow
           label="Ore queued for processing"
@@ -104,12 +104,12 @@ function MinerSection({ data }: { data: ProcessingState }) {
           <div className="mt-1 space-y-0.5">
             {myHaulers.map((h) => (
               <div key={h.id} className="flex items-center justify-between gap-2">
-                <span className="truncate text-[12px] text-zinc-600 dark:text-zinc-300">{h.key}</span>
+                <span className="truncate text-[12px] text-zinc-500 dark:text-zinc-300">{h.key}</span>
                 <span
                   className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
                     h.deliveryMode === "process"
                       ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-700/50"
-                      : "bg-zinc-100 text-zinc-600 dark:bg-cyan-950/40 dark:text-cyan-300"
+                      : "bg-zinc-100 text-zinc-500 dark:bg-cyan-950/40 dark:text-cyan-300"
                   }`}
                 >
                   {h.deliveryMode}
@@ -133,19 +133,19 @@ export default function ProcessingPage() {
 
   if (loading) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading processing plant…</p>
-      </main>
+      </CsPage>
     );
   }
 
   if (error || !data) {
     return (
-      <main className="main-content">
+      <CsPage>
         <p className="text-sm text-red-600 dark:text-red-400">
           Failed to load processing plant: {error ?? "Unknown error"}
         </p>
-      </main>
+      </CsPage>
     );
   }
 

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { StoryPanel } from "@/components/story-panel";
 import {
   getClaimDetail,
   listClaimForSale,
@@ -98,7 +99,11 @@ export default function ClaimDetailPage() {
       {data?.ok && site ? (
         <CsColumns
           left={
-            <CsPanel title="Deposit">
+            <>
+              <CsPanel title="Claim Output">
+                <StoryPanel title="Claim Output" lines={data.storyLines ?? []} compact />
+              </CsPanel>
+              <CsPanel title="Deposit">
               <dl className="mt-2 grid gap-1 text-sm">
                 <div className="flex justify-between gap-2">
                   <dt className="text-zinc-500">Location</dt>
@@ -137,7 +142,8 @@ export default function ClaimDetailPage() {
                   Visit site →
                 </Link>
               </p>
-            </CsPanel>
+              </CsPanel>
+            </>
           }
           right={
             <>
@@ -164,7 +170,7 @@ export default function ClaimDetailPage() {
                       {listBusy ? "Listing…" : "List for sale"}
                     </button>
                   </div>
-                  {listMsg ? <p className="mt-2 font-mono text-[12px] text-zinc-600">{listMsg}</p> : null}
+                  {listMsg ? <p className="mt-2 font-mono text-[12px] text-zinc-500">{listMsg}</p> : null}
                 </CsPanel>
               ) : null}
               <CsPanel title="Status">

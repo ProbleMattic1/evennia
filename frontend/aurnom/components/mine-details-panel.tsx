@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import type { MineSiteDetails } from "@/lib/ui-api";
+import { ActionGrid } from "@/components/action-grid";
+import { MissionBoard } from "@/components/mission-board";
+import { useControlSurface } from "@/components/control-surface-provider";
+import type { MineRigRow, MineSiteDetails, MissionsState, PlayAction } from "@/lib/ui-api";
 import {
   listMinePropertyForClaims,
   mineReactivate,
@@ -13,9 +16,16 @@ import {
 import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
 import { Countdown } from "@/components/countdown";
 
-type Props = {
+type PrimaryProps = {
   site: MineSiteDetails;
   onCycleCountdownExpired?: () => void;
+};
+
+const EMPTY_MISSIONS: MissionsState = {
+  morality: { good: 0, evil: 0, lawful: 0, chaotic: 0 },
+  opportunities: [],
+  active: [],
+  completed: [],
 };
 
 function formatDate(s: string | null) {
@@ -44,22 +54,55 @@ function formatInventory(inv: Record<string, number>) {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded border border-zinc-200 bg-zinc-50 p-2 dark:border-cyan-900/50 dark:bg-zinc-950/80">
-      <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-cyan-400/90">
+    <section className="mb-1">
+      <div className="bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
         {title}
-      </h3>
-      <div className="flex flex-col gap-1 text-sm">{children}</div>
-    </div>
+      </div>
+      <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
+        <div className="flex flex-col gap-1 text-[11px]">{children}</div>
+      </div>
+    </section>
   );
 }
 
 function Kv({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-2 text-sm">
-      <span className="shrink-0 text-zinc-500 dark:text-cyan-500/80">{label}</span>
-      <span className="min-w-0 truncate text-right font-mono text-zinc-800 dark:text-zinc-200">
+    <div className="flex justify-between gap-2">
+      <span className="shrink-0 text-zinc-500">{label}</span>
+      <span className="min-w-0 truncate text-right font-mono text-zinc-200">
         {value}
       </span>
+    </div>
+  );
+}
+
+function RigDetailRows({ r }: { r: MineRigRow }) {
+  return (
+    <div className="border-b border-cyan-900/40 pb-2 last:border-0">
+      <p className="font-mono text-[12px] font-medium text-zinc-200">{r.key}</p>
+      <div className="mt-1 space-y-0.5 pl-0">
+        <Kv label="Rating" value={r.rating} />
+        <Kv label="Wear" value={`${r.wear}%`} />
+        <Kv label="Operational" value={r.operational ? "Yes" : "No"} />
+        {r.mode != null && r.mode !== "" ? <Kv label="Mode" value={r.mode} /> : null}
+        {r.powerLevel != null && r.powerLevel !== "" ? (
+          <Kv label="Power" value={r.powerLevel} />
+        ) : null}
+        {r.targetFamily != null && r.targetFamily !== "" ? (
+          <Kv label="Target" value={r.targetFamily} />
+        ) : null}
+        {r.purityCutoff != null && r.purityCutoff !== "" ? (
+          <Kv label="Purity" value={r.purityCutoff} />
+        ) : null}
+        {r.maintenanceLevel != null && r.maintenanceLevel !== "" ? (
+          <Kv label="Maintenance" value={r.maintenanceLevel} />
+        ) : null}
+        {r.needsRepair ? (
+          <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            Needs repair
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -68,231 +111,39 @@ type ReturnedEquipment = NonNullable<
   import("@/lib/ui-api").MineUndeployResult["returnedEquipment"]
 >;
 
-export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
-  const router = useRouter();
-  const [undeployBusy, setUndeployBusy] = useState(false);
-  const [undeployError, setUndeployError] = useState<string | null>(null);
-  const [postUndeploy, setPostUndeploy] = useState<ReturnedEquipment | null>(null);
-
-  const [listPrice, setListPrice] = useState<string>("");
-  const [listBusy, setListBusy] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
-
-  const [reactivateBusy, setReactivateBusy] = useState(false);
-  const [reactivateError, setReactivateError] = useState<string | null>(null);
-
-  const [repairBusyRigKey, setRepairBusyRigKey] = useState<string | null>(null);
-  const [repairError, setRepairError] = useState<string | null>(null);
-
-  const showUndeploy = site.canUndeploy;
-  const showIdleActions = site.canListProperty && site.canReactivate;
-
-  async function handleUndeploy() {
-    if (!site.canUndeploy || undeployBusy) return;
-    setUndeployError(null);
-    setPostUndeploy(null);
-    setUndeployBusy(true);
-    try {
-      const res = await mineUndeploy({ siteId: site.id });
-      if (res.ok) {
-        setPostUndeploy(res.returnedEquipment ?? ({} as ReturnedEquipment));
-        setListPrice(String(site.estimatedValuePerCycle || 0));
-        router.refresh();
-      } else {
-        setUndeployError(res.message ?? "Undeploy failed.");
-      }
-    } catch (err) {
-      setUndeployError(String(err instanceof Error ? err.message : "Undeploy failed."));
-    } finally {
-      setUndeployBusy(false);
-    }
-  }
-
-  async function handleListProperty() {
-    if (listBusy) return;
-    const price = parseInt(listPrice, 10);
-    if (isNaN(price) || price < 0) {
-      setListError("Enter a valid non-negative price.");
-      return;
-    }
-    setListError(null);
-    setListBusy(true);
-    try {
-      const res = await listMinePropertyForClaims({ siteId: site.id, price });
-      if (res.ok) {
-        setPostUndeploy(null);
-        router.push("/real-estate#claims-market");
-        router.refresh();
-      } else {
-        setListError(res.message ?? "Failed to list property.");
-      }
-    } catch (err) {
-      setListError(String(err instanceof Error ? err.message : "Failed to list property."));
-    } finally {
-      setListBusy(false);
-    }
-  }
-
-  async function handleReactivate(packageId?: number) {
-    if (reactivateBusy) return;
-    setReactivateError(null);
-    setReactivateBusy(true);
-    try {
-      const res = await mineReactivate({ siteId: site.id, packageId });
-      if (res.ok) {
-        setPostUndeploy(null);
-        router.refresh();
-      } else {
-        setReactivateError(res.message ?? "Reactivate failed.");
-      }
-    } catch (err) {
-      setReactivateError(String(err instanceof Error ? err.message : "Reactivate failed."));
-    } finally {
-      setReactivateBusy(false);
-    }
-  }
-
-  function handleDismissUndeployBanner() {
-    setPostUndeploy(null);
-    router.refresh();
-  }
-
-  async function handleRepairRig(rigKey: string) {
-    if (repairBusyRigKey) return;
-    setRepairError(null);
-    setRepairBusyRigKey(rigKey);
-    try {
-      await mineRepairRig({
-        siteId: site.id,
-        rigKey,
-        roomKey: site.roomKey,
-      });
-      router.refresh();
-    } catch (err) {
-      setRepairError(String(err instanceof Error ? err.message : "Repair failed."));
-    } finally {
-      setRepairBusyRigKey(null);
-    }
-  }
-
-  const equipmentLines =
-    postUndeploy != null
-      ? [
-          postUndeploy.rig ? `Rig: ${postUndeploy.rig.key}` : null,
-          postUndeploy.storage ? `Storage: ${postUndeploy.storage.key}` : null,
-          postUndeploy.hauler ? `Hauler: ${postUndeploy.hauler.key}` : null,
-        ].filter(Boolean)
-      : [];
-
+/** Primary mine UI: read-only core cards only (left column on Play). */
+export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps) {
   return (
-    <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
-      <h2 className="section-label">Mine Details</h2>
-      {(showUndeploy || showIdleActions) && (
-        <div className="mt-1">
-          <Card title="Actions">
-            <div className="flex flex-col gap-1.5">
-              {postUndeploy != null ? (
-                <div className="space-y-2 rounded border border-emerald-200 bg-emerald-50/50 p-2 dark:border-emerald-800/50 dark:bg-emerald-950/30">
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                    {equipmentLines.length > 0
-                      ? "Equipment returned to inventory:"
-                      : "Rig, storage, and hauler (when present) returned to your inventory."}
-                  </p>
-                  {equipmentLines.length > 0 ? (
-                    <ul className="list-inside list-disc font-mono text-[12px] text-zinc-600 dark:text-zinc-400">
-                      {equipmentLines.map((line) => (
-                        <li key={line}>{line}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={handleDismissUndeployBanner}
-                    className="w-fit rounded border border-zinc-400 bg-zinc-100 px-2 py-1 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:border-cyan-700/50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              ) : null}
-
-              {showUndeploy && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleUndeploy}
-                    disabled={undeployBusy}
-                    className="w-fit rounded border border-amber-600 bg-amber-50 px-2 py-1 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50"
-                  >
-                    {undeployBusy ? "Undeploying…" : "Undeploy Mine"}
-                  </button>
-                  {undeployError ? (
-                    <p className="text-xs text-red-600 dark:text-red-400">{undeployError}</p>
-                  ) : null}
-                </>
-              )}
-
-              {showIdleActions && (
-                <div className="space-y-2 rounded border border-sky-200 bg-sky-50/50 p-2 dark:border-sky-800/50 dark:bg-sky-950/30">
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                    Mine is idle. Reactivate with your gear, or list the property on the claims market.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleReactivate(undefined)}
-                    disabled={reactivateBusy}
-                    className="w-fit rounded border border-sky-600 bg-sky-50 px-2 py-1 text-sm font-medium text-sky-900 hover:bg-sky-100 disabled:opacity-50 dark:border-sky-500 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:bg-sky-900/50"
-                  >
-                    {reactivateBusy ? "Working…" : "Reactivate (inventory gear)"}
-                  </button>
-                  {reactivateError ? (
-                    <p className="text-xs text-red-600 dark:text-red-400">{reactivateError}</p>
-                  ) : null}
-                  <div className="flex flex-wrap items-center gap-2 border-t border-sky-200 pt-2 dark:border-sky-800/50">
-                    <label className="flex items-center gap-1.5">
-                      <span className="text-[12px] text-zinc-500 dark:text-cyan-500/80">List price (cr)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={listPrice}
-                        onChange={(e) => setListPrice(e.target.value)}
-                        className="w-28 rounded border border-zinc-300 px-2 py-0.5 text-sm font-mono dark:border-cyan-700/50 dark:bg-zinc-900 dark:text-zinc-200"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleListProperty}
-                      disabled={listBusy}
-                      className="rounded border border-emerald-600 bg-emerald-50 px-2 py-1 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-                    >
-                      {listBusy ? "Listing…" : "List property on claims market"}
-                    </button>
-                  </div>
-                  {listError ? (
-                    <p className="text-xs text-red-600 dark:text-red-400">{listError}</p>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
-      <div className="mt-1 grid auto-rows-min grid-cols-1 gap-2 sm:grid-cols-2">
+    <div>
+      <div className="mt-1 grid auto-rows-min grid-cols-1 gap-2">
         <Card title="Identity">
           <Kv label="Deposit" value={site.key} />
+          <Kv label="Site key" value={site.siteKey} />
           <Kv label="Location" value={site.location ?? site.roomKey ?? "—"} />
           <Kv label="Room" value={site.roomKey} />
         </Card>
 
         <Card title="Status">
           <Kv label="Owner" value={site.owner ?? "Unclaimed"} />
+          <Kv label="Claimed" value={site.isClaimed ? "Yes" : "No"} />
           <Kv label="Active" value={site.active ? "Yes" : "No"} />
+          <Kv
+            label="Mining op"
+            value={
+              site.mineOperationActive != null
+                ? site.mineOperationActive
+                  ? "Active"
+                  : "Idle"
+                : "—"
+            }
+          />
           <Kv label="Survey" value={`Level ${site.surveyLevel}`} />
         </Card>
 
         <Card title="Deposit">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5">
-              <span className="text-zinc-500 dark:text-cyan-500/80">Volume</span>
+              <span className="text-zinc-500">Volume</span>
               <span
                 className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${
                   volumeTierStyle(site.volumeTierCls).badge
@@ -302,7 +153,7 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-zinc-500 dark:text-cyan-500/80">Rarity</span>
+              <span className="text-zinc-500">Rarity</span>
               <span
                 className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${
                   rarityTierStyle(site.resourceRarityTierCls).badge
@@ -312,6 +163,7 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
               </span>
             </div>
           </div>
+          <Kv label="Richness" value={site.richness.toFixed(4)} />
           <Kv label="Output" value={`${site.baseOutputTons} t/cycle`} />
           <Kv label="Resources" value={site.resources} />
           <Kv label="Composition" value={formatComposition(site.composition)} />
@@ -341,7 +193,9 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
                     onExpired={onCycleCountdownExpired}
                   />
                 </span>
-              ) : "—"
+              ) : (
+                "—"
+              )
             }
           />
           <Kv label="Last processed" value={formatDate(site.lastProcessedAt)} />
@@ -361,74 +215,344 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
         </Card>
 
         {site.rig && (
-          <Card title="Rig">
+          <Card title="Rig (active)">
             <Kv label="Model" value={site.rig} />
             <Kv label="Rating" value={site.rigRating ?? "—"} />
             <Kv label="Wear" value={site.rigWear != null ? `${site.rigWear}%` : "—"} />
             <Kv label="Operational" value={site.rigOperational ? "Yes" : "No"} />
             <Kv label="Mode" value={site.rigMode ?? "—"} />
+            <Kv label="Power" value={site.rigPowerLevel ?? "—"} />
+            <Kv label="Target" value={site.rigTargetFamily ?? "—"} />
+            <Kv label="Purity" value={site.rigPurityCutoff ?? "—"} />
+            <Kv label="Maintenance" value={site.rigMaintenanceLevel ?? "—"} />
           </Card>
         )}
+      </div>
+    </div>
+  );
+}
 
-        {site.rigs?.some((r) => r.needsRepair) ? (
-          <Card title="Field service">
-            {site.rigs
-              ?.filter((r) => r.needsRepair)
-              .map((r) => (
-                <div
-                  key={r.key}
-                  className="flex flex-col gap-1 border-b border-zinc-200 pb-2 last:border-0 dark:border-cyan-900/40"
+type MinePlayRightColumnProps = {
+  site: MineSiteDetails;
+  playActions: PlayAction[];
+  onPlayReload: () => void;
+};
+
+/** Missions only — placed above Mine detail on Play. */
+export function PlayMissionsPanel({ onPlayReload }: { onPlayReload: () => void }) {
+  const router = useRouter();
+  const { data: csData, reload: reloadControlSurface } = useControlSurface();
+
+  const bump = useCallback(() => {
+    onPlayReload();
+    reloadControlSurface();
+    router.refresh();
+  }, [onPlayReload, reloadControlSurface, router]);
+
+  const missions = csData?.missions ?? EMPTY_MISSIONS;
+
+  return (
+    <div className="max-h-[min(420px,55vh)] min-h-0 overflow-y-auto overflow-x-hidden pr-0.5">
+      <MissionBoard missions={missions} onChanged={bump} />
+    </div>
+  );
+}
+
+/**
+ * Right column on Play for mine rooms (inside Mine detail): actions, field service, then logs/rigs.
+ */
+export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePlayRightColumnProps) {
+  const router = useRouter();
+  const { reload: reloadControlSurface } = useControlSurface();
+
+  const bump = useCallback(() => {
+    onPlayReload();
+    reloadControlSurface();
+    router.refresh();
+  }, [onPlayReload, reloadControlSurface, router]);
+
+  const [undeployBusy, setUndeployBusy] = useState(false);
+  const [undeployError, setUndeployError] = useState<string | null>(null);
+  const [postUndeploy, setPostUndeploy] = useState<ReturnedEquipment | null>(null);
+
+  const [listPrice, setListPrice] = useState<string>("");
+  const [listBusy, setListBusy] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const [reactivateBusy, setReactivateBusy] = useState(false);
+  const [reactivateError, setReactivateError] = useState<string | null>(null);
+
+  const [repairBusyRigKey, setRepairBusyRigKey] = useState<string | null>(null);
+  const [repairError, setRepairError] = useState<string | null>(null);
+
+  const showUndeploy = site.canUndeploy;
+  const showIdleActions = site.canListProperty && site.canReactivate;
+
+  async function handleUndeploy() {
+    if (!site.canUndeploy || undeployBusy) return;
+    setUndeployError(null);
+    setPostUndeploy(null);
+    setUndeployBusy(true);
+    try {
+      const res = await mineUndeploy({ siteId: site.id });
+      if (res.ok) {
+        setPostUndeploy(res.returnedEquipment ?? ({} as ReturnedEquipment));
+        setListPrice(String(site.estimatedValuePerCycle || 0));
+        bump();
+      } else {
+        setUndeployError(res.message ?? "Undeploy failed.");
+      }
+    } catch (err) {
+      setUndeployError(String(err instanceof Error ? err.message : "Undeploy failed."));
+    } finally {
+      setUndeployBusy(false);
+    }
+  }
+
+  async function handleListProperty() {
+    if (listBusy) return;
+    const price = parseInt(listPrice, 10);
+    if (isNaN(price) || price < 0) {
+      setListError("Enter a valid non-negative price.");
+      return;
+    }
+    setListError(null);
+    setListBusy(true);
+    try {
+      const res = await listMinePropertyForClaims({ siteId: site.id, price });
+      if (res.ok) {
+        setPostUndeploy(null);
+        router.push("/real-estate#claims-market");
+        bump();
+      } else {
+        setListError(res.message ?? "Failed to list property.");
+      }
+    } catch (err) {
+      setListError(String(err instanceof Error ? err.message : "Failed to list property."));
+    } finally {
+      setListBusy(false);
+    }
+  }
+
+  async function handleReactivate(packageId?: number) {
+    if (reactivateBusy) return;
+    setReactivateError(null);
+    setReactivateBusy(true);
+    try {
+      const res = await mineReactivate({ siteId: site.id, packageId });
+      if (res.ok) {
+        setPostUndeploy(null);
+        bump();
+      } else {
+        setReactivateError(res.message ?? "Reactivate failed.");
+      }
+    } catch (err) {
+      setReactivateError(String(err instanceof Error ? err.message : "Reactivate failed."));
+    } finally {
+      setReactivateBusy(false);
+    }
+  }
+
+  function handleDismissUndeployBanner() {
+    setPostUndeploy(null);
+    bump();
+  }
+
+  async function handleRepairRig(rigKey: string) {
+    if (repairBusyRigKey) return;
+    setRepairError(null);
+    setRepairBusyRigKey(rigKey);
+    try {
+      await mineRepairRig({
+        siteId: site.id,
+        rigKey,
+        roomKey: site.roomKey,
+      });
+      bump();
+    } catch (err) {
+      setRepairError(String(err instanceof Error ? err.message : "Repair failed."));
+    } finally {
+      setRepairBusyRigKey(null);
+    }
+  }
+
+  const equipmentLines =
+    postUndeploy != null
+      ? [
+          postUndeploy.rig ? `Rig: ${postUndeploy.rig.key}` : null,
+          postUndeploy.storage ? `Storage: ${postUndeploy.storage.key}` : null,
+          postUndeploy.hauler ? `Hauler: ${postUndeploy.hauler.key}` : null,
+        ].filter(Boolean)
+      : [];
+
+  const needsFieldService = site.rigs?.some((r) => r.needsRepair);
+
+  return (
+    <div>
+      <Card title="Actions">
+        <ActionGrid actions={playActions} />
+        {(showUndeploy || showIdleActions) && (
+          <div className="mt-2 flex flex-col gap-1.5 border-t border-cyan-900/40 pt-2">
+            {postUndeploy != null ? (
+              <div className="space-y-2 rounded border border-emerald-800/50 bg-zinc-900/80 p-2">
+                <p className="text-[11px] text-zinc-300">
+                  {equipmentLines.length > 0
+                    ? "Equipment returned to inventory:"
+                    : "Rig, storage, and hauler (when present) returned to your inventory."}
+                </p>
+                {equipmentLines.length > 0 ? (
+                  <ul className="list-inside list-disc font-mono text-[11px] text-zinc-400">
+                    {equipmentLines.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={handleDismissUndeployBanner}
+                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-900/40"
                 >
-                  <span className="font-mono text-[12px] text-zinc-700 dark:text-zinc-300">
-                    {r.key}
-                  </span>
-                  {r.repairTotalCr != null ? (
-                    <span className="text-xs text-zinc-600 dark:text-cyan-500/80">
-                      Total {r.repairTotalCr.toLocaleString()} cr — service{" "}
-                      {(r.repairVendorCr ?? 0).toLocaleString()} cr, tax{" "}
-                      {(r.repairTaxCr ?? 0).toLocaleString()} cr (3%)
-                    </span>
-                  ) : null}
+                  Dismiss
+                </button>
+              </div>
+            ) : null}
+
+            {showUndeploy && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleUndeploy()}
+                  disabled={undeployBusy}
+                  className="w-fit rounded border border-amber-600/70 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-amber-300 hover:bg-amber-900/20 disabled:opacity-50"
+                >
+                  {undeployBusy ? "Undeploying…" : "Undeploy Mine"}
+                </button>
+                {undeployError ? (
+                  <p className="text-xs text-red-600 dark:text-red-400">{undeployError}</p>
+                ) : null}
+              </>
+            )}
+
+            {showIdleActions && (
+              <div className="space-y-2 rounded border border-cyan-800/50 bg-zinc-900/80 p-2">
+                <p className="text-[11px] text-zinc-300">
+                  Mine is idle. Reactivate with your gear, or list the property on the claims market.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleReactivate(undefined)}
+                  disabled={reactivateBusy}
+                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
+                >
+                  {reactivateBusy ? "Working…" : "Reactivate (inventory gear)"}
+                </button>
+                {reactivateError ? (
+                  <p className="text-xs text-red-600 dark:text-red-400">{reactivateError}</p>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-2 border-t border-cyan-900/50 pt-2">
+                  <label className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-zinc-500">List price (cr)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={listPrice}
+                      onChange={(e) => setListPrice(e.target.value)}
+                      className="w-28 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-0.5 text-[11px] font-mono text-zinc-200"
+                    />
+                  </label>
                   <button
                     type="button"
-                    onClick={() => handleRepairRig(r.key)}
-                    disabled={repairBusyRigKey !== null}
-                    className="w-fit rounded border border-sky-600 bg-sky-50 px-2 py-1 text-sm font-medium text-sky-900 hover:bg-sky-100 disabled:opacity-50 dark:border-sky-500 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:bg-sky-900/50"
+                    onClick={() => void handleListProperty()}
+                    disabled={listBusy}
+                    className="rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
                   >
-                    {repairBusyRigKey === r.key ? "Repairing…" : "Pay and repair"}
+                    {listBusy ? "Listing…" : "List property on claims market"}
                   </button>
                 </div>
-              ))}
-            {repairError ? (
-              <p className="text-sm text-red-600 dark:text-red-400">{repairError}</p>
-            ) : null}
-          </Card>
-        ) : null}
+                {listError ? (
+                  <p className="text-xs text-red-600 dark:text-red-400">{listError}</p>
+                ) : null}
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
-        <Card title="Cycle log">
-          {site.cycleLog.length > 0 ? (
-            <ul className="space-y-0.5 text-xs text-zinc-600 dark:text-cyan-500/80">
-              {site.cycleLog.map((line, i) => (
-                <li key={i}>{line}</li>
-              ))}
-            </ul>
-          ) : (
-            <span className="text-xs text-zinc-500 dark:text-cyan-500/60">—</span>
-          )}
+      {needsFieldService ? (
+        <Card title="Field service">
+          {site.rigs
+            ?.filter((r) => r.needsRepair)
+            .map((r) => (
+              <div
+                key={r.key}
+                className="flex flex-col gap-1 border-b border-cyan-900/40 pb-2 last:border-0"
+              >
+                <span className="font-mono text-[12px] text-zinc-300">{r.key}</span>
+                {r.repairTotalCr != null ? (
+                  <span className="text-xs text-zinc-500">
+                    Total {r.repairTotalCr.toLocaleString()} cr — service{" "}
+                    {(r.repairVendorCr ?? 0).toLocaleString()} cr, tax{" "}
+                    {(r.repairTaxCr ?? 0).toLocaleString()} cr (3%)
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void handleRepairRig(r.key)}
+                  disabled={repairBusyRigKey !== null}
+                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
+                >
+                  {repairBusyRigKey === r.key ? "Repairing…" : "Pay and repair"}
+                </button>
+              </div>
+            ))}
+          {repairError ? (
+            <p className="text-sm text-red-600 dark:text-red-400">{repairError}</p>
+          ) : null}
         </Card>
+      ) : null}
 
-        <Card title="Hazard log">
-          {site.hazardLog.length > 0 ? (
-            <ul className="space-y-0.5 text-xs text-zinc-600 dark:text-cyan-500/80">
-              {site.hazardLog.map((line, i) => (
-                <li key={i}>{line}</li>
-              ))}
-            </ul>
-          ) : (
-            <span className="text-xs text-zinc-500 dark:text-cyan-500/60">—</span>
-          )}
+      <MineSiteSecondaryPanel site={site} />
+    </div>
+  );
+}
+
+/** Read-only: rigs list, cycle log, hazard log (stacked under primary controls on the right). */
+export function MineSiteSecondaryPanel({ site }: { site: MineSiteDetails }) {
+  return (
+    <div>
+      {site.rigs && site.rigs.length > 0 ? (
+        <Card title="Rigs installed">
+          <div className="max-h-[min(280px,45vh)] min-h-0 space-y-2 overflow-y-auto pr-0.5">
+            {site.rigs.map((r) => (
+              <RigDetailRows key={r.key} r={r} />
+            ))}
+          </div>
         </Card>
-      </div>
-    </section>
+      ) : null}
+
+      <Card title="Cycle log">
+        {site.cycleLog.length > 0 ? (
+          <ul className="max-h-[min(200px,35vh)] space-y-0.5 overflow-y-auto text-xs text-zinc-500">
+            {site.cycleLog.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        ) : (
+          <span className="text-xs text-zinc-500">—</span>
+        )}
+      </Card>
+
+      <Card title="Hazard log">
+        {site.hazardLog.length > 0 ? (
+          <ul className="max-h-[min(200px,35vh)] space-y-0.5 overflow-y-auto text-xs text-zinc-500">
+            {site.hazardLog.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        ) : (
+          <span className="text-xs text-zinc-500">—</span>
+        )}
+      </Card>
+    </div>
   );
 }

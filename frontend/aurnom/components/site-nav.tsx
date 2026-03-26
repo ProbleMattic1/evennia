@@ -17,12 +17,12 @@ import { getNavState, playTravel, type NavState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 const linkClass =
-  "block w-full truncate rounded-md px-3 py-2.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-cyan-400/90 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-300 lg:px-2 lg:py-1 lg:text-[12px] lg:rounded-none";
+  "block w-full truncate rounded-md px-3 py-2.5 text-sm text-zinc-400 hover:bg-cyan-950/40 hover:text-cyan-300 dark:text-cyan-400/90 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-300 lg:px-2 lg:py-1 lg:text-[12px] lg:rounded-none";
 
 function NavDivider() {
   return (
     <hr
-      className="my-1.5 mx-1 border-0 border-t border-zinc-200 dark:border-cyan-900/50"
+      className="my-1.5 mx-1 border-0 border-t border-cyan-900/50 dark:border-cyan-900/50"
       aria-hidden
     />
   );
@@ -236,7 +236,7 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
             e.stopPropagation();
             toggleAllSections();
           }}
-          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded hover:bg-zinc-100 lg:min-h-0 lg:min-w-0 lg:p-0.5 dark:hover:bg-cyan-950/40"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded hover:bg-cyan-950/40 lg:min-h-0 lg:min-w-0 lg:p-0.5 dark:hover:bg-cyan-950/40"
           title={allOpen ? "Collapse all" : "Expand all"}
           aria-label={allOpen ? "Collapse all" : "Expand all"}
         >
@@ -405,11 +405,11 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
 export function SiteNavAside() {
   return (
     <aside
-      className="sticky top-0 hidden h-svh w-56 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50/80 py-2 lg:flex dark:border-cyan-900/50 dark:bg-zinc-950/90"
+      className="sticky top-0 hidden h-svh w-56 shrink-0 flex-col border-r border-cyan-900/50 bg-zinc-950/90 py-2 lg:flex dark:border-cyan-900/50 dark:bg-zinc-950/90"
       aria-label="Main"
     >
       <SiteNavBody />
-      <div className="shrink-0 border-t border-zinc-200 px-1 py-2 dark:border-cyan-900/50">
+      <div className="shrink-0 border-t border-cyan-900/50 px-1 py-2 dark:border-cyan-900/50">
         <ThemeToggle />
       </div>
     </aside>

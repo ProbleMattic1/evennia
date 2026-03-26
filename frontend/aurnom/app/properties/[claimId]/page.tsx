@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { StoryPanel } from "@/components/story-panel";
 import { PropertyDeedMarketPanel } from "@/components/property-deed-market-panel";
 import {
   getPropertyClaimDetail,
@@ -240,6 +241,9 @@ export default function PropertyClaimDetailPage() {
         <CsColumns
           left={
             <>
+              <CsPanel title="Deed Output">
+                <StoryPanel title="Deed Output" lines={data.storyLines ?? []} compact />
+              </CsPanel>
               <CsPanel title="Deed">
             <dl className="mt-2 grid gap-1 text-sm">
               <div className="flex justify-between gap-2">
@@ -262,7 +266,7 @@ export default function PropertyClaimDetailPage() {
               </div>
             </dl>
             {holding ? (
-              <p className="mt-3 border-t border-zinc-200 pt-2 text-[11px] text-zinc-600 dark:border-cyan-900/40 dark:text-zinc-400">
+              <p className="mt-3 border-t border-cyan-900/40 pt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                 In-game <span className="font-mono">give</span> to another character charges{" "}
                 <span className="font-mono tabular-nums">
                   {holding.deedTransferFeeCr.toLocaleString()} cr
@@ -334,7 +338,7 @@ export default function PropertyClaimDetailPage() {
                 )}
               </dl>
               {lot.description && (
-                <p className="mt-3 border-t border-zinc-100 pt-3 text-[12px] text-zinc-600 dark:border-cyan-900/40 dark:text-cyan-500/80">
+                <p className="mt-3 border-t border-zinc-100 pt-3 text-[12px] text-zinc-500 dark:border-cyan-900/40 dark:text-cyan-500/80">
                   {lot.description}
                 </p>
               )}
@@ -399,7 +403,7 @@ export default function PropertyClaimDetailPage() {
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-zinc-500">Last tick</dt>
-                    <dd className="font-mono text-right text-[11px] text-zinc-600 dark:text-zinc-400">
+                    <dd className="font-mono text-right text-[11px] text-zinc-500 dark:text-zinc-400">
                       {holding.ledger.lastTickIso ?? "—"}
                     </dd>
                   </div>
@@ -458,7 +462,7 @@ export default function PropertyClaimDetailPage() {
                       {holding.structures.map((s) => (
                         <li
                           key={s.id}
-                          className="list-none rounded border border-zinc-200 px-2 py-2 font-mono text-[11px] text-zinc-600 dark:border-cyan-900/40 dark:text-zinc-400"
+                          className="list-none rounded border border-cyan-900/40 bg-zinc-950/60 px-2 py-2 font-mono text-[11px] text-zinc-500 dark:text-zinc-400"
                         >
                           <div>
                             <span className="text-zinc-800 dark:text-zinc-200">{s.key}</span>
@@ -504,7 +508,7 @@ export default function PropertyClaimDetailPage() {
                 ) : null}
 
                 {holding.eventQueuePreview.length > 0 ? (
-                  <details className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                  <details className="text-[11px] text-zinc-500 dark:text-zinc-400">
                     <summary className="cursor-pointer font-mono">Event preview</summary>
                     <pre className="mt-1 max-h-40 overflow-auto rounded bg-zinc-100 p-2 dark:bg-zinc-950">
                       {JSON.stringify(holding.eventQueuePreview, null, 2)}
@@ -523,7 +527,7 @@ export default function PropertyClaimDetailPage() {
                       </p>
                     ) : null}
                     <div className="mt-2 flex flex-wrap items-end gap-2">
-                      <label className="flex flex-col gap-0.5 font-mono text-[12px] text-zinc-600 dark:text-zinc-400">
+                      <label className="flex flex-col gap-0.5 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
                         Blueprint
                         <select
                           value={buildBlueprintId}
@@ -560,7 +564,7 @@ export default function PropertyClaimDetailPage() {
                       </p>
                     ) : null}
                     {holding.allowedOperationKinds.length > 1 ? (
-                      <label className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[12px] text-zinc-600 dark:text-zinc-400">
+                      <label className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
                         Operation kind
                         <select
                           value={opKindChoice}
@@ -604,7 +608,7 @@ export default function PropertyClaimDetailPage() {
                       type="button"
                       disabled={pauseBusy}
                       onClick={() => void handlePauseToggle(!holding.operation.paused)}
-                      className="rounded bg-zinc-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-600 disabled:opacity-50 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                      className="rounded border border-cyan-800/60 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
                     >
                       {pauseBusy ? "…" : holding.operation.paused ? "Resume income" : "Pause income"}
                     </button>
@@ -623,7 +627,7 @@ export default function PropertyClaimDetailPage() {
                       }
                       return (
                         <div className="mt-3 space-y-2">
-                          <label className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-zinc-600 dark:text-zinc-400">
+                          <label className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
                             Retool to
                             <select
                               value={retoolKind}

@@ -242,15 +242,23 @@ def _room_actions(room):
     return actions
 
 
+def _room_story_lines(room):
+    """Same semantic content as play_state's storyLines for this room."""
+    if not room:
+        return []
+    desc = room.db.desc or "No description available."
+    return [
+        {"id": "title", "text": room.key, "kind": "title"},
+        {"id": "desc", "text": desc, "kind": "room"},
+    ]
+
+
 def _serialize_room(room):
     desc = room.db.desc or "No description available."
     return {
         "roomName": room.key,
         "roomDescription": desc,
-        "storyLines": [
-            {"id": "title", "text": room.key, "kind": "title"},
-            {"id": "desc", "text": desc, "kind": "room"},
-        ],
+        "storyLines": _room_story_lines(room),
         "exits": _room_exits(room),
         "actions": _room_actions(room),
     }
@@ -499,6 +507,10 @@ def claim_detail_state(request):
     desc = getattr(claim.db, "desc", None) or ""
     allowed = list(getattr(claim.db, "allowed_purposes", None) or ["mining"])
 
+    story_lines = []
+    if site and site.location:
+        story_lines = _room_story_lines(site.location)
+
     return JsonResponse(
         {
             "ok": True,
@@ -510,6 +522,7 @@ def claim_detail_state(request):
                 "allowedPurposes": allowed,
             },
             "site": site_payload,
+            "storyLines": story_lines,
             "inventoryPreview": preview,
             "isOwner": is_owner,
             "isListed": listed,
@@ -562,6 +575,10 @@ def property_claim_detail_state(request):
 
     desc = getattr(claim.db, "desc", None) or ""
 
+    story_lines = []
+    if lot and lot.location:
+        story_lines = _room_story_lines(lot.location)
+
     return JsonResponse(
         {
             "ok": True,
@@ -575,6 +592,7 @@ def property_claim_detail_state(request):
             },
             "lot": lot_payload,
             "holding": holding_payload,
+            "storyLines": story_lines,
             "inventoryPreview": preview,
             "isOwner": is_owner,
         }
