@@ -19,12 +19,22 @@ import type {
 import { acceptMission, chooseMission, dashboardAckAlert, mineDeploy } from "@/lib/ui-api";
 
 function Panel({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
+  const [open, setOpen] = useState(true);
+
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
-        {title}
+      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
+        <span>{title}</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+          className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
+        >
+          {open ? "▴" : "▸"}
+        </button>
       </div>
-      <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div>
+      {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div> : null}
     </section>
   );
 }
@@ -494,14 +504,13 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       ) : null}
       <div className="grid min-h-svh grid-cols-2">
         <div className="min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
-          {data.groupedAlerts ? <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} /> : null}
           {data.missions ? <MissionsPanel missions={data.missions} onAccept={acceptMissionCb} onChoose={chooseMissionCb} /> : null}
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
           <MinesPanel mines={data.mines} onReload={onReload} />
         </div>
         <div className="min-w-0 overflow-y-auto p-1.5">
+          {data.groupedAlerts ? <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} /> : null}
           {busy ? <div className="mb-1 text-[10px] text-zinc-500">Working...</div> : null}
-          <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-500">Assets</div>
           <InventoryPanel inventory={data.inventory} />
           <ShipsPanel ships={data.ships} />
           <PropertiesPanel properties={data.properties} />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { PropertyDeedMarketPanel } from "@/components/property-deed-market-panel";
 import {
   getPropertyClaimDetail,
@@ -220,39 +221,26 @@ export default function PropertyClaimDetailPage() {
   }
 
   return (
-    <main className="main-content">
-      <header className="page-header flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
-        <div className="px-2">
-          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            {claim?.key ?? "Property claim"}
-          </h1>
-          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">
-            {claim?.description ?? "Property deed"}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 px-2">
-          <Link
-            href="/real-estate"
-            className="rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40"
-          >
-            Real Estate Office
-          </Link>
-          <Link
-            href="/"
-            className="rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40"
-          >
-            Home
-          </Link>
-        </div>
-      </header>
+    <CsPage>
+      <CsHeader
+        title={claim?.key ?? "Property claim"}
+        subtitle={claim?.description ?? "Property deed"}
+        actions={
+          <>
+            <CsButtonLink href="/real-estate">Real Estate Office</CsButtonLink>
+            <CsButtonLink href="/">Home</CsButtonLink>
+          </>
+        }
+      />
 
       {loading && <p className="px-2 py-3 font-mono text-sm text-zinc-500">Loading…</p>}
       {error && <p className="px-2 py-3 font-mono text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {data?.ok && claim && (
-        <div className="mt-4 space-y-3 px-2">
-          <section className="rounded border border-zinc-200 bg-zinc-50 p-3 dark:border-cyan-900/50 dark:bg-zinc-950/80">
-            <h2 className="section-label">Deed</h2>
+        <CsColumns
+          left={
+            <>
+              <CsPanel title="Deed">
             <dl className="mt-2 grid gap-1 text-sm">
               <div className="flex justify-between gap-2">
                 <dt className="text-zinc-500">Kind</dt>
@@ -289,11 +277,10 @@ export default function PropertyClaimDetailPage() {
                 below.
               </p>
             ) : null}
-          </section>
+              </CsPanel>
 
-          {lot ? (
-            <section className="rounded border border-zinc-200 bg-white p-3 dark:border-cyan-900/50 dark:bg-zinc-900/40">
-              <h2 className="section-label">Parcel</h2>
+              {lot ? (
+                <CsPanel title="Parcel">
               <dl className="mt-2 grid gap-1 text-sm">
                 <div className="flex justify-between gap-2">
                   <dt className="text-zinc-500">Lot</dt>
@@ -361,15 +348,19 @@ export default function PropertyClaimDetailPage() {
                   </Link>
                 </p>
               )}
-            </section>
-          ) : (
-            <p className="font-mono text-[12px] text-amber-800 dark:text-amber-400">
-              No parcel record is linked to this deed (lot_ref missing).
-            </p>
-          )}
-
-          <section className="rounded border border-zinc-200 bg-white p-3 dark:border-cyan-900/50 dark:bg-zinc-900/40">
-            <h2 className="section-label">Development</h2>
+                </CsPanel>
+              ) : (
+                <CsPanel title="Parcel">
+                  <p className="font-mono text-[12px] text-amber-800 dark:text-amber-400">
+                    No parcel record is linked to this deed (lot_ref missing).
+                  </p>
+                </CsPanel>
+              )}
+            </>
+          }
+          right={
+            <>
+              <CsPanel title="Development">
             {!holding ? (
               <p className="mt-2 font-mono text-[12px] text-amber-800 dark:text-amber-400">
                 No holding linked to this parcel (legacy or missing record).
@@ -668,17 +659,17 @@ export default function PropertyClaimDetailPage() {
                 )}
               </div>
             )}
-          </section>
+              </CsPanel>
 
-          <section
-            id="property-deed-resale"
-            aria-label="Property deed resale"
-            className="scroll-mt-4"
-          >
-            <PropertyDeedMarketPanel defaultClaimId={claim.id} />
-          </section>
-        </div>
+              <section id="property-deed-resale" aria-label="Property deed resale" className="scroll-mt-4">
+                <CsPanel title="Property Deed Resale">
+                  <PropertyDeedMarketPanel defaultClaimId={claim.id} />
+                </CsPanel>
+              </section>
+            </>
+          }
+        />
       )}
-    </main>
+    </CsPage>
   );
 }

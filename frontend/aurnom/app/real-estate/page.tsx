@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 
 import { ClaimsMarketPanel } from "@/components/claims-market-panel";
+import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { Countdown } from "@/components/countdown";
 import { StoryPanel } from "@/components/story-panel";
 import {
@@ -171,106 +171,95 @@ export default function RealEstatePage() {
   }
 
   return (
-    <main className="main-content">
-      <header className="page-header flex items-center justify-between border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
-        <div className="px-2">
-          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            {data.brokerName}
-          </h1>
-          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">
-            {REALTY_OFFICE_ROOM}
-          </p>
-        </div>
-        <Link
-          href={`/play?room=${encodeURIComponent(REALTY_OFFICE_ROOM)}`}
-          className="rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-300"
-        >
-          Back to Play
-        </Link>
-      </header>
-
-      <div className="flex flex-col gap-2 px-2 py-2">
-        <StoryPanel title="Real Estate Office" lines={data.storyLines} />
-
-        {feedback && (
-          <p
-            className={`rounded px-3 py-2 text-sm ${
-              feedback.ok
-                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-                : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-            }`}
-          >
-            {feedback.message}
-          </p>
-        )}
-
-        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-          <section aria-labelledby="property-listings-heading" className="min-w-0 px-2 py-2">
-            <div className={exchangePanelOuterClass}>
-              <div className={exchangePanelToolbarClass}>
-                <h2 id="property-listings-heading" className={exchangePanelToolbarTitleClass}>
-                  Property market — listable parcels
-                </h2>
-                <Countdown
-                  targetIso={data.nextPropertyDiscoveryAt ?? null}
-                  prefix="Next restock:"
-                  className={exchangePanelCountdownClass}
-                  onExpired={reload}
-                />
-              </div>
-
-              {data.lots.length === 0 ? (
-                <p className={exchangePanelEmptyClass}>No lots currently available.</p>
-              ) : (
-                <div className="mt-2 flex flex-col gap-2">
-                  {data.lots.map((lot) => (
-                    <LotCard
-                      key={lot.lotKey}
-                      lot={lot}
-                      onBuy={handleBuy}
-                      buying={buyingLot === lot.lotKey}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-cyan-900/40">
-                <p className="text-[11px] leading-snug text-zinc-600 dark:text-cyan-500/75">
-                  Buy a random listable parcel by zone (price follows tier and zone, same as choosing a
-                  specific lot).
+    <CsPage>
+      <CsHeader
+        title={data.brokerName}
+        subtitle={REALTY_OFFICE_ROOM}
+        actions={<CsButtonLink href={`/play?room=${encodeURIComponent(REALTY_OFFICE_ROOM)}`}>Back to Play</CsButtonLink>}
+      />
+      <CsColumns
+        left={
+          <>
+            <CsPanel title="Real Estate Office">
+              <StoryPanel title="Real Estate Office" lines={data.storyLines} />
+              {feedback && (
+                <p
+                  className={`mt-1 rounded px-3 py-2 text-sm ${
+                    feedback.ok
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                      : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                  }`}
+                >
+                  {feedback.message}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {(
-                    [
-                      { zone: "commercial" as const, label: "Buy random commercial" },
-                      { zone: "residential" as const, label: "Buy random residential" },
-                      { zone: "industrial" as const, label: "Buy random industrial" },
-                    ] as const
-                  ).map(({ zone, label }) => (
-                    <button
-                      key={zone}
-                      type="button"
-                      disabled={randomZoneBusy !== null || buyingLot !== null}
-                      onClick={() => void handleRandomProperty(zone)}
-                      className={`rounded px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${RANDOM_ZONE_BTN[zone]}`}
-                    >
-                      {randomZoneBusy === zone ? "…" : label}
-                    </button>
-                  ))}
+              )}
+            </CsPanel>
+            <CsPanel title="Property Market">
+              <div className={exchangePanelOuterClass}>
+                <div className={exchangePanelToolbarClass}>
+                  <h2 id="property-listings-heading" className={exchangePanelToolbarTitleClass}>
+                    Property market — listable parcels
+                  </h2>
+                  <Countdown
+                    targetIso={data.nextPropertyDiscoveryAt ?? null}
+                    prefix="Next restock:"
+                    className={exchangePanelCountdownClass}
+                    onExpired={reload}
+                  />
+                </div>
+
+                {data.lots.length === 0 ? (
+                  <p className={exchangePanelEmptyClass}>No lots currently available.</p>
+                ) : (
+                  <div className="mt-2 flex flex-col gap-2">
+                    {data.lots.map((lot) => (
+                      <LotCard
+                        key={lot.lotKey}
+                        lot={lot}
+                        onBuy={handleBuy}
+                        buying={buyingLot === lot.lotKey}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-cyan-900/40">
+                  <p className="text-[11px] leading-snug text-zinc-600 dark:text-cyan-500/75">
+                    Buy a random listable parcel by zone (price follows tier and zone, same as choosing a
+                    specific lot).
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      [
+                        { zone: "commercial" as const, label: "Buy random commercial" },
+                        { zone: "residential" as const, label: "Buy random residential" },
+                        { zone: "industrial" as const, label: "Buy random industrial" },
+                      ] as const
+                    ).map(({ zone, label }) => (
+                      <button
+                        key={zone}
+                        type="button"
+                        disabled={randomZoneBusy !== null || buyingLot !== null}
+                        onClick={() => void handleRandomProperty(zone)}
+                        className={`rounded px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${RANDOM_ZONE_BTN[zone]}`}
+                      >
+                        {randomZoneBusy === zone ? "…" : label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            </CsPanel>
+          </>
+        }
+        right={
+          <section id="claims-market" aria-label="Claims market" className="scroll-mt-4 min-w-0">
+            <CsPanel title="Claims Market">
+              <ClaimsMarketPanel />
+            </CsPanel>
           </section>
-
-          <section
-            id="claims-market"
-            aria-label="Claims market"
-            className="scroll-mt-4 min-w-0 px-2 py-2"
-          >
-            <ClaimsMarketPanel />
-          </section>
-        </div>
-      </div>
-    </main>
+        }
+      />
+    </CsPage>
   );
 }

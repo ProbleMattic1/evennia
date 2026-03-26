@@ -1,9 +1,9 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { ExitGrid } from "@/components/exit-grid";
 import { StoryPanel } from "@/components/story-panel";
 import { buyItem, getShopState, inspectItem } from "@/lib/ui-api";
@@ -125,107 +125,97 @@ function ShopPageInner() {
   }
 
   return (
-    <main className="main-content">
-      <header className="page-header flex flex-col gap-2 border-b border-zinc-200 py-3 pl-2 sm:flex-row sm:items-center sm:justify-between dark:border-cyan-900/50">
-        <div className="min-w-0 px-2">
-          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{view.shopName}</h1>
-          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">{view.roomName}</p>
-        </div>
-        <Link
-          href={`/play?room=${encodeURIComponent(view.roomName)}`}
-          className="shrink-0 self-start rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 sm:self-auto dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-300"
-        >
-          Back to Play
-        </Link>
-      </header>
+    <CsPage>
+      <CsHeader
+        title={view.shopName}
+        subtitle={view.roomName}
+        actions={<CsButtonLink href={`/play?room=${encodeURIComponent(view.roomName)}`}>Back to Play</CsButtonLink>}
+      />
 
       {actionError ? (
-        <p className="mx-2 mt-2 rounded border border-red-200/60 bg-red-50/80 px-2 py-1.5 text-[12px] text-red-700 dark:border-red-800/50 dark:bg-red-950/40 dark:text-red-400">
+        <p className="mx-1.5 mt-1 rounded border border-red-800/40 bg-red-950/30 px-1.5 py-1 text-[10px] text-red-300">
           {actionError}
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-2 px-2 py-2">
-        <ExitGrid exits={view.exits} />
-        <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
-          <h2 className="section-label">
-            {isShips ? "Ships for Sale" : "Items for Sale"}
-          </h2>
-          <ul className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {catalog.map((entry) => {
-              const rowBusy = busyKey === entry.id;
-              const expanded = expandedIds.has(entry.id);
-              return (
-                <li
-                  key={entry.id}
-                  className="rounded border border-zinc-100 p-2 dark:border-cyan-900/30"
-                >
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{entry.key}</span>
-                    <span className="text-[12px] text-zinc-500 dark:text-zinc-400">
-                      {entry.price != null ? `${entry.price.toLocaleString()} cr` : "N/A"}
-                    </span>
-                    <button
-                      type="button"
-                      className="inline-flex shrink-0 items-center justify-center rounded border border-zinc-300 p-1 text-zinc-700 hover:bg-zinc-100 dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40"
-                      aria-expanded={expanded}
-                      aria-label={expanded ? "Hide details" : "Show details"}
-                      onClick={() => toggleExpanded(entry.id)}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className={`h-4 w-4 transition-transform ${expanded ? "rotate-90" : ""}`}
-                        aria-hidden
+      <CsColumns
+        left={
+          <>
+            <CsPanel title="Exits">
+              <ExitGrid exits={view.exits} />
+            </CsPanel>
+            <CsPanel title={isShips ? "Shipyard Output" : "Shop Output"}>
+              <StoryPanel title={isShips ? "Shipyard Output" : "Shop Output"} lines={view.storyLines} />
+            </CsPanel>
+          </>
+        }
+        right={
+          <CsPanel title={isShips ? "Ships for Sale" : "Items for Sale"}>
+            <ul className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {catalog.map((entry) => {
+                const rowBusy = busyKey === entry.id;
+                const expanded = expandedIds.has(entry.id);
+                return (
+                  <li key={entry.id} className="rounded border border-cyan-900/30 p-2">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-sm font-medium text-zinc-200">{entry.key}</span>
+                      <span className="text-[12px] text-zinc-500">
+                        {entry.price != null ? `${entry.price.toLocaleString()} cr` : "N/A"}
+                      </span>
+                      <button
+                        type="button"
+                        className="inline-flex shrink-0 items-center justify-center rounded border border-cyan-700/50 p-1 text-cyan-400 hover:bg-cyan-950/40"
+                        aria-expanded={expanded}
+                        aria-label={expanded ? "Hide details" : "Show details"}
+                        onClick={() => toggleExpanded(entry.id)}
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M8.22 5.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 010-1.06z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                  {expanded ? (
-                    <>
-                      {entry.description ? (
-                        <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{entry.description}</p>
-                      ) : null}
-                      {entry.summary ? (
-                        <p className="mt-0.5 text-[12px] text-zinc-400 dark:text-zinc-500">{entry.summary}</p>
-                      ) : null}
-                      <div className="mt-1 flex gap-1.5">
-                        <button
-                          type="button"
-                          className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-700 disabled:text-zinc-400 dark:border-cyan-700/50 dark:text-cyan-400 dark:disabled:text-cyan-500/50"
-                          disabled={rowBusy}
-                          onClick={() => onInspect(entry.id, entry.key)}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className={`h-4 w-4 transition-transform ${expanded ? "rotate-90" : ""}`}
+                          aria-hidden
                         >
-                          {rowBusy && busyAction === "inspect" ? "…" : "Inspect"}
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] text-zinc-800 hover:bg-zinc-100 disabled:opacity-60 dark:border-cyan-700/50 dark:bg-cyan-950/40 dark:text-cyan-400 dark:hover:bg-cyan-900/50 dark:hover:text-cyan-300"
-                          disabled={rowBusy}
-                          onClick={() => onBuy(entry.id, entry.key)}
-                        >
-                          {rowBusy && busyAction === "buy" ? "…" : "Buy"}
-                        </button>
-                      </div>
-                    </>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-        <StoryPanel
-          title={isShips ? "Shipyard Output" : "Shop Output"}
-          lines={view.storyLines}
-        />
-      </div>
-    </main>
+                          <path
+                            fillRule="evenodd"
+                            d="M8.22 5.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 010-1.06z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    {expanded ? (
+                      <>
+                        {entry.description ? <p className="mt-0.5 text-[12px] text-zinc-400">{entry.description}</p> : null}
+                        {entry.summary ? <p className="mt-0.5 text-[12px] text-zinc-500">{entry.summary}</p> : null}
+                        <div className="mt-1 flex gap-1.5">
+                          <button
+                            type="button"
+                            className="rounded border border-cyan-700/50 px-2 py-0.5 text-[12px] text-cyan-400 disabled:text-cyan-500/50"
+                            disabled={rowBusy}
+                            onClick={() => onInspect(entry.id, entry.key)}
+                          >
+                            {rowBusy && busyAction === "inspect" ? "…" : "Inspect"}
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded border border-cyan-700/50 bg-cyan-950/40 px-2 py-0.5 text-[12px] text-cyan-400 hover:bg-cyan-900/50 disabled:opacity-60"
+                            disabled={rowBusy}
+                            onClick={() => onBuy(entry.id, entry.key)}
+                          >
+                            {rowBusy && busyAction === "buy" ? "…" : "Buy"}
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </CsPanel>
+        }
+      />
+    </CsPage>
   );
 }
 

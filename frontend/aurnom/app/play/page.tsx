@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { ActionGrid } from "@/components/action-grid";
+import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
 import { MineDetailsPanel } from "@/components/mine-details-panel";
 import { StoryPanel } from "@/components/story-panel";
@@ -43,26 +44,42 @@ function PlayPageInner() {
   }
 
   return (
-    <main className="main-content">
-      <header className="page-header border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
-        <div className="px-2">
-          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Play</h1>
-          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">Current location: {data.roomName}</p>
-        </div>
-      </header>
-
-      {data.roomName === MINING_OUTFITTERS_ROOM && <CommodityTickerStrip />}
-
-      <div className="flex flex-col gap-2 px-2 py-2">
-        <ActionGrid actions={data.actions} />
-        <StoryPanel title="Story Output" lines={data.storyLines} />
-        {data.site && (
-          <MineDetailsPanel site={data.site} onCycleCountdownExpired={reload} />
-        )}
-      </div>
-
-      {data.roomName === MINING_OUTFITTERS_ROOM && <CommodityTickerTable />}
-    </main>
+    <CsPage>
+      <CsHeader
+        title="Play"
+        subtitle={`Current location: ${data.roomName}`}
+        actions={<CsButtonLink href="/">Dashboard</CsButtonLink>}
+      />
+      <CsColumns
+        left={
+          <>
+            <CsPanel title="Actions">
+              <ActionGrid actions={data.actions} />
+            </CsPanel>
+            <CsPanel title="Story Output">
+              <StoryPanel title="Story Output" lines={data.storyLines} />
+            </CsPanel>
+            {data.site ? (
+              <CsPanel title="Mine Site">
+                <MineDetailsPanel site={data.site} onCycleCountdownExpired={reload} />
+              </CsPanel>
+            ) : null}
+          </>
+        }
+        right={
+          data.roomName === MINING_OUTFITTERS_ROOM ? (
+            <>
+              <CsPanel title="Market Snapshot">
+                <CommodityTickerStrip />
+              </CsPanel>
+              <CsPanel title="Commodity Board">
+                <CommodityTickerTable />
+              </CsPanel>
+            </>
+          ) : undefined
+        }
+      />
+    </CsPage>
   );
 }
 

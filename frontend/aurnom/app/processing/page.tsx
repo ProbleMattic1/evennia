@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback } from "react";
-import Link from "next/link";
 
+import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
 import { ExitGrid } from "@/components/exit-grid";
 import { StoryPanel } from "@/components/story-panel";
@@ -150,71 +150,68 @@ export default function ProcessingPage() {
   }
 
   return (
-    <main className="main-content">
-      <header className="page-header flex items-center justify-between border-b border-zinc-200 py-3 pl-2 dark:border-cyan-900/50">
-        <div className="px-2">
-          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{data.plantName}</h1>
-          <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-cyan-500/80">{data.roomName}</p>
-        </div>
-        <Link
-          href={`/play?room=${encodeURIComponent(data.roomName)}`}
-          className="rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-cyan-700/50 dark:text-cyan-400 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-300"
-        >
-          Back to Play
-        </Link>
-      </header>
-
-      <div className="px-2 py-2">
-        <CommodityTickerStrip />
-      </div>
-
-      <div className="flex flex-col gap-2 px-2 py-2">
-        <ExitGrid exits={data.exits} />
-        <StoryPanel title="Plant Output" lines={data.storyLines} />
-        <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
-          <h2 className="section-label">Ore Receiving Bay</h2>
-          <StorageBar used={data.rawStorageUsed} capacity={data.rawStorageCapacity} />
-          <div className="mt-2 space-y-0.5">
-            <StatRow
-              label="Plant buys your raw (haul sell)"
-              value={`${(data.rawSaleFeeRate * 100).toFixed(0)}% hassle fee on bid total; you receive the rest`}
-            />
-            <StatRow
-              label="You buy raw from the plant"
-              value={`Ask = bid + ${(data.rawAskPremiumRate * 100).toFixed(0)}%`}
-            />
-          </div>
-        </section>
-
-        <section className="border-b border-zinc-100 px-2 py-2 dark:border-cyan-900/30">
-          <h2 className="section-label">Shared Refinery</h2>
-          <div className="mt-1 space-y-0.5">
-            <StatRow
-              label="Input queue"
-              value={`${data.refineryInputTons.toLocaleString(undefined, { maximumFractionDigits: 1 })} t`}
-            />
-            <StatRow
-              label="Output value"
-              value={
-                <>
-                  {data.refineryOutputValue.toLocaleString()}{" "}
-                  <span className="text-amber-700 dark:text-amber-400">cr</span>
-                </>
-              }
-            />
-            <StatRow
-              label="Processing fee"
-              value={`${(data.processingFeeRate * 100).toFixed(0)}%`}
-            />
-          </div>
-        </section>
-
-        <MinerSection data={data} />
-      </div>
-
-      <div className="px-2 pb-4 pt-2">
-        <CommodityTickerTable />
-      </div>
-    </main>
+    <CsPage>
+      <CsHeader
+        title={data.plantName}
+        subtitle={data.roomName}
+        actions={<CsButtonLink href={`/play?room=${encodeURIComponent(data.roomName)}`}>Back to Play</CsButtonLink>}
+      />
+      <CsColumns
+        left={
+          <>
+            <CsPanel title="Exits">
+              <ExitGrid exits={data.exits} />
+            </CsPanel>
+            <CsPanel title="Plant Output">
+              <StoryPanel title="Plant Output" lines={data.storyLines} />
+            </CsPanel>
+            <CsPanel title="Ore Receiving Bay">
+              <StorageBar used={data.rawStorageUsed} capacity={data.rawStorageCapacity} />
+              <div className="mt-2 space-y-0.5">
+                <StatRow
+                  label="Plant buys your raw (haul sell)"
+                  value={`${(data.rawSaleFeeRate * 100).toFixed(0)}% hassle fee on bid total; you receive the rest`}
+                />
+                <StatRow
+                  label="You buy raw from the plant"
+                  value={`Ask = bid + ${(data.rawAskPremiumRate * 100).toFixed(0)}%`}
+                />
+              </div>
+            </CsPanel>
+          </>
+        }
+        right={
+          <>
+            <CsPanel title="Market Snapshot">
+              <CommodityTickerStrip />
+            </CsPanel>
+            <CsPanel title="Shared Refinery">
+              <div className="mt-1 space-y-0.5">
+                <StatRow
+                  label="Input queue"
+                  value={`${data.refineryInputTons.toLocaleString(undefined, { maximumFractionDigits: 1 })} t`}
+                />
+                <StatRow
+                  label="Output value"
+                  value={
+                    <>
+                      {data.refineryOutputValue.toLocaleString()}{" "}
+                      <span className="text-amber-700 dark:text-amber-400">cr</span>
+                    </>
+                  }
+                />
+                <StatRow label="Processing fee" value={`${(data.processingFeeRate * 100).toFixed(0)}%`} />
+              </div>
+            </CsPanel>
+            <CsPanel title="Your Activity">
+              <MinerSection data={data} />
+            </CsPanel>
+            <CsPanel title="Commodity Board">
+              <CommodityTickerTable />
+            </CsPanel>
+          </>
+        }
+      />
+    </CsPage>
   );
 }

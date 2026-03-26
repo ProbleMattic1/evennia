@@ -1,18 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import type { ControlSurfaceNav, CsCharacter } from "@/lib/control-surface-api";
 import { useControlSurface } from "@/components/control-surface-provider";
 
 function Panel({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
+  const [open, setOpen] = useState(true);
+
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
-        {title}
+      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
+        <span>{title}</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+          className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
+        >
+          {open ? "▴" : "▸"}
+        </button>
       </div>
-      <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div>
+      {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div> : null}
     </section>
   );
 }
@@ -87,14 +97,13 @@ function PlayerPanel({
     <Panel title="Character">
       <Row>
         <span className="font-bold text-zinc-100">{char.key}</span>
-        <span className="ml-auto text-zinc-500">AC {char.armorClass}</span>
       </Row>
       <Kv k="room" v={char.room ?? "—"} />
       <Kv k="credits" v={cr(char.credits)} />
       <Kv k="mine yield/cycle" v={cr(miningValuePerCycle)} />
       <Kv k="ore stored" v={cr(miningStoredValue)} />
       <Kv k="property ref val" v={cr(propertyRefValue)} />
-      {hp && <Kv k="hp" v={`${hp.current} / ${hp.max ?? "?"}`} />}
+      {hp && <Kv k="hp" v={`${hp.current} / ${hp.max ?? "?"} · AC ${char.armorClass}`} />}
       <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
         {abilityRows.map(([key, ability]) => (
           <span key={key} className="text-zinc-500">
