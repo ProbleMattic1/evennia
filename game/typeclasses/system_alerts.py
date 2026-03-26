@@ -12,7 +12,7 @@ from evennia.scripts.scripts import DefaultScript
 
 
 ALERT_SEVERITIES = {"critical", "warning", "info"}
-ALERT_CATEGORIES = {"mining", "market", "system"}
+ALERT_CATEGORIES = {"mining", "market", "system", "world", "district", "property", "shipping"}
 
 
 class SystemAlertsScript(DefaultScript):

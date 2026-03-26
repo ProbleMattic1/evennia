@@ -3,6 +3,11 @@ Purchase structure upgrades (credits -> structure.db.upgrades).
 """
 
 from typeclasses.economy import get_economy
+from typeclasses.property_claim_market import (
+    collect_property_construction_payment,
+    get_construction_builder,
+    refund_property_construction_payment,
+)
 from typeclasses.property_holdings import PROPERTY_HOLDING_CATEGORY
 from world.property_structure_upgrade_registry import (
     blueprint_allows_upgrade,
@@ -49,9 +54,34 @@ def purchase_structure_upgrade(owner, holding, structure_dbid, upgrade_key):
     if bal < price:
         return False, f"You need {price:,} cr but only have {bal:,} cr."
 
-    econ.withdraw(acct, price, memo=f"property upgrade {key} L{nxt}")
-    owner.db.credits = econ.get_character_balance(owner)
+    builder = get_construction_builder()
+    net_amount = tax_amount = None
+    if builder:
+        net_amount, tax_amount = collect_property_construction_payment(
+            owner,
+            price,
+            builder,
+            tx_type="property_structure_upgrade",
+            withdraw_memo=f"property upgrade {key} L{nxt}",
+            record_memo=f"{owner.key} upgrade {key} L{nxt}",
+        )
+    else:
+        econ.withdraw(acct, price, memo=f"property upgrade {key} L{nxt}")
+        owner.db.credits = econ.get_character_balance(owner)
 
     ups[key] = nxt
-    st.db.upgrades = ups
+    try:
+        st.db.upgrades = ups
+    except Exception:
+        if builder and net_amount is not None:
+            refund_property_construction_payment(
+                owner, price, builder, net_amount=net_amount, tax_amount=tax_amount
+            )
+        else:
+            econ.deposit(acct, price, memo="Refund: upgrade apply failed")
+            owner.db.credits = econ.get_character_balance(owner)
+        return False, "Could not apply upgrade; payment refunded."
+
+    if not builder:
+        owner.db.credits = econ.get_character_balance(owner)
     return True, f"{st.key}: {key} -> level {nxt} ({price:,} cr)."

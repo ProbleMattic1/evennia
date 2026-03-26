@@ -1,0 +1,284 @@
+[
+  {
+    "id": "security_random_screenings_assist",
+    "title": "Assist the Screening Sweep",
+    "summary": "A surge in random screenings creates confusion on the promenade. Security is asking for trusted civilians to help stabilize traffic.",
+    "missionKind": "mission",
+    "threadId": "nanomega_security_crackdown",
+    "storylineId": "connector_pressure",
+    "giver": { "kind": "faction", "id": "nanomega_security", "name": "NanoMegaPlex Security" },
+    "trigger": {
+      "kind": "alert",
+      "seedIdsAny": ["security_advisory_soft"]
+    },
+    "eligibility": {
+      "cooldownSeconds": 21600,
+      "maxActive": 1
+    },
+    "objectives": [
+      {
+        "id": "ask_guide_security",
+        "kind": "interaction",
+        "text": "Ask the station guide about the security advisory.",
+        "interactionKeysAny": ["askguide:security", "askguide:transit"]
+      },
+      {
+        "id": "checkpoint_decision",
+        "kind": "choice",
+        "prompt": "A checkpoint supervisor asks whether to prioritize frightened workers or high-value freight.",
+        "choices": [
+          {
+            "id": "protect_workers",
+            "label": "Move families and shift workers through first.",
+            "outcome": "You ease the queue and keep frightened civilians from getting crushed by the screening backlog.",
+            "morality": { "good": 2, "lawful": 1 },
+            "rewards": { "credits": 150 },
+            "completeMission": true
+          },
+          {
+            "id": "sell_priority_slots",
+            "label": "Sell unofficial fast-track access to cargo crews.",
+            "outcome": "You turn the checkpoint into a racket and profit from the delay.",
+            "morality": { "evil": 2, "lawful": -1, "chaotic": 1 },
+            "rewards": { "credits": 260 },
+            "completeMission": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "security_random_screenings_smuggler_route",
+    "title": "Slip the Net",
+    "summary": "Smugglers want a fresh route while security is focused elsewhere.",
+    "missionKind": "mission",
+    "threadId": "nanomega_security_crackdown",
+    "storylineId": "smuggler_counterplay",
+    "giver": { "kind": "faction", "id": "smuggler_ring", "name": "Unnamed Cargo Broker" },
+    "trigger": {
+      "kind": "alert",
+      "seedIdsAny": ["security_advisory_soft"]
+    },
+    "eligibility": {
+      "cooldownSeconds": 21600,
+      "maxActive": 1
+    },
+    "objectives": [
+      {
+        "id": "reach_shipyard",
+        "kind": "visit_room",
+        "text": "Head to the shipyard and look for a quiet cargo lane.",
+        "roomKeysAny": ["Meridian Civil Shipyard"]
+      },
+      {
+        "id": "route_choice",
+        "kind": "choice",
+        "prompt": "You identify the smugglers' fallback route.",
+        "choices": [
+          {
+            "id": "report_route",
+            "label": "Turn the route over to security.",
+            "outcome": "Security intercepts the shipment before it leaves the docks.",
+            "morality": { "good": 1, "lawful": 2 },
+            "rewards": { "credits": 180 },
+            "completeMission": true
+          },
+          {
+            "id": "escort_contraband",
+            "label": "Help the contraband clear the docks.",
+            "outcome": "The cargo disappears into station traffic before anyone notices.",
+            "morality": { "evil": 2, "chaotic": 2 },
+            "rewards": { "credits": 320 },
+            "completeMission": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "promenade_missing_parcel",
+    "title": "The Missing Parcel",
+    "summary": "A misplaced delivery on the promenade turns into a choice between helping a stranger and helping yourself.",
+    "missionKind": "mission",
+    "threadId": "promenade_small_lives",
+    "storylineId": "promenade_civilian_cases",
+    "giver": { "kind": "civilian", "id": "anonymous_resident", "name": "Distressed Commuter" },
+    "trigger": {
+      "kind": "room",
+      "roomKeysAny": ["NanoMegaPlex Promenade"]
+    },
+    "eligibility": {
+      "cooldownSeconds": 43200,
+      "maxActive": 1
+    },
+    "objectives": [
+      {
+        "id": "check_supply",
+        "kind": "visit_room",
+        "text": "Follow the parcel trace to General Supply.",
+        "roomKeysAny": ["Aurnom General Supply"]
+      },
+      {
+        "id": "parcel_choice",
+        "kind": "choice",
+        "prompt": "The package contains medicine and a sealed credit chit.",
+        "choices": [
+          {
+            "id": "return_everything",
+            "label": "Return the parcel intact.",
+            "outcome": "The owner gets their medication on time and pays what little they can.",
+            "morality": { "good": 2, "lawful": 1 },
+            "rewards": { "credits": 75 },
+            "completeMission": true
+          },
+          {
+            "id": "skim_the_chit",
+            "label": "Keep the credit chit and return only the box.",
+            "outcome": "You turn a desperate person's bad day into your profit.",
+            "morality": { "evil": 2, "chaotic": 1 },
+            "rewards": { "credits": 180 },
+            "completeMission": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "guide_opening_hook",
+    "title": "Transit, Permits, or Profit",
+    "summary": "Station Guide Kiran points you toward an easy favor. Whether it stays a favor is up to you.",
+    "missionKind": "mission",
+    "threadId": "guide_openers",
+    "storylineId": "promenade_entry_hooks",
+    "giver": { "kind": "npc", "id": "station_guide_kiran", "name": "Station Guide Kiran" },
+    "trigger": {
+      "kind": "interaction",
+      "interactionKeysAny": ["askguide", "askguide:property", "askguide:mining"]
+    },
+    "eligibility": {
+      "cooldownSeconds": 86400,
+      "maxActive": 1
+    },
+    "objectives": [
+      {
+        "id": "starter_choice",
+        "kind": "choice",
+        "prompt": "Kiran offers a shortcut: share reliable directions with a confused newcomer, or sell them bad information and take their tip anyway.",
+        "choices": [
+          {
+            "id": "give_real_help",
+            "label": "Give accurate directions and refuse the extra credits.",
+            "outcome": "The newcomer reaches their destination and remembers your decency.",
+            "morality": { "good": 1, "lawful": 1 },
+            "rewards": { "credits": 25 },
+            "completeMission": true
+          },
+          {
+            "id": "sell_bad_info",
+            "label": "Sell them false directions and pocket the tip.",
+            "outcome": "You profit from someone else's confusion.",
+            "morality": { "evil": 1, "chaotic": 1 },
+            "rewards": { "credits": 90 },
+            "completeMission": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "property_inspection_pressure",
+    "title": "Inspection Pressure",
+    "summary": "A property inspection notice creates an opportunity to either clean up a problem or cover it up.",
+    "missionKind": "mission",
+    "threadId": "property_pressure",
+    "storylineId": "realty_ethics",
+    "giver": { "kind": "faction", "id": "nanomega_realty", "name": "NanoMegaPlex Real Estate" },
+    "trigger": {
+      "kind": "incident",
+      "seedIdsAny": ["com_inspection_notice", "ind_permit_audit"]
+    },
+    "eligibility": {
+      "cooldownSeconds": 43200,
+      "maxActive": 1
+    },
+    "objectives": [
+      {
+        "id": "go_to_realty_office",
+        "kind": "visit_room",
+        "text": "Report to the real estate office and review the file.",
+        "roomKeysAny": ["NanoMegaPlex Real Estate Office"]
+      },
+      {
+        "id": "inspection_choice",
+        "kind": "choice",
+        "prompt": "The file reveals expensive repairs and an easy path to falsify the paperwork.",
+        "choices": [
+          {
+            "id": "fix_it_right",
+            "label": "Escalate the repairs and disclose the cost.",
+            "outcome": "The parcel loses money now, but people stay safe later.",
+            "morality": { "good": 2, "lawful": 2 },
+            "rewards": { "credits": 140 },
+            "completeMission": true
+          },
+          {
+            "id": "forge_clearance",
+            "label": "Forge compliance and bury the issue.",
+            "outcome": "You preserve margins by moving the risk onto future occupants.",
+            "morality": { "evil": 2, "lawful": -1, "chaotic": 1 },
+            "rewards": { "credits": 260 },
+            "completeMission": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "claim_dispute_outfitters",
+    "title": "Ghost Survey",
+    "summary": "A disputed survey packet at Mining Outfitters could become a fair correction or a profitable fraud.",
+    "missionKind": "mission",
+    "threadId": "independent_mining",
+    "storylineId": "survey_integrity",
+    "giver": { "kind": "faction", "id": "independent_claimants", "name": "Independent Claimants" },
+    "trigger": {
+      "kind": "room",
+      "roomKeysAny": ["Aurnom Mining Outfitters"]
+    },
+    "eligibility": {
+      "cooldownSeconds": 43200,
+      "maxActive": 1
+    },
+    "objectives": [
+      {
+        "id": "run_a_survey",
+        "kind": "interaction",
+        "text": "Run a survey and compare the numbers to the disputed filing.",
+        "interactionKeysAny": ["survey"]
+      },
+      {
+        "id": "survey_choice",
+        "kind": "choice",
+        "prompt": "The disputed packet is fraudulent, but valuable enough to sell.",
+        "choices": [
+          {
+            "id": "report_fraud",
+            "label": "Report the fake filing and clear the record.",
+            "outcome": "A legitimate claimant gets a fair shot at the site.",
+            "morality": { "good": 2, "lawful": 1 },
+            "rewards": { "credits": 160 },
+            "completeMission": true
+          },
+          {
+            "id": "sell_fake_packet",
+            "label": "Sell the forged survey to a desperate buyer.",
+            "outcome": "You dump a bad claim onto someone else and walk away richer.",
+            "morality": { "evil": 2, "chaotic": 1 },
+            "rewards": { "credits": 300 },
+            "completeMission": true
+          }
+        ]
+      }
+    ]
+  }
+]

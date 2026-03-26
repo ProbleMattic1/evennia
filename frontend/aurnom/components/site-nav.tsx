@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -12,7 +13,7 @@ import {
 } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
-import { getNavState, type NavState } from "@/lib/ui-api";
+import { getNavState, playTravel, type NavState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 const linkClass =
@@ -190,6 +191,7 @@ export function SiteNavProvider({ children }: { children: ReactNode }) {
 }
 
 export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
+  const router = useRouter();
   const {
     data,
     error,
@@ -202,6 +204,19 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
   } = useSiteNavContext();
 
   const afterNav = onNavigate ?? (() => {});
+  const handleTravel = useCallback(
+    async (destination: string) => {
+      try {
+        await playTravel({ destination });
+      } catch {
+        // Best-effort bridge call; still route so UI remains usable.
+      } finally {
+        router.push(`/play?room=${encodeURIComponent(destination)}`);
+        afterNav();
+      }
+    },
+    [afterNav, router]
+  );
 
   return (
     <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-1">
@@ -280,15 +295,15 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
                 {data.exits
                   .filter((ex) => ex.destination)
                   .map((ex) => (
-                    <Link
+                    <button
                       key={`${ex.key}-${ex.destination}`}
-                      href={`/play?room=${encodeURIComponent(ex.destination!)}`}
+                      type="button"
                       className={linkClass}
                       title={ex.label}
-                      onClick={afterNav}
+                      onClick={() => handleTravel(ex.destination!)}
                     >
                       {ex.label}
-                    </Link>
+                    </button>
                   ))}
               </NavSection>
             </>
@@ -328,15 +343,15 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
                 {(data.mines ?? [])
                   .filter((ex) => ex.destination)
                   .map((ex) => (
-                    <Link
+                    <button
                       key={`mine-${ex.key}-${ex.destination}`}
-                      href={`/play?room=${encodeURIComponent(ex.destination!)}`}
+                      type="button"
                       className={linkClass}
                       title={ex.label}
-                      onClick={afterNav}
+                      onClick={() => handleTravel(ex.destination!)}
                     >
                       {ex.label}
-                    </Link>
+                    </button>
                   ))}
               </NavSection>
             </>

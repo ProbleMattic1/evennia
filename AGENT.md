@@ -17,6 +17,8 @@ Always review and check existing typeclasses before making changes or making new
 
 No Fallbacks or Defensive code allowed.
 
+Never attempt to maintain backwards compatibility.
+
 Always adhere to Evennia best practices for long-term play, flexiblity, and scaling.
 
 Never retrofit for legacy items. I always start fresh for testing. 

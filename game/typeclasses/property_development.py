@@ -94,6 +94,11 @@ def purchase_extra_structure_slot(holding, owner):
         return False, "You are not the titled owner of this parcel."
 
     from typeclasses.economy import get_economy
+    from typeclasses.property_claim_market import (
+        collect_property_construction_payment,
+        get_construction_builder,
+        refund_property_construction_payment,
+    )
 
     price = next_extra_structure_slot_price_cr(holding)
     econ = get_economy(create_missing=True)
@@ -103,11 +108,38 @@ def purchase_extra_structure_slot(holding, owner):
     if bal < price:
         return False, f"You need {price:,} cr but only have {bal:,} cr."
 
-    econ.withdraw(acct, price, memo="property extra structure slot")
-    owner.db.credits = econ.get_character_balance(owner)
+    builder = get_construction_builder()
+    net_amount = tax_amount = None
+    if builder:
+        net_amount, tax_amount = collect_property_construction_payment(
+            owner,
+            price,
+            builder,
+            tx_type="property_extra_structure_slot",
+            withdraw_memo="property extra structure slot",
+            record_memo=f"{owner.key} extra structure slot",
+        )
+    else:
+        econ.withdraw(acct, price, memo="property extra structure slot")
+        owner.db.credits = econ.get_character_balance(owner)
 
     op = dict(holding.db.operation or {})
     op["extra_slots"] = int(op.get("extra_slots") or 0) + 1
     holding.db.operation = op
-    register_property_holding(holding)
+    try:
+        register_property_holding(holding)
+    except Exception:
+        if builder and net_amount is not None:
+            refund_property_construction_payment(
+                owner, price, builder, net_amount=net_amount, tax_amount=tax_amount
+            )
+        else:
+            econ.deposit(acct, price, memo="Refund: extra slot register failed")
+            owner.db.credits = econ.get_character_balance(owner)
+        op["extra_slots"] = int(op.get("extra_slots") or 0) - 1
+        holding.db.operation = op
+        return False, "Could not register extra slot; payment refunded."
+
+    if not builder:
+        owner.db.credits = econ.get_character_balance(owner)
     return True, f"Parcel capacity +1 slot ({price:,} cr). Total extra slots: {op['extra_slots']}."

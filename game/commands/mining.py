@@ -124,6 +124,8 @@ class CmdSurvey(Command):
                 f"|wSurvey advanced to level {new_level} ({label}).|n  "
                 f"({remaining} more survey{'s' if remaining > 1 else ''} to full assessment)\n{report}"
             )
+        caller.missions.sync_global_seeds()
+        caller.missions.sync_interaction("survey")
 
 
 class CmdClaimSite(Command):

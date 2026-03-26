@@ -8,7 +8,10 @@ import random
 
 from evennia import create_object, search_object
 
-from typeclasses.characters import NANOMEGA_REALTY_CHARACTER_KEY
+from typeclasses.characters import (
+    NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
+    NANOMEGA_REALTY_CHARACTER_KEY,
+)
 from typeclasses.property_claims import (
     CLAIM_TITLE_PREFIX_BY_ZONE,
     CLAIM_TYPECLASS_BY_ZONE,
@@ -28,6 +31,10 @@ def _first_object(key):
 
 def get_realty_broker():
     return _first_object(NANOMEGA_REALTY_CHARACTER_KEY)
+
+
+def get_construction_builder():
+    return _first_object(NANOMEGA_CONSTRUCTION_CHARACTER_KEY)
 
 
 def lot_listing_price(lot):
@@ -84,6 +91,56 @@ def collect_primary_property_sale(buyer, price, broker, *, tx_type="primary_prop
     return net_amount, tax_amount
 
 
+def collect_property_construction_payment(
+    buyer,
+    price,
+    builder,
+    *,
+    tx_type="property_construction",
+    withdraw_memo="Property construction",
+    record_memo=None,
+):
+    """
+    Same tax split as primary deed sales: net to builder, tax to alpha-prime treasury.
+    """
+    from typeclasses.claim_market import outfitters_claims_tax_rate
+    from typeclasses.economy import get_economy
+
+    price = int(price)
+    tax_rate = outfitters_claims_tax_rate()
+    tax_amount = int(round(price * tax_rate))
+    net_amount = price - tax_amount
+
+    econ = get_economy(create_missing=True)
+    pa = econ.get_character_account(buyer)
+    ba = econ.get_character_account(builder)
+    ta = econ.get_treasury_account("alpha-prime")
+
+    econ.ensure_account(pa, opening_balance=int(buyer.db.credits or 0))
+    econ.ensure_account(ba, opening_balance=int(builder.db.credits or 0))
+    econ.ensure_account(ta, opening_balance=int(econ.db.tax_pool or 0))
+
+    econ.withdraw(pa, price, memo=withdraw_memo)
+    econ.deposit(ba, net_amount, memo=f"Construction revenue ({builder.key})")
+    if tax_amount > 0:
+        econ.deposit(ta, tax_amount, memo="Sales tax (property construction)")
+
+    econ.record_transaction(
+        tx_type=tx_type,
+        amount=price,
+        from_account=pa,
+        to_account=ba,
+        memo=record_memo or f"{buyer.key} property construction",
+        extra={"tax_amount": tax_amount, "treasury_account": ta},
+    )
+
+    buyer.db.credits = econ.get_balance(pa)
+    builder.db.credits = econ.get_balance(ba)
+    econ.db.tax_pool = econ.get_balance(ta)
+
+    return net_amount, tax_amount
+
+
 def _refund_property_purchase(buyer, price, broker=None, net_amount=None, tax_amount=None):
     from typeclasses.economy import get_economy
 
@@ -104,6 +161,33 @@ def _refund_property_purchase(buyer, price, broker=None, net_amount=None, tax_am
         ta = econ.get_treasury_account("alpha-prime")
         try:
             econ.withdraw(ta, int(tax_amount), memo="Refund clawback tax (property)")
+        except ValueError:
+            pass
+        econ.db.tax_pool = econ.get_balance(ta)
+
+
+def refund_property_construction_payment(
+    buyer, price, builder=None, net_amount=None, tax_amount=None
+):
+    from typeclasses.economy import get_economy
+
+    econ = get_economy(create_missing=True)
+    pa = econ.get_character_account(buyer)
+    econ.deposit(pa, int(price), memo="Refund: property construction rolled back")
+    econ.sync_character_balance(buyer)
+
+    if builder is not None and net_amount is not None:
+        ba = econ.get_character_account(builder)
+        try:
+            econ.withdraw(ba, int(net_amount), memo="Refund clawback construction (property)")
+        except ValueError:
+            pass
+        econ.sync_character_balance(builder)
+
+    if tax_amount and int(tax_amount) > 0:
+        ta = econ.get_treasury_account("alpha-prime")
+        try:
+            econ.withdraw(ta, int(tax_amount), memo="Refund clawback tax (property construction)")
         except ValueError:
             pass
         econ.db.tax_pool = econ.get_balance(ta)

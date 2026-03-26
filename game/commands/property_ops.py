@@ -14,6 +14,7 @@ from typeclasses.property_player_ops import (
     purchase_and_install_structure,
     purchase_extra_structure_slot_for_owner,
     purchase_structure_upgrade_for_owner,
+    resolve_property_incident_for_owner,
     retool_property_operation_for_owner,
     start_property_operation_for_owner,
 )
@@ -478,4 +479,63 @@ class CmdBuyPropertyExtraSlot(Command):
             return
 
         ok, msg = purchase_extra_structure_slot_for_owner(caller, holding)
+        caller.msg(msg if ok else f"|r{msg}|n")
+
+
+class CmdResolvePropertyIncident(Command):
+    """
+    Resolve an open incident on a carried deed's parcel (may charge credits).
+
+    Usage:
+      resolveincident <event_id>
+      resolveincident <event_id> <deed fragment>
+    """
+
+    key = "resolveincident"
+    aliases = ["resolvepropertyincident", "propertyresolve"]
+    help_category = "Property"
+
+    def func(self):
+        caller = self.caller
+        parts = self.args.strip().split()
+        if len(parts) < 1:
+            caller.msg("Usage: resolveincident <event_id> [deed fragment]")
+            return
+        event_id = parts[0].strip()
+        fragment = " ".join(parts[1:]).strip().lower()
+
+        deeds = [
+            o
+            for o in caller.contents
+            if not getattr(o, "destination", None)
+            and o.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY)
+        ]
+        if not deeds:
+            caller.msg("You are not carrying a property deed.")
+            return
+
+        claim = None
+        if fragment:
+            for o in deeds:
+                if fragment in (o.key or "").lower():
+                    claim = o
+                    break
+            if not claim:
+                caller.msg(f"No property deed matches '{fragment}'.")
+                return
+        else:
+            if len(deeds) > 1:
+                caller.msg(
+                    "You carry multiple deeds. Usage: resolveincident <event_id> <deed fragment>"
+                )
+                return
+            claim = deeds[0]
+
+        lot = getattr(claim.db, "lot_ref", None)
+        holding = getattr(lot.db, "holding_ref", None) if lot else None
+        if not holding:
+            caller.msg("No development record for that parcel.")
+            return
+
+        ok, msg = resolve_property_incident_for_owner(caller, holding, event_id)
         caller.msg(msg if ok else f"|r{msg}|n")

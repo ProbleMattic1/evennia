@@ -431,11 +431,8 @@ def claims_market_list_claim(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
 
 
@@ -457,11 +454,8 @@ def claims_market_purchase_listed_claim(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
 
 
@@ -806,6 +800,58 @@ def property_operation_retool(request):
 
 @csrf_exempt
 @require_POST
+def property_resolve_incident(request):
+    """Body: { "claimId": int, "eventId": string }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid claimId."}, status=400)
+
+    event_id = body.get("eventId")
+    if not event_id or not isinstance(event_id, str):
+        return JsonResponse({"ok": False, "message": "Missing or invalid eventId."}, status=400)
+
+    from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+    from typeclasses.property_player_ops import (
+        resolve_property_incident_for_owner,
+        serialize_property_holding_for_web,
+    )
+
+    found = search_object("#" + str(cid))
+    claim = found[0] if found else None
+    if not claim or not claim.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+        return JsonResponse({"ok": False, "message": "Property claim not found."}, status=404)
+    if claim.location != char:
+        return JsonResponse({"ok": False, "message": "Not allowed."}, status=403)
+
+    lot = getattr(claim.db, "lot_ref", None)
+    holding = getattr(lot.db, "holding_ref", None) if lot else None
+    if not holding:
+        return JsonResponse({"ok": False, "message": "No holding for this deed."}, status=400)
+
+    ok, msg = resolve_property_incident_for_owner(char, holding, event_id.strip())
+    if not ok:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": msg,
+            "holding": serialize_property_holding_for_web(holding),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
 def property_structure_upgrade(request):
     """Body: { "claimId": int, "structureId": int, "upgradeKey": string }"""
     if not request.user.is_authenticated:
@@ -938,11 +984,8 @@ def property_deed_list(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
 
 
@@ -966,11 +1009,8 @@ def property_deed_buy(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
 
 
@@ -999,6 +1039,39 @@ def property_ops_health(request):
     )
 
 
+def _web_refresh_bundle(request, *, room_key=None):
+    try:
+        factory = RequestFactory()
+        dash_req = factory.get("/ui/dashboard")
+        dash_req.user = request.user
+        dash = dashboard_state(dash_req)
+        dashboard = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dashboard = {}
+
+    play_data = {}
+    try:
+        factory = RequestFactory()
+        get_req = factory.get("/ui/play", {"room": room_key or DEFAULT_PLAY_ROOM})
+        get_req.user = request.user
+        play = play_state(get_req)
+        play_data = json.loads(play.content.decode("utf-8")) if hasattr(play, "content") else {}
+    except Exception:
+        play_data = {}
+
+    return {"dashboard": dashboard, "play": play_data}
+
+
+ALLOWED_WEB_INTERACTIONS = {
+    "askguide": lambda payload: "askguide",
+    "askguide:property": lambda payload: "askguide property",
+    "askguide:mining": lambda payload: "askguide mining",
+    "askguide:security": lambda payload: "askguide security",
+    "askguide:transit": lambda payload: "askguide transit",
+    "survey": lambda payload: "survey",
+}
+
+
 @require_GET
 def play_state(request):
     room_key = request.GET.get("room") or DEFAULT_PLAY_ROOM
@@ -1019,6 +1092,105 @@ def play_state(request):
             {"key": "open_processing", "label": "Processing", "href": "/processing"},
         )
     return JsonResponse(data)
+
+
+@csrf_exempt
+@require_POST
+def play_travel(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    destination_key = str(body.get("destination") or "").strip()
+    if not destination_key:
+        return JsonResponse({"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing destination."}, status=400)
+
+    if not getattr(char, "location", None):
+        return JsonResponse({"ok": False, "code": "NO_LOCATION", "message": "Character has no current location."}, status=400)
+
+    exit_obj = None
+    for obj in char.location.contents:
+        if getattr(obj, "destination", None) and obj.destination and obj.destination.key == destination_key:
+            exit_obj = obj
+            break
+
+    if not exit_obj:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "EXIT_NOT_FOUND",
+                "message": "That destination is not reachable from your current room.",
+            },
+            status=400,
+        )
+
+    try:
+        exit_obj.at_traverse(char, exit_obj.destination)
+    except Exception as exc:
+        return JsonResponse({"ok": False, "code": "TRAVEL_FAILED", "message": f"Travel failed: {exc}"}, status=500)
+
+    try:
+        char.missions.sync_global_seeds()
+        if char.location:
+            char.missions.sync_room(char.location)
+    except Exception:
+        pass
+
+    room_key = char.location.key if char.location else destination_key
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": f"Moved to {room_key}.",
+            **bundle,
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def play_interact(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    interaction_key = str(body.get("interactionKey") or "").strip().lower()
+    payload = dict(body.get("payload") or {})
+
+    if interaction_key not in ALLOWED_WEB_INTERACTIONS:
+        return JsonResponse(
+            {"ok": False, "code": "INTERACTION_NOT_ALLOWED", "message": "Interaction is not allowed from web."},
+            status=400,
+        )
+
+    cmd = ALLOWED_WEB_INTERACTIONS[interaction_key](payload)
+    try:
+        char.execute_cmd(cmd)
+    except Exception as exc:
+        return JsonResponse(
+            {"ok": False, "code": "INTERACTION_FAILED", "message": f"Interaction failed: {exc}"},
+            status=500,
+        )
+
+    try:
+        char.missions.sync_global_seeds()
+        char.missions.sync_interaction(interaction_key)
+        if char.location:
+            char.missions.sync_room(char.location)
+    except Exception:
+        pass
+
+    room_key = char.location.key if getattr(char, "location", None) else DEFAULT_PLAY_ROOM
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse({"ok": True, "message": "Interaction executed.", **bundle})
 
 
 NAV_KIOSKS = {
@@ -1287,11 +1459,8 @@ def real_estate_purchase(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash      = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
 
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
 
@@ -1321,11 +1490,8 @@ def real_estate_purchase_random(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
 
     payload = {"ok": True, "message": msg, "dashboard": dash_data}
     if claim:
@@ -1533,6 +1699,12 @@ def dashboard_state(request):
     }
 
     empty_alerts = {"critical": [], "warning": [], "info": []}
+    empty_missions = {
+        "morality": {"good": 0, "evil": 0, "lawful": 0, "chaotic": 0},
+        "opportunities": [],
+        "active": [],
+        "completed": [],
+    }
 
     if not request.user.is_authenticated:
         return JsonResponse(
@@ -1551,6 +1723,7 @@ def dashboard_state(request):
                 "message": None,
                 "alerts": [],
                 "groupedAlerts": empty_alerts,
+                "missions": empty_missions,
             }
         )
 
@@ -1582,8 +1755,14 @@ def dashboard_state(request):
                 "message": msg,
                 "alerts": alerts,
                 "groupedAlerts": grouped_alerts,
+                "missions": empty_missions,
             }
         )
+
+    char.missions.sync_global_seeds()
+    if char.location:
+        char.missions.sync_room(char.location)
+    missions = char.missions.serialize_for_web()
 
     credits = econ.get_character_balance(char)
 
@@ -1783,6 +1962,107 @@ def dashboard_state(request):
             "message": None,
             "alerts": alerts,
             "groupedAlerts": grouped_alerts,
+            "missions": missions,
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def missions_accept(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."}, status=401)
+
+    body = _json_body(request)
+    opportunity_id = str(body.get("opportunityId") or "").strip()
+    if not opportunity_id:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing opportunityId."},
+            status=400,
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        # Keep mission opportunities fresh before accept.
+        char.missions.sync_global_seeds()
+        if char.location:
+            char.missions.sync_room(char.location)
+        ok, result_msg, mission = char.missions.accept(opportunity_id)
+    except Exception as exc:
+        return JsonResponse(
+            {"ok": False, "code": "MISSION_ACCEPT_FAILED", "message": f"Could not accept mission: {exc}"},
+            status=500,
+        )
+
+    if not ok:
+        return JsonResponse(
+            {"ok": False, "code": "MISSION_ACCEPT_REJECTED", "message": result_msg or "Mission accept rejected."},
+            status=400,
+        )
+
+    room_key = char.location.key if getattr(char, "location", None) else DEFAULT_PLAY_ROOM
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": result_msg or "Mission accepted.",
+            "mission": mission or {},
+            "dashboard": bundle.get("dashboard", {}),
+            "play": bundle.get("play", {}),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def missions_choose(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."}, status=401)
+
+    body = _json_body(request)
+    mission_id = str(body.get("missionId") or "").strip()
+    choice_id = str(body.get("choiceId") or "").strip()
+    if not mission_id or not choice_id:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing missionId or choiceId."},
+            status=400,
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        ok, result_msg, mission = char.missions.choose(mission_id, choice_id)
+    except Exception as exc:
+        return JsonResponse(
+            {"ok": False, "code": "MISSION_CHOOSE_FAILED", "message": f"Could not record mission choice: {exc}"},
+            status=500,
+        )
+    if not ok:
+        return JsonResponse(
+            {"ok": False, "code": "MISSION_CHOOSE_REJECTED", "message": result_msg or "Mission choice rejected."},
+            status=400,
+        )
+
+    room_key = char.location.key if getattr(char, "location", None) else DEFAULT_PLAY_ROOM
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": result_msg or "Choice recorded.",
+            "mission": mission or {},
+            "dashboard": bundle.get("dashboard", {}),
+            "play": bundle.get("play", {}),
         }
     )
 
@@ -1806,8 +2086,8 @@ def dashboard_ack_alert(request):
 
     script.ack_for_account(request.user.id, alert_id)
 
-    dash = dashboard_state(request)
-    dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({"ok": True, "message": "Alert acknowledged.", "dashboard": dash_data})
 
 
@@ -2130,11 +2410,8 @@ def claims_market_purchase(request):
     econ = get_economy(create_missing=True)
     buyer_credits = econ.get_character_balance(buyer)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
 
     return JsonResponse(
         {
@@ -2170,11 +2447,8 @@ def claims_market_purchase_random_mining_claim(request):
     econ = get_economy(create_missing=True)
     buyer_credits = econ.get_character_balance(buyer)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
 
     payload = {
         "ok": True,
@@ -2493,11 +2767,8 @@ def mine_deploy(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({
         "ok": True,
         "message": msg,
@@ -2555,11 +2826,8 @@ def mine_undeploy(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({
         "ok": True,
         "message": msg,
@@ -2625,11 +2893,8 @@ def mine_reactivate(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
 
 
@@ -2734,11 +2999,8 @@ def claims_market_list_property(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
 
 
@@ -2765,11 +3027,8 @@ def package_list_for_sale(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({
         "ok": True,
         "message": msg,
@@ -2808,11 +3067,8 @@ def package_buy_listed(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
-    try:
-        dash = dashboard_state(request)
-        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
-    except Exception:
-        dash_data = {}
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
     return JsonResponse({
         "ok": True,
         "message": msg,

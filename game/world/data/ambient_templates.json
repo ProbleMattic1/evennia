@@ -1,0 +1,79 @@
+[
+  {
+    "id": "promenade_traffic",
+    "cadence": "tick",
+    "weight": 14,
+    "cooldown_seconds": 3600,
+    "severity": "info",
+    "category": "district",
+    "title": "Promenade foot traffic above baseline",
+    "detail": "Crowd analytics show elevated footfall on the main promenade connectors.",
+    "source": "ambient_world_engine"
+  },
+  {
+    "id": "market_listing_flurry",
+    "cadence": "tick",
+    "weight": 12,
+    "cooldown_seconds": 3600,
+    "severity": "info",
+    "category": "market",
+    "title": "Exchange clerks note elevated listing volume",
+    "detail": "Sovereign market terminals report a burst of new listings across sectors.",
+    "source": "ambient_world_engine"
+  },
+  {
+    "id": "security_advisory_soft",
+    "cadence": "tick",
+    "weight": 6,
+    "cooldown_seconds": 7200,
+    "severity": "warning",
+    "category": "world",
+    "title": "Security advisory: random screenings",
+    "detail": "NanoMegaPlex Security announces increased random screenings on industrial and cargo connectors. Allow extra transit time.",
+    "source": "ambient_world_engine"
+  },
+  {
+    "id": "freighter_eta",
+    "cadence": "tick",
+    "weight": 10,
+    "cooldown_seconds": 3600,
+    "severity": "info",
+    "category": "shipping",
+    "title": "Bulk freighter on approach",
+    "detail": "Dock workers report a scheduled bulk freighter arrival; berth availability remains within normal parameters.",
+    "source": "ambient_world_engine"
+  },
+  {
+    "id": "refinery_backlog",
+    "cadence": "strong",
+    "weight": 10,
+    "cooldown_seconds": 86400,
+    "severity": "info",
+    "category": "shipping",
+    "title": "Refinery intake backlog",
+    "detail": "Ore Processing Plant reports elevated intake queues; minor delivery delays may appear sector-wide.",
+    "source": "ambient_world_engine"
+  },
+  {
+    "id": "overnight_industrial",
+    "cadence": "strong",
+    "weight": 11,
+    "cooldown_seconds": 43200,
+    "severity": "info",
+    "category": "district",
+    "title": "Overnight industrial rhythm",
+    "detail": "Third-shift crews across industrial districts report standard throughput; hazard monitors nominal.",
+    "source": "ambient_world_engine"
+  },
+  {
+    "id": "realty_opening_bell",
+    "cadence": "strong",
+    "weight": 9,
+    "cooldown_seconds": 86400,
+    "severity": "info",
+    "category": "market",
+    "title": "Property exchange opening bell",
+    "detail": "Sovereign property exchange opens its daily cross-district auction window; fresh parcels may rotate onto the board.",
+    "source": "ambient_world_engine"
+  }
+]

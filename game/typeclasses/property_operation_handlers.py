@@ -6,6 +6,10 @@ import random
 
 from evennia.utils import logger
 
+from world.property_incident_templates import (
+    active_incident_income_multiplier,
+    expire_property_incidents,
+)
 from world.property_structure_upgrade_registry import structure_income_multiplier_from_upgrades
 from world.time import parse_iso, to_iso
 
@@ -58,6 +62,7 @@ def _accrue_ledger_credits(holding, amount):
 
 
 def dispatch_property_tick(holding, now):
+    expire_property_incidents(holding, now)
     op = holding.db.operation
     if op.get("paused"):
         return None
@@ -104,14 +109,12 @@ def _tick_residential_rent(holding, now):
     tier = int(holding.db.lot_tier or 1)
     base = RESIDENTIAL_RENT_BASE[tier]
     mult = structure_income_multiplier_from_upgrades(holding)
+    mult *= active_incident_income_multiplier(holding, now)
     amount = int(round(base * mult))
     lot = holding.db.lot_ref
     lot_key = lot.key if lot else "?"
     logger.log_info(
-        "[property_ops] kind=rent holding_id=%s lot_key=%s amount=%s",
-        holding.id,
-        lot_key,
-        amount,
+        f"[property_ops] kind=rent holding_id={holding.id} lot_key={lot_key} amount={amount}"
     )
     _deposit_to_title_owner(holding, amount, f"Property income ({holding.key})")
     _accrue_ledger_credits(holding, amount)
@@ -122,14 +125,12 @@ def _tick_residential_lease(holding, now):
     tier = int(holding.db.lot_tier or 1)
     base = int(round(RESIDENTIAL_RENT_BASE[tier] * RESIDENTIAL_LEASE_MULT))
     mult = structure_income_multiplier_from_upgrades(holding)
+    mult *= active_incident_income_multiplier(holding, now)
     amount = int(round(base * mult))
     lot = holding.db.lot_ref
     lot_key = lot.key if lot else "?"
     logger.log_info(
-        "[property_ops] kind=lease holding_id=%s lot_key=%s amount=%s",
-        holding.id,
-        lot_key,
-        amount,
+        f"[property_ops] kind=lease holding_id={holding.id} lot_key={lot_key} amount={amount}"
     )
     _deposit_to_title_owner(holding, amount, f"Lease income ({holding.key})")
     _accrue_ledger_credits(holding, amount)
@@ -140,13 +141,11 @@ def _tick_commercial_floor(holding, now):
     tier = int(holding.db.lot_tier or 1)
     base = COMMERCIAL_FLOOR_BASE[tier]
     mult = structure_income_multiplier_from_upgrades(holding)
+    mult *= active_incident_income_multiplier(holding, now)
     v = random.uniform(COMMERCIAL_FLOOR_VOLATILITY_LOW, COMMERCIAL_FLOOR_VOLATILITY_HIGH)
     amount = int(round(base * mult * v))
     logger.log_info(
-        "[property_ops] kind=floor holding_id=%s amount=%s v=%.3f",
-        holding.id,
-        amount,
-        v,
+        f"[property_ops] kind=floor holding_id={holding.id} amount={amount} v={v:.3f}"
     )
     _deposit_to_title_owner(holding, amount, f"Floor traffic ({holding.key})")
     _accrue_ledger_credits(holding, amount)
@@ -160,6 +159,7 @@ def _tick_commercial_traffic(holding, now):
 
     base = COMMERCIAL_TRAFFIC_BASE[tier]
     mult = structure_income_multiplier_from_upgrades(holding)
+    mult *= active_incident_income_multiplier(holding, now)
     if random.random() < 0.08:
         mult *= COMMERCIAL_TRAFFIC_JACKPOT_MULT
     amount = int(round(base * mult))
@@ -172,11 +172,10 @@ def _tick_industrial_line(holding, now):
     tier = int(holding.db.lot_tier or 1)
     base = INDUSTRIAL_LINE_BASE[tier]
     mult = structure_income_multiplier_from_upgrades(holding)
+    mult *= active_incident_income_multiplier(holding, now)
     amount = int(round(base * mult * INDUSTRIAL_LINE_YIELD_MULT))
     logger.log_info(
-        "[property_ops] kind=line holding_id=%s amount=%s",
-        holding.id,
-        amount,
+        f"[property_ops] kind=line holding_id={holding.id} amount={amount}"
     )
     _deposit_to_title_owner(holding, amount, f"Line output ({holding.key})")
     _accrue_ledger_credits(holding, amount)
@@ -187,6 +186,7 @@ def _tick_industrial_fab(holding, now):
     tier = int(holding.db.lot_tier or 1)
     base = INDUSTRIAL_LINE_BASE[tier]
     mult = structure_income_multiplier_from_upgrades(holding)
+    mult *= active_incident_income_multiplier(holding, now)
     cash = int(round(base * mult * INDUSTRIAL_FAB_CASH_MULT))
     units = int(INDUSTRIAL_FAB_UNITS_PER_TIER.get(tier, 1))
 

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Countdown } from "@/components/countdown";
+import { MissionBoard } from "@/components/mission-board";
 
 import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
-import { dashboardAckAlert, getDashboardState, getResources, mineDeploy } from "@/lib/ui-api";
+import { dashboardAckAlert, getDashboardState, getResources, mineDeploy, playTravel } from "@/lib/ui-api";
 import type { DashboardInventoryItem, ResourceEntry } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
@@ -94,6 +96,7 @@ function UtcDailyClock() {
 }
 
 export default function Home() {
+  const router = useRouter();
   const loader = useCallback(() => getDashboardState(), []);
   const { data, error, loading, reload } = useUiResource(loader);
 
@@ -156,6 +159,16 @@ export default function Home() {
       reload();
     } catch {
       // no-op; dashboard reload path remains available
+    }
+  }
+
+  async function handleVisitMine(destination: string) {
+    try {
+      await playTravel({ destination });
+    } catch {
+      // Best-effort bridge call; still route so UI remains usable.
+    } finally {
+      router.push(`/play?room=${encodeURIComponent(destination)}`);
     }
   }
 
@@ -343,54 +356,76 @@ export default function Home() {
         <>
           <SectionDivider />
           <section className="mx-2 rounded-lg border border-red-200/60 bg-red-50/40 px-3 py-2 dark:border-red-800/40 dark:bg-red-950/20">
-            <h2 className="section-label">System Alerts</h2>
-            {(["critical", "warning", "info"] as const).map((sev) => {
-              const rows = data.groupedAlerts?.[sev] ?? [];
-              if (!rows.length) return null;
-              return (
-                <div key={sev} className="mt-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300">
-                    {sev}
-                  </p>
-                  <ul className="mt-1 space-y-1">
-                    {rows.map((a) => (
-                      <li
-                        key={a.id}
-                        className={`rounded border px-2 py-1 ${
-                          sev === "critical"
-                            ? "border-red-300 bg-red-100/70 dark:border-red-700/60 dark:bg-red-900/30"
-                            : sev === "warning"
-                              ? "border-amber-300 bg-amber-100/70 dark:border-amber-700/60 dark:bg-amber-900/30"
-                              : "border-sky-300 bg-sky-100/70 dark:border-sky-700/60 dark:bg-sky-900/30"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-[12px] font-semibold text-zinc-900 dark:text-zinc-100">
-                              {a.title} {a.source ? `(${a.source})` : ""}
-                            </p>
-                            {a.detail ? (
-                              <p className="text-[12px] text-zinc-700 dark:text-zinc-300">{a.detail}</p>
-                            ) : null}
-                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                              {new Date(a.createdAt).toLocaleString()}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleAckAlert(a.id)}
-                            className="shrink-0 rounded border border-zinc-400 bg-zinc-100 px-2 py-0.5 text-[11px] hover:bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+            <details className="group" open>
+              <summary className="section-label flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+                <span>System Alerts</span>
+                <svg
+                  className="size-3 shrink-0 transition-transform group-open:rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </summary>
+              <div className="mt-1">
+                {(["critical", "warning", "info"] as const).map((sev) => {
+                  const rows = data.groupedAlerts?.[sev] ?? [];
+                  if (!rows.length) return null;
+                  return (
+                    <div key={sev} className="mt-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300">
+                        {sev}
+                      </p>
+                      <ul className="mt-1 space-y-1">
+                        {rows.map((a) => (
+                          <li
+                            key={a.id}
+                            className={`rounded border px-2 py-1 ${
+                              sev === "critical"
+                                ? "border-red-300 bg-red-100/70 dark:border-red-700/60 dark:bg-red-900/30"
+                                : sev === "warning"
+                                  ? "border-amber-300 bg-amber-100/70 dark:border-amber-700/60 dark:bg-amber-900/30"
+                                  : "border-sky-300 bg-sky-100/70 dark:border-sky-700/60 dark:bg-sky-900/30"
+                            }`}
                           >
-                            Acknowledge
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-[12px] font-semibold text-zinc-900 dark:text-zinc-100">
+                                  {a.title} {a.source ? `(${a.source})` : ""}
+                                </p>
+                                {a.detail ? (
+                                  <p className="text-[12px] text-zinc-700 dark:text-zinc-300">{a.detail}</p>
+                                ) : null}
+                                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                                  {new Date(a.createdAt).toLocaleString()}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleAckAlert(a.id)}
+                                className="shrink-0 rounded border border-zinc-400 bg-zinc-100 px-2 py-0.5 text-[11px] hover:bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                              >
+                                Acknowledge
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
           </section>
+        </>
+      ) : null}
+
+      {data.character && data.missions ? (
+        <>
+          <SectionDivider />
+          <MissionBoard missions={data.missions} onChanged={reload} />
         </>
       ) : null}
 
@@ -750,12 +785,13 @@ export default function Home() {
                         .join(" · ")}
                     </p>
                   ) : null}
-                  <Link
-                    href={`/play?room=${encodeURIComponent(mine.location ?? "")}`}
+                  <button
+                    type="button"
+                    onClick={() => handleVisitMine(mine.location ?? "")}
                     className="mt-1 inline-block text-[12px] text-zinc-600 underline hover:text-zinc-800 dark:text-cyan-400 dark:hover:text-cyan-300"
                   >
                     Visit mine →
-                  </Link>
+                  </button>
                 </li>
               ))}
             </ul>

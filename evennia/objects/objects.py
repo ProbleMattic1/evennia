@@ -1717,10 +1717,12 @@ class DefaultObject(ObjectDB, metaclass=TypeclassBase):
         if not self.aliases.get(plural, category=self.plural_category):
             # we need to wipe any old plurals/an/a in case key changed in the interrim
             self.aliases.clear(category=self.plural_category)
-            self.aliases.add(plural, category=self.plural_category)
+            if not self.aliases.get(plural, category=self.plural_category):
+                self.aliases.add(plural, category=self.plural_category)
             # save the singular form as an alias here too so we can display "an egg" and also
             # look at 'an egg'.
-            self.aliases.add(singular, category=self.plural_category)
+            if not self.aliases.get(singular, category=self.plural_category):
+                self.aliases.add(singular, category=self.plural_category)
 
         if kwargs.get("no_article") and count == 1:
             if kwargs.get("return_string"):

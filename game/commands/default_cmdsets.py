@@ -37,18 +37,22 @@ from commands.haulers import (
     CmdUpgradeHauler,
 )
 from commands.shipyard import CmdShipyard, CmdInspectShip, CmdBuyShip
+from commands.missions import CmdMissionAccept, CmdMissionChoose, CmdMissions
 from commands.property_ops import (
     CmdBuildProperty,
     CmdBuyPropertyDeed,
     CmdBuyPropertyExtraSlot,
     CmdListPropertyDeed,
     CmdPausePropertyOperation,
+    CmdResolvePropertyIncident,
     CmdResumePropertyOperation,
     CmdRetoolPropertyOperation,
     CmdStartPropertyOperation,
     CmdUpgradePropertyStructure,
 )
 from commands.property_place import CmdOpenProperty, CmdVisitProperty
+from commands.npc_promenade import CmdAskGuide
+from commands.reload_ambient import CmdReloadAmbient
 from commands.shop import CmdBuy, CmdShop
 from commands.vehicles import (
     CmdBoardVehicle,
@@ -121,6 +125,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdBuyPropertyDeed())
         self.add(CmdUpgradePropertyStructure())
         self.add(CmdBuyPropertyExtraSlot())
+        self.add(CmdResolvePropertyIncident())
+        self.add(CmdAskGuide())
+        self.add(CmdMissions())
+        self.add(CmdMissionAccept())
+        self.add(CmdMissionChoose())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
@@ -130,6 +139,7 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
         super().at_cmdset_creation()
         self.add(CmdPointBuy())
         self.add(CmdCharCreate())
+        self.add(CmdReloadAmbient())
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

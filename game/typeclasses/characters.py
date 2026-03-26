@@ -12,6 +12,8 @@ from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
 
+from typeclasses.missions import MissionHandler
+
 from .objects import ObjectParent
 
 
@@ -56,12 +58,39 @@ NANOMEGA_REALTY_ABILITY_BASES = {
     "cha": 18,
 }
 
+NANOMEGA_CONSTRUCTION_CHARACTER_KEY = "NanoMegaPlex Construction"
+
+NANOMEGA_CONSTRUCTION_ABILITY_BASES = {
+    "str": 14,
+    "dex": 11,
+    "con": 13,
+    "int": 16,
+    "wis": 12,
+    "cha": 15,
+}
+
+PROMENADE_GUIDE_CHARACTER_KEY = "Station Guide Kiran"
+
+PROMENADE_GUIDE_ABILITY_BASES = {
+    "str": 10,
+    "dex": 12,
+    "con": 11,
+    "int": 14,
+    "wis": 13,
+    "cha": 16,
+}
+
 CHARACTER_TYPECLASS_PATH = "typeclasses.characters.Character"
 
 
 def character_key_skips_pointbuy(character_key):
     """Pre-configured NPCs that never use OOC point-buy."""
-    return character_key in (MARCUS_CHARACTER_KEY, NANOMEGA_REALTY_CHARACTER_KEY)
+    return character_key in (
+        MARCUS_CHARACTER_KEY,
+        NANOMEGA_REALTY_CHARACTER_KEY,
+        NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
+        PROMENADE_GUIDE_CHARACTER_KEY,
+    )
 
 
 def ability_bases_for_character_key(character_key, *, rpg_pointbuy_done):
@@ -76,6 +105,10 @@ def ability_bases_for_character_key(character_key, *, rpg_pointbuy_done):
         return MARCUS_ABILITY_BASES
     if character_key == NANOMEGA_REALTY_CHARACTER_KEY:
         return NANOMEGA_REALTY_ABILITY_BASES
+    if character_key == NANOMEGA_CONSTRUCTION_CHARACTER_KEY:
+        return NANOMEGA_CONSTRUCTION_ABILITY_BASES
+    if character_key == PROMENADE_GUIDE_CHARACTER_KEY:
+        return PROMENADE_GUIDE_ABILITY_BASES
     if rpg_pointbuy_done is False:
         return {k: 8 for k in ABILITY_KEYS}
     return DEFAULT_ABILITY_BASES
@@ -103,11 +136,22 @@ class Character(ObjectParent, DefaultCharacter):
     def vitals(self):
         return TraitHandler(self, db_attribute_key="rpg_vitals", db_attribute_category="traits")
 
+    @lazy_property
+    def missions(self):
+        return MissionHandler(self)
+
     def at_object_creation(self):
         super().at_object_creation()
         if self.db.credits is None:
             self.db.credits = 1000
-        if self.key == MARCUS_CHARACTER_KEY or self.key == NANOMEGA_REALTY_CHARACTER_KEY:
+        if self.db.morality is None:
+            self.db.morality = {"good": 0, "evil": 0, "lawful": 0, "chaotic": 0}
+        if self.key in (
+            MARCUS_CHARACTER_KEY,
+            NANOMEGA_REALTY_CHARACTER_KEY,
+            NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
+            PROMENADE_GUIDE_CHARACTER_KEY,
+        ):
             self.db.rpg_pointbuy_done = True
         else:
             self.db.rpg_pointbuy_done = False

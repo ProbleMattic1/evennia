@@ -29,6 +29,14 @@ def at_server_init():
 def at_server_start():
     """Called every time the server starts up, regardless of how it was shut down."""
     try:
+        from world.ambient_loader import bootstrap_ambient_registry_at_startup
+        from world.mission_loader import load_mission_templates
+        from typeclasses.mission_seeds import get_mission_seeds_script
+
+        _run("ambient registry (JSON)", bootstrap_ambient_registry_at_startup)
+        _run("mission templates (JSON)", load_mission_templates)
+        _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
+
         from evennia import search_script
 
         # Patch MiningEngine interval
@@ -97,6 +105,17 @@ def at_server_start():
                 "[startup] WARNING: PropertyEventsEngine not found. Run bootstrap_realty_office."
             )
 
+        amb = search_script("ambient_world_engine")
+        if amb:
+            ae = amb[0]
+            if not ae.is_active:
+                ae.start()
+                print("[startup] AmbientWorldEngine was stopped — restarted.")
+        else:
+            print(
+                "[startup] WARNING: AmbientWorldEngine not found. Run bootstrap_world_ambient."
+            )
+
     except Exception:
         import traceback
 
@@ -110,7 +129,13 @@ def at_server_stop():
 
 def at_server_reload_start():
     """Called only when the server starts back up after a reload."""
-    pass
+    from world.ambient_loader import bootstrap_ambient_registry_at_startup
+    from world.mission_loader import load_mission_templates
+    from typeclasses.mission_seeds import get_mission_seeds_script
+
+    _run("ambient registry (JSON)", bootstrap_ambient_registry_at_startup)
+    _run("mission templates (JSON)", load_mission_templates)
+    _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
 
 
 def at_server_reload_stop():
@@ -130,6 +155,7 @@ def at_server_cold_start():
     from world.bootstrap_haulers import bootstrap_haulers
     from world.bootstrap_hub import bootstrap_hub
     from world.bootstrap_marcus_killstar import bootstrap_marcus_killstar
+    from world.bootstrap_nanomega_construction import bootstrap_nanomega_construction
     from world.bootstrap_nanomega_realty import bootstrap_nanomega_realty
     from world.bootstrap_realty_office import bootstrap_realty_office
     from world.bootstrap_mining import bootstrap_mining
@@ -139,15 +165,28 @@ def at_server_cold_start():
     from world.bootstrap_shipyard import bootstrap_shipyard
     from world.bootstrap_shops import bootstrap_shops
     from world.bootstrap_vehicle_catalog import bootstrap_vehicle_catalog
+    from world.bootstrap_world_ambient import bootstrap_world_ambient
+    from world.bootstrap_promenade_guide import (
+        bootstrap_promenade_guide,
+        bootstrap_promenade_room_ambience,
+    )
+    from world.mission_loader import load_mission_templates
+    from typeclasses.mission_seeds import get_mission_seeds_script
     from typeclasses.system_alerts import get_system_alerts_script
 
     _run("NanoMegaPlex hub (#2 → Promenade)", bootstrap_hub)
+    _run("promenade guide NPC", bootstrap_promenade_guide)
+    _run("promenade room ambience", bootstrap_promenade_room_ambience)
     _run("global economy script", bootstrap_economy)
     _run("character ability baselines (STR–CHA)", bootstrap_character_abilities)
     _run("Marcus Killstar (account link; credits on create only)", bootstrap_marcus_killstar)
     _run(
         "NanoMegaPlex Real Estate (account link; credits on create only)",
         bootstrap_nanomega_realty,
+    )
+    _run(
+        "NanoMegaPlex Construction (account link; credits on create only)",
+        bootstrap_nanomega_construction,
     )
     _run("NanoMegaPlex Real Estate Office room and base lots", bootstrap_realty_office)
     _run("vehicle catalog CSV import", bootstrap_vehicle_catalog)
@@ -159,6 +198,9 @@ def at_server_cold_start():
     _run("random mining claim deed at Mining Outfitters", bootstrap_mining_claim_sale)
     _run("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)
     _run("system alerts queue", lambda: get_system_alerts_script(create_missing=True))
+    _run("mission templates (JSON)", load_mission_templates)
+    _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
+    _run("ambient world engine", bootstrap_world_ambient)
 
 
 def at_server_cold_stop():

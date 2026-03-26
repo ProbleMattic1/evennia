@@ -5,6 +5,11 @@ Single source for zone ↔ kind validation vs OPERATION_HANDLERS.
 CamelCase serializer for UI (property detail / start-operation response).
 """
 
+from typeclasses.property_claim_market import (
+    collect_property_construction_payment,
+    get_construction_builder,
+    refund_property_construction_payment,
+)
 from typeclasses.property_development import (
     install_structure,
     next_extra_structure_slot_price_cr,
@@ -18,8 +23,10 @@ from typeclasses.property_holdings import PROPERTY_HOLDING_CATEGORY, PROPERTY_HO
 from typeclasses.property_operation_handlers import OPERATION_HANDLERS
 from typeclasses.property_transfer_fee import PROPERTY_DEED_TRANSFER_FEE_CR
 from typeclasses.economy import get_economy
+from world.property_incident_templates import trim_property_event_queue
 from world.property_structure_catalog import catalog_row_by_id, catalog_rows_for_zone
 from world.property_structure_upgrade_registry import STRUCTURE_UPGRADE_DEFS
+from world.time import to_iso, utc_now
 
 RETOOL_FEE_CR = 1000
 
@@ -95,10 +102,35 @@ def purchase_and_install_structure(owner, holding, blueprint_id):
     if balance < price:
         return False, f"You need {price:,} cr but only have {balance:,} cr.", None
 
-    econ.withdraw(acct, price, memo=f"property structure {row['id']}")
-    owner.db.credits = econ.get_character_balance(owner)
+    builder = get_construction_builder()
+    net_amount = tax_amount = None
+    if builder:
+        net_amount, tax_amount = collect_property_construction_payment(
+            owner,
+            price,
+            builder,
+            tx_type="property_structure_install",
+            withdraw_memo=f"property structure {row['id']}",
+            record_memo=f"{owner.key} structure {row['id']}",
+        )
+    else:
+        econ.withdraw(acct, price, memo=f"property structure {row['id']}")
+        owner.db.credits = econ.get_character_balance(owner)
 
-    st = install_structure(holding, row["id"], slot_weight=slot_w)
+    try:
+        st = install_structure(holding, row["id"], slot_weight=slot_w)
+    except Exception:
+        if builder and net_amount is not None:
+            refund_property_construction_payment(
+                owner, price, builder, net_amount=net_amount, tax_amount=tax_amount
+            )
+        else:
+            econ.deposit(acct, price, memo="Refund: structure install failed")
+            owner.db.credits = econ.get_character_balance(owner)
+        return False, "Structure install failed; payment refunded.", None
+
+    if not builder:
+        owner.db.credits = econ.get_character_balance(owner)
     return True, f"Installed {row['name']} ({row['id']}).", st
 
 
@@ -152,9 +184,102 @@ def retool_property_operation_for_owner(owner, holding, new_kind):
     if not ok:
         return False, msg
 
-    econ.withdraw(acct, RETOOL_FEE_CR, memo="property operation retool")
-    owner.db.credits = econ.get_character_balance(owner)
+    builder = get_construction_builder()
+    if builder:
+        collect_property_construction_payment(
+            owner,
+            RETOOL_FEE_CR,
+            builder,
+            tx_type="property_operation_retool",
+            withdraw_memo="property operation retool",
+            record_memo=f"{owner.key} property retool",
+        )
+    else:
+        econ.withdraw(acct, RETOOL_FEE_CR, memo="property operation retool")
+        owner.db.credits = econ.get_character_balance(owner)
     return True, msg
+
+
+def resolve_property_incident_for_owner(owner, holding, event_id: str):
+    """
+    Mark an incident resolved; charge flat_cost_cr on resolve when effects require it.
+    Returns (success: bool, message: str).
+    """
+    if holding.db.title_owner != owner:
+        return False, "You are not the titled owner of this parcel."
+    eid = (event_id or "").strip()
+    if not eid:
+        return False, "No incident id given."
+
+    q = list(holding.db.event_queue or [])
+    now = utc_now()
+    for e in q:
+        if e.get("id") != eid:
+            continue
+        if e.get("resolved"):
+            return False, "That incident is already resolved."
+        effects = dict(e.get("effects") or {})
+        if effects.get("kind") == "flat_cost":
+            cost = int(effects.get("flat_cost_cr") or 0)
+            if cost > 0:
+                econ = get_economy(create_missing=True)
+                acct = econ.get_character_account(owner)
+                econ.ensure_account(acct, opening_balance=int(owner.db.credits or 0))
+                balance = econ.get_character_balance(owner)
+                if balance < cost:
+                    return False, f"You need {cost:,} cr to resolve this incident but only have {balance:,} cr."
+                builder = get_construction_builder()
+                if builder:
+                    collect_property_construction_payment(
+                        owner,
+                        cost,
+                        builder,
+                        tx_type="property_incident_resolve",
+                        withdraw_memo=f"property incident resolve ({e.get('template_id') or eid})",
+                        record_memo=f"{owner.key} incident {eid}",
+                    )
+                else:
+                    econ.withdraw(
+                        acct,
+                        cost,
+                        memo=f"property incident resolve ({e.get('template_id') or eid})",
+                    )
+                    owner.db.credits = econ.get_character_balance(owner)
+        e["resolved"] = True
+        e["resolved_at_iso"] = to_iso(now)
+        holding.db.event_queue = trim_property_event_queue(q)
+        return True, f"Resolved: {e.get('title') or eid}."
+    return False, "No incident with that id on this parcel."
+
+
+def _serialize_incident_for_web(raw):
+    e = dict(raw) if isinstance(raw, dict) else {}
+    eff = dict(e.get("effects") or {})
+    if not eff:
+        eff = {"kind": "none"}
+    sev = e.get("severity") or "info"
+    title = e.get("title")
+    if not title:
+        title = f"Incident ({sev})"
+    return {
+        "id": e.get("id"),
+        "templateId": e.get("template_id"),
+        "severity": sev,
+        "title": title,
+        "summary": e.get("summary") or "",
+        "createdAt": e.get("created_at_iso"),
+        "dueAt": e.get("due_at_iso"),
+        "resolved": bool(e.get("resolved")),
+        "resolvedAt": e.get("resolved_at_iso"),
+        "zone": e.get("zone"),
+        "effects": {
+            "kind": eff.get("kind") or "none",
+            "incomeMult": eff.get("income_mult"),
+            "expiresAt": eff.get("expires_at_iso"),
+            "flatCostCr": eff.get("flat_cost_cr"),
+            "staffRole": eff.get("staff_role"),
+        },
+    }
 
 
 def serialize_property_holding_for_web(holding):
@@ -182,7 +307,7 @@ def serialize_property_holding_for_web(holding):
         )
 
     events = list(holding.db.event_queue or [])
-    event_preview = events[-20:]
+    event_preview = [_serialize_incident_for_web(x) for x in events[-20:]]
 
     zone = normalized_zone(holding)
 

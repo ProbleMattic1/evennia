@@ -5,6 +5,8 @@ from . import views
 
 urlpatterns = [
     path("play", views.play_state, name="ui-play"),
+    path("play/travel", views.play_travel, name="ui-play-travel"),
+    path("play/interact", views.play_interact, name="ui-play-interact"),
     path("nav", views.nav_state, name="ui-nav"),
     path("dashboard", views.dashboard_state, name="ui-dashboard"),
     path("dashboard/ack-alert", views.dashboard_ack_alert, name="ui-dashboard-ack-alert"),
@@ -76,6 +78,11 @@ urlpatterns = [
         name="ui-property-operation-retool",
     ),
     path(
+        "property/resolve-incident",
+        views.property_resolve_incident,
+        name="ui-property-resolve-incident",
+    ),
+    path(
         "property/deed-listings",
         views.property_deed_listings_state,
         name="ui-property-deed-listings",
@@ -92,4 +99,6 @@ urlpatterns = [
     path("package/list", views.package_list_for_sale, name="ui-package-list"),
     path("package/listings", views.package_listings_state, name="ui-package-listings"),
     path("package/buy", views.package_buy_listed, name="ui-package-buy"),
+    path("missions/accept", views.missions_accept, name="ui-missions-accept"),
+    path("missions/choose", views.missions_choose, name="ui-missions-choose"),
 ]
