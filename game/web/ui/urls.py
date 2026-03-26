@@ -2,8 +2,10 @@ from django.urls import path
 from django.views.generic import RedirectView
 
 from . import views
+from .control_surface import control_surface_state
 
 urlpatterns = [
+    path("control-surface", control_surface_state, name="ui-control-surface"),
     path("play", views.play_state, name="ui-play"),
     path("play/travel", views.play_travel, name="ui-play-travel"),
     path("play/interact", views.play_interact, name="ui-play-interact"),

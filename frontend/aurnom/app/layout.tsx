@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { SiteShell } from "@/components/site-shell";
+import { ControlSurfaceProvider } from "@/components/control-surface-provider";
 import { ThemeHydration } from "@/components/theme-hydration";
 import "./globals.css";
 
@@ -37,14 +37,14 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full min-h-svh antialiased`}
       suppressHydrationWarning
     >
-      <body className="flex min-h-svh flex-col">
+      <body className="min-h-svh">
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var s=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var dark=s==='dark'||(s!=='light'&&d);document.documentElement.classList.toggle('dark',dark);}catch(e){}})();`,
           }}
         />
         <ThemeHydration />
-        <SiteShell>{children}</SiteShell>
+        <ControlSurfaceProvider>{children}</ControlSurfaceProvider>
       </body>
     </html>
   );
