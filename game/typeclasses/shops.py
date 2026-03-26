@@ -173,6 +173,8 @@ class CatalogVendor(ObjectParent, DefaultObject):
         for obj in self.get_catalog_items():
             if not getattr(obj.db, "is_template", False):
                 continue
+            if getattr(obj.db, "grants_random_claim_only", False):
+                continue
             price = econ.get_final_price(
                 obj,
                 buyer=buyer,

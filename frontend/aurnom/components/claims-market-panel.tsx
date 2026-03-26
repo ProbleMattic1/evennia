@@ -9,6 +9,7 @@ import {
   getDashboardState,
   purchaseClaimDeed,
   purchaseListedClaim,
+  purchaseRandomMiningClaim,
 } from "@/lib/ui-api";
 import type { ClaimsMarketClaim } from "@/lib/ui-api";
 import {
@@ -126,6 +127,7 @@ export function ClaimsMarketPanel() {
   const { data: dash, reload: reloadDash } = useUiResource(dashLoader);
 
   const [buyingKey, setBuyingKey] = useState<string | null>(null);
+  const [randomMiningBusy, setRandomMiningBusy] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
 
@@ -151,7 +153,7 @@ export function ClaimsMarketPanel() {
         const res = await purchaseClaimDeed({ siteKey });
         setPurchaseSuccess(
           res.message ??
-            "Claim deed purchased. Use a mining package from Mining Outfitters and deploy from the home dashboard."
+            "Claim deed purchased. Use a mining package and deploy from the home dashboard."
         );
         reload();
         reloadDash();
@@ -182,6 +184,26 @@ export function ClaimsMarketPanel() {
     },
     [reload, reloadDash]
   );
+
+  const handlePurchaseRandomMiningClaim = useCallback(async () => {
+    setPurchaseError(null);
+    setPurchaseSuccess(null);
+    setRandomMiningBusy(true);
+    try {
+      const res = await purchaseRandomMiningClaim();
+      setPurchaseSuccess(res.message ?? "Random mining claim purchased.");
+      reload();
+      reloadDash();
+    } catch (e) {
+      setPurchaseError(e instanceof Error ? e.message : "Purchase failed");
+    } finally {
+      setRandomMiningBusy(false);
+    }
+  }, [reload, reloadDash]);
+
+  const randomQuote = data?.randomMiningClaim ?? null;
+  const randomBtnClass =
+    "rounded bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-amber-700 dark:hover:bg-amber-600";
 
   return (
     <section className={exchangePanelOuterClass}>
@@ -234,18 +256,66 @@ export function ClaimsMarketPanel() {
         <p className={exchangePanelEmptyClass}>No unclaimed sites available.</p>
       )}
 
+      <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-cyan-900/40">
+        <p className="px-0.5 text-[11px] leading-snug text-zinc-600 dark:text-cyan-500/75">
+          Survey services register a new unclaimed deposit and issue a deed. You receive one random
+          mining claim; use{" "}
+          <Link href="/" className="underline dark:text-cyan-400 dark:hover:text-cyan-300">
+            deploymine
+          </Link>{" "}
+          on the home dashboard with a mining package from{" "}
+          <Link
+            href="/shop?room=Aurnom%20Mining%20Outfitters"
+            className="underline dark:text-cyan-400 dark:hover:text-cyan-300"
+          >
+            Mining Outfitters
+          </Link>{" "}
+          to develop it. Small chance for an elite (jackpot) claim.
+        </p>
+        {!authenticated ? (
+          <p className="text-[11px] text-zinc-500 dark:text-cyan-500/70">
+            <Link href="/" className="underline dark:text-cyan-400 dark:hover:text-cyan-300">
+              Sign in
+            </Link>{" "}
+            to purchase a random claim.
+          </p>
+        ) : !hasCharacter ? (
+          <p className="text-[11px] text-zinc-500 dark:text-cyan-500/70">
+            {characterMessage ?? "Link a character to purchase."}
+          </p>
+        ) : randomQuote ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={randomBtnClass}
+              disabled={buyingKey !== null || randomMiningBusy}
+              onClick={() => void handlePurchaseRandomMiningClaim()}
+            >
+              {randomMiningBusy
+                ? "…"
+                : `Purchase random mining claim — ${randomQuote.priceCr.toLocaleString()} cr`}
+            </button>
+          </div>
+        ) : (
+          <p className="text-[11px] text-zinc-500 dark:text-cyan-500/70">
+            Random mining claim deed is not available.
+          </p>
+        )}
+      </div>
+
       <p className={exchangePanelFooterClass}>
         <Link href="/" className="underline dark:text-cyan-400 dark:hover:text-cyan-300">
           Home dashboard
         </Link>{" "}
-        — Deploy a mining package with your claim to start production.{" "}
+        — Deploy a mining package with your claim to start production. Mining packages and gear are
+        sold at{" "}
         <Link
           href="/shop?room=Aurnom%20Mining%20Outfitters"
           className="underline dark:text-cyan-400 dark:hover:text-cyan-300"
         >
           Mining Outfitters
-        </Link>{" "}
-        sells packages (random new site + claim). Jackpot chance for elite claims.
+        </Link>
+        .
       </p>
     </section>
   );

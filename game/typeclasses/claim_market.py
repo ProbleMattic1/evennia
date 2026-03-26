@@ -501,3 +501,101 @@ def purchase_site_claim_deed(buyer, site_key):
     if broker or vendor:
         msg += f" Remaining balance: {econ.get_character_balance(buyer):,} cr."
     return True, msg, claim
+
+
+def find_random_mining_claim_deed_template():
+    """Return (vendor, template) for the standalone random mining claim catalog item, if any."""
+    vendor = _get_claims_vendor()
+    if not vendor:
+        return None, None
+    for obj in vendor.get_catalog_items():
+        if getattr(obj.db, "is_template", False) and getattr(
+            obj.db, "grants_random_claim_only", False
+        ):
+            return vendor, obj
+    return None, None
+
+
+def quote_random_mining_claim_deed(buyer=None):
+    """
+    Price quote for the random mining claim deed (same rules as shop catalog).
+    Returns dict with templateKey and priceCr, or None if unavailable.
+    """
+    from typeclasses.economy import get_economy
+
+    vendor, template = find_random_mining_claim_deed_template()
+    if not vendor or not template:
+        return None
+    room = vendor.location
+    econ = get_economy(create_missing=True)
+    market_type = getattr(vendor.db, "market_type", None) or "normal"
+    price = econ.get_final_price(
+        template,
+        buyer=buyer,
+        location=room,
+        market_type=market_type,
+    )
+    if price is None or int(price) <= 0:
+        return None
+    return {"templateKey": template.key, "priceCr": int(price)}
+
+
+def purchase_random_mining_claim_deed(buyer):
+    """
+    Charge credits and grant a random mining claim — same behavior as shop_buy
+    for templates with grants_random_claim_only.
+    Returns (success, message, claim_or_none).
+    """
+    from typeclasses.claim_utils import grant_random_claim_on_purchase
+    from typeclasses.economy import get_economy
+
+    vendor, template = find_random_mining_claim_deed_template()
+    if not vendor or not template:
+        return False, "Random mining claim deed is not available.", None
+
+    room = vendor.location
+    econ = get_economy(create_missing=True)
+    market_type = getattr(vendor.db, "market_type", None) or "normal"
+    price = econ.get_final_price(
+        template,
+        buyer=buyer,
+        location=room,
+        market_type=market_type,
+    )
+    if price is None or int(price) <= 0:
+        return False, "Item has no valid price.", None
+
+    price = int(price)
+    credits = econ.get_character_balance(buyer)
+    if credits < price:
+        return False, f"{template.key} costs {price:,} cr. You have {credits:,} cr.", None
+
+    broker = get_primary_deed_broker()
+    if broker:
+        collect_primary_deed_sale(
+            buyer,
+            price,
+            broker,
+            tx_type="catalog_purchase",
+            memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+            withdraw_memo=f"Purchase at {vendor.key}",
+        )
+    else:
+        vendor.record_sale(
+            buyer,
+            price,
+            tx_type="catalog_purchase",
+            memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+        )
+
+    message = (
+        f"Purchased {template.key} for {price:,} cr. "
+        f"Remaining balance: {buyer.db.credits:,} cr."
+    )
+    claim, jackpot = grant_random_claim_on_purchase(buyer)
+    if claim:
+        if jackpot:
+            message += " ★ JACKPOT! You received an Elite Claim! ★"
+        else:
+            message += f" Random claim: {claim.key}."
+    return True, message, claim

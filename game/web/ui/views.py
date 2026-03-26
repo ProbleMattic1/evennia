@@ -535,6 +535,7 @@ def property_claim_detail_state(request):
 
     from typeclasses.property_claim_market import serialize_property_lot_detail
     from typeclasses.property_claims import get_property_claim_kind
+    from typeclasses.property_player_ops import serialize_property_holding_for_web
 
     raw = request.GET.get("claimId")
     try:
@@ -558,6 +559,8 @@ def property_claim_detail_state(request):
     kind = get_property_claim_kind(claim)
     lot = getattr(claim.db, "lot_ref", None)
     lot_payload = serialize_property_lot_detail(lot) if lot else None
+    holding = getattr(lot.db, "holding_ref", None) if lot else None
+    holding_payload = serialize_property_holding_for_web(holding) if holding else None
 
     preview = None
     if char:
@@ -577,8 +580,421 @@ def property_claim_detail_state(request):
                 "kind": kind,
             },
             "lot": lot_payload,
+            "holding": holding_payload,
             "inventoryPreview": preview,
             "isOwner": is_owner,
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def property_start_operation(request):
+    """
+    Body: { "claimId": number, "kind"?: "rent"|"floor"|"line" }
+    Owner character must hold the deed; starts income operation on linked holding.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid claimId."}, status=400)
+
+    kind_explicit = body.get("kind")
+    if kind_explicit is not None and not isinstance(kind_explicit, str):
+        return JsonResponse({"ok": False, "message": "Invalid kind."}, status=400)
+
+    from evennia import search_object
+
+    from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+    from typeclasses.property_player_ops import (
+        serialize_property_holding_for_web,
+        start_property_operation_for_owner,
+    )
+
+    found = search_object("#" + str(cid))
+    claim = found[0] if found else None
+    if not claim or not claim.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+        return JsonResponse({"ok": False, "message": "Property claim not found."}, status=404)
+    if claim.location != char:
+        return JsonResponse({"ok": False, "message": "Not allowed."}, status=403)
+
+    lot = getattr(claim.db, "lot_ref", None)
+    holding = getattr(lot.db, "holding_ref", None) if lot else None
+    if not holding:
+        return JsonResponse({"ok": False, "message": "No holding for this deed."}, status=400)
+
+    ok, msg = start_property_operation_for_owner(
+        char, holding, kind_explicit=str(kind_explicit).strip() if kind_explicit else None
+    )
+    if not ok:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": msg,
+            "holding": serialize_property_holding_for_web(holding),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def property_install_structure(request):
+    """
+    Body: { "claimId": int, "blueprintId": string }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid claimId."}, status=400)
+
+    blueprint_id = body.get("blueprintId")
+    if not blueprint_id or not isinstance(blueprint_id, str):
+        return JsonResponse({"ok": False, "message": "Missing or invalid blueprintId."}, status=400)
+
+    from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+    from typeclasses.property_player_ops import (
+        purchase_and_install_structure,
+        serialize_property_holding_for_web,
+    )
+
+    found = search_object("#" + str(cid))
+    claim = found[0] if found else None
+    if not claim or not claim.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+        return JsonResponse({"ok": False, "message": "Property claim not found."}, status=404)
+    if claim.location != char:
+        return JsonResponse({"ok": False, "message": "Not allowed."}, status=403)
+
+    lot = getattr(claim.db, "lot_ref", None)
+    holding = getattr(lot.db, "holding_ref", None) if lot else None
+    if not holding:
+        return JsonResponse({"ok": False, "message": "No holding for this deed."}, status=400)
+
+    ok, msg, _st = purchase_and_install_structure(char, holding, blueprint_id.strip())
+    if not ok:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": msg,
+            "holding": serialize_property_holding_for_web(holding),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def property_operation_pause(request):
+    """Body: { "claimId": int, "paused": bool }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid claimId."}, status=400)
+
+    paused = body.get("paused")
+    if not isinstance(paused, bool):
+        return JsonResponse({"ok": False, "message": "Missing or invalid paused."}, status=400)
+
+    from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+    from typeclasses.property_player_ops import (
+        pause_property_operation_for_owner,
+        serialize_property_holding_for_web,
+    )
+
+    found = search_object("#" + str(cid))
+    claim = found[0] if found else None
+    if not claim or not claim.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+        return JsonResponse({"ok": False, "message": "Property claim not found."}, status=404)
+    if claim.location != char:
+        return JsonResponse({"ok": False, "message": "Not allowed."}, status=403)
+
+    lot = getattr(claim.db, "lot_ref", None)
+    holding = getattr(lot.db, "holding_ref", None) if lot else None
+    if not holding:
+        return JsonResponse({"ok": False, "message": "No holding for this deed."}, status=400)
+
+    ok, msg = pause_property_operation_for_owner(char, holding, paused)
+    if not ok:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": msg,
+            "holding": serialize_property_holding_for_web(holding),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def property_operation_retool(request):
+    """Body: { "claimId": int, "kind": string }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid claimId."}, status=400)
+
+    kind = body.get("kind")
+    if not kind or not isinstance(kind, str):
+        return JsonResponse({"ok": False, "message": "Missing or invalid kind."}, status=400)
+
+    from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+    from typeclasses.property_player_ops import (
+        retool_property_operation_for_owner,
+        serialize_property_holding_for_web,
+    )
+
+    found = search_object("#" + str(cid))
+    claim = found[0] if found else None
+    if not claim or not claim.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+        return JsonResponse({"ok": False, "message": "Property claim not found."}, status=404)
+    if claim.location != char:
+        return JsonResponse({"ok": False, "message": "Not allowed."}, status=403)
+
+    lot = getattr(claim.db, "lot_ref", None)
+    holding = getattr(lot.db, "holding_ref", None) if lot else None
+    if not holding:
+        return JsonResponse({"ok": False, "message": "No holding for this deed."}, status=400)
+
+    ok, msg = retool_property_operation_for_owner(char, holding, kind.strip())
+    if not ok:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": msg,
+            "holding": serialize_property_holding_for_web(holding),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def property_structure_upgrade(request):
+    """Body: { "claimId": int, "structureId": int, "upgradeKey": string }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid claimId."}, status=400)
+
+    try:
+        sid = int(body.get("structureId"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid structureId."}, status=400)
+
+    upgrade_key = body.get("upgradeKey")
+    if not upgrade_key or not isinstance(upgrade_key, str):
+        return JsonResponse({"ok": False, "message": "Missing or invalid upgradeKey."}, status=400)
+
+    from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+    from typeclasses.property_player_ops import (
+        purchase_structure_upgrade_for_owner,
+        serialize_property_holding_for_web,
+    )
+
+    found = search_object("#" + str(cid))
+    claim = found[0] if found else None
+    if not claim or not claim.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+        return JsonResponse({"ok": False, "message": "Property claim not found."}, status=404)
+    if claim.location != char:
+        return JsonResponse({"ok": False, "message": "Not allowed."}, status=403)
+
+    lot = getattr(claim.db, "lot_ref", None)
+    holding = getattr(lot.db, "holding_ref", None) if lot else None
+    if not holding:
+        return JsonResponse({"ok": False, "message": "No holding for this deed."}, status=400)
+
+    ok, msg = purchase_structure_upgrade_for_owner(char, holding, sid, upgrade_key.strip())
+    if not ok:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": msg,
+            "holding": serialize_property_holding_for_web(holding),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def property_purchase_extra_slot(request):
+    """Body: { "claimId": int }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid claimId."}, status=400)
+
+    from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+    from typeclasses.property_player_ops import (
+        purchase_extra_structure_slot_for_owner,
+        serialize_property_holding_for_web,
+    )
+
+    found = search_object("#" + str(cid))
+    claim = found[0] if found else None
+    if not claim or not claim.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+        return JsonResponse({"ok": False, "message": "Property claim not found."}, status=404)
+    if claim.location != char:
+        return JsonResponse({"ok": False, "message": "Not allowed."}, status=403)
+
+    lot = getattr(claim.db, "lot_ref", None)
+    holding = getattr(lot.db, "holding_ref", None) if lot else None
+    if not holding:
+        return JsonResponse({"ok": False, "message": "No holding for this deed."}, status=400)
+
+    ok, msg = purchase_extra_structure_slot_for_owner(char, holding)
+    if not ok:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": msg,
+            "holding": serialize_property_holding_for_web(holding),
+        }
+    )
+
+
+@require_GET
+def property_deed_listings_state(request):
+    from typeclasses.property_deed_market import get_property_deed_listings
+
+    listings = get_property_deed_listings()
+    return JsonResponse({"ok": True, "listings": listings})
+
+
+@csrf_exempt
+@require_POST
+def property_deed_list(request):
+    """Body: { "claimId": int, "price": int }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    claim_id = body.get("claimId")
+    price = body.get("price")
+
+    from typeclasses.property_deed_market import list_property_deed_for_sale
+
+    success, msg = list_property_deed_for_sale(char, claim_id, price)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+    return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
+
+
+@csrf_exempt
+@require_POST
+def property_deed_buy(request):
+    """Body: { "claimId": int }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    claim_id = body.get("claimId")
+
+    from typeclasses.property_deed_market import buy_listed_property_deed
+
+    success, msg = buy_listed_property_deed(char, claim_id)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+    return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
+
+
+@require_GET
+def property_ops_health(request):
+    """
+    Staff-only JSON: property tick engines and registry size (observability).
+    """
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"ok": False, "message": "Forbidden."}, status=403)
+
+    from evennia import search_script
+
+    eng = search_script("property_operations_engine")
+    ev = search_script("property_events_engine")
+    reg = search_script("property_operation_registry")
+    return JsonResponse(
+        {
+            "ok": True,
+            "engineActive": bool(eng and eng[0].is_active),
+            "engineInterval": eng[0].interval if eng else None,
+            "eventsEngineActive": bool(ev and ev[0].is_active),
+            "eventsEngineInterval": ev[0].interval if ev else None,
+            "registeredHoldings": len((reg[0].db.active_holding_ids or []) if reg else []),
         }
     )
 
@@ -878,6 +1294,43 @@ def real_estate_purchase(request):
         dash_data = {}
 
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
+
+
+@csrf_exempt
+@require_POST
+def real_estate_purchase_random(request):
+    """
+    Buy a random listable property deed in a zone.
+    Body: { "zone": "commercial" | "residential" | "industrial" }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    zone = body.get("zone")
+    if not zone:
+        return JsonResponse({"ok": False, "message": "Missing zone."}, status=400)
+
+    from typeclasses.property_claim_market import purchase_random_property_deed_by_zone
+
+    success, msg, claim = purchase_random_property_deed_by_zone(buyer, zone)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+
+    payload = {"ok": True, "message": msg, "dashboard": dash_data}
+    if claim:
+        payload["claim"] = {"id": claim.id, "key": claim.key}
+    return JsonResponse(payload)
 
 
 @require_GET
@@ -1622,7 +2075,21 @@ def claims_market_state(request):
         if eta is not None:
             next_discovery_at = eta.isoformat()
 
-    return JsonResponse({"claims": claims, "nextDiscoveryAt": next_discovery_at})
+    from typeclasses.claim_market import quote_random_mining_claim_deed
+
+    buyer_for_quote = None
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
+        buyer_for_quote = char
+    random_mining_claim = quote_random_mining_claim_deed(buyer=buyer_for_quote)
+
+    return JsonResponse(
+        {
+            "claims": claims,
+            "nextDiscoveryAt": next_discovery_at,
+            "randomMiningClaim": random_mining_claim,
+        }
+    )
 
 
 @csrf_exempt
@@ -1678,6 +2145,46 @@ def claims_market_purchase(request):
             "dashboard": dash_data,
         }
     )
+
+
+@csrf_exempt
+@require_POST
+def claims_market_purchase_random_mining_claim(request):
+    """
+    Buy the standalone random mining claim deed (same rules as former shop row).
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    from typeclasses.claim_market import purchase_random_mining_claim_deed
+    from typeclasses.economy import get_economy
+
+    success, msg, claim = purchase_random_mining_claim_deed(buyer)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    econ = get_economy(create_missing=True)
+    buyer_credits = econ.get_character_balance(buyer)
+
+    try:
+        dash = dashboard_state(request)
+        dash_data = json.loads(dash.content.decode("utf-8")) if hasattr(dash, "content") else {}
+    except Exception:
+        dash_data = {}
+
+    payload = {
+        "ok": True,
+        "message": msg,
+        "buyerCredits": buyer_credits,
+        "dashboard": dash_data,
+    }
+    if claim:
+        payload["claim"] = {"id": claim.id, "key": claim.key}
+    return JsonResponse(payload)
 
 
 @csrf_exempt

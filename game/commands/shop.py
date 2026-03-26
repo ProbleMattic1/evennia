@@ -71,6 +71,8 @@ class CmdShop(Command):
         market_type = getattr(vendor.db, "market_type", None) or "normal"
         lines = [f"|w{vendor.db.vendor_name or vendor.key}:|n"]
         for item in stock:
+            if getattr(item.db, "grants_random_claim_only", False):
+                continue
             price = econ.get_final_price(
                 item,
                 buyer=caller,

@@ -1,0 +1,184 @@
+"""
+Secondary market for property claim deeds (list / browse / buy), package-listings pattern.
+"""
+
+from evennia import search_object, search_script
+
+from typeclasses.economy import get_economy
+from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+from typeclasses.property_title_sync import sync_property_title_from_deed_location
+from world.bootstrap_hub import get_hub_room
+
+
+def _get_property_deed_listings_script():
+    found = search_script("property_deed_listings")
+    return found[0] if found else None
+
+
+def _get_property_deed_listings_container():
+    hub = get_hub_room()
+    if not hub:
+        return None
+    for obj in hub.contents:
+        if obj.key == "Property Deed Listings" and getattr(obj.db, "is_property_deed_listings_container", False):
+            return obj
+    return None
+
+
+def list_property_deed_for_sale(seller, claim_id, price):
+    """
+    List a property deed from seller inventory. Moves deed into hub escrow container.
+    Returns (success: bool, message: str).
+    """
+    try:
+        cid = int(claim_id)
+    except (TypeError, ValueError):
+        return False, "Invalid claim id."
+
+    if price is None or (isinstance(price, (int, float)) and price < 0):
+        return False, "Price must be a non-negative number."
+    price = int(round(float(price)))
+
+    claim = None
+    for obj in seller.contents:
+        if obj.id == cid and obj.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+            claim = obj
+            break
+    if not claim:
+        return False, "You do not have that property deed in your inventory."
+
+    script = _get_property_deed_listings_script()
+    if not script:
+        return False, "Property deed market is not available."
+
+    container = _get_property_deed_listings_container()
+    if not container:
+        return False, "Property deed market is not available."
+
+    listings = list(script.db.listings or [])
+    for ent in listings:
+        if ent.get("claim_id") == cid:
+            return False, "That deed is already listed."
+
+    claim.move_to(container)
+    listings.append({"claim_id": cid, "seller_id": seller.id, "price": price})
+    script.db.listings = listings
+    sync_property_title_from_deed_location(claim)
+    return True, f"{claim.key} listed for {price:,} cr."
+
+
+def get_property_deed_listings():
+    """
+    Active listings: {claimId, key, lotKey, kind, price, sellerKey}
+    """
+    script = _get_property_deed_listings_script()
+    if not script:
+        return []
+
+    container = _get_property_deed_listings_container()
+    if not container:
+        return []
+
+    from typeclasses.property_claims import get_property_claim_kind
+
+    result = []
+    valid = []
+    for ent in script.db.listings or []:
+        cid = ent.get("claim_id")
+        seller_id = ent.get("seller_id")
+        price = ent.get("price", 0)
+        claim = None
+        for obj in container.contents:
+            if obj.id == cid and obj.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+                claim = obj
+                break
+        if not claim:
+            continue
+        valid.append(ent)
+        seller_key = "?"
+        if seller_id:
+            found = search_object("#" + str(seller_id))
+            if found and hasattr(found[0], "key"):
+                seller_key = found[0].key
+        result.append(
+            {
+                "claimId": cid,
+                "key": claim.key,
+                "lotKey": getattr(claim.db, "lot_key", None) or "",
+                "kind": get_property_claim_kind(claim),
+                "price": int(price),
+                "sellerKey": seller_key,
+            }
+        )
+    script.db.listings = valid
+    return result
+
+
+def buy_listed_property_deed(buyer, claim_id):
+    """
+    Pay seller, move deed to buyer, update lot recorded owner, prune listing.
+    """
+    try:
+        cid = int(claim_id)
+    except (TypeError, ValueError):
+        return False, "Invalid claim id."
+
+    script = _get_property_deed_listings_script()
+    if not script:
+        return False, "Property deed market is not available."
+
+    container = _get_property_deed_listings_container()
+    if not container:
+        return False, "Property deed market is not available."
+
+    listings = script.db.listings or []
+    entry = None
+    claim = None
+    for obj in container.contents:
+        if obj.id == cid and obj.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY):
+            claim = obj
+            break
+    if not claim:
+        return False, "That deed is not for sale or has been sold."
+
+    for ent in listings:
+        if ent.get("claim_id") == cid:
+            entry = ent
+            break
+    if not entry:
+        return False, "Listing not found."
+
+    price = int(entry.get("price", 0))
+    seller_id = entry.get("seller_id")
+    if not seller_id:
+        return False, "Invalid listing."
+
+    found = search_object("#" + str(seller_id))
+    seller = found[0] if found else None
+    if not seller:
+        return False, "Seller no longer exists."
+
+    econ = get_economy(create_missing=False)
+    if not econ:
+        return False, "Economy system unavailable."
+
+    balance = econ.get_character_balance(buyer)
+    if balance < price:
+        return False, f"You need {price:,} cr but only have {balance:,} cr."
+
+    buyer_acct = econ.get_character_account(buyer)
+    seller_acct = econ.get_character_account(seller)
+    econ.ensure_account(buyer_acct, opening_balance=int(buyer.db.credits or 0))
+    econ.ensure_account(seller_acct, opening_balance=int(seller.db.credits or 0))
+    econ.transfer(buyer_acct, seller_acct, price, memo="property deed sale")
+    buyer.db.credits = econ.get_character_balance(buyer)
+    seller.db.credits = econ.get_character_balance(seller)
+
+    lot = getattr(claim.db, "lot_ref", None)
+    if lot:
+        lot.db.owner = buyer
+
+    claim.move_to(buyer)
+    script.db.listings = [e for e in listings if e.get("claim_id") != cid]
+    sync_property_title_from_deed_location(claim)
+    return True, f"You bought {claim.key} for {price:,} cr."

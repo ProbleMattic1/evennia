@@ -37,6 +37,18 @@ from commands.haulers import (
     CmdUpgradeHauler,
 )
 from commands.shipyard import CmdShipyard, CmdInspectShip, CmdBuyShip
+from commands.property_ops import (
+    CmdBuildProperty,
+    CmdBuyPropertyDeed,
+    CmdBuyPropertyExtraSlot,
+    CmdListPropertyDeed,
+    CmdPausePropertyOperation,
+    CmdResumePropertyOperation,
+    CmdRetoolPropertyOperation,
+    CmdStartPropertyOperation,
+    CmdUpgradePropertyStructure,
+)
+from commands.property_place import CmdOpenProperty, CmdVisitProperty
 from commands.shop import CmdBuy, CmdShop
 from commands.vehicles import (
     CmdBoardVehicle,
@@ -98,6 +110,17 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdShipyard())
         self.add(CmdInspectShip())
         self.add(CmdBuyShip())
+        self.add(CmdVisitProperty())
+        self.add(CmdOpenProperty())
+        self.add(CmdStartPropertyOperation())
+        self.add(CmdBuildProperty())
+        self.add(CmdPausePropertyOperation())
+        self.add(CmdResumePropertyOperation())
+        self.add(CmdRetoolPropertyOperation())
+        self.add(CmdListPropertyDeed())
+        self.add(CmdBuyPropertyDeed())
+        self.add(CmdUpgradePropertyStructure())
+        self.add(CmdBuyPropertyExtraSlot())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

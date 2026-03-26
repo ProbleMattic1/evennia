@@ -11,6 +11,11 @@ urlpatterns = [
     path("bank", views.bank_state, name="ui-bank"),
     path("real-estate", views.real_estate_state, name="ui-real-estate"),
     path("real-estate/purchase", views.real_estate_purchase, name="ui-real-estate-purchase"),
+    path(
+        "real-estate/purchase-random",
+        views.real_estate_purchase_random,
+        name="ui-real-estate-purchase-random",
+    ),
     path("processing", views.processing_state, name="ui-processing"),
     path(
         "shipyard",
@@ -26,6 +31,11 @@ urlpatterns = [
     path("market", views.market_state, name="ui-market"),
     path("claims-market", views.claims_market_state, name="ui-claims-market"),
     path("claims-market/purchase", views.claims_market_purchase, name="ui-claims-market-purchase"),
+    path(
+        "claims-market/purchase-random-mining-claim",
+        views.claims_market_purchase_random_mining_claim,
+        name="ui-claims-market-purchase-random-mining-claim",
+    ),
     path("claims-market/list-property", views.claims_market_list_property, name="ui-claims-market-list-property"),
     path("claims-market/list-claim", views.claims_market_list_claim, name="ui-claims-market-list-claim"),
     path(
@@ -35,6 +45,44 @@ urlpatterns = [
     ),
     path("claim/detail", views.claim_detail_state, name="ui-claim-detail"),
     path("property/detail", views.property_claim_detail_state, name="ui-property-detail"),
+    path(
+        "property/start-operation",
+        views.property_start_operation,
+        name="ui-property-start-operation",
+    ),
+    path(
+        "property/install-structure",
+        views.property_install_structure,
+        name="ui-property-install-structure",
+    ),
+    path(
+        "property/structure-upgrade",
+        views.property_structure_upgrade,
+        name="ui-property-structure-upgrade",
+    ),
+    path(
+        "property/purchase-extra-slot",
+        views.property_purchase_extra_slot,
+        name="ui-property-purchase-extra-slot",
+    ),
+    path(
+        "property/operation-pause",
+        views.property_operation_pause,
+        name="ui-property-operation-pause",
+    ),
+    path(
+        "property/operation-retool",
+        views.property_operation_retool,
+        name="ui-property-operation-retool",
+    ),
+    path(
+        "property/deed-listings",
+        views.property_deed_listings_state,
+        name="ui-property-deed-listings",
+    ),
+    path("property/deed-list", views.property_deed_list, name="ui-property-deed-list"),
+    path("property/deed-buy", views.property_deed_buy, name="ui-property-deed-buy"),
+    path("property/ops-health", views.property_ops_health, name="ui-property-ops-health"),
     path("resources", views.resources_state, name="ui-resources"),
     path("mine/claims", views.mine_claims, name="ui-mine-claims"),
     path("mine/deploy", views.mine_deploy, name="ui-mine-deploy"),

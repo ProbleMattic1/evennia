@@ -5,8 +5,9 @@ from datetime import timedelta
 from django.utils import timezone
 from evennia.scripts.scripts import DefaultScript
 
+from typeclasses.property_exchange_limits import MAX_LISTABLE_PROPERTY_LOTS
+
 DISCOVERY_INTERVAL_SECONDS = 900
-MAX_LISTABLE_LOTS = 100
 ZONES_PER_TICK = ("residential", "commercial", "industrial")
 
 
@@ -34,14 +35,14 @@ class PropertyLotDiscoveryEngine(DefaultScript):
         def count_listable():
             return len(get_listable_lots())
 
-        if count_listable() >= MAX_LISTABLE_LOTS:
+        if count_listable() >= MAX_LISTABLE_PROPERTY_LOTS:
             logger.log_info(
-                f"[property_lot_discovery] Cap ({count_listable()}/{MAX_LISTABLE_LOTS}) — skip."
+                f"[property_lot_discovery] Cap ({count_listable()}/{MAX_LISTABLE_PROPERTY_LOTS}) — skip."
             )
         else:
             created_keys = []
             for zone in ZONES_PER_TICK:
-                if count_listable() >= MAX_LISTABLE_LOTS:
+                if count_listable() >= MAX_LISTABLE_PROPERTY_LOTS:
                     break
                 lot = generate_market_property_lot(zone)
                 created_keys.append(lot.key)

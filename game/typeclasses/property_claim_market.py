@@ -4,6 +4,8 @@ Primary market: property lots and deeds (Real Estate Office).
 Economy pattern matches mining primary deeds (broker + treasury tax).
 """
 
+import random
+
 from evennia import create_object, search_object
 
 from typeclasses.characters import NANOMEGA_REALTY_CHARACTER_KEY
@@ -188,6 +190,52 @@ def purchase_property_deed(buyer, lot_key):
     move_lot_to_claimed_archive(lot)
     msg = f"Purchased {claim.key} for {price:,} cr."
     return True, msg, claim
+
+
+def purchase_random_property_deed_by_zone(buyer, zone):
+    """
+    Prefer a random existing listable lot in ``zone``; if none, mint one like the
+    discovery engine (subject to global listable cap), then run the normal deed sale.
+    """
+    from typeclasses.property_exchange_limits import MAX_LISTABLE_PROPERTY_LOTS
+    from typeclasses.property_lot_generation import generate_market_property_lot
+
+    z = (zone or "").strip().lower()
+    allowed = frozenset({"commercial", "residential", "industrial"})
+    if z not in allowed:
+        return False, "Invalid zone.", None
+
+    candidates = [
+        lot
+        for lot in get_listable_lots_from_registry()
+        if lot_is_market_listable(lot) and (lot.db.zone or "residential").lower() == z
+    ]
+
+    if not candidates:
+        if len(get_listable_lots()) >= MAX_LISTABLE_PROPERTY_LOTS:
+            return (
+                False,
+                "The property exchange is at capacity; try again after parcels sell or the next restock.",
+                None,
+            )
+        lot = generate_market_property_lot(z)
+        return purchase_property_deed(buyer, lot.key)
+
+    random.shuffle(candidates)
+    for lot in candidates:
+        success, msg, claim = purchase_property_deed(buyer, lot.key)
+        if success:
+            return True, msg, claim
+
+    if len(get_listable_lots()) >= MAX_LISTABLE_PROPERTY_LOTS:
+        return (
+            False,
+            "No deeds could be sold right now and the exchange is at capacity.",
+            None,
+        )
+
+    lot = generate_market_property_lot(z)
+    return purchase_property_deed(buyer, lot.key)
 
 
 def get_listable_lots():

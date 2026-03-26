@@ -6,8 +6,12 @@ import Link from "next/link";
 import { ClaimsMarketPanel } from "@/components/claims-market-panel";
 import { Countdown } from "@/components/countdown";
 import { StoryPanel } from "@/components/story-panel";
-import { getRealEstateState, purchasePropertyDeed } from "@/lib/ui-api";
-import type { PropertyLotRow } from "@/lib/ui-api";
+import {
+  getRealEstateState,
+  purchasePropertyDeed,
+  purchaseRandomPropertyDeed,
+} from "@/lib/ui-api";
+import type { PropertyLotRow, PropertyZone } from "@/lib/ui-api";
 import {
   exchangePanelCountdownClass,
   exchangePanelEmptyClass,
@@ -29,6 +33,15 @@ const ZONE_BADGE: Record<string, string> = {
   commercial:  "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
   industrial:  "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   residential: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+};
+
+const RANDOM_ZONE_BTN: Record<PropertyZone, string> = {
+  commercial:
+    "bg-violet-700 hover:bg-violet-600 dark:bg-violet-800 dark:hover:bg-violet-700",
+  residential:
+    "bg-emerald-700 hover:bg-emerald-600 dark:bg-emerald-800 dark:hover:bg-emerald-700",
+  industrial:
+    "bg-amber-700 hover:bg-amber-600 dark:bg-amber-800 dark:hover:bg-amber-700",
 };
 
 function ZoneBadge({ zone, label }: { zone: string; label: string }) {
@@ -89,6 +102,7 @@ export default function RealEstatePage() {
   const loader = useCallback(() => getRealEstateState(), []);
   const { data, error, loading, reload } = useUiResource(loader);
   const [buyingLot, setBuyingLot]       = useState<string | null>(null);
+  const [randomZoneBusy, setRandomZoneBusy] = useState<PropertyZone | null>(null);
   const [feedback, setFeedback]         = useState<{ ok: boolean; message: string } | null>(null);
 
   useEffect(() => {
@@ -104,9 +118,7 @@ export default function RealEstatePage() {
     if (typeof window === "undefined") return;
     if (window.location.hash !== "#claims-market") return;
     const el = document.getElementById("claims-market");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [loading, data]);
 
   async function handleBuy(lotKey: string) {
@@ -120,6 +132,23 @@ export default function RealEstatePage() {
       setFeedback({ ok: false, message: err instanceof Error ? err.message : "Purchase failed." });
     } finally {
       setBuyingLot(null);
+    }
+  }
+
+  async function handleRandomProperty(zone: PropertyZone) {
+    setRandomZoneBusy(zone);
+    setFeedback(null);
+    try {
+      const res = await purchaseRandomPropertyDeed({ zone });
+      setFeedback({
+        ok: res.ok,
+        message: res.message ?? (res.ok ? "Purchase complete." : "Purchase failed."),
+      });
+      if (res.ok) reload();
+    } catch (err) {
+      setFeedback({ ok: false, message: err instanceof Error ? err.message : "Purchase failed." });
+    } finally {
+      setRandomZoneBusy(null);
     }
   }
 
@@ -204,6 +233,32 @@ export default function RealEstatePage() {
                   ))}
                 </div>
               )}
+
+              <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-cyan-900/40">
+                <p className="text-[11px] leading-snug text-zinc-600 dark:text-cyan-500/75">
+                  Buy a random listable parcel by zone (price follows tier and zone, same as choosing a
+                  specific lot).
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { zone: "commercial" as const, label: "Buy random commercial" },
+                      { zone: "residential" as const, label: "Buy random residential" },
+                      { zone: "industrial" as const, label: "Buy random industrial" },
+                    ] as const
+                  ).map(({ zone, label }) => (
+                    <button
+                      key={zone}
+                      type="button"
+                      disabled={randomZoneBusy !== null || buyingLot !== null}
+                      onClick={() => void handleRandomProperty(zone)}
+                      className={`rounded px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${RANDOM_ZONE_BTN[zone]}`}
+                    >
+                      {randomZoneBusy === zone ? "…" : label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
 

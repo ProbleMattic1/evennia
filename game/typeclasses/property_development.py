@@ -5,8 +5,12 @@ Ensure PropertyHolding for a claimed lot; start operations; install structures.
 from evennia import create_object
 
 from typeclasses.property_holdings import PropertyHolding
+from typeclasses.property_operation_handlers import OPERATION_HANDLERS
 from typeclasses.property_operation_registry import register_property_holding
 from typeclasses.property_structures import PropertyStructure
+
+EXTRA_STRUCTURE_SLOT_BASE_CR = 5_000
+EXTRA_STRUCTURE_SLOT_GROWTH = 1.35
 
 
 def ensure_holding_for_claimed_lot(lot, owner):
@@ -48,3 +52,62 @@ def install_structure(holding, blueprint_id, *, slot_weight=1):
     st.db.slot_weight = int(slot_weight)
     st.apply_blueprint(blueprint_id)
     return st
+
+
+def set_operation_paused(holding, paused):
+    op = dict(holding.db.operation or {})
+    op["paused"] = bool(paused)
+    holding.db.operation = op
+    register_property_holding(holding)
+
+
+def retool_operation(holding, new_kind):
+    zone = (holding.db.zone or "residential").lower()
+    k = (new_kind or "").strip().lower()
+    if (zone, k) not in OPERATION_HANDLERS:
+        return False, f"Operation {k!r} is not valid for a {zone} parcel."
+    op = dict(holding.db.operation or {})
+    if not op.get("kind"):
+        return False, "This parcel has no active operation to retool."
+    if op.get("kind") == k:
+        return False, "That is already the active operation type."
+    op["kind"] = k
+    op["level"] = 0
+    op["paused"] = False
+    op["next_tick_at"] = None
+    holding.db.operation = op
+    register_property_holding(holding)
+    return True, f"Operation retargeted to {k}."
+
+
+def next_extra_structure_slot_price_cr(holding):
+    n = int((holding.db.operation or {}).get("extra_slots") or 0)
+    return int(round(EXTRA_STRUCTURE_SLOT_BASE_CR * (EXTRA_STRUCTURE_SLOT_GROWTH**n)))
+
+
+def purchase_extra_structure_slot(holding, owner):
+    """
+    Charge owner and increment operation.extra_slots by 1.
+    Returns (ok: bool, message: str).
+    """
+    if holding.db.title_owner != owner:
+        return False, "You are not the titled owner of this parcel."
+
+    from typeclasses.economy import get_economy
+
+    price = next_extra_structure_slot_price_cr(holding)
+    econ = get_economy(create_missing=True)
+    acct = econ.get_character_account(owner)
+    econ.ensure_account(acct, opening_balance=int(owner.db.credits or 0))
+    bal = econ.get_character_balance(owner)
+    if bal < price:
+        return False, f"You need {price:,} cr but only have {bal:,} cr."
+
+    econ.withdraw(acct, price, memo="property extra structure slot")
+    owner.db.credits = econ.get_character_balance(owner)
+
+    op = dict(holding.db.operation or {})
+    op["extra_slots"] = int(op.get("extra_slots") or 0) + 1
+    holding.db.operation = op
+    register_property_holding(holding)
+    return True, f"Parcel capacity +1 slot ({price:,} cr). Total extra slots: {op['extra_slots']}."

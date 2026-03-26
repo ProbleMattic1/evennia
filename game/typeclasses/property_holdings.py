@@ -41,6 +41,14 @@ class PropertyHolding(Object):
             "managers": [],
             "tenants": [],
         }
+        self.db.place_state = {
+            "mode": "void",
+            "root_room_id": None,
+            "exit_from_hub_id": None,
+        }
+        self.db.staff = {"roles": {}}
+        self.db.event_queue = []
+        self.db.ops_stale_owner_alerted = False
         self.locks.add("control:perm(Admin)")
 
     def bind_lot(self, lot, owner):
@@ -54,6 +62,7 @@ class PropertyHolding(Object):
 
     def set_title_owner(self, owner):
         self.db.title_owner = owner
+        self.db.ops_stale_owner_alerted = False
         if owner:
             self.locks.add(
                 "control:perm(Admin) or id({})".format(owner.dbid)

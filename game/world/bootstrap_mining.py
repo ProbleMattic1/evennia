@@ -169,6 +169,32 @@ def bootstrap_mining():
             ccontainer.locks.add("get:false();drop:false()")
             print("[mining] Created Claim Listings container in hub.")
 
+        dcontainer = None
+        for obj in hub_for_listings.contents:
+            if obj.key == "Property Deed Listings" and getattr(obj.db, "is_property_deed_listings_container", False):
+                dcontainer = obj
+                break
+        if not dcontainer:
+            dcontainer = create_object(
+                "typeclasses.objects.Object",
+                key="Property Deed Listings",
+                location=hub_for_listings,
+                home=hub_for_listings,
+            )
+            dcontainer.db.desc = "Escrow for property parcel deeds listed by players."
+            dcontainer.db.is_property_deed_listings_container = True
+            dcontainer.locks.add("get:false();drop:false()")
+            print("[mining] Created Property Deed Listings container in hub.")
+
+    deed_list = search_script("property_deed_listings")
+    if deed_list:
+        print(f"[mining] Property deed listings script already exists: {deed_list[0].key}")
+    else:
+        from typeclasses.property_deed_listings import PropertyDeedListingsScript
+
+        create_script(PropertyDeedListingsScript, key="property_deed_listings")
+        print("[mining] Created property_deed_listings script.")
+
     # -- Site discovery engine --
     from typeclasses.site_discovery import SiteDiscoveryEngine
 

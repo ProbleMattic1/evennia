@@ -22,6 +22,33 @@ class PropertyClaim(Object):
         self.tags.add(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY)
         self.locks.add("get:true();drop:true();give:true()")
 
+    def at_post_move(self, source_location, move_type="move", **kwargs):
+        super().at_post_move(source_location, move_type=move_type, **kwargs)
+        from typeclasses.property_title_sync import sync_property_title_from_deed_location
+
+        sync_property_title_from_deed_location(self)
+
+    def at_pre_give(self, giver, getter, **kwargs):
+        from typeclasses.characters import CHARACTER_TYPECLASS_PATH
+        from typeclasses.property_transfer_fee import (
+            PROPERTY_DEED_TRANSFER_FEE_CR,
+            charge_property_deed_give_fee,
+        )
+
+        if getter.is_typeclass(CHARACTER_TYPECLASS_PATH, exact=False):
+            if not charge_property_deed_give_fee(giver, PROPERTY_DEED_TRANSFER_FEE_CR):
+                giver.msg(
+                    f"You need {PROPERTY_DEED_TRANSFER_FEE_CR:,} cr to transfer this deed to another character."
+                )
+                return False
+        return super().at_pre_give(giver, getter, **kwargs)
+
+    def at_give(self, giver, getter, **kwargs):
+        super().at_give(giver, getter, **kwargs)
+        from typeclasses.property_title_sync import sync_property_title_from_deed_location
+
+        sync_property_title_from_deed_location(self)
+
 
 class ResidentialPropertyClaim(PropertyClaim):
     """Residential parcel deed — future structures attach here."""

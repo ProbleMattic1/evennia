@@ -11,6 +11,7 @@ Creates
 - PropertyLotExchangeRegistry script + rebuild of listable IDs from tags
 - PropertyLotDiscoveryEngine periodic restock script
 - PropertyOperationRegistry + PropertyOperationsEngine (parcel income tick)
+- PropertyEventsEngine (hourly property event rolls)
 - Moves the NanoMegaPlex Real Estate NPC into the office (if they exist)
 
 Safe to call on every cold start.
@@ -25,6 +26,7 @@ from typeclasses.property_lot_registry import (
     rebuild_property_exchange_registry,
 )
 from typeclasses.property_operation_registry import PropertyOperationRegistry
+from typeclasses.property_events_engine import PropertyEventsEngine
 from typeclasses.property_operations_engine import PropertyOperationsEngine
 
 REALTY_OFFICE_KEY  = "NanoMegaPlex Real Estate Office"
@@ -179,6 +181,13 @@ def bootstrap_realty_office():
     else:
         create_script(PropertyOperationsEngine)
         print("[realty-office] Created PropertyOperationsEngine.")
+
+    ev_eng = search_script("property_events_engine")
+    if ev_eng:
+        print(f"[realty-office] PropertyEventsEngine exists: {ev_eng[0].key}")
+    else:
+        create_script(PropertyEventsEngine)
+        print("[realty-office] Created PropertyEventsEngine.")
 
     print(
         f"[realty-office] Office ready: '{REALTY_OFFICE_KEY}'. "
