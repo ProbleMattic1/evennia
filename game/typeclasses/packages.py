@@ -217,12 +217,11 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
     site.db.mine_operation_active = True
     site.schedule_next_cycle()
 
-    cycle_h = int(hauler.db.hauler_base_cycle_hours or 4)
     return True, (
         f"Mining operation deployed at {site.key}.\n"
         f"  Site: {site_room.key}\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Mining delivery: UTC 30m grid  Hauler cycle: {cycle_h}h\n"
+        f"  Mining delivery: UTC 30m grid  Hauler: daily UTC pickup (staggered)\n"
         f"  Ore will flow to {refinery_room.key} automatically.\n"
         f"  Use mines and haulerstatus to monitor progress."
     )
@@ -273,11 +272,10 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
 
     site.schedule_next_cycle()
 
-    cycle_h = int(hauler.db.hauler_base_cycle_hours or 4)
     return True, (
         f"Mining operation reactivated at {site.key}.\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Mining delivery: UTC 30m grid  Hauler cycle: {cycle_h}h\n"
+        f"  Mining delivery: UTC 30m grid  Hauler: daily UTC pickup (staggered)\n"
         f"  Ore will flow to {refinery_room.key} automatically."
     )
 

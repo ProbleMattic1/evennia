@@ -10,10 +10,10 @@ from evennia import search_object
 
 from typeclasses.haulers import (
     effective_capacity,
-    effective_cycle_seconds,
-    get_hauler_next_cycle_at,
+    format_next_hauler_run_utc,
     resolve_room,
     set_hauler_next_cycle,
+    stagger_window_seconds,
 )
 
 
@@ -111,7 +111,8 @@ class CmdAssignHauler(Command):
 
         caller.msg(
             f"|w{hauler.key}|n assigned: {mine_room.key} -> {refinery_room.key}. "
-            f"First cycle in {effective_cycle_seconds(hauler) // 3600}h."
+            f"Next autonomous pickup: |c{format_next_hauler_run_utc(hauler)}|n "
+            f"(daily UTC, staggered)."
         )
 
 
@@ -122,7 +123,8 @@ class CmdUpgradeHauler(Command):
     Usage:
       upgradehauler <hauler> <upgrade> [level]
 
-    Upgrades: cargo_expansion (1-2), automation (1-2), reliability (1)
+    Upgrades: cargo_expansion (1-2), automation (1-2, tightens daily UTC stagger),
+    reliability (1)
     """
 
     key = "upgradehauler"
@@ -218,9 +220,8 @@ class CmdHaulerStatus(Command):
             ref = resolve_room(h.db.hauler_refinery_room)
             route = f"{mine.key if mine else '?'} -> {ref.key if ref else '?'}" if (mine or ref) else "unassigned"
             cap = effective_capacity(h)
-            cycle_h = effective_cycle_seconds(h) // 3600
-            next_at = get_hauler_next_cycle_at(h)
-            next_str = next_at.strftime("%H:%M") if next_at else "—"
+            next_str = format_next_hauler_run_utc(h)
+            wmin = stagger_window_seconds(h) // 3600
             upgrades = h.db.hauler_upgrades or {}
             up_str = ", ".join(f"{k}:{v}" for k, v in upgrades.items()) if upgrades else "none"
             lines.append(f"  |w{h.key}|n")
@@ -228,7 +229,7 @@ class CmdHaulerStatus(Command):
             lines.append(f"    Route: {route}")
             delivery = h.db.hauler_delivery_mode or "sell"
             lines.append(
-                f"    Capacity: {cap}t  Cycle: {cycle_h}h  Next: {next_str}  "
+                f"    Capacity: {cap}t  Schedule: daily UTC (~{wmin}h stagger window)  Next: {next_str}  "
                 f"Delivery: {delivery}  Upgrades: {up_str}"
             )
         caller.msg("\n".join(lines))

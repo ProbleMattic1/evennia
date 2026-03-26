@@ -2,24 +2,40 @@
 Autonomous Hauler system.
 
 HaulerEngine   - Global script; processes hauler routes on schedule.
-Helpers        - effective_capacity, effective_cycle_seconds, resolve_room.
+Helpers        - effective_capacity, effective_cycle_seconds (nominal tier), resolve_room.
+
+Schedule: one autonomous run per UTC calendar day (pickup at mine, then deliver at plant).
+Each hauler's run time is UTC midnight + a deterministic stagger to spread load.
+Automation upgrades tighten the stagger window (earlier cluster after midnight).
 """
 
 from datetime import UTC, datetime, timedelta
 
 from evennia import search_object, search_tag
 
-from world.time import MINING_DELIVERY_PERIOD, ceil_period, to_iso, utc_now
+from world.time import (
+    DAY,
+    HOUR,
+    MINING_DELIVERY_PERIOD,
+    ceil_period,
+    start_of_utc_day,
+    to_iso,
+    utc_now,
+)
 from evennia.utils import logger
 
 from .scripts import Script
 from .mining import get_commodity_bid
 
 
-HAULER_ENGINE_INTERVAL = 1800   # 30 min wake
-HAULER_CYCLE_BASE_HOURS = 4.0   # base cycle time per hauler
-CYCLE_REDUCTION_PER_AUTOMATION = 0.5  # hours saved per automation level
-CAPACITY_BONUS_PER_EXPANSION = 0.25   # +25% per cargo_expansion level
+HAULER_ENGINE_INTERVAL = 1800  # 30 min wake
+HAULER_CYCLE_BASE_HOURS = 4.0  # legacy Mk tier field on packages
+CYCLE_REDUCTION_PER_AUTOMATION = 0.5  # kept for effective_cycle_seconds() compatibility
+CAPACITY_BONUS_PER_EXPANSION = 0.25  # +25% per cargo_expansion level
+
+HAULER_STAGGER_WINDOW_BASE_SEC = 6 * HOUR
+HAULER_STAGGER_WINDOW_MIN_SEC = HOUR
+HAULER_MAX_PIPELINE_STEPS = 12
 
 
 def _now():
@@ -70,7 +86,10 @@ def effective_capacity(hauler):
 
 
 def effective_cycle_seconds(hauler):
-    """Cycle interval in seconds including automation upgrades."""
+    """
+    Nominal "tier" interval in seconds (legacy Mk I/II/III hours field).
+    Wall-clock scheduling is daily UTC; this remains for compatibility and rough tier display.
+    """
     base_hours = float(hauler.db.hauler_base_cycle_hours or HAULER_CYCLE_BASE_HOURS)
     upgrades = hauler.db.hauler_upgrades or {}
     aut_level = int(upgrades.get("automation", 0) or 0)
@@ -79,14 +98,51 @@ def effective_cycle_seconds(hauler):
     return int(hours * 3600)
 
 
+def stagger_window_seconds(hauler):
+    """Seconds after UTC midnight in which this hauler's daily slot may fall."""
+    upgrades = hauler.db.hauler_upgrades or {}
+    aut_level = int(upgrades.get("automation", 0) or 0)
+    window = HAULER_STAGGER_WINDOW_BASE_SEC >> aut_level
+    return max(HAULER_STAGGER_WINDOW_MIN_SEC, window)
+
+
+def hauler_stagger_offset_seconds(hauler):
+    """Stable sub-day offset from hauler primary key (spreads fleet across the window)."""
+    window = stagger_window_seconds(hauler)
+    return hauler.id % window
+
+
+def compute_next_hauler_run_at(hauler, after: datetime | None = None) -> datetime:
+    """
+    Next eligible pickup time: UTC day boundary + stagger, strictly after `after`.
+    Snapped up to MINING_DELIVERY_PERIOD for alignment with mining grid.
+    """
+    after = (after or utc_now()).astimezone(UTC)
+    offset = timedelta(seconds=hauler_stagger_offset_seconds(hauler))
+    sod = start_of_utc_day(after)
+    today_slot = sod + offset
+    if today_slot > after:
+        target = today_slot
+    else:
+        target = sod + timedelta(seconds=DAY) + offset
+    return ceil_period(target, MINING_DELIVERY_PERIOD)
+
+
 def get_hauler_next_cycle_at(hauler):
     return _parse_ts(hauler.db.hauler_next_cycle_at)
 
 
-def set_hauler_next_cycle(hauler):
-    secs = effective_cycle_seconds(hauler)
-    raw = utc_now() + timedelta(seconds=secs)
-    hauler.db.hauler_next_cycle_at = to_iso(ceil_period(raw, MINING_DELIVERY_PERIOD))
+def set_hauler_next_cycle(hauler, after: datetime | None = None):
+    """Schedule the hauler's next daily autonomous run (UTC)."""
+    hauler.db.hauler_next_cycle_at = to_iso(compute_next_hauler_run_at(hauler, after=after))
+
+
+def format_next_hauler_run_utc(hauler) -> str:
+    """Short UTC timestamp for player messages."""
+    dt = get_hauler_next_cycle_at(hauler)
+    if not dt:
+        return "not scheduled"
+    return dt.strftime("%Y-%m-%d %H:%M UTC")
 
 
 def get_mining_storage_in_room(room):
@@ -285,7 +341,8 @@ def hauler_process_one(hauler):
 class HaulerEngine(Script):
     """
     Global script for autonomous hauler routes.
-    Wakes every 30 min, processes haulers whose next_cycle_at has passed.
+    Wakes every 30 min. Each hauler due (daily UTC + stagger) may advance up to
+    HAULER_MAX_PIPELINE_STEPS state transitions per tick (full trip in one wake).
     """
 
     def at_script_creation(self):
@@ -308,24 +365,34 @@ class HaulerEngine(Script):
                     continue
                 if not hauler.db.hauler_owner:
                     continue
-                next_at = get_hauler_next_cycle_at(hauler)
-                if next_at is None:
-                    set_hauler_next_cycle(hauler)
-                    continue
-                if next_at > now:
-                    continue
 
-                did_work, msg = hauler_process_one(hauler)
-                if did_work:
-                    logger.log_info(f"[hauler_engine] {hauler.key}: {msg}")
-                    owner = hauler.db.hauler_owner
-                    if owner and hasattr(owner, "sessions") and owner.sessions.count():
-                        owner.msg(f"|w[Hauler: {hauler.key}]|n {msg}")
-                    processed += 1
+                steps = 0
+                while steps < HAULER_MAX_PIPELINE_STEPS:
+                    next_at = get_hauler_next_cycle_at(hauler)
+                    if next_at is None:
+                        set_hauler_next_cycle(hauler)
+                        break
+                    if next_at > now:
+                        break
+
+                    did_work, msg = hauler_process_one(hauler)
+                    steps += 1
+                    if did_work:
+                        logger.log_info(f"[hauler_engine] {hauler.key}: {msg}")
+                        owner = hauler.db.hauler_owner
+                        if owner and hasattr(owner, "sessions") and owner.sessions.count():
+                            owner.msg(f"|w[Hauler: {hauler.key}]|n {msg}")
+                        processed += 1
+                    if not did_work:
+                        break
+
+                    next_after = get_hauler_next_cycle_at(hauler)
+                    if next_after is not None and next_after > now:
+                        break
 
             except Exception as err:
                 errors += 1
                 logger.log_err(f"[hauler_engine] Error on {getattr(hauler, 'key', '?')}: {err}")
 
         if processed or errors:
-            logger.log_info(f"[hauler_engine] Tick — {processed} cycle(s), {errors} error(s).")
+            logger.log_info(f"[hauler_engine] Tick — {processed} step(s), {errors} error(s).")
