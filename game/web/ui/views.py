@@ -607,10 +607,12 @@ def play_state(request):
 
 NAV_KIOSKS = {
     "bank": {"label": "Bank", "href": "/bank"},
-    "claims market": {"label": "Claims Market", "href": "/claims-market"},
     "processing plant": {"label": "Processing Pl.", "href": "/processing"},
     "real estate": {"label": "Real Estate", "href": "/real-estate"},
 }
+
+# Hub exits that must not appear as kiosks or generic promenade shops (claims market lives on /real-estate).
+_SKIP_HUB_EXIT_KEYS = frozenset({"claims market"})
 
 SHIPYARD_SHOP_ENTRY = {"roomKey": SHIPYARD_ROOM_KEY, "label": "Shipyard"}
 
@@ -637,6 +639,8 @@ def nav_state(request):
     mines = []
     for ex in all_exits:
         key_lower = ex["key"].lower()
+        if key_lower in _SKIP_HUB_EXIT_KEYS:
+            continue
         if key_lower in NAV_KIOSKS and ex.get("destination"):
             kiosks.append(
                 {
@@ -658,7 +662,7 @@ def nav_state(request):
     shops = [{"roomKey": entry["room_key"], "label": entry["vendor_name"]} for entry in SHOPS]
     shops.append(SHIPYARD_SHOP_ENTRY)
 
-    claims_nav = [{"label": "Claims Market", "href": "/claims-market"}]
+    claims_nav = []
     properties_nav = []
     if char:
         for obj in char.contents:

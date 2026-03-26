@@ -170,13 +170,7 @@ export function SiteNavProvider({ children }: { children: ReactNode }) {
     setSections((prev) => ({ ...prev, [key]: open }));
   }, []);
 
-  const claimLinks = useMemo(
-    () =>
-      data?.claims?.length
-        ? data.claims
-        : [{ label: "Claims Market", href: "/claims-market" }],
-    [data]
-  );
+  const claimLinks = useMemo(() => data?.claims ?? [], [data]);
 
   const value = useMemo<NavContextValue>(
     () => ({
@@ -348,18 +342,22 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
             </>
           )}
 
-          <NavDivider />
-          <NavSection
-            title="Claims"
-            open={sections.claims}
-            onToggle={() => setSection("claims", !sections.claims)}
-          >
-            {claimLinks.map((c) => (
-              <Link key={c.href} href={c.href} className={linkClass} title={c.label} onClick={afterNav}>
-                {c.label}
-              </Link>
-            ))}
-          </NavSection>
+          {claimLinks.length > 0 && (
+            <>
+              <NavDivider />
+              <NavSection
+                title="Claims"
+                open={sections.claims}
+                onToggle={() => setSection("claims", !sections.claims)}
+              >
+                {claimLinks.map((c) => (
+                  <Link key={c.href} href={c.href} className={linkClass} title={c.label} onClick={afterNav}>
+                    {c.label}
+                  </Link>
+                ))}
+              </NavSection>
+            </>
+          )}
 
           {(data.properties ?? []).length > 0 && (
             <>

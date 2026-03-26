@@ -65,7 +65,7 @@ export default function ClaimDetailPage() {
     try {
       const res = await listClaimForSale({ claimId, price: p });
       setListMsg(res.message ?? "Listed.");
-      router.push("/claims-market");
+      router.push("/real-estate#claims-market");
       router.refresh();
     } catch (e) {
       setListMsg(e instanceof Error ? e.message : "List failed.");
@@ -171,7 +171,7 @@ export default function ClaimDetailPage() {
           {data.isListed && (
             <p className="font-mono text-[12px] text-amber-800 dark:text-amber-400">
               This deed is listed on the{" "}
-              <Link href="/claims-market" className="underline">
+              <Link href="/real-estate#claims-market" className="underline">
                 claims market
               </Link>
               .

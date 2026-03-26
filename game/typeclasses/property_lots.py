@@ -33,6 +33,7 @@ class PropertyLot(Object):
     def at_object_creation(self):
         self.db.is_claimed = False
         self.db.owner      = None
+        self.db.holding_ref = None
         self.db.lot_tier   = 1
         self.db.zone       = "residential"
         self.db.size_units = 1

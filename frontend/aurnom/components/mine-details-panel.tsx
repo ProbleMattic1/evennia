@@ -121,7 +121,7 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: Props) {
       const res = await listMinePropertyForClaims({ siteId: site.id, price });
       if (res.ok) {
         setPostUndeploy(null);
-        router.push("/claims-market");
+        router.push("/real-estate#claims-market");
         router.refresh();
       } else {
         setListError(res.message ?? "Failed to list property.");

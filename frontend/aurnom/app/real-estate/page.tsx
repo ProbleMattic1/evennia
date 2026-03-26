@@ -3,10 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
+import { ClaimsMarketPanel } from "@/components/claims-market-panel";
 import { Countdown } from "@/components/countdown";
 import { StoryPanel } from "@/components/story-panel";
 import { getRealEstateState, purchasePropertyDeed } from "@/lib/ui-api";
 import type { PropertyLotRow } from "@/lib/ui-api";
+import {
+  exchangePanelCountdownClass,
+  exchangePanelEmptyClass,
+  exchangePanelOuterClass,
+  exchangePanelToolbarClass,
+  exchangePanelToolbarTitleClass,
+} from "@/lib/exchange-panel-classes";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 const REALTY_OFFICE_ROOM = "NanoMegaPlex Real Estate Office";
@@ -92,6 +100,15 @@ export default function RealEstatePage() {
     return () => clearInterval(id);
   }, [data?.nextPropertyDiscoveryAt, reload]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#claims-market") return;
+    const el = document.getElementById("claims-market");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [loading, data]);
+
   async function handleBuy(lotKey: string) {
     setBuyingLot(lotKey);
     setFeedback(null);
@@ -158,38 +175,46 @@ export default function RealEstatePage() {
           </p>
         )}
 
-        <div className="-mx-2 mb-2 flex flex-col gap-2 border-b border-zinc-200 bg-zinc-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between dark:border-cyan-800/50 dark:bg-cyan-950/40">
-          <h2 className="min-w-0 font-mono text-[12px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-cyan-400/90">
-            Sovereign exchange — listable parcels
-          </h2>
-          <Countdown
-            targetIso={data.nextPropertyDiscoveryAt ?? null}
-            prefix="Next restock:"
-            className="shrink-0 font-mono text-[11px] text-zinc-500 dark:text-cyan-500/80"
-            onExpired={reload}
-          />
-        </div>
-
-        <section className="px-2 py-2">
-          <h2 className="section-label">Available Lots</h2>
-
-          {data.lots.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-400 dark:text-cyan-500/70">
-              No lots currently available.
-            </p>
-          ) : (
-            <div className="mt-2 flex flex-col gap-2">
-              {data.lots.map((lot) => (
-                <LotCard
-                  key={lot.lotKey}
-                  lot={lot}
-                  onBuy={handleBuy}
-                  buying={buyingLot === lot.lotKey}
+        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+          <section aria-labelledby="property-listings-heading" className="min-w-0 px-2 py-2">
+            <div className={exchangePanelOuterClass}>
+              <div className={exchangePanelToolbarClass}>
+                <h2 id="property-listings-heading" className={exchangePanelToolbarTitleClass}>
+                  Property market — listable parcels
+                </h2>
+                <Countdown
+                  targetIso={data.nextPropertyDiscoveryAt ?? null}
+                  prefix="Next restock:"
+                  className={exchangePanelCountdownClass}
+                  onExpired={reload}
                 />
-              ))}
+              </div>
+
+              {data.lots.length === 0 ? (
+                <p className={exchangePanelEmptyClass}>No lots currently available.</p>
+              ) : (
+                <div className="mt-2 flex flex-col gap-2">
+                  {data.lots.map((lot) => (
+                    <LotCard
+                      key={lot.lotKey}
+                      lot={lot}
+                      onBuy={handleBuy}
+                      buying={buyingLot === lot.lotKey}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </section>
+          </section>
+
+          <section
+            id="claims-market"
+            aria-label="Claims market"
+            className="scroll-mt-4 min-w-0 px-2 py-2"
+          >
+            <ClaimsMarketPanel />
+          </section>
+        </div>
       </div>
     </main>
   );

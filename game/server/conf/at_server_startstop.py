@@ -75,6 +75,17 @@ def at_server_start():
         else:
             print("[startup] WARNING: PropertyLotDiscoveryEngine not found. Run bootstrap_realty_office.")
 
+        prop_ops = search_script("property_operations_engine")
+        if prop_ops:
+            ps = prop_ops[0]
+            if not ps.is_active:
+                ps.start()
+                print("[startup] PropertyOperationsEngine was stopped — restarted.")
+        else:
+            print(
+                "[startup] WARNING: PropertyOperationsEngine not found. Run bootstrap_realty_office."
+            )
+
     except Exception:
         import traceback
 

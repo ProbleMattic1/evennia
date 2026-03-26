@@ -8,6 +8,10 @@ from typeclasses.property_lots import ZONE_LABELS
 
 EXCHANGE_ROOM_KEY = "NanoMegaPlex Real Estate Office"
 
+# Minimum tier for discovery-spawned exchange lots (1 = Starter … 3 = Prime).
+MIN_EXCHANGE_TIER = 2
+MAX_EXCHANGE_TIER = 3
+
 PARCEL_PREFIXES = [
     "Aurora", "Civic", "Crown", "District", "Eclipse", "Founders", "Gridline",
     "Harbor", "Horizon", "Meridian", "Metro", "Nova", "Orbit", "Pinnacle",
@@ -41,10 +45,8 @@ def _pick_unique_lot_key(zone):
 
 
 def _random_tier_and_size():
-    tier = random.randint(1, 3)
-    if tier == 1:
-        size = random.randint(1, 2)
-    elif tier == 2:
+    tier = random.randint(MIN_EXCHANGE_TIER, MAX_EXCHANGE_TIER)
+    if tier == 2:
         size = random.randint(2, 3)
     else:
         size = random.randint(3, 5)

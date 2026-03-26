@@ -11,6 +11,7 @@ from typeclasses.property_claims import (
     CLAIM_TITLE_PREFIX_BY_ZONE,
     CLAIM_TYPECLASS_BY_ZONE,
 )
+from typeclasses.property_development import ensure_holding_for_claimed_lot
 from typeclasses.property_lot_registry import (
     get_listable_lots_from_registry,
     move_lot_to_claimed_archive,
@@ -182,6 +183,7 @@ def purchase_property_deed(buyer, lot_key):
     claim = create_property_claim_for_lot(lot, buyer)
     lot.db.is_claimed = True
     lot.db.owner = buyer
+    ensure_holding_for_claimed_lot(lot, buyer)
     unregister_listable_property_lot(lot)
     move_lot_to_claimed_archive(lot)
     msg = f"Purchased {claim.key} for {price:,} cr."

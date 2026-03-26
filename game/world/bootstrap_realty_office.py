@@ -10,6 +10,7 @@ Creates
 - Property lots from LOT_CATALOGUE (idempotent — attrs updated each run; lots never deleted)
 - PropertyLotExchangeRegistry script + rebuild of listable IDs from tags
 - PropertyLotDiscoveryEngine periodic restock script
+- PropertyOperationRegistry + PropertyOperationsEngine (parcel income tick)
 - Moves the NanoMegaPlex Real Estate NPC into the office (if they exist)
 
 Safe to call on every cold start.
@@ -23,13 +24,16 @@ from typeclasses.property_lot_registry import (
     PropertyLotExchangeRegistry,
     rebuild_property_exchange_registry,
 )
+from typeclasses.property_operation_registry import PropertyOperationRegistry
+from typeclasses.property_operations_engine import PropertyOperationsEngine
 
 REALTY_OFFICE_KEY  = "NanoMegaPlex Real Estate Office"
 REALTY_OFFICE_DESC = (
     "A clean, well-lit suite branching off the NanoMegaPlex Promenade. "
     "Holographic lot schematics rotate slowly behind a polished reception desk. "
-    "Parcels of every tier are available — from modest starter units to full "
-    "industrial platforms. The NanoMegaPlex Real Estate agent stands ready to assist."
+    "Standard and prime parcels rotate on the sovereign exchange, with fresh "
+    "survey listings as inventory turns. The NanoMegaPlex Real Estate agent "
+    "stands ready to assist."
 )
 
 PROPERTY_LOTS_ARCHIVE_DESC = (
@@ -37,28 +41,11 @@ PROPERTY_LOTS_ARCHIVE_DESC = (
 )
 
 # ---------------------------------------------------------------------------
-# Lot catalogue — the source of truth for what the office stocks.
-# Add entries freely; bootstrap is idempotent on lot_key uniqueness.
-# Sold lots (is_claimed=True) are never recreated; the row simply idles.
+# Lot catalogue — optional fixed seed lots in the office (idempotent on lot_key).
+# Empty at cold start; PropertyLotDiscoveryEngine adds parcels over time.
+# Sold lots (is_claimed=True) are never recreated from catalogue; the row idles.
 # ---------------------------------------------------------------------------
-LOT_CATALOGUE = [
-    # --- Tier 1 Residential ---
-    {"lot_key": "Lot R-101", "tier": 1, "zone": "residential", "size_units": 1},
-    {"lot_key": "Lot R-102", "tier": 1, "zone": "residential", "size_units": 1},
-    {"lot_key": "Lot R-103", "tier": 1, "zone": "residential", "size_units": 1},
-    # --- Tier 1 Commercial ---
-    {"lot_key": "Lot C-101", "tier": 1, "zone": "commercial",  "size_units": 1},
-    {"lot_key": "Lot C-102", "tier": 1, "zone": "commercial",  "size_units": 1},
-    # --- Tier 1 Industrial ---
-    {"lot_key": "Lot I-101", "tier": 1, "zone": "industrial",  "size_units": 1},
-    # --- Tier 2 Standard ---
-    {"lot_key": "Lot R-201", "tier": 2, "zone": "residential", "size_units": 2},
-    {"lot_key": "Lot C-201", "tier": 2, "zone": "commercial",  "size_units": 2},
-    {"lot_key": "Lot I-201", "tier": 2, "zone": "industrial",  "size_units": 2},
-    # --- Tier 3 Industrial ---
-    {"lot_key": "Lot I-301", "tier": 3, "zone": "industrial",  "size_units": 4},
-    {"lot_key": "Lot C-301", "tier": 3, "zone": "commercial",  "size_units": 3},
-]
+LOT_CATALOGUE = []
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +165,20 @@ def bootstrap_realty_office():
     else:
         create_script(PropertyLotDiscoveryEngine)
         print("[realty-office] Created PropertyLotDiscoveryEngine.")
+
+    op_reg = search_script("property_operation_registry")
+    if op_reg:
+        print(f"[realty-office] PropertyOperationRegistry exists: {op_reg[0].key}")
+    else:
+        create_script(PropertyOperationRegistry)
+        print("[realty-office] Created PropertyOperationRegistry.")
+
+    op_eng = search_script("property_operations_engine")
+    if op_eng:
+        print(f"[realty-office] PropertyOperationsEngine exists: {op_eng[0].key}")
+    else:
+        create_script(PropertyOperationsEngine)
+        print("[realty-office] Created PropertyOperationsEngine.")
 
     print(
         f"[realty-office] Office ready: '{REALTY_OFFICE_KEY}'. "
