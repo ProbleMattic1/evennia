@@ -7,6 +7,7 @@ Single source for commands, web API, and property_operation_handlers.
 STRUCTURE_UPGRADE_DEFS = {
     "tenancy_marketing": {
         "max_level": 5,
+        "payee": "advertising",
         "level_cost_cr": {
             1: 500,
             2: 1_500,
@@ -60,3 +61,10 @@ def blueprint_allows_upgrade(d, blueprint_id):
     if allowed is None:
         return True
     return (blueprint_id or "") in allowed
+
+
+def upgrade_routes_to_advertising(upgrade_key):
+    d = upgrade_def(upgrade_key)
+    if not d:
+        return False
+    return (d.get("payee") or "construction") == "advertising"

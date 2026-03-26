@@ -14,6 +14,8 @@ import {
   mineUndeploy,
 } from "@/lib/ui-api";
 import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
+import { compositionToLines, displayResourceName } from "@/lib/resource-display";
+import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
 import { Countdown } from "@/components/countdown";
 
 type PrimaryProps = {
@@ -40,16 +42,22 @@ function formatDate(s: string | null) {
   }
 }
 
-function formatComposition(comp: Record<string, number>) {
-  const entries = Object.entries(comp);
-  if (entries.length === 0) return "—";
-  return entries.map(([k, v]) => `${k} ${Math.round(v * 100)}%`).join(", ");
-}
-
-function formatInventory(inv: Record<string, number>) {
-  const entries = Object.entries(inv);
-  if (entries.length === 0) return "—";
-  return entries.map(([k, v]) => `${k}: ${v.toFixed(1)} t`).join(" · ");
+/** Like Kv, but stacks multiple lines on the right (display names + one fact per line). */
+function LabeledStackLines({ label, lines }: { label: string; lines: { key: string; text: string }[] }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <span className="shrink-0 text-zinc-500">{label}</span>
+      {lines.length === 0 ? (
+        <span className="min-w-0 truncate text-right font-mono text-zinc-200">—</span>
+      ) : (
+        <div className="min-w-0 space-y-0.5 text-right font-mono text-zinc-200">
+          {lines.map((l) => (
+            <div key={l.key}>{l.text}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
@@ -113,6 +121,16 @@ type ReturnedEquipment = NonNullable<
 
 /** Primary mine UI: read-only core cards only (left column on Play). */
 export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps) {
+  const resourceNames = useResourceNameLookup();
+  const compositionLines = compositionToLines(site.composition || {}, resourceNames).map((l) => ({
+    key: l.key,
+    text: `${l.displayName} ${l.pct}%`,
+  }));
+  const inventoryLines = Object.entries(site.inventory || {}).map(([k, v]) => ({
+    key: k,
+    text: `${displayResourceName(k, resourceNames)}: ${Number(v).toFixed(1)} t`,
+  }));
+
   return (
     <div>
       <div className="mt-1 grid auto-rows-min grid-cols-1 gap-2">
@@ -166,7 +184,7 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps
           <Kv label="Richness" value={site.richness.toFixed(4)} />
           <Kv label="Output" value={`${site.baseOutputTons} t/cycle`} />
           <Kv label="Resources" value={site.resources} />
-          <Kv label="Composition" value={formatComposition(site.composition)} />
+          <LabeledStackLines label="Composition" lines={compositionLines} />
         </Card>
 
         <Card title="Hazard">
@@ -209,9 +227,7 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps
 
         <Card title="Storage">
           <Kv label="Used" value={`${site.storageUsed} / ${site.storageCapacity} t`} />
-          {Object.keys(site.inventory).length > 0 && (
-            <Kv label="Stored" value={formatInventory(site.inventory)} />
-          )}
+          {inventoryLines.length > 0 ? <LabeledStackLines label="Stored" lines={inventoryLines} /> : null}
         </Card>
 
         {site.rig && (

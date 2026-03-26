@@ -144,6 +144,7 @@ class Account(DefaultAccount):
             ABILITY_KEYS,
             DEFAULT_ABILITY_BASES,
             MARCUS_CHARACTER_KEY,
+            NANOMEGA_ADVERTISING_CHARACTER_KEY,
             NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
             NANOMEGA_REALTY_CHARACTER_KEY,
         )
@@ -153,6 +154,7 @@ class Account(DefaultAccount):
             MARCUS_CHARACTER_KEY,
             NANOMEGA_REALTY_CHARACTER_KEY,
             NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
+            NANOMEGA_ADVERTISING_CHARACTER_KEY,
         ):
             return
         character.ensure_default_rpg_traits()

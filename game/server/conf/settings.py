@@ -38,6 +38,11 @@ DEBUG = True
 SERVERNAME = "game"
 ROOT_URLCONF = "web.urls"
 
+# Trusted reverse-proxy IPs only (see Evennia UPSTREAM_IPS + ip_from_request).
+# Never list your entire Docker bridge CIDR here — the Next.js container is the
+# TCP peer, not a hop to strip unless it adds X-Forwarded-For (see frontend proxy).
+UPSTREAM_IPS = ["127.0.0.1", "::1"]
+
 # Default home / start: repurposed by world.bootstrap_hub as NanoMegaPlex Promenade (see #2).
 DEFAULT_HOME = "#2"
 START_LOCATION = "#2"

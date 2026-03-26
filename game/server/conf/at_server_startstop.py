@@ -155,6 +155,7 @@ def at_server_cold_start():
     from world.bootstrap_haulers import bootstrap_haulers
     from world.bootstrap_hub import bootstrap_hub
     from world.bootstrap_marcus_killstar import bootstrap_marcus_killstar
+    from world.bootstrap_nanomega_advertising import bootstrap_nanomega_advertising
     from world.bootstrap_nanomega_construction import bootstrap_nanomega_construction
     from world.bootstrap_nanomega_realty import bootstrap_nanomega_realty
     from world.bootstrap_realty_office import bootstrap_realty_office
@@ -166,6 +167,7 @@ def at_server_cold_start():
     from world.bootstrap_shops import bootstrap_shops
     from world.bootstrap_vehicle_catalog import bootstrap_vehicle_catalog
     from world.bootstrap_world_ambient import bootstrap_world_ambient
+    from world.bootstrap_parcel_mission_npcs import bootstrap_parcel_mission_npcs
     from world.bootstrap_promenade_guide import (
         bootstrap_promenade_guide,
         bootstrap_promenade_room_ambience,
@@ -188,10 +190,15 @@ def at_server_cold_start():
         "NanoMegaPlex Construction (account link; credits on create only)",
         bootstrap_nanomega_construction,
     )
+    _run(
+        "NanoMegaPlex Advertising Agent (agency room; credits on create)",
+        bootstrap_nanomega_advertising,
+    )
     _run("NanoMegaPlex Real Estate Office room and base lots", bootstrap_realty_office)
     _run("vehicle catalog CSV import", bootstrap_vehicle_catalog)
     _run("shipyard rooms + stock templates", bootstrap_shipyard)
     _run("general catalog shops (tech, mining, supply, toy)", bootstrap_shops)
+    _run("parcel mission NPCs", bootstrap_parcel_mission_npcs)
     _run("mining engine + sample sites + Ashfall Basin", bootstrap_mining)
     _run("hauler engine + refinery engine + receiving bay", bootstrap_haulers)
     _run("mining sale packages (Starter Pack, Pro Pack)", bootstrap_mining_packages)

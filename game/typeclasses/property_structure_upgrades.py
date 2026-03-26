@@ -4,8 +4,11 @@ Purchase structure upgrades (credits -> structure.db.upgrades).
 
 from typeclasses.economy import get_economy
 from typeclasses.property_claim_market import (
+    collect_property_advertising_payment,
     collect_property_construction_payment,
+    get_advertising_agent,
     get_construction_builder,
+    refund_property_advertising_payment,
     refund_property_construction_payment,
 )
 from typeclasses.property_holdings import PROPERTY_HOLDING_CATEGORY
@@ -13,6 +16,7 @@ from world.property_structure_upgrade_registry import (
     blueprint_allows_upgrade,
     next_upgrade_level_cost_cr,
     upgrade_def,
+    upgrade_routes_to_advertising,
 )
 
 
@@ -54,9 +58,24 @@ def purchase_structure_upgrade(owner, holding, structure_dbid, upgrade_key):
     if bal < price:
         return False, f"You need {price:,} cr but only have {bal:,} cr."
 
-    builder = get_construction_builder()
+    use_advertising = upgrade_routes_to_advertising(key)
+    agent = get_advertising_agent() if use_advertising else None
+    builder = get_construction_builder() if not use_advertising else None
+
     net_amount = tax_amount = None
-    if builder:
+    recipient = None
+
+    if use_advertising and agent:
+        net_amount, tax_amount = collect_property_advertising_payment(
+            owner,
+            price,
+            agent,
+            tx_type="property_structure_upgrade_advertising",
+            withdraw_memo=f"property advertising {key} L{nxt}",
+            record_memo=f"{owner.key} advertising upgrade {key} L{nxt}",
+        )
+        recipient = agent
+    elif builder:
         net_amount, tax_amount = collect_property_construction_payment(
             owner,
             price,
@@ -65,6 +84,7 @@ def purchase_structure_upgrade(owner, holding, structure_dbid, upgrade_key):
             withdraw_memo=f"property upgrade {key} L{nxt}",
             record_memo=f"{owner.key} upgrade {key} L{nxt}",
         )
+        recipient = builder
     else:
         econ.withdraw(acct, price, memo=f"property upgrade {key} L{nxt}")
         owner.db.credits = econ.get_character_balance(owner)
@@ -73,15 +93,20 @@ def purchase_structure_upgrade(owner, holding, structure_dbid, upgrade_key):
     try:
         st.db.upgrades = ups
     except Exception:
-        if builder and net_amount is not None:
-            refund_property_construction_payment(
-                owner, price, builder, net_amount=net_amount, tax_amount=tax_amount
-            )
+        if recipient is not None and net_amount is not None:
+            if use_advertising:
+                refund_property_advertising_payment(
+                    owner, price, recipient, net_amount=net_amount, tax_amount=tax_amount
+                )
+            else:
+                refund_property_construction_payment(
+                    owner, price, recipient, net_amount=net_amount, tax_amount=tax_amount
+                )
         else:
             econ.deposit(acct, price, memo="Refund: upgrade apply failed")
             owner.db.credits = econ.get_character_balance(owner)
         return False, "Could not apply upgrade; payment refunded."
 
-    if not builder:
+    if recipient is None:
         owner.db.credits = econ.get_character_balance(owner)
     return True, f"{st.key}: {key} -> level {nxt} ({price:,} cr)."

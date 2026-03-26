@@ -51,6 +51,7 @@ from commands.property_ops import (
     CmdUpgradePropertyStructure,
 )
 from commands.property_place import CmdOpenProperty, CmdVisitProperty
+from commands.npc_parcel_mission import CmdAskParcelClerk, CmdAskParcelCommuter
 from commands.npc_promenade import CmdAskGuide
 from commands.reload_ambient import CmdReloadAmbient
 from commands.shop import CmdBuy, CmdShop
@@ -127,6 +128,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdBuyPropertyExtraSlot())
         self.add(CmdResolvePropertyIncident())
         self.add(CmdAskGuide())
+        self.add(CmdAskParcelCommuter())
+        self.add(CmdAskParcelClerk())
         self.add(CmdMissions())
         self.add(CmdMissionAccept())
         self.add(CmdMissionChoose())

@@ -69,6 +69,17 @@ NANOMEGA_CONSTRUCTION_ABILITY_BASES = {
     "cha": 15,
 }
 
+NANOMEGA_ADVERTISING_CHARACTER_KEY = "NanoMegaPlex Advertising Agent"
+
+NANOMEGA_ADVERTISING_ABILITY_BASES = {
+    "str": 10,
+    "dex": 11,
+    "con": 11,
+    "int": 15,
+    "wis": 13,
+    "cha": 18,
+}
+
 PROMENADE_GUIDE_CHARACTER_KEY = "Station Guide Kiran"
 
 PROMENADE_GUIDE_ABILITY_BASES = {
@@ -80,6 +91,28 @@ PROMENADE_GUIDE_ABILITY_BASES = {
     "cha": 16,
 }
 
+PARCEL_COMMUTER_CHARACTER_KEY = "Mira Okonkwo"
+
+PARCEL_COMMUTER_ABILITY_BASES = {
+    "str": 10,
+    "dex": 11,
+    "con": 11,
+    "int": 14,
+    "wis": 13,
+    "cha": 12,
+}
+
+GENERAL_SUPPLY_CLERK_CHARACTER_KEY = "Vesta Kline"
+
+GENERAL_SUPPLY_CLERK_ABILITY_BASES = {
+    "str": 10,
+    "dex": 12,
+    "con": 12,
+    "int": 15,
+    "wis": 14,
+    "cha": 13,
+}
+
 CHARACTER_TYPECLASS_PATH = "typeclasses.characters.Character"
 
 
@@ -89,7 +122,10 @@ def character_key_skips_pointbuy(character_key):
         MARCUS_CHARACTER_KEY,
         NANOMEGA_REALTY_CHARACTER_KEY,
         NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
+        NANOMEGA_ADVERTISING_CHARACTER_KEY,
         PROMENADE_GUIDE_CHARACTER_KEY,
+        PARCEL_COMMUTER_CHARACTER_KEY,
+        GENERAL_SUPPLY_CLERK_CHARACTER_KEY,
     )
 
 
@@ -107,8 +143,14 @@ def ability_bases_for_character_key(character_key, *, rpg_pointbuy_done):
         return NANOMEGA_REALTY_ABILITY_BASES
     if character_key == NANOMEGA_CONSTRUCTION_CHARACTER_KEY:
         return NANOMEGA_CONSTRUCTION_ABILITY_BASES
+    if character_key == NANOMEGA_ADVERTISING_CHARACTER_KEY:
+        return NANOMEGA_ADVERTISING_ABILITY_BASES
     if character_key == PROMENADE_GUIDE_CHARACTER_KEY:
         return PROMENADE_GUIDE_ABILITY_BASES
+    if character_key == PARCEL_COMMUTER_CHARACTER_KEY:
+        return PARCEL_COMMUTER_ABILITY_BASES
+    if character_key == GENERAL_SUPPLY_CLERK_CHARACTER_KEY:
+        return GENERAL_SUPPLY_CLERK_ABILITY_BASES
     if rpg_pointbuy_done is False:
         return {k: 8 for k in ABILITY_KEYS}
     return DEFAULT_ABILITY_BASES
@@ -150,7 +192,10 @@ class Character(ObjectParent, DefaultCharacter):
             MARCUS_CHARACTER_KEY,
             NANOMEGA_REALTY_CHARACTER_KEY,
             NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
+            NANOMEGA_ADVERTISING_CHARACTER_KEY,
             PROMENADE_GUIDE_CHARACTER_KEY,
+            PARCEL_COMMUTER_CHARACTER_KEY,
+            GENERAL_SUPPLY_CLERK_CHARACTER_KEY,
         ):
             self.db.rpg_pointbuy_done = True
         else:

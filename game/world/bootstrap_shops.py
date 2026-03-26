@@ -62,15 +62,15 @@ SHOPS = (
 )
 
 CATALOG = (
-    ("Tech Datapad", "tech-depot", "A slim personal datapad with standard productivity suites.", 450),
-    ("Tech Sensor Node", "tech-depot", "A compact environmental sensor package for hobbyists.", 890),
-    ("Tech Repair Drone", "tech-depot", "A palm-sized maintenance drone for light repairs.", 2400),
-    ("Supply Ration Pack", "general-supply", "A week's worth of balanced meal bars and hydration.", 85),
-    ("Supply Medkit", "general-supply", "Standard trauma and stabilization kit.", 220),
-    ("Supply Multitool", "general-supply", "All-in-one driver, cutter, and pry bar.", 140),
-    ("Toy Holo Chess", "toy-gallery", "Portable holographic chess set with classic variants.", 95),
-    ("Toy Plush Bot", "toy-gallery", "A soft plush replica of a popular station robot.", 42),
-    ("Toy Model Freighter", "toy-gallery", "Die-cast display model of a civilian freighter class.", 175),
+    ("Tech Datapad", "tech-depot", "A slim personal datapad with standard productivity suites.", 450, "tool"),
+    ("Tech Sensor Node", "tech-depot", "A compact environmental sensor package for hobbyists.", 890, "tool"),
+    ("Tech Repair Drone", "tech-depot", "A palm-sized maintenance drone for light repairs.", 2400, "tool"),
+    ("Supply Ration Pack", "general-supply", "A week's worth of balanced meal bars and hydration.", 85, "consumable"),
+    ("Supply Medkit", "general-supply", "Standard trauma and stabilization kit.", 220, "consumable"),
+    ("Supply Multitool", "general-supply", "All-in-one driver, cutter, and pry bar.", 140, "tool"),
+    ("Toy Holo Chess", "toy-gallery", "Portable holographic chess set with classic variants.", 95, "novelty"),
+    ("Toy Plush Bot", "toy-gallery", "A soft plush replica of a popular station robot.", 42, "novelty"),
+    ("Toy Model Freighter", "toy-gallery", "Die-cast display model of a civilian freighter class.", 175, "novelty"),
 )
 
 
@@ -125,7 +125,7 @@ def _get_or_create_catalog_vendor(room, spec):
     return kiosk
 
 
-def _ensure_catalog_template(key, vendor_id, desc, price_cr):
+def _ensure_catalog_template(key, vendor_id, desc, price_cr, inventory_bucket_tag: str):
     found = search_object(key)
     if found:
         obj = found[0]
@@ -135,6 +135,7 @@ def _ensure_catalog_template(key, vendor_id, desc, price_cr):
     obj.db.economy = {"base_price_cr": int(price_cr)}
     obj.db.is_template = True
     obj.tags.add(vendor_id, category="vendor")
+    obj.tags.add(inventory_bucket_tag, category="inventory")
     obj.locks.add("get:false()")
     return obj
 
@@ -157,8 +158,8 @@ def bootstrap_shops():
             )
             _get_or_create_exit("promenade", ["back", "exit", "out", "plex", "hub"], room, hub)
 
-    for key, vendor_id, desc, price in CATALOG:
-        _ensure_catalog_template(key, vendor_id, desc, price)
+    for key, vendor_id, desc, price, bucket in CATALOG:
+        _ensure_catalog_template(key, vendor_id, desc, price, bucket)
 
     print("[shops] Catalog vendors: tech-depot, mining-outfitters, general-supply, toy-gallery")
     print("[shops] Rooms created or updated; hub exits wired if NanoMegaPlex Promenade (#2) exists.")

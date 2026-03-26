@@ -78,18 +78,6 @@ function TinyLink({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-function TinyButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-[10px] text-cyan-400 hover:bg-cyan-900/40"
-    >
-      {children}
-    </button>
-  );
-}
-
 function cr(n: number | null | undefined) {
   if (n == null) return "—";
   return `${n.toLocaleString()} cr`;
@@ -108,14 +96,12 @@ function PlayerPanel({
   miningValuePerCycle,
   miningStoredValue,
   propertyRefValue,
-  onReload,
 }: {
   char: CsCharacter;
   morality: Morality;
   miningValuePerCycle: number;
   miningStoredValue: number;
   propertyRefValue: number;
-  onReload: () => void;
 }) {
   const hp = char.vitals?.hp;
   const abilityRows = Object.entries(char.abilities || {}).sort(([a], [b]) => a.localeCompare(b));
@@ -152,9 +138,6 @@ function PlayerPanel({
           C <span className="text-zinc-300">{morality.chaotic}</span>
         </span>
       </div>
-      <div className="mt-1">
-        <TinyButton onClick={onReload}>Refresh</TinyButton>
-      </div>
     </Panel>
   );
 }
@@ -189,15 +172,6 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
           ))}
         </Panel>
       )}
-      {nav.properties.length > 0 && (
-        <Panel panelKey="property-deeds" title="Property Deeds">
-          {nav.properties.map((p) => (
-            <div key={p.href}>
-              <TinyLink href={p.href}>{p.label}</TinyLink>
-            </div>
-          ))}
-        </Panel>
-      )}
       {nav.exits.length > 0 && (
         <Panel panelKey="hub-exits" title="Hub Exits">
           {nav.exits.map((e) => (
@@ -212,7 +186,7 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
 }
 
 export function PersistentNavRail() {
-  const { data, loading, error, reload } = useControlSurface();
+  const { data, loading, error } = useControlSurface();
 
   return (
     <aside className="sticky top-0 h-svh min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
@@ -232,7 +206,6 @@ export function PersistentNavRail() {
           miningValuePerCycle={data.miningEstimatedValuePerCycle ?? 0}
           miningStoredValue={data.miningTotalStoredValue ?? 0}
           propertyRefValue={data.propertyReferenceListValueTotalCr ?? 0}
-          onReload={reload}
         />
       ) : (
         <div className="text-zinc-500">Not logged in.</div>

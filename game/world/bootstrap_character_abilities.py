@@ -14,6 +14,7 @@ from typeclasses.characters import (
     DEFAULT_ABILITY_BASES,
     Character,
     MARCUS_CHARACTER_KEY,
+    NANOMEGA_ADVERTISING_CHARACTER_KEY,
     NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
     NANOMEGA_REALTY_CHARACTER_KEY,
 )
@@ -44,6 +45,7 @@ def bootstrap_character_abilities():
             MARCUS_CHARACTER_KEY,
             NANOMEGA_REALTY_CHARACTER_KEY,
             NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
+            NANOMEGA_ADVERTISING_CHARACTER_KEY,
         ):
             skipped += 1
             continue

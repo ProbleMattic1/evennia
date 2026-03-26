@@ -10,6 +10,7 @@ from evennia import search_object
 from evennia.utils import utils
 
 from world.bootstrap_hub import HUB_ROOM_KEY
+from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
 
 DEFAULT_PLAY_ROOM = HUB_ROOM_KEY
 
@@ -297,6 +298,7 @@ def _serialize_mining_site(site, char=None):
         hazard_label = "High"
 
     from typeclasses.mining import (
+        RESOURCE_CATALOG,
         compute_rig_repair_charge,
         get_commodity_bid,
         MODE_OUTPUT_MODIFIERS,
@@ -336,7 +338,13 @@ def _serialize_mining_site(site, char=None):
             estimated_value_per_cycle += total_tons * float(frac) * get_commodity_bid(k, location=loc)
     estimated_value_per_cycle = int(round(estimated_value_per_cycle))
 
-    families = ", ".join(sorted(raw_comp.keys())) if raw_comp else "unknown"
+    if raw_comp:
+        families = ", ".join(
+            RESOURCE_CATALOG.get(str(k), {}).get("name", str(k).replace("_", " "))
+            for k in sorted(raw_comp.keys(), key=str)
+        )
+    else:
+        families = "unknown"
     owner_key = site.db.owner.key if site.db.owner else None
 
     rigs_payload = []
@@ -1086,6 +1094,8 @@ ALLOWED_WEB_INTERACTIONS = {
     "askguide:mining": lambda payload: "askguide mining",
     "askguide:security": lambda payload: "askguide security",
     "askguide:transit": lambda payload: "askguide transit",
+    "parcel:commuter": lambda payload: "askparcelcommuter",
+    "parcel:supply_clerk": lambda payload: "askparcelclerk",
     "survey": lambda payload: "survey",
 }
 
@@ -1731,7 +1741,7 @@ def dashboard_state(request):
                 "authenticated": False,
                 "character": None,
                 "credits": None,
-                "inventory": [],
+                "inventory": empty_inventory_payload(),
                 "ships": [],
                 "mines": [],
                 "properties": [],
@@ -1763,7 +1773,7 @@ def dashboard_state(request):
                 "authenticated": True,
                 "character": None,
                 "credits": None,
-                "inventory": [],
+                "inventory": empty_inventory_payload(),
                 "ships": [],
                 "mines": [],
                 "properties": [],
@@ -1784,26 +1794,7 @@ def dashboard_state(request):
 
     credits = econ.get_character_balance(char)
 
-    claim_inventory = []
-    stackable_objs = []
-    for obj in char.contents:
-        if getattr(obj, "destination", None):
-            continue
-        if getattr(obj.db, "is_template", False):
-            continue
-        if obj.tags.has("mining_claim", category="mining"):
-            claim_inventory.append(_dashboard_inventory_item_for_obj(char, obj))
-        else:
-            stackable_objs.append(obj)
-
-    inventory = list(claim_inventory)
-    for _numbered_name, _desc, objs in utils.group_objects_by_key_and_desc(stackable_objs, caller=char):
-        inv_entry = _dashboard_inventory_item_for_obj(char, objs[0])
-        if len(objs) > 1:
-            inv_entry["count"] = len(objs)
-            inv_entry["stacked"] = True
-            inv_entry["ids"] = [o.id for o in objs]
-        inventory.append(inv_entry)
+    inventory = serialize_inventory_by_bucket(char, _dashboard_inventory_item_for_obj)
 
     autonomous_by_key = defaultdict(list)
     ships_other = []

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Countdown } from "@/components/countdown";
 import { DashboardMissionsPanel } from "@/components/dashboard-missions-panel";
@@ -14,6 +14,7 @@ import type {
   DashboardShip,
   MarketCommodity,
 } from "@/lib/ui-api";
+import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
 import { dashboardAckAlert, mineDeploy } from "@/lib/ui-api";
 
 function Panel({
@@ -138,6 +139,13 @@ function pct(n: number) {
   return `${Math.round(n * 100)}%`;
 }
 
+function inventoryBucket(inv: CsInventory, id: string) {
+  return inv.byBucket[id] ?? [];
+}
+
+/** Not listed in Inventory panel; Mine Operations still reads these buckets from the same payload. */
+const INVENTORY_PANEL_HIDDEN_BUCKETS = new Set(["mining_claim", "property_deed"]);
+
 function AlertsPanel({
   grouped,
   onAck,
@@ -196,52 +204,42 @@ function MarketPanel({ commodities }: { commodities: MarketCommodity[] }) {
 }
 
 function InventoryPanel({ inventory }: { inventory: CsInventory }) {
-  const total = inventory.claims.length + inventory.packages.length + inventory.other.length;
+  const visibleOrder = (
+    inventory.bucketOrder.length > 0 ? inventory.bucketOrder : Object.keys(inventory.byBucket).sort()
+  ).filter((id) => !INVENTORY_PANEL_HIDDEN_BUCKETS.has(id));
+
+  const total = visibleOrder.reduce((sum, bucketId) => {
+    const rows = inventory.byBucket[bucketId];
+    return sum + (rows?.length ?? 0);
+  }, 0);
+
   if (total === 0) return null;
+
+  const labels = inventory.bucketLabels;
 
   return (
     <Panel panelKey="inventory" title={`Inventory (${total})`}>
-      {inventory.claims.length > 0 ? (
-        <>
-          <div className="text-[10px] uppercase text-zinc-500">Claims</div>
-          {inventory.claims.map((item) => (
-            <Row key={item.id}>
-              <span className="flex-1 truncate text-zinc-300">{item.key}</span>
-              {item.claimSpecs ? (
-                <>
-                  <Badge label={item.claimSpecs.volumeTier ?? ""} cls={item.claimSpecs.volumeTierCls} />
-                  <Badge label={item.claimSpecs.resourceRarityTier ?? ""} cls={item.claimSpecs.resourceRarityTierCls} />
-                </>
-              ) : null}
-              <TinyLink href={`/claims/${item.id}`}>→</TinyLink>
-            </Row>
-          ))}
-        </>
-      ) : null}
-      {inventory.packages.length > 0 ? (
-        <>
-          <div className="mt-0.5 text-[10px] uppercase text-zinc-500">Packages</div>
-          {inventory.packages.map((item) => (
-            <Row key={item.id}>
-              <span className="flex-1 truncate text-zinc-300">{item.key}</span>
-              {item.estimatedValue != null ? <span className="font-mono text-zinc-500">{cr(item.estimatedValue)}</span> : null}
-            </Row>
-          ))}
-        </>
-      ) : null}
-      {inventory.other.length > 0 ? (
-        <>
-          <div className="mt-0.5 text-[10px] uppercase text-zinc-500">Other</div>
-          {inventory.other.map((item) => (
-            <Row key={item.id}>
-              <span className="flex-1 truncate text-zinc-300">
-                {item.count && item.count > 1 ? `${item.count}× ` : ""}
-                {item.key}
-              </span>
-            </Row>
-          ))}
-        </>
-      ) : null}
+      {visibleOrder.map((bucketId) => {
+        const rows = inventory.byBucket[bucketId];
+        if (!rows?.length) return null;
+        const title = labels[bucketId] ?? bucketId.replace(/_/g, " ");
+        return (
+          <div key={bucketId} className="mt-0.5 first:mt-0">
+            <div className="text-[10px] uppercase text-zinc-500">{title}</div>
+            {rows.map((item) => (
+              <Row key={`${bucketId}-${item.stacked && item.ids?.length ? item.ids.join("-") : item.id}-${item.key}`}>
+                <span className="flex-1 truncate text-zinc-300">
+                  {item.count && item.count > 1 ? `${item.count}× ` : ""}
+                  {item.key}
+                </span>
+                {bucketId === "mining_package" && item.estimatedValue != null ? (
+                  <span className="font-mono text-zinc-500">{cr(item.estimatedValue)}</span>
+                ) : null}
+              </Row>
+            ))}
+          </div>
+        );
+      })}
     </Panel>
   );
 }
@@ -255,11 +253,11 @@ function MineDeploymentPanel({
   onDeploy: (packageId: number, claimId: number) => void;
   busy: boolean;
 }) {
-  const packageRows = inventory.packages.flatMap((item) => {
+  const packageRows = inventoryBucket(inventory, "mining_package").flatMap((item) => {
     const ids = item.stacked && item.ids?.length ? item.ids : [item.id];
     return ids.map((id) => ({ ...item, id }));
   });
-  const claimRows = inventory.claims.flatMap((item) => {
+  const claimRows = inventoryBucket(inventory, "mining_claim").flatMap((item) => {
     const ids = item.stacked && item.ids?.length ? item.ids : [item.id];
     return ids.map((id) => ({ ...item, id }));
   });
@@ -338,55 +336,79 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
   );
 }
 
-function MinesPanel({ mines, onReload }: { mines: DashboardMine[]; onReload: () => void }) {
+function MinesPanel({
+  mines,
+  market,
+  onReload,
+}: {
+  mines: DashboardMine[];
+  market: MarketCommodity[];
+  onReload: () => void;
+}) {
+  const resourceNames = useMemo(() => buildResourceNameLookup(market), [market]);
+
   if (mines.length === 0) return null;
   return (
     <Panel panelKey="mines" title={`Mines (${mines.length})`}>
-      {mines.map((m) => (
-        <div key={m.key} className="mb-1 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0">
-          <Row>
-            <span className={`font-semibold ${m.active ? "text-green-400" : "text-zinc-500"}`}>{m.active ? "●" : "○"}</span>
-            <span className="flex-1 truncate text-zinc-200">{m.key}</span>
-          </Row>
-          <div className="ml-3 space-y-0">
-            {m.volumeTier ? (
-              <Row>
-                <Badge label={m.volumeTier} cls={m.volumeTierCls} />
-                <Badge label={m.resourceRarityTier ?? ""} cls={m.resourceRarityTierCls} />
-              </Row>
-            ) : null}
-            <Kv k="yield/cycle" v={cr(m.estimatedValuePerCycle)} />
-            <Kv k="storage" v={`${m.storageUsed}/${m.storageCapacity} t`} />
-            {m.rigWear != null ? <Kv k="rig wear" v={`${m.rigWear}%${!m.rigOperational ? " ⚠ offline" : ""}`} /> : null}
-            {Object.keys(m.composition || {}).length > 0 ? (
-              <Kv
-                k="produces"
-                v={Object.entries(m.composition)
-                  .map(([k, v]) => `${k} ${Math.round(v * 100)}%`)
-                  .join(", ")}
-              />
-            ) : null}
-            {Object.keys(m.inventory || {}).length > 0 ? (
-              <Kv
-                k="stored"
-                v={Object.entries(m.inventory)
-                  .map(([k, v]) => `${k}: ${v.toFixed(1)}t`)
-                  .join(" · ")}
-              />
-            ) : null}
-            {m.nextCycleAt ? (
-              <div className="text-zinc-500">
-                <Countdown targetIso={m.nextCycleAt} prefix="next:" onExpired={onReload} />
+      {mines.map((m) => {
+        const composition = m.composition || {};
+        const hasProduces = Object.keys(composition).length > 0;
+        const produceLines = hasProduces ? compositionToLines(composition, resourceNames) : [];
+
+        return (
+          <div key={m.key} className="mb-1 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0">
+            <Row>
+              <span className={`font-semibold ${m.active ? "text-green-400" : "text-zinc-500"}`}>{m.active ? "●" : "○"}</span>
+              <span className="flex-1 truncate text-zinc-200">{m.key}</span>
+            </Row>
+            <div className={`ml-3 items-start gap-x-2 ${hasProduces ? "grid grid-cols-2" : ""}`}>
+              <div className="min-w-0 space-y-0">
+                {m.volumeTier ? (
+                  <Row>
+                    <Badge label={m.volumeTier} cls={m.volumeTierCls} />
+                    <Badge label={m.resourceRarityTier ?? ""} cls={m.resourceRarityTierCls} />
+                  </Row>
+                ) : null}
+                <Kv k="yield/cycle" v={cr(m.estimatedValuePerCycle)} />
+                <Kv k="storage" v={`${m.storageUsed}/${m.storageCapacity} t`} />
+                {m.rigWear != null ? <Kv k="rig wear" v={`${m.rigWear}%${!m.rigOperational ? " ⚠ offline" : ""}`} /> : null}
+                {Object.keys(m.inventory || {}).length > 0 ? (
+                  <Kv
+                    k="stored"
+                    v={Object.entries(m.inventory || {})
+                      .map(([k, v]) => `${displayResourceName(k, resourceNames)}: ${v.toFixed(1)}t`)
+                      .join(" · ")}
+                  />
+                ) : null}
+                {m.nextCycleAt ? (
+                  <div className="text-zinc-500">
+                    <Countdown targetIso={m.nextCycleAt} prefix="next:" onExpired={onReload} />
+                  </div>
+                ) : null}
+                {m.location ? (
+                  <div className="mt-0.5">
+                    <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>Visit mine →</TinyLink>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-            {m.location ? (
-              <div className="mt-0.5">
-                <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>Visit mine →</TinyLink>
-              </div>
-            ) : null}
+              {hasProduces ? (
+                <div className="min-w-0 border-l border-zinc-800/60 pl-2">
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="shrink-0 font-mono text-zinc-500">produces</span>
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      {produceLines.map((line) => (
+                        <span key={line.key} className="font-mono text-zinc-200">
+                          {line.displayName} {line.pct}%
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </Panel>
   );
 }
@@ -474,7 +496,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
         <div className="min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
           {data.missions ? <DashboardMissionsPanel missions={data.missions} onChanged={onReload} /> : null}
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
-          <MinesPanel mines={data.mines} onReload={onReload} />
+          <MinesPanel mines={data.mines} market={data.market} onReload={onReload} />
         </div>
         <div className="min-w-0 overflow-y-auto p-1.5">
           {data.groupedAlerts ? <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} /> : null}

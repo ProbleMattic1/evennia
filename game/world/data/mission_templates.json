@@ -98,11 +98,11 @@
   {
     "id": "promenade_missing_parcel",
     "title": "The Missing Parcel",
-    "summary": "A misplaced delivery on the promenade turns into a choice between helping a stranger and helping yourself.",
+    "summary": "Mira Okonkwo needs someone to chase a routing ghost — medicine listed, seal wrong, trace ending in General Supply.",
     "missionKind": "mission",
     "threadId": "promenade_small_lives",
     "storylineId": "promenade_civilian_cases",
-    "giver": { "kind": "civilian", "id": "anonymous_resident", "name": "Distressed Commuter" },
+    "giver": { "kind": "civilian", "id": "mira_okonkwo", "name": "Mira Okonkwo" },
     "trigger": {
       "kind": "room",
       "roomKeysAny": ["NanoMegaPlex Promenade"]
@@ -113,28 +113,40 @@
     },
     "objectives": [
       {
+        "id": "speak_mira",
+        "kind": "interaction",
+        "text": "Ask Mira Okonkwo on the promenade what she is not saying about the parcel.",
+        "interactionKeysAny": ["parcel:commuter"]
+      },
+      {
         "id": "check_supply",
         "kind": "visit_room",
-        "text": "Follow the parcel trace to General Supply.",
+        "text": "Follow the trace to Aurnom General Supply.",
         "roomKeysAny": ["Aurnom General Supply"]
+      },
+      {
+        "id": "speak_clerk",
+        "kind": "interaction",
+        "text": "Ask the supply clerk what the holding bay entry shows.",
+        "interactionKeysAny": ["parcel:supply_clerk"]
       },
       {
         "id": "parcel_choice",
         "kind": "choice",
-        "prompt": "The package contains medicine and a sealed credit chit.",
+        "prompt": "You are alone with the pouch: legitimate meds inside, plus a sealed credit chit. The seal’s routing glyph does not match the clinic manifest Mira quoted. Someone upstream is laundering labels — or she is.",
         "choices": [
           {
             "id": "return_everything",
-            "label": "Return the parcel intact.",
-            "outcome": "The owner gets their medication on time and pays what little they can.",
+            "label": "Return the parcel intact and mention the glyph mismatch to Mira.",
+            "outcome": "She goes pale, then determined — you cost her sleep, not her conscience. She pays what little credits she can spare.",
             "morality": { "good": 2, "lawful": 1 },
             "rewards": { "credits": 75 },
             "completeMission": true
           },
           {
             "id": "skim_the_chit",
-            "label": "Keep the credit chit and return only the box.",
-            "outcome": "You turn a desperate person's bad day into your profit.",
+            "label": "Keep the chit; return the meds box sealed so the trail looks clean.",
+            "outcome": "The compartment logs will show someone opened gamma after the clerk’s shift. You were never there — until the ledgers say you were.",
             "morality": { "evil": 2, "chaotic": 1 },
             "rewards": { "credits": 180 },
             "completeMission": true

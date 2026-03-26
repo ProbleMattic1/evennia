@@ -16,7 +16,8 @@ from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from evennia import search_object
-from evennia.utils import utils
+
+from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
 
 from .views import (
     BANK_ROOM_KEY,
@@ -53,32 +54,7 @@ def _serialize_character_block(char, credits):
 
 
 def _serialize_inventory(char):
-    claims = []
-    packages = []
-    other_raw = []
-
-    for obj in char.contents:
-        if getattr(obj, "destination", None):
-            continue
-        if getattr(obj.db, "is_template", False):
-            continue
-        if obj.tags.has("mining_claim", category="mining"):
-            claims.append(_dashboard_inventory_item_for_obj(char, obj))
-        elif obj.tags.has("mining_package", category="mining"):
-            packages.append(_dashboard_inventory_item_for_obj(char, obj))
-        else:
-            other_raw.append(obj)
-
-    other = []
-    for _name, _desc, group in utils.group_objects_by_key_and_desc(other_raw, caller=char):
-        entry = _dashboard_inventory_item_for_obj(char, group[0])
-        if len(group) > 1:
-            entry["count"] = len(group)
-            entry["stacked"] = True
-            entry["ids"] = [o.id for o in group]
-        other.append(entry)
-
-    return {"claims": claims, "packages": packages, "other": other}
+    return serialize_inventory_by_bucket(char, _dashboard_inventory_item_for_obj)
 
 
 def _serialize_ships(char):
@@ -413,7 +389,7 @@ _EMPTY_NAV = {
     "properties": [],
     "mines": [],
 }
-_EMPTY_INVENTORY = {"claims": [], "packages": [], "other": []}
+_EMPTY_INVENTORY = empty_inventory_payload()
 
 
 @require_GET
