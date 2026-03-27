@@ -16,6 +16,7 @@ import os
 from evennia import search_object
 from evennia.accounts.models import AccountDB
 
+from world.bootstrap_hub import get_hub_room
 from typeclasses.characters import (
     ABILITY_KEYS,
     MARCUS_ABILITY_BASES,
@@ -82,6 +83,9 @@ def bootstrap_marcus_killstar():
             return
         if char not in account.characters:
             account.characters.add(char)
+        hub = get_hub_room()
+        if hub and not char.location:
+            char.move_to(hub)
         account.db._last_puppet = char
         char.db.rpg_pointbuy_done = True
         if _marcus_reset_stats_requested():

@@ -12,6 +12,7 @@ from evennia.utils import utils
 from world.bootstrap_hub import HUB_ROOM_KEY
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
 from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
+from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
 DEFAULT_PLAY_ROOM = HUB_ROOM_KEY
 
@@ -34,6 +35,22 @@ PROCESSING_PLANT_ROOM_KEY = "Aurnom Ore Processing Plant"
 def _first_object(key):
     found = search_object(key)
     return found[0] if found else None
+
+
+def _ensure_character_in_default_room(char):
+    """
+    If a resolved character has no in-world location (limbo / legacy data), put them on
+    the hub so web travel and room display work without a telnet/webclient session.
+    """
+    if not char or getattr(char, "location", None):
+        return
+    room = _first_object(DEFAULT_PLAY_ROOM)
+    if not room:
+        return
+    try:
+        char.move_to(room)
+    except Exception:
+        pass
 
 
 def _group_alerts(rows):
@@ -103,11 +120,23 @@ def _ship_price(template):
     return economy.get("total_price_cr") or economy.get("base_price_cr")
 
 
+def _playable_characters(account):
+    try:
+        playable = list(account.characters)
+    except Exception:
+        playable = []
+    return [c for c in playable if c.is_typeclass("typeclasses.characters.Character", exact=False)]
+
+
 def _resolve_character_for_web(account):
     """
     Resolve the active Character for web APIs.
     Returns (character, None) on success, or (None, error_message) on failure.
     """
+    def _ok(character):
+        _ensure_character_in_default_room(character)
+        return character, None
+
     try:
         puppets = account.get_all_puppets()
     except Exception:
@@ -115,26 +144,79 @@ def _resolve_character_for_web(account):
 
     for p in puppets:
         if p and p.is_typeclass("typeclasses.characters.Character", exact=False):
-            return p, None
+            return _ok(p)
 
-    try:
-        playable = list(account.characters)
-    except Exception:
-        playable = []
-
-    chars = [c for c in playable if c.is_typeclass("typeclasses.characters.Character", exact=False)]
-    if len(chars) == 1:
-        return chars[0], None
+    chars = _playable_characters(account)
     if len(chars) == 0:
         return None, "No playable character on this account."
+    if len(chars) == 1:
+        return _ok(chars[0])
 
-    return None, "Multiple characters; connect with a puppet so the active character is known."
+    # Multi-character is an admin/dev path; non-admin users should never be here.
+    is_admin = bool(getattr(account, "is_superuser", False))
+    is_dev = False
+    try:
+        is_dev = account.check_permstring("Developer")
+    except Exception:
+        is_dev = False
+
+    if is_admin or is_dev:
+        pref_id = getattr(account.db, "web_active_character_id", None)
+        if pref_id is not None:
+            try:
+                pref_id = int(pref_id)
+            except (TypeError, ValueError):
+                pref_id = None
+            if pref_id is not None:
+                for c in chars:
+                    if int(c.id) == pref_id:
+                        return _ok(c)
+        return None, "Multiple admin characters; pick one."
+
+    return None, "Account data error: multiple characters on non-admin account."
+
+
+@csrf_exempt
+@require_POST
+def web_set_active_character(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+    body = _json_body(request)
+    raw = body.get("characterId", body.get("character_id"))
+    if raw is None:
+        return JsonResponse({"ok": False, "message": "characterId required."}, status=400)
+    try:
+        cid = int(raw)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Invalid characterId."}, status=400)
+
+    chars = _playable_characters(request.user)
+    if not any(int(c.id) == cid for c in chars):
+        return JsonResponse({"ok": False, "message": "Character not on this account."}, status=400)
+
+    request.user.db.web_active_character_id = cid
+    return JsonResponse({"ok": True, "characterId": cid})
+
+
+@csrf_exempt
+@require_POST
+def web_clear_active_character(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    # Remove stored web character selection; this will force picker path for admin multi-char.
+    try:
+        request.user.attributes.remove("web_active_character_id")
+    except Exception:
+        request.user.db.web_active_character_id = None
+
+    return JsonResponse({"ok": True})
 
 
 def _character_for_web_purchase(account):
     """
     Resolve Character for purchases from the authenticated Account (request.user).
-    Uses: (1) any connected puppet that is a Character, else (2) sole playable Character.
+    Uses _resolve_character_for_web for account policy (single-char default, admin-only multi-char pick).
     """
     char, msg = _resolve_character_for_web(account)
     if char is not None:
@@ -1179,6 +1261,15 @@ def play_travel(request):
         pass
 
     room_key = char.location.key if char.location else destination_key
+    char.msg(
+        f"Moved to {room_key}.",
+        options={
+            WEB_STREAM_OPTIONS_KEY: normalize_web_stream_meta({
+                "eventType": "travel",
+                "destinationRoomKey": room_key,
+            })
+        },
+    )
     bundle = _web_refresh_bundle(request, room_key=room_key)
     return JsonResponse(
         {
@@ -1211,7 +1302,7 @@ def play_interact(request):
         )
 
     try:
-        dialogue, resolved_key = handler(char, payload)
+        outcome = handler(char, payload)
     except InteractionError as exc:
         return JsonResponse(
             {"ok": False, "code": "INTERACTION_FAILED", "message": str(exc)},
@@ -1223,11 +1314,20 @@ def play_interact(request):
             status=500,
         )
 
-    char.msg(dialogue)
+    char.msg(
+        outcome.dialogue,
+        options={
+            WEB_STREAM_OPTIONS_KEY: normalize_web_stream_meta({
+                "eventType": "interaction",
+                "interactionKey": outcome.interaction_key,
+                "speakerKey": outcome.speaker_key,
+            })
+        },
+    )
 
     try:
         char.missions.sync_global_seeds()
-        char.missions.sync_interaction(resolved_key)
+        char.missions.sync_interaction(outcome.interaction_key)
         if char.location:
             char.missions.sync_room(char.location)
     except Exception:

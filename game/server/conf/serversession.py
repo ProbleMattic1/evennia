@@ -21,7 +21,6 @@ settings file:
 
 """
 
-from django.conf import settings
 from evennia.server.serversession import ServerSession as BaseServerSession
 
 
@@ -41,15 +40,12 @@ class ServerSession(BaseServerSession):
 
     def data_out(self, **kwargs):
         text = kwargs.get("text")
+        meta = kwargs.pop("web_stream_meta")
         puppet = getattr(self, "puppet", None)
         if text is not None and puppet is not None:
             recorder = getattr(puppet, "record_web_stream_text", None)
             if callable(recorder) and puppet.is_typeclass(
                 "typeclasses.characters.Character", exact=False
             ):
-                try:
-                    recorder(text)
-                except Exception:
-                    if settings.DEBUG:
-                        raise
+                recorder(text, meta)
         super().data_out(**kwargs)

@@ -5,6 +5,8 @@ from . import views
 from .control_surface import control_surface_state
 
 urlpatterns = [
+    path("active-character", views.web_set_active_character, name="ui-active-character"),
+    path("active-character/clear", views.web_clear_active_character, name="ui-active-character-clear"),
     path("control-surface", control_surface_state, name="ui-control-surface"),
     path("play", views.play_state, name="ui-play"),
     path("play/travel", views.play_travel, name="ui-play-travel"),

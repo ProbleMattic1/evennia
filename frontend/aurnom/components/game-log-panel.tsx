@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { MsgStreamEntry } from "@/lib/ui-api";
 
 type Props = {
@@ -9,11 +9,16 @@ type Props = {
 };
 
 export function GameLogPanel({ messages, compact }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const newestFirst = useMemo(
+    () => [...messages].reverse(),
+    [messages],
+  );
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [messages]);
 
   const emptyClass = compact
     ? "min-h-[72px] border border-cyan-900/40 bg-zinc-950/80 p-1.5 font-mono text-[10px] leading-snug text-zinc-500"
@@ -28,15 +33,14 @@ export function GameLogPanel({ messages, compact }: Props) {
   }
 
   return (
-    <div className={listClass}>
-      {messages.map((msg) => (
+    <div ref={containerRef} className={listClass}>
+      {newestFirst.map((msg) => (
         <div
           key={msg.seq}
           className="mb-1 break-words"
           dangerouslySetInnerHTML={{ __html: msg.html }}
         />
       ))}
-      <div ref={bottomRef} />
     </div>
   );
 }

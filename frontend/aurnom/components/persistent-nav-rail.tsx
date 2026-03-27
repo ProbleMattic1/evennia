@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import type { ControlSurfaceNav, CsCharacter } from "@/lib/control-surface-api";
+import { clearWebActiveCharacter, setWebActiveCharacter } from "@/lib/control-surface-api";
 import { useControlSurface } from "@/components/control-surface-provider";
 
 function Panel({
@@ -173,7 +174,7 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
         </Panel>
       )}
       {nav.exits.length > 0 && (
-        <Panel panelKey="hub-exits" title="Hub Exits">
+        <Panel panelKey="hub-exits" title="Exits">
           {nav.exits.map((e) => (
             <div key={e.key} className="text-zinc-400">
               {e.label}
@@ -186,7 +187,93 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
 }
 
 export function PersistentNavRail() {
-  const { data, loading, error } = useControlSurface();
+  const { data, loading, error, reload } = useControlSurface();
+  const [pickBusy, setPickBusy] = useState(false);
+  const [pickErr, setPickErr] = useState<string | null>(null);
+  const [switchBusy, setSwitchBusy] = useState(false);
+
+  const onPickCharacter = useCallback(
+    async (characterId: number) => {
+      setPickErr(null);
+      setPickBusy(true);
+      try {
+        await setWebActiveCharacter(characterId);
+        reload();
+      } catch (e) {
+        setPickErr(e instanceof Error ? e.message : "Could not set character.");
+      } finally {
+        setPickBusy(false);
+      }
+    },
+    [reload],
+  );
+
+  const onSwitchCharacter = useCallback(async () => {
+    setPickErr(null);
+    setSwitchBusy(true);
+    try {
+      await clearWebActiveCharacter();
+      reload();
+    } catch (e) {
+      setPickErr(e instanceof Error ? e.message : "Could not switch character.");
+    } finally {
+      setSwitchBusy(false);
+    }
+  }, [reload]);
+
+  const railBody = (() => {
+    if (data?.character) {
+      return (
+        <>
+          <div className="mb-1">
+            <button
+              type="button"
+              disabled={switchBusy}
+              onClick={onSwitchCharacter}
+              className="block w-full rounded border border-cyan-900/50 bg-zinc-950/80 px-1.5 py-0.5 text-left text-[10px] uppercase tracking-widest text-cyan-300 hover:border-cyan-700/60 hover:bg-cyan-950/40 disabled:opacity-50"
+            >
+              {switchBusy ? "Switching..." : "Switch Character"}
+            </button>
+          </div>
+          <PlayerPanel
+            char={data.character}
+            morality={data.missions?.morality ?? { good: 0, evil: 0, lawful: 0, chaotic: 0 }}
+            miningValuePerCycle={data.miningEstimatedValuePerCycle ?? 0}
+            miningStoredValue={data.miningTotalStoredValue ?? 0}
+            propertyRefValue={data.propertyReferenceListValueTotalCr ?? 0}
+          />
+        </>
+      );
+    }
+    if (data?.authenticated) {
+      const rows = data.playableCharacters ?? [];
+      return (
+        <div className="space-y-1 text-zinc-400">
+          {data.message ? <p className="text-amber-200/90">{data.message}</p> : null}
+          {pickErr ? <p className="text-red-400">{pickErr}</p> : null}
+          {rows.length > 0 ? (
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-600">Character</p>
+              {rows.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={pickBusy}
+                  onClick={() => onPickCharacter(c.id)}
+                  className="block w-full truncate rounded border border-cyan-900/50 bg-zinc-950/80 px-1.5 py-0.5 text-left text-zinc-200 hover:border-cyan-700/60 hover:bg-cyan-950/40 disabled:opacity-50"
+                >
+                  {c.key}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-zinc-500">No playable character on this account.</p>
+          )}
+        </div>
+      );
+    }
+    return <div className="text-zinc-500">Not logged in.</div>;
+  })();
 
   return (
     <aside className="sticky top-0 h-svh min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
@@ -194,22 +281,12 @@ export function PersistentNavRail() {
         <Link href="/" className="font-bold text-cyan-400 hover:text-cyan-300">
           AURNOM
         </Link>
-        {loading && <span className="ml-auto text-[9px] text-zinc-500">…</span>}
+        {(loading || pickBusy || switchBusy) && <span className="ml-auto text-[9px] text-zinc-500">…</span>}
       </div>
 
       {!data && error ? <div className="mb-1 text-red-400">{error}</div> : null}
 
-      {data?.character ? (
-        <PlayerPanel
-          char={data.character}
-          morality={data.missions?.morality ?? { good: 0, evil: 0, lawful: 0, chaotic: 0 }}
-          miningValuePerCycle={data.miningEstimatedValuePerCycle ?? 0}
-          miningStoredValue={data.miningTotalStoredValue ?? 0}
-          propertyRefValue={data.propertyReferenceListValueTotalCr ?? 0}
-        />
-      ) : (
-        <div className="text-zinc-500">Not logged in.</div>
-      )}
+      {railBody}
 
       <NavPanel nav={data?.nav ?? { hubRoomKey: "", exits: [], kiosks: [], shops: [], claims: [], properties: [], mines: [] }} />
     </aside>

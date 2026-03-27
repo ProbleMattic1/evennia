@@ -384,7 +384,7 @@ function MineDashboardRow({
             ) : null}
             {m.location ? (
               <div className="mt-0.5">
-                <TinyLink href="/">Visit mine →</TinyLink>
+                <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>Visit mine →</TinyLink>
               </div>
             ) : null}
           </div>
@@ -510,7 +510,9 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       ) : null}
       <div className="grid min-h-svh grid-cols-2">
         <div className="min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
-          {data.missions ? <DashboardMissionsPanel missions={data.missions} onChanged={onReload} /> : null}
+          {data.missions ? (
+            <DashboardMissionsPanel missions={data.missions} roomExits={data.roomExits} onChanged={onReload} />
+          ) : null}
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
           <MinesPanel mines={data.mines} market={data.market} onReload={onReload} />
         </div>

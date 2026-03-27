@@ -25,6 +25,7 @@ Design notes
 from commands.command import Command
 from typeclasses.mining import RESOURCE_CATALOG
 from world.web_interactions import InteractionError, handle_survey
+from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
 
 # ---------------------------------------------------------------------------
@@ -110,13 +111,22 @@ class CmdSurvey(Command):
     def func(self):
         caller = self.caller
         try:
-            dialogue, interaction_key = handle_survey(caller)
+            outcome = handle_survey(caller)
         except InteractionError as exc:
             caller.msg(str(exc))
             return
-        caller.msg(dialogue)
+        caller.msg(
+            outcome.dialogue,
+            options={
+                WEB_STREAM_OPTIONS_KEY: normalize_web_stream_meta({
+                    "eventType": "interaction",
+                    "interactionKey": outcome.interaction_key,
+                    "speakerKey": outcome.speaker_key,
+                })
+            },
+        )
         caller.missions.sync_global_seeds()
-        caller.missions.sync_interaction(interaction_key)
+        caller.missions.sync_interaction(outcome.interaction_key)
 
 
 class CmdClaimSite(Command):

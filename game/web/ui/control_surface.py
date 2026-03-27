@@ -26,6 +26,7 @@ from .views import (
     _dashboard_property_portfolio,
     _first_object,
     _group_alerts,
+    _playable_characters,
     _resolve_character_for_web,
     _room_actions,
     _room_exits,
@@ -313,7 +314,17 @@ def _serialize_nav(char, mines):
     from world.bootstrap_shops import SHOPS
 
     hub = _first_object(HUB_ROOM_KEY)
-    all_exits = _room_exits(hub) if hub else []
+    # Walkable exits for the player must come from their *current* room. The hub
+    # room key is "NanoMegaPlex Promenade"; shops connect to it via a "promenade"
+    # exit, but that exit lives only on the shop room — not on the hub object.
+    # Using only hub exits here would hide the Promenade button when inside shops.
+    room_for_exits = None
+    if char and getattr(char, "location", None):
+        room_for_exits = char.location
+    elif hub:
+        room_for_exits = hub
+
+    all_exits = _room_exits(room_for_exits) if room_for_exits else []
 
     kiosks = []
     exits = []
@@ -430,6 +441,7 @@ def control_surface_state(request):
         "groupedAlerts": _EMPTY_ALERTS,
         "missions": _EMPTY_MISSIONS,
         "nav": _EMPTY_NAV,
+        "roomExits": [],
         "treasuryBalance": treasury_balance,
         "message": None,
     }
@@ -447,12 +459,15 @@ def control_surface_state(request):
 
     char, msg = _resolve_character_for_web(request.user)
     if char is None:
+        playable = _playable_characters(request.user)
+        picker = [{"id": c.id, "key": c.key} for c in playable]
         return JsonResponse({
             **base_sparse,
             "authenticated": True,
             "alerts": alerts,
             "groupedAlerts": grouped_alerts,
             "message": msg,
+            "playableCharacters": picker,
         })
 
     credits = econ.get_character_balance(char)
@@ -469,6 +484,7 @@ def control_surface_state(request):
     properties, property_ref_total = _dashboard_property_portfolio(char)
     processing = _serialize_processing_summary(char)
     nav = _serialize_nav(char, mines)
+    room_exits = _room_exits(char.location) if getattr(char, "location", None) else []
 
     return JsonResponse({
         "schemaVersion": SCHEMA_VERSION,
@@ -488,6 +504,7 @@ def control_surface_state(request):
         "groupedAlerts": grouped_alerts,
         "missions": missions,
         "nav": nav,
+        "roomExits": room_exits,
         "treasuryBalance": treasury_balance,
         "message": None,
     })

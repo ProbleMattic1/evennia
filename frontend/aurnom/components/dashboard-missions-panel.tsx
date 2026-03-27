@@ -4,12 +4,20 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { GameLogPanel } from "@/components/game-log-panel";
-import type { MissionActive, MissionChoice, MissionOpportunity, MissionsState } from "@/lib/ui-api";
+import type {
+  ExitButton,
+  MissionActive,
+  MissionChoice,
+  MissionOpportunity,
+  MissionsState,
+} from "@/lib/ui-api";
 import { acceptMission, chooseMission, playInteract, playTravel } from "@/lib/ui-api";
 import { useMsgStream } from "@/lib/use-msg-stream";
 
 type Props = {
   missions: MissionsState;
+  /** ``_room_exits(char.location)`` from control surface; same facts as the room dialog / play/travel. */
+  roomExits?: ExitButton[];
   onChanged: () => void;
 };
 
@@ -25,7 +33,7 @@ type ChoiceDialogState = {
  * Intentionally does not reuse `components/mission-board.tsx` since it hardcodes
  * older visual styles (<details>, fuchsia palette, light buttons).
  */
-export function DashboardMissionsPanel({ missions, onChanged }: Props) {
+export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: Props) {
   const router = useRouter();
   const { messages: gameLog } = useMsgStream();
 
@@ -108,6 +116,12 @@ export function DashboardMissionsPanel({ missions, onChanged }: Props) {
     router.refresh();
   }
 
+  async function handleExitTravel(destination: string) {
+    await run(`exit:${destination}`, async () => playTravel({ destination }));
+    router.push("/");
+    router.refresh();
+  }
+
   async function handleInteract(m: MissionActive, interactionKey: string) {
     await run(`interact:${m.id}:${interactionKey}`, async () => playInteract({ interactionKey }));
     router.refresh();
@@ -143,6 +157,28 @@ export function DashboardMissionsPanel({ missions, onChanged }: Props) {
             <div className="mb-0.5 text-[10px] uppercase tracking-wide text-zinc-500">Game log</div>
             <GameLogPanel messages={gameLog} compact />
           </div>
+
+          {roomExits.some((e) => e.destination) ? (
+            <div className="mb-1.5">
+              <div className="mb-0.5 text-[10px] uppercase tracking-wide text-zinc-500">Exits</div>
+              <div className="mt-0.5 flex flex-wrap gap-1">
+                {roomExits
+                  .filter((e): e is ExitButton & { destination: string } => Boolean(e.destination))
+                  .map((ex) => {
+                    const k = `exit:${ex.destination}`;
+                    return (
+                      <TinyButton
+                        key={`${ex.key}-${ex.destination}`}
+                        onClick={() => handleExitTravel(ex.destination)}
+                        disabled={busyKey === k}
+                      >
+                        {busyKey === k ? "Moving…" : ex.label}
+                      </TinyButton>
+                    );
+                  })}
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-1">
             {active.length > 0 ? (

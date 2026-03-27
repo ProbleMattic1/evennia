@@ -3,11 +3,12 @@ Shared web-interaction handlers.
 
 Each handler receives a Character and an optional payload dict,
 validates preconditions (location, NPC presence, etc.), and returns
-``(dialogue_text, interaction_key)`` — plain strings the caller can
-pass to ``char.msg()`` and ``char.missions.sync_interaction()``.
+an ``InteractionLine`` with dialogue text, interaction key, and speaker.
 
 Raising ``InteractionError`` signals a user-visible failure.
 """
+
+from dataclasses import dataclass
 
 from typeclasses.characters import (
     GENERAL_SUPPLY_CLERK_CHARACTER_KEY,
@@ -19,6 +20,13 @@ from world.bootstrap_hub import HUB_ROOM_KEY
 
 class InteractionError(Exception):
     """Raised when an interaction cannot proceed (missing NPC, wrong room, etc.)."""
+
+
+@dataclass(frozen=True)
+class InteractionLine:
+    dialogue: str
+    interaction_key: str
+    speaker_key: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +55,7 @@ def handle_askguide(char, payload=None):
     msg = _GUIDE_REPLIES.get(topic, _GUIDE_DEFAULT)
     interaction_key = "askguide" if not topic else f"askguide:{topic}"
     dialogue = f'{PROMENADE_GUIDE_CHARACTER_KEY} says, "{msg}"'
-    return dialogue, interaction_key
+    return InteractionLine(dialogue, interaction_key, PROMENADE_GUIDE_CHARACTER_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -68,7 +76,7 @@ def handle_parcel_commuter(char, payload=None):
         f'General Supply — kiosk shelf, not the clinic. Whoever coded the pouch '
         f'used a medical routing glyph. If you go, do not flash the seal around."'
     )
-    return dialogue, "parcel:commuter"
+    return InteractionLine(dialogue, "parcel:commuter", PARCEL_COMMUTER_CHARACTER_KEY)
 
 
 def handle_parcel_clerk(char, payload=None):
@@ -83,7 +91,7 @@ def handle_parcel_clerk(char, payload=None):
         f'was holding bay gamma — seal still intact. Contents flagged confidential '
         f'upstream; we are not supposed to open it. You did not hear that from me."'
     )
-    return dialogue, "parcel:supply_clerk"
+    return InteractionLine(dialogue, "parcel:supply_clerk", GENERAL_SUPPLY_CLERK_CHARACTER_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +122,7 @@ def handle_survey(char, payload=None):
             f"|wSurvey advanced to level {new_level} ({label}).|n  "
             f"({remaining} more survey{'s' if remaining > 1 else ''} to full assessment)\n{report}"
         )
-    return dialogue, "survey"
+    return InteractionLine(dialogue, "survey", None)
 
 
 # ---------------------------------------------------------------------------

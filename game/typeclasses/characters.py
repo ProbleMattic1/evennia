@@ -17,6 +17,7 @@ from evennia.utils.text2html import parse_html
 from evennia.utils.utils import make_iter
 
 from typeclasses.missions import MissionHandler
+from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
 from .objects import ObjectParent
 
@@ -188,7 +189,7 @@ class Character(ObjectParent, DefaultCharacter):
     def missions(self):
         return MissionHandler(self)
 
-    def record_web_stream_text(self, text):
+    def record_web_stream_text(self, text, meta):
         """
         Append one outbound line to web_msg_buffer. ``text`` matches ``msg`` (str or tuple).
         Called from ServerSession.data_out (portal clients) or from ``msg`` when headless.
@@ -200,19 +201,14 @@ class Character(ObjectParent, DefaultCharacter):
             return
         html = parse_html(raw, strip_ansi=False)
 
-        stored = self.attributes.get("web_msg_buffer", default=[])
-        try:
-            buf = list(stored)
-        except TypeError:
-            buf = []
-
-        seq_raw = self.attributes.get("web_msg_seq", default=0)
-        try:
-            seq = int(seq_raw) + 1
-        except (TypeError, ValueError):
-            seq = 1
-
-        buf.append({"seq": seq, "html": str(html), "ts": float(time.time())})
+        buf = list(self.attributes.get("web_msg_buffer", default=[]))
+        seq = int(self.attributes.get("web_msg_seq", default=0)) + 1
+        buf.append({
+            "seq": seq,
+            "html": str(html),
+            "ts": float(time.time()),
+            "meta": dict(meta),
+        })
         if len(buf) > self.WEB_MSG_BUFFER_MAX:
             buf = buf[-self.WEB_MSG_BUFFER_MAX :]
 
@@ -222,47 +218,38 @@ class Character(ObjectParent, DefaultCharacter):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         """Emit to client(s); tee via data_out when sessions exist, else record here (API/headless)."""
         sessions = make_iter(session) if session else self.sessions.all()
-        super().msg(text=text, from_obj=from_obj, session=session, options=options, **kwargs)
+        opts = options
+        if opts is not None:
+            opts = dict(opts)
+            popped = opts.pop(WEB_STREAM_OPTIONS_KEY, None)
+        else:
+            popped = None
+        meta = normalize_web_stream_meta(popped if isinstance(popped, dict) else {})
+        kwargs = dict(kwargs)
+        kwargs["web_stream_meta"] = meta
+        super().msg(text=text, from_obj=from_obj, session=session, options=opts, **kwargs)
         if text is None:
             return
         if sessions:
             return
-        self.record_web_stream_text(text)
+        self.record_web_stream_text(text, meta)
 
     def get_web_msg_buffer(self, since_seq=0):
         """
-        Return JSON-safe rows: plain dicts with int seq, str html, float ts.
-        Skips malformed rows. Only includes seq > since_seq when since_seq > 0.
+        Return rows: plain dicts with int seq, str html, float ts, dict meta.
+        Only includes seq > since_seq when since_seq > 0.
         """
-        stored = self.attributes.get("web_msg_buffer", default=[])
-        try:
-            stored_list = list(stored)
-        except TypeError:
-            return []
-
-        try:
-            cutoff = int(since_seq)
-        except (TypeError, ValueError):
-            cutoff = 0
+        stored_list = list(self.attributes.get("web_msg_buffer", default=[]))
+        cutoff = int(since_seq)
 
         out = []
-        for m in stored_list:
-            if isinstance(m, dict):
-                row = m
-            else:
-                try:
-                    row = dict(m)
-                except (TypeError, ValueError):
-                    continue
-            try:
-                entry = {
-                    "seq": int(row["seq"]),
-                    "html": str(row["html"]),
-                    "ts": float(row["ts"]),
-                }
-            except (KeyError, TypeError, ValueError):
-                continue
-            out.append(entry)
+        for row in stored_list:
+            out.append({
+                "seq": int(row["seq"]),
+                "html": str(row["html"]),
+                "ts": float(row["ts"]),
+                "meta": dict(row["meta"]),
+            })
 
         if cutoff:
             return [e for e in out if e["seq"] > cutoff]
