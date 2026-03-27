@@ -11,7 +11,7 @@ import type {
   MissionOpportunity,
   MissionsState,
 } from "@/lib/ui-api";
-import { acceptMission, chooseMission, playInteract, playTravel } from "@/lib/ui-api";
+import { acceptMission, chooseMission, declineMission, playInteract, playTravel } from "@/lib/ui-api";
 import { useMsgStream } from "@/lib/use-msg-stream";
 
 type Props = {
@@ -47,10 +47,30 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
   );
 
   const storageKey = "aurnom:dashboard-panel:missions";
+  const availableStorageKey = "aurnom:dashboard-panel:missions:available";
+  const exitsStorageKey = "aurnom:dashboard-panel:missions:exits";
   const [open, setOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
       const raw = window.sessionStorage.getItem(storageKey);
+      return raw == null ? true : raw === "1";
+    } catch {
+      return true;
+    }
+  });
+  const [availableOpen, setAvailableOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.sessionStorage.getItem(availableStorageKey);
+      return raw == null ? true : raw === "1";
+    } catch {
+      return true;
+    }
+  });
+  const [exitsOpen, setExitsOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.sessionStorage.getItem(exitsStorageKey);
       return raw == null ? true : raw === "1";
     } catch {
       return true;
@@ -69,6 +89,30 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
       const next = !v;
       try {
         window.sessionStorage.setItem(storageKey, next ? "1" : "0");
+      } catch {
+        // ignore storage failures
+      }
+      return next;
+    });
+  }
+
+  function toggleAvailableOpen() {
+    setAvailableOpen((v) => {
+      const next = !v;
+      try {
+        window.sessionStorage.setItem(availableStorageKey, next ? "1" : "0");
+      } catch {
+        // ignore storage failures
+      }
+      return next;
+    });
+  }
+
+  function toggleExitsOpen() {
+    setExitsOpen((v) => {
+      const next = !v;
+      try {
+        window.sessionStorage.setItem(exitsStorageKey, next ? "1" : "0");
       } catch {
         // ignore storage failures
       }
@@ -103,6 +147,10 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
   async function handleAccept(op: MissionOpportunity) {
     await run(`accept:${op.id}`, async () => acceptMission({ opportunityId: op.id }));
     setAcceptOpp(null);
+  }
+
+  async function handleDecline(op: MissionOpportunity) {
+    await run(`decline:${op.id}`, async () => declineMission({ opportunityId: op.id }));
   }
 
   async function handleChoose(m: MissionActive, c: MissionChoice) {
@@ -231,24 +279,43 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
 
             {opportunities.length > 0 ? (
               <div>
-                <div className="text-[10px] uppercase text-zinc-500">Available</div>
-                <div className="mt-0.5 space-y-0.5">
-                  {opportunities.map((op) => (
-                    <div key={op.id} className="flex min-w-0 items-baseline gap-2">
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 truncate text-left text-zinc-400 hover:text-cyan-300"
-                        onClick={() => setAcceptOpp(op)}
-                        title={op.summary}
-                      >
-                        {op.title}
-                      </button>
-                      <TinyButton variant="pink" onClick={() => setAcceptOpp(op)}>
-                        Accept…
-                      </TinyButton>
-                    </div>
-                  ))}
+                <div className="flex items-center text-[10px] uppercase text-zinc-500">
+                  <span>Available</span>
+                  <button
+                    type="button"
+                    onClick={toggleAvailableOpen}
+                    aria-label={`${availableOpen ? "Collapse" : "Expand"} Available missions`}
+                    className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
+                  >
+                    {availableOpen ? "▴" : "▸"}
+                  </button>
                 </div>
+                {availableOpen ? (
+                  <div className="mt-0.5 space-y-0.5">
+                    {opportunities.map((op) => (
+                      <div key={op.id} className="flex min-w-0 items-baseline gap-2">
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 truncate text-left text-zinc-400 hover:text-cyan-300"
+                          onClick={() => setAcceptOpp(op)}
+                          title={op.summary}
+                        >
+                          {op.title}
+                        </button>
+                        <TinyButton variant="pink" onClick={() => setAcceptOpp(op)}>
+                          Accept…
+                        </TinyButton>
+                        <TinyButton
+                          variant="cyan"
+                          onClick={() => handleDecline(op)}
+                          disabled={busyKey === `decline:${op.id}`}
+                        >
+                          {busyKey === `decline:${op.id}` ? "…" : "X"}
+                        </TinyButton>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -275,23 +342,35 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
 
           {roomExits.some((e) => e.destination) ? (
             <div className="mt-1.5">
-              <div className="mb-0.5 text-[10px] uppercase tracking-wide text-zinc-500">Exits</div>
-              <div className="mt-0.5 flex flex-wrap gap-1">
-                {roomExits
-                  .filter((e): e is ExitButton & { destination: string } => Boolean(e.destination))
-                  .map((ex) => {
-                    const k = `exit:${ex.destination}`;
-                    return (
-                      <TinyButton
-                        key={`${ex.key}-${ex.destination}`}
-                        onClick={() => handleExitTravel(ex.destination)}
-                        disabled={busyKey === k}
-                      >
-                        {busyKey === k ? "Moving…" : ex.label}
-                      </TinyButton>
-                    );
-                  })}
+              <div className="mb-0.5 flex items-center text-[10px] uppercase tracking-wide text-zinc-500">
+                <span>Exits</span>
+                <button
+                  type="button"
+                  onClick={toggleExitsOpen}
+                  aria-label={`${exitsOpen ? "Collapse" : "Expand"} Exits`}
+                  className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
+                >
+                  {exitsOpen ? "▴" : "▸"}
+                </button>
               </div>
+              {exitsOpen ? (
+                <div className="mt-0.5 flex flex-wrap gap-1">
+                  {roomExits
+                    .filter((e): e is ExitButton & { destination: string } => Boolean(e.destination))
+                    .map((ex) => {
+                      const k = `exit:${ex.destination}`;
+                      return (
+                        <TinyButton
+                          key={`${ex.key}-${ex.destination}`}
+                          onClick={() => handleExitTravel(ex.destination)}
+                          disabled={busyKey === k}
+                        >
+                          {busyKey === k ? "Moving…" : ex.label}
+                        </TinyButton>
+                      );
+                    })}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

@@ -2217,6 +2217,53 @@ def missions_choose(request):
 
 @csrf_exempt
 @require_POST
+def missions_decline(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."}, status=401)
+
+    body = _json_body(request)
+    opportunity_id = str(body.get("opportunityId") or "").strip()
+    if not opportunity_id:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing opportunityId."},
+            status=400,
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        ok, result_msg = char.missions.decline(opportunity_id)
+    except Exception as exc:
+        return JsonResponse(
+            {"ok": False, "code": "MISSION_DECLINE_FAILED", "message": f"Could not decline mission: {exc}"},
+            status=500,
+        )
+
+    if not ok:
+        return JsonResponse(
+            {"ok": False, "code": "MISSION_DECLINE_REJECTED", "message": result_msg or "Mission decline rejected."},
+            status=400,
+        )
+
+    room_key = char.location.key if getattr(char, "location", None) else DEFAULT_PLAY_ROOM
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": result_msg or "Mission declined.",
+            "dashboard": bundle.get("dashboard", {}),
+            "play": bundle.get("play", {}),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
 def dashboard_ack_alert(request):
     if not request.user.is_authenticated:
         return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)

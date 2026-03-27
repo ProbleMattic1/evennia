@@ -106,5 +106,6 @@ urlpatterns = [
     path("package/buy", views.package_buy_listed, name="ui-package-buy"),
     path("missions/accept", views.missions_accept, name="ui-missions-accept"),
     path("missions/choose", views.missions_choose, name="ui-missions-choose"),
+    path("missions/decline", views.missions_decline, name="ui-missions-decline"),
     path("debug/msg-buffer", views.debug_msg_buffer, name="ui-debug-msg-buffer"),
 ]

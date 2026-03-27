@@ -296,6 +296,19 @@ class MissionHandler:
         self._save()
         return True, f"Accepted mission: {mission['title']}.", mission
 
+    def decline(self, opportunity_id: str) -> tuple[bool, str]:
+        opp = self._find_opportunity(opportunity_id)
+        if not opp:
+            return False, "Mission opportunity not found."
+        title = str(opp.get("title") or "mission")
+        self._state["opportunities"] = [
+            row
+            for row in list(self._state.get("opportunities") or [])
+            if row.get("id") != opportunity_id
+        ]
+        self._save()
+        return True, f"Declined mission: {title}."
+
     def _current_objective(self, mission: dict, tmpl: dict) -> dict[str, Any] | None:
         idx = int(mission.get("objectiveIndex") or 0)
         objectives = list(tmpl.get("objectives") or [])
