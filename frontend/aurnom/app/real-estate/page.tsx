@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ClaimsMarketPanel } from "@/components/claims-market-panel";
+import { PropertyDeedResaleBrowse } from "@/components/property-deed-resale-browse";
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { Countdown } from "@/components/countdown";
 import { StoryPanel } from "@/components/story-panel";
@@ -14,7 +15,6 @@ import {
 import type { PropertyLotRow, PropertyZone } from "@/lib/ui-api";
 import {
   exchangePanelCountdownClass,
-  exchangePanelEmptyClass,
   exchangePanelOuterClass,
   exchangePanelToolbarClass,
   exchangePanelToolbarTitleClass,
@@ -115,10 +115,15 @@ export default function RealEstatePage() {
   }, [data?.nextPropertyDiscoveryAt, reload]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.location.hash !== "#claims-market") return;
-    const el = document.getElementById("claims-market");
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (typeof window === "undefined" || loading) return;
+    const hash = window.location.hash;
+    if (hash === "#claims-market") {
+      const el = document.getElementById("claims-market");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (hash === "#property-deed-resale-market") {
+      const el = document.getElementById("property-deed-resale-market");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [loading, data]);
 
   async function handleBuy(lotKey: string) {
@@ -208,9 +213,7 @@ export default function RealEstatePage() {
                   />
                 </div>
 
-                {data.lots.length === 0 ? (
-                  <p className={exchangePanelEmptyClass}>No lots currently available.</p>
-                ) : (
+                {data.lots.length > 0 ? (
                   <div className="mt-2 flex flex-col gap-2">
                     {data.lots.map((lot) => (
                       <LotCard
@@ -221,7 +224,9 @@ export default function RealEstatePage() {
                       />
                     ))}
                   </div>
-                )}
+                ) : null}
+
+                <PropertyDeedResaleBrowse onPurchased={() => void reload()} />
 
                 <div className="mt-3 space-y-2 border-t border-cyan-900/40 pt-3">
                   <p className="text-[11px] leading-snug text-zinc-500">

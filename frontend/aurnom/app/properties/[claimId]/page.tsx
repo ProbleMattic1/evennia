@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { StoryPanel } from "@/components/story-panel";
-import { PropertyDeedMarketPanel } from "@/components/property-deed-market-panel";
+import { PropertyDeedListForm } from "@/components/property-deed-list-form";
 import {
   getPropertyClaimDetail,
   installPropertyStructure,
@@ -271,14 +271,14 @@ export default function PropertyClaimDetailPage() {
                 <span className="font-mono tabular-nums">
                   {holding.deedTransferFeeCr.toLocaleString()} cr
                 </span>{" "}
-                (transfer fee). List or buy in the{" "}
+                (transfer fee). List below; buy player-listed deeds on the{" "}
                 <Link
-                  href={`/properties/${claim.id}#property-deed-resale`}
+                  href="/real-estate#property-deed-resale-market"
                   className="text-sky-700 underline dark:text-sky-400"
                 >
-                  deed resale section
-                </Link>{" "}
-                below.
+                  Real Estate office
+                </Link>
+                .
               </p>
             ) : null}
               </CsPanel>
@@ -667,7 +667,7 @@ export default function PropertyClaimDetailPage() {
 
               <section id="property-deed-resale" aria-label="Property deed resale" className="scroll-mt-4">
                 <CsPanel title="Property Deed Resale">
-                  <PropertyDeedMarketPanel defaultClaimId={claim.id} />
+                  <PropertyDeedListForm defaultClaimId={claim.id} />
                 </CsPanel>
               </section>
             </>

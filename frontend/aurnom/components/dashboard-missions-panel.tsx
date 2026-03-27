@@ -158,28 +158,6 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
             <GameLogPanel messages={gameLog} compact />
           </div>
 
-          {roomExits.some((e) => e.destination) ? (
-            <div className="mb-1.5">
-              <div className="mb-0.5 text-[10px] uppercase tracking-wide text-zinc-500">Exits</div>
-              <div className="mt-0.5 flex flex-wrap gap-1">
-                {roomExits
-                  .filter((e): e is ExitButton & { destination: string } => Boolean(e.destination))
-                  .map((ex) => {
-                    const k = `exit:${ex.destination}`;
-                    return (
-                      <TinyButton
-                        key={`${ex.key}-${ex.destination}`}
-                        onClick={() => handleExitTravel(ex.destination)}
-                        disabled={busyKey === k}
-                      >
-                        {busyKey === k ? "Moving…" : ex.label}
-                      </TinyButton>
-                    );
-                  })}
-              </div>
-            </div>
-          ) : null}
-
           <div className="space-y-1">
             {active.length > 0 ? (
               <div>
@@ -265,7 +243,9 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                       >
                         {op.title}
                       </button>
-                      <TinyButton onClick={() => setAcceptOpp(op)}>Accept…</TinyButton>
+                      <TinyButton variant="pink" onClick={() => setAcceptOpp(op)}>
+                        Accept…
+                      </TinyButton>
                     </div>
                   ))}
                 </div>
@@ -292,6 +272,28 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
 
             {active.length === 0 && opportunities.length === 0 ? <div className="text-zinc-500">No missions available.</div> : null}
           </div>
+
+          {roomExits.some((e) => e.destination) ? (
+            <div className="mt-1.5">
+              <div className="mb-0.5 text-[10px] uppercase tracking-wide text-zinc-500">Exits</div>
+              <div className="mt-0.5 flex flex-wrap gap-1">
+                {roomExits
+                  .filter((e): e is ExitButton & { destination: string } => Boolean(e.destination))
+                  .map((ex) => {
+                    const k = `exit:${ex.destination}`;
+                    return (
+                      <TinyButton
+                        key={`${ex.key}-${ex.destination}`}
+                        onClick={() => handleExitTravel(ex.destination)}
+                        disabled={busyKey === k}
+                      >
+                        {busyKey === k ? "Moving…" : ex.label}
+                      </TinyButton>
+                    );
+                  })}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -387,19 +389,20 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
 function TinyButton({
   onClick,
   disabled,
+  variant = "cyan",
   children,
 }: {
   onClick: () => void;
   disabled?: boolean;
+  variant?: "cyan" | "pink";
   children: React.ReactNode;
 }) {
+  const cls =
+    variant === "pink"
+      ? "shrink-0 rounded border border-pink-500/80 px-1 py-0 text-[10px] text-pink-400 hover:bg-pink-950/50 disabled:opacity-40"
+      : "shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-[10px] text-cyan-400 hover:bg-cyan-900/40 disabled:opacity-40";
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-[10px] text-cyan-400 hover:bg-cyan-900/40 disabled:opacity-40"
-    >
+    <button type="button" onClick={onClick} disabled={disabled} className={cls}>
       {children}
     </button>
   );

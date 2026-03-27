@@ -132,19 +132,14 @@ def _resolve_character_for_web(account):
     """
     Resolve the active Character for web APIs.
     Returns (character, None) on success, or (None, error_message) on failure.
+
+    Multi-character admin/dev accounts use ``web_active_character_id`` or the picker;
+    a live telnet/webclient puppet is not used so "Switch Character" can clear the pref
+    and return to the picker while sessions stay connected.
     """
     def _ok(character):
         _ensure_character_in_default_room(character)
         return character, None
-
-    try:
-        puppets = account.get_all_puppets()
-    except Exception:
-        puppets = []
-
-    for p in puppets:
-        if p and p.is_typeclass("typeclasses.characters.Character", exact=False):
-            return _ok(p)
 
     chars = _playable_characters(account)
     if len(chars) == 0:
@@ -204,11 +199,8 @@ def web_clear_active_character(request):
     if not request.user.is_authenticated:
         return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
 
-    # Remove stored web character selection; this will force picker path for admin multi-char.
-    try:
-        request.user.attributes.remove("web_active_character_id")
-    except Exception:
-        request.user.db.web_active_character_id = None
+    # Clear stored web character selection; forces picker for admin multi-char.
+    request.user.db.web_active_character_id = None
 
     return JsonResponse({"ok": True})
 

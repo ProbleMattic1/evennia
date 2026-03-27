@@ -23,6 +23,8 @@ settings file:
 
 from evennia.server.serversession import ServerSession as BaseServerSession
 
+from world.web_stream import normalize_web_stream_meta
+
 
 class ServerSession(BaseServerSession):
     """
@@ -40,7 +42,9 @@ class ServerSession(BaseServerSession):
 
     def data_out(self, **kwargs):
         text = kwargs.get("text")
-        meta = kwargs.pop("web_stream_meta")
+        raw_meta = kwargs.pop("web_stream_meta", None)
+        meta = normalize_web_stream_meta(raw_meta if isinstance(raw_meta, dict) else {})
+
         puppet = getattr(self, "puppet", None)
         if text is not None and puppet is not None:
             recorder = getattr(puppet, "record_web_stream_text", None)

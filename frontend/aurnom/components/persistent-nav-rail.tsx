@@ -164,15 +164,6 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
           ))}
         </Panel>
       )}
-      {nav.claims.length > 0 && (
-        <Panel panelKey="claims" title="Claims">
-          {nav.claims.map((c) => (
-            <div key={c.href}>
-              <TinyLink href={c.href}>{c.label}</TinyLink>
-            </div>
-          ))}
-        </Panel>
-      )}
       {nav.exits.length > 0 && (
         <Panel panelKey="hub-exits" title="Exits">
           {nav.exits.map((e) => (
@@ -277,9 +268,12 @@ export function PersistentNavRail() {
 
   return (
     <aside className="sticky top-0 h-svh min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
-      <div className="mb-1 flex items-center gap-1 border-b border-cyan-900/40 pb-1">
+      <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-cyan-900/40 pb-1">
         <Link href="/" className="font-bold text-cyan-400 hover:text-cyan-300">
           AURNOM
+        </Link>
+        <Link href="/messages" className="text-[10px] font-bold uppercase tracking-widest text-cyan-500 hover:text-cyan-300">
+          Messages
         </Link>
         {(loading || pickBusy || switchBusy) && <span className="ml-auto text-[9px] text-zinc-500">…</span>}
       </div>

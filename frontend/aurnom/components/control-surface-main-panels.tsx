@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { Countdown } from "@/components/countdown";
 import { DashboardMissionsPanel } from "@/components/dashboard-missions-panel";
-import type { ControlSurfaceState, CsInventory, CsProcessing } from "@/lib/control-surface-api";
+import type { ControlSurfaceState, CsInventory } from "@/lib/control-surface-api";
 import type {
   DashboardAlert,
   DashboardGroupedAlerts,
@@ -117,10 +117,6 @@ function Badge({ label, cls }: { label: string; cls?: string }) {
 function cr(n: number | null | undefined) {
   if (n == null) return "—";
   return `${n.toLocaleString()} cr`;
-}
-
-function pct(n: number) {
-  return `${Math.round(n * 100)}%`;
 }
 
 function inventoryBucket(inv: CsInventory, id: string) {
@@ -447,26 +443,15 @@ function PropertiesPanel({ properties }: { properties: DashboardProperty[] }) {
   );
 }
 
-function ProcessingPanel({ processing }: { processing: CsProcessing }) {
+function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims"] }) {
+  if (claims.length === 0) return null;
   return (
-    <Panel panelKey="processing" title="Processing">
-      <Kv k="ore bay" v={`${processing.rawStorageUsed.toFixed(1)} / ${processing.rawStorageCapacity.toFixed(0)} t`} />
-      <Kv k="refinery in" v={`${processing.refineryInputTons.toFixed(1)} t`} />
-      <Kv k="refinery out" v={cr(processing.refineryOutputValue)} />
-      {processing.myOreQueued != null ? <Kv k="my ore queued" v={`${processing.myOreQueued.toFixed(1)} t`} /> : null}
-      {processing.myRefinedOutputValue != null ? <Kv k="my output" v={cr(processing.myRefinedOutputValue)} /> : null}
-      {processing.myHaulers && processing.myHaulers.length > 0 ? (
-        <div className="mt-0.5 text-[10px] text-zinc-500">
-          {processing.myHaulers.length} hauler{processing.myHaulers.length !== 1 ? "s" : ""}
+    <Panel panelKey="claims" title={`Claims (${claims.length})`}>
+      {claims.map((c) => (
+        <div key={c.href}>
+          <TinyLink href={c.href}>{c.label}</TinyLink>
         </div>
-      ) : null}
-      <div className="mt-0.5 flex gap-2 text-[10px] text-zinc-500">
-        <span>fee {pct(processing.processingFeeRate)}</span>
-        <span>raw fee {pct(processing.rawSaleFeeRate)}</span>
-      </div>
-      <div className="mt-1">
-        <TinyLink href="/processing">Open Plant →</TinyLink>
-      </div>
+      ))}
     </Panel>
   );
 }
@@ -522,7 +507,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           <InventoryPanel inventory={data.inventory} />
           <ShipsPanel ships={data.ships} />
           <PropertiesPanel properties={data.properties} />
-          {data.processing ? <ProcessingPanel processing={data.processing} /> : null}
+          <ClaimsNavPanel claims={data.nav.claims} />
         </div>
       </div>
     </div>
