@@ -345,7 +345,7 @@ export default function PropertyClaimDetailPage() {
               {lot.roomKey && (
                 <p className="mt-3">
                   <Link
-                    href={`/play?room=${encodeURIComponent(lot.roomKey)}`}
+                    href="/"
                     className="font-mono text-[12px] text-sky-700 underline dark:text-sky-400"
                   >
                     Visit room →

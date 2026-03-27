@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from evennia.utils import logger
 
-_DEFAULT_JSON = Path(__file__).resolve().parent / "data" / "mission_templates.json"
+from world.json_bulk_loader import discover_chunk_paths, merge_validated_rows
+
+_DATA_DIR = Path(__file__).resolve().parent / "data"
+_DEFAULT_JSON = _DATA_DIR / "mission_templates.json"
 
 _REQUIRED_TEMPLATE_KEYS = frozenset(
     {"id", "title", "summary", "missionKind", "trigger", "objectives"}
@@ -22,30 +24,30 @@ _registry: dict[str, Any] = {
 }
 
 
-def _normalize_template(raw: dict, index: int) -> tuple[dict | None, str | None]:
+def _normalize_mission_row(raw: dict, _ref: str) -> tuple[dict | None, str | None]:
     missing = _REQUIRED_TEMPLATE_KEYS - raw.keys()
     if missing:
-        return None, f"row {index}: missing keys {sorted(missing)}"
+        return None, f"missing keys {sorted(missing)}"
 
     tid = str(raw.get("id") or "").strip()
     if not tid:
-        return None, f"row {index}: empty id"
+        return None, "empty id"
 
     trigger = dict(raw.get("trigger") or {})
     trigger_kind = str(trigger.get("kind") or "").strip().lower()
     if trigger_kind not in _ALLOWED_TRIGGER_KINDS:
-        return None, f"row {index}: unsupported trigger kind {trigger_kind!r}"
+        return None, f"unsupported trigger kind {trigger_kind!r}"
 
     objectives = []
     for obj_index, obj in enumerate(list(raw.get("objectives") or [])):
         if not isinstance(obj, dict):
-            return None, f"row {index}: objective {obj_index} is not an object"
+            return None, f"objective {obj_index} is not an object"
         kind = str(obj.get("kind") or "").strip().lower()
         if kind not in _ALLOWED_OBJECTIVE_KINDS:
-            return None, f"row {index}: objective {obj_index} kind {kind!r} unsupported"
+            return None, f"objective {obj_index} kind {kind!r} unsupported"
         oid = str(obj.get("id") or "").strip()
         if not oid:
-            return None, f"row {index}: objective {obj_index} missing id"
+            return None, f"objective {obj_index} missing id"
 
         new_obj = {
             "id": oid,
@@ -64,10 +66,12 @@ def _normalize_template(raw: dict, index: int) -> tuple[dict | None, str | None]
             choices = []
             for choice_index, choice in enumerate(list(obj.get("choices") or [])):
                 if not isinstance(choice, dict):
-                    return None, f"row {index}: objective {obj_index} choice {choice_index} invalid"
+                    return None, f"objective {obj_index} choice {choice_index} invalid"
                 cid = str(choice.get("id") or "").strip()
                 if not cid:
-                    return None, f"row {index}: objective {obj_index} choice {choice_index} missing id"
+                    return None, (
+                        f"objective {obj_index} choice {choice_index} missing id"
+                    )
                 choices.append(
                     {
                         "id": cid,
@@ -115,36 +119,30 @@ def _normalize_template(raw: dict, index: int) -> tuple[dict | None, str | None]
     return row, None
 
 
+def mission_source_paths(explicit: Path | None = None) -> list[Path]:
+    if explicit is not None:
+        return [explicit]
+    return discover_chunk_paths(
+        data_dir=_DATA_DIR,
+        chunk_subdir="missions.d",
+        legacy_file=_DEFAULT_JSON,
+    )
+
+
 def load_mission_templates(path: Path | None = None) -> int:
     global _registry
-    path = path or _DEFAULT_JSON
-
-    if not path.is_file():
-        _registry = {"version": 0, "templates": (), "by_id": {}, "errors": (f"file missing: {path}",)}
+    explicit = path
+    if explicit is not None and not explicit.is_file():
+        _registry = {
+            "version": 0,
+            "templates": (),
+            "by_id": {},
+            "errors": (f"file missing: {explicit}",),
+        }
         return 0
 
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        _registry = {"version": 0, "templates": (), "by_id": {}, "errors": (f"parse error: {exc}",)}
-        return 0
-
-    if not isinstance(data, list):
-        _registry = {"version": 0, "templates": (), "by_id": {}, "errors": ("root must be a list",)}
-        return 0
-
-    templates = []
-    errors = []
-    for i, raw in enumerate(data):
-        if not isinstance(raw, dict):
-            errors.append(f"row {i}: not an object")
-            continue
-        row, err = _normalize_template(raw, i)
-        if err:
-            errors.append(err)
-            continue
-        templates.append(row)
-
+    paths = mission_source_paths(path)
+    templates, errors = merge_validated_rows(paths, validate_row=_normalize_mission_row)
     version = int(_registry.get("version") or 0) + 1
     _registry = {
         "version": version,
@@ -153,7 +151,8 @@ def load_mission_templates(path: Path | None = None) -> int:
         "errors": tuple(errors),
     }
     logger.log_info(
-        f"[missions] registry v{version} templates={len(templates)} errors={len(errors)}"
+        f"[missions] registry v{version} files={len(paths)} "
+        f"templates={len(templates)} errors={len(errors)}"
     )
     return version
 

@@ -49,6 +49,9 @@ START_LOCATION = "#2"
 GUEST_HOME = "#2"
 GUEST_START_LOCATION = "#2"
 
+# Mirror outbound client text into Character.web_msg_buffer (see server.conf.serversession).
+SERVER_SESSION_CLASS = "server.conf.serversession.ServerSession"
+
 
 ######################################################################
 # Docker/PostgreSQL: override DATABASES when POSTGRES_HOST env var is set

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { Countdown } from "@/components/countdown";
 import { DashboardMissionsPanel } from "@/components/dashboard-missions-panel";
@@ -15,6 +15,7 @@ import type {
   MarketCommodity,
 } from "@/lib/ui-api";
 import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
+import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { dashboardAckAlert, mineDeploy } from "@/lib/ui-api";
 
 function Panel({
@@ -28,24 +29,7 @@ function Panel({
   children: ReactNode;
   className?: string;
 }) {
-  const storageKey = `aurnom:dashboard-panel:${panelKey}`;
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      const raw = window.sessionStorage.getItem(storageKey);
-      return raw == null ? true : raw === "1";
-    } catch {
-      return true;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.sessionStorage.setItem(storageKey, open ? "1" : "0");
-    } catch {
-      // ignore storage errors and keep UI functional
-    }
-  }, [open, storageKey]);
+  const [open, setOpen] = useDashboardPanelOpen(panelKey, true);
 
   return (
     <section className={`mb-1 ${className}`}>
@@ -336,6 +320,94 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
   );
 }
 
+function MineDashboardRow({
+  m,
+  resourceNames,
+  onReload,
+}: {
+  m: DashboardMine;
+  resourceNames: ReturnType<typeof buildResourceNameLookup>;
+  onReload: () => void;
+}) {
+  const composition = m.composition || {};
+  const hasProduces = Object.keys(composition).length > 0;
+  const produceLines = hasProduces ? compositionToLines(composition, resourceNames) : [];
+  const rowPanelKey = `mine-row:${encodeURIComponent(m.key)}`;
+  const [open, setOpen] = useDashboardPanelOpen(rowPanelKey, true);
+
+  return (
+    <div className="mb-1 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0">
+      <div className="flex min-w-0 items-start gap-1">
+        <span className={`shrink-0 font-semibold ${m.active ? "text-green-400" : "text-zinc-500"}`}>
+          {m.active ? "●" : "○"}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1">
+            <span className="min-w-0 flex-1 truncate font-mono text-zinc-200">{m.key}</span>
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-label={`${open ? "Collapse" : "Expand"} ${m.key}`}
+              className="shrink-0 px-1 text-cyan-400 hover:text-cyan-300"
+            >
+              {open ? "▴" : "▸"}
+            </button>
+          </div>
+          {m.volumeTier ? (
+            <div className="mt-0.5">
+              <Row>
+                <Badge label={m.volumeTier} cls={m.volumeTierCls} />
+                <Badge label={m.resourceRarityTier ?? ""} cls={m.resourceRarityTierCls} />
+              </Row>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {open ? (
+        <div className={`ml-3 mt-1 items-start gap-x-2 ${hasProduces ? "grid grid-cols-2" : ""}`}>
+          <div className="min-w-0 space-y-0">
+            <Kv k="yield/cycle" v={cr(m.estimatedValuePerCycle)} />
+            <Kv k="storage" v={`${m.storageUsed}/${m.storageCapacity} t`} />
+            {m.rigWear != null ? <Kv k="rig wear" v={`${m.rigWear}%${!m.rigOperational ? " ⚠ offline" : ""}`} /> : null}
+            {Object.keys(m.inventory || {}).length > 0 ? (
+              <Kv
+                k="stored"
+                v={Object.entries(m.inventory || {})
+                  .map(([k, v]) => `${displayResourceName(k, resourceNames)}: ${v.toFixed(1)}t`)
+                  .join(" · ")}
+              />
+            ) : null}
+            {m.nextCycleAt ? (
+              <div className="text-zinc-500">
+                <Countdown targetIso={m.nextCycleAt} prefix="next:" onExpired={onReload} />
+              </div>
+            ) : null}
+            {m.location ? (
+              <div className="mt-0.5">
+                <TinyLink href="/">Visit mine →</TinyLink>
+              </div>
+            ) : null}
+          </div>
+          {hasProduces ? (
+            <div className="min-w-0 border-l border-zinc-800/60 pl-2">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="shrink-0 font-mono text-zinc-500">produces</span>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  {produceLines.map((line) => (
+                    <span key={line.key} className="font-mono text-zinc-200">
+                      {line.displayName} {line.pct}%
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function MinesPanel({
   mines,
   market,
@@ -350,65 +422,9 @@ function MinesPanel({
   if (mines.length === 0) return null;
   return (
     <Panel panelKey="mines" title={`Mines (${mines.length})`}>
-      {mines.map((m) => {
-        const composition = m.composition || {};
-        const hasProduces = Object.keys(composition).length > 0;
-        const produceLines = hasProduces ? compositionToLines(composition, resourceNames) : [];
-
-        return (
-          <div key={m.key} className="mb-1 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0">
-            <Row>
-              <span className={`font-semibold ${m.active ? "text-green-400" : "text-zinc-500"}`}>{m.active ? "●" : "○"}</span>
-              <span className="flex-1 truncate text-zinc-200">{m.key}</span>
-            </Row>
-            <div className={`ml-3 items-start gap-x-2 ${hasProduces ? "grid grid-cols-2" : ""}`}>
-              <div className="min-w-0 space-y-0">
-                {m.volumeTier ? (
-                  <Row>
-                    <Badge label={m.volumeTier} cls={m.volumeTierCls} />
-                    <Badge label={m.resourceRarityTier ?? ""} cls={m.resourceRarityTierCls} />
-                  </Row>
-                ) : null}
-                <Kv k="yield/cycle" v={cr(m.estimatedValuePerCycle)} />
-                <Kv k="storage" v={`${m.storageUsed}/${m.storageCapacity} t`} />
-                {m.rigWear != null ? <Kv k="rig wear" v={`${m.rigWear}%${!m.rigOperational ? " ⚠ offline" : ""}`} /> : null}
-                {Object.keys(m.inventory || {}).length > 0 ? (
-                  <Kv
-                    k="stored"
-                    v={Object.entries(m.inventory || {})
-                      .map(([k, v]) => `${displayResourceName(k, resourceNames)}: ${v.toFixed(1)}t`)
-                      .join(" · ")}
-                  />
-                ) : null}
-                {m.nextCycleAt ? (
-                  <div className="text-zinc-500">
-                    <Countdown targetIso={m.nextCycleAt} prefix="next:" onExpired={onReload} />
-                  </div>
-                ) : null}
-                {m.location ? (
-                  <div className="mt-0.5">
-                    <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>Visit mine →</TinyLink>
-                  </div>
-                ) : null}
-              </div>
-              {hasProduces ? (
-                <div className="min-w-0 border-l border-zinc-800/60 pl-2">
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <span className="shrink-0 font-mono text-zinc-500">produces</span>
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      {produceLines.map((line) => (
-                        <span key={line.key} className="font-mono text-zinc-200">
-                          {line.displayName} {line.pct}%
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        );
-      })}
+      {mines.map((m) => (
+        <MineDashboardRow key={m.key} m={m} resourceNames={resourceNames} onReload={onReload} />
+      ))}
     </Panel>
   );
 }

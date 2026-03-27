@@ -12,7 +12,7 @@ export function ExitGrid({ exits }: Props) {
       {exits.map((exit) => (
         <Link
           key={`${exit.key}-${exit.destination ?? "none"}`}
-          href={exit.destination ? `/play?room=${encodeURIComponent(exit.destination)}` : "/play"}
+          href="/"
           className="rounded border border-cyan-800/60 px-2 py-1 text-[11px] text-cyan-400 hover:bg-cyan-900/40 hover:text-cyan-300"
         >
           {exit.label}

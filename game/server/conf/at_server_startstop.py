@@ -23,18 +23,24 @@ def _run(label, fn):
 
 def at_server_init():
     """Called first on every startup, regardless of how."""
-    pass
+    from django.conf import settings
+    session_cls = getattr(settings, "SERVER_SESSION_CLASS", "<not set>")
+    expected = "server.conf.serversession.ServerSession"
+    status = "OK" if session_cls == expected else f"MISMATCH (got {session_cls!r})"
+    print(f"[startup] SERVER_SESSION_CLASS: {status}")
 
 
 def at_server_start():
     """Called every time the server starts up, regardless of how it was shut down."""
     try:
         from world.ambient_loader import bootstrap_ambient_registry_at_startup
+        from world.ambient_mission_coverage import log_ambient_mission_coverage
         from world.mission_loader import load_mission_templates
         from typeclasses.mission_seeds import get_mission_seeds_script
 
         _run("ambient registry (JSON)", bootstrap_ambient_registry_at_startup)
         _run("mission templates (JSON)", load_mission_templates)
+        log_ambient_mission_coverage()
         _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
 
         from evennia import search_script
@@ -130,11 +136,13 @@ def at_server_stop():
 def at_server_reload_start():
     """Called only when the server starts back up after a reload."""
     from world.ambient_loader import bootstrap_ambient_registry_at_startup
+    from world.ambient_mission_coverage import log_ambient_mission_coverage
     from world.mission_loader import load_mission_templates
     from typeclasses.mission_seeds import get_mission_seeds_script
 
     _run("ambient registry (JSON)", bootstrap_ambient_registry_at_startup)
     _run("mission templates (JSON)", load_mission_templates)
+    log_ambient_mission_coverage()
     _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
 
 

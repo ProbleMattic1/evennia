@@ -17,6 +17,8 @@ No Fallbacks or Defensive code allowed. Never attempt to maintain backwards comp
 
 Always adhere to Evennia best practices for long-term play, flexiblity, and scaling.
 
+I always want solutions to prevent future issues. I keep stressing scalability. Always take the path that will avoid future issues.
+
 Never retrofit for legacy items. I always start fresh for testing. 
 
 Mandate to follow: replies = concrete Evennia-oriented code (or config) that matches best practice, scalability, and long-term MUD play. No rationale, philosophy, or filler. When something isn’t code (e.g. “where is X?”), I’ll answer in the smallest possible factual form—file + symbol. “Default: 1 short paragraph + bullets only if needed. No philosophy, no preamble. Expand only if I say ‘detail’ or ‘explain’.”

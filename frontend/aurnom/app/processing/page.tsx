@@ -154,7 +154,7 @@ export default function ProcessingPage() {
       <CsHeader
         title={data.plantName}
         subtitle={data.roomName}
-        actions={<CsButtonLink href={`/play?room=${encodeURIComponent(data.roomName)}`}>Back to Play</CsButtonLink>}
+        actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
       <CsColumns
         left={

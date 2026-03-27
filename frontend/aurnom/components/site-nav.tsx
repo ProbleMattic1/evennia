@@ -211,7 +211,7 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
       } catch {
         // Best-effort bridge call; still route so UI remains usable.
       } finally {
-        router.push(`/play?room=${encodeURIComponent(destination)}`);
+        router.push("/");
         afterNav();
       }
     },

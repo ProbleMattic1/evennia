@@ -21,6 +21,7 @@ settings file:
 
 """
 
+from django.conf import settings
 from evennia.server.serversession import ServerSession as BaseServerSession
 
 
@@ -32,6 +33,23 @@ class ServerSession(BaseServerSession):
     Each account gets one or more sessions assigned to them whenever they connect
     to the game server. All communication between game and account goes
     through their session(s).
+
+    Outbound client traffic is mirrored onto the puppet Character's web_msg_buffer
+    here (everything that leaves via data_out), with headless/API ``Character.msg``
+    paths recording in ``Character.msg`` when no sessions receive the line.
     """
 
-    pass
+    def data_out(self, **kwargs):
+        text = kwargs.get("text")
+        puppet = getattr(self, "puppet", None)
+        if text is not None and puppet is not None:
+            recorder = getattr(puppet, "record_web_stream_text", None)
+            if callable(recorder) and puppet.is_typeclass(
+                "typeclasses.characters.Character", exact=False
+            ):
+                try:
+                    recorder(text)
+                except Exception:
+                    if settings.DEBUG:
+                        raise
+        super().data_out(**kwargs)

@@ -9,6 +9,7 @@ urlpatterns = [
     path("play", views.play_state, name="ui-play"),
     path("play/travel", views.play_travel, name="ui-play-travel"),
     path("play/interact", views.play_interact, name="ui-play-interact"),
+    path("msg-stream", views.msg_stream, name="ui-msg-stream"),
     path("nav", views.nav_state, name="ui-nav"),
     path("dashboard", views.dashboard_state, name="ui-dashboard"),
     path("dashboard/ack-alert", views.dashboard_ack_alert, name="ui-dashboard-ack-alert"),
@@ -103,4 +104,5 @@ urlpatterns = [
     path("package/buy", views.package_buy_listed, name="ui-package-buy"),
     path("missions/accept", views.missions_accept, name="ui-missions-accept"),
     path("missions/choose", views.missions_choose, name="ui-missions-choose"),
+    path("debug/msg-buffer", views.debug_msg_buffer, name="ui-debug-msg-buffer"),
 ]

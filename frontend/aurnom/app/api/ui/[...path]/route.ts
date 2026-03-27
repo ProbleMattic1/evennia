@@ -34,6 +34,17 @@ function buildUpstreamUrl(request: NextRequest, path: string[]) {
   return upstream;
 }
 
+function buildResponseHeaders(upstream: Response): Record<string, string> {
+  const headers: Record<string, string> = {
+    "content-type": upstream.headers.get("content-type") ?? "application/json",
+  };
+  const setCookie = upstream.headers.get("set-cookie");
+  if (setCookie) {
+    headers["set-cookie"] = setCookie;
+  }
+  return headers;
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   const upstream = buildUpstreamUrl(request, path);
@@ -45,9 +56,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const body = await response.text();
   return new Response(body, {
     status: response.status,
-    headers: {
-      "content-type": response.headers.get("content-type") ?? "application/json",
-    },
+    headers: buildResponseHeaders(response),
   });
 }
 
@@ -68,8 +77,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const body = await response.text();
   return new Response(body, {
     status: response.status,
-    headers: {
-      "content-type": response.headers.get("content-type") ?? "application/json",
-    },
+    headers: buildResponseHeaders(response),
   });
 }

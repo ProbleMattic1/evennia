@@ -8,9 +8,13 @@ creation commands.
 
 """
 
+import time
+
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
+from evennia.utils.text2html import parse_html
+from evennia.utils.utils import make_iter
 
 from typeclasses.missions import MissionHandler
 
@@ -166,6 +170,8 @@ class Character(ObjectParent, DefaultCharacter):
 
     """
 
+    WEB_MSG_BUFFER_MAX = 200
+
     @lazy_property
     def stats(self):
         return TraitHandler(self, db_attribute_key="rpg_stats", db_attribute_category="traits")
@@ -181,6 +187,86 @@ class Character(ObjectParent, DefaultCharacter):
     @lazy_property
     def missions(self):
         return MissionHandler(self)
+
+    def record_web_stream_text(self, text):
+        """
+        Append one outbound line to web_msg_buffer. ``text`` matches ``msg`` (str or tuple).
+        Called from ServerSession.data_out (portal clients) or from ``msg`` when headless.
+        """
+        if text is None:
+            return
+        raw = text[0] if isinstance(text, tuple) else text
+        if not isinstance(raw, str) or not raw.strip():
+            return
+        html = parse_html(raw, strip_ansi=False)
+
+        stored = self.attributes.get("web_msg_buffer", default=[])
+        try:
+            buf = list(stored)
+        except TypeError:
+            buf = []
+
+        seq_raw = self.attributes.get("web_msg_seq", default=0)
+        try:
+            seq = int(seq_raw) + 1
+        except (TypeError, ValueError):
+            seq = 1
+
+        buf.append({"seq": seq, "html": str(html), "ts": float(time.time())})
+        if len(buf) > self.WEB_MSG_BUFFER_MAX:
+            buf = buf[-self.WEB_MSG_BUFFER_MAX :]
+
+        self.attributes.add("web_msg_buffer", buf)
+        self.attributes.add("web_msg_seq", seq)
+
+    def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
+        """Emit to client(s); tee via data_out when sessions exist, else record here (API/headless)."""
+        sessions = make_iter(session) if session else self.sessions.all()
+        super().msg(text=text, from_obj=from_obj, session=session, options=options, **kwargs)
+        if text is None:
+            return
+        if sessions:
+            return
+        self.record_web_stream_text(text)
+
+    def get_web_msg_buffer(self, since_seq=0):
+        """
+        Return JSON-safe rows: plain dicts with int seq, str html, float ts.
+        Skips malformed rows. Only includes seq > since_seq when since_seq > 0.
+        """
+        stored = self.attributes.get("web_msg_buffer", default=[])
+        try:
+            stored_list = list(stored)
+        except TypeError:
+            return []
+
+        try:
+            cutoff = int(since_seq)
+        except (TypeError, ValueError):
+            cutoff = 0
+
+        out = []
+        for m in stored_list:
+            if isinstance(m, dict):
+                row = m
+            else:
+                try:
+                    row = dict(m)
+                except (TypeError, ValueError):
+                    continue
+            try:
+                entry = {
+                    "seq": int(row["seq"]),
+                    "html": str(row["html"]),
+                    "ts": float(row["ts"]),
+                }
+            except (KeyError, TypeError, ValueError):
+                continue
+            out.append(entry)
+
+        if cutoff:
+            return [e for e in out if e["seq"] > cutoff]
+        return out
 
     def at_object_creation(self):
         super().at_object_creation()

@@ -136,7 +136,7 @@ export default function ClaimDetailPage() {
               </dl>
               <p className="mt-3">
                 <Link
-                  href={`/play?room=${encodeURIComponent(site.roomKey)}`}
+                  href="/"
                   className="font-mono text-[12px] text-sky-700 underline dark:text-sky-400"
                 >
                   Visit site →

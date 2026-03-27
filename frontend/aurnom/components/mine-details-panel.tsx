@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { ActionGrid } from "@/components/action-grid";
@@ -17,6 +17,7 @@ import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
 import { compositionToLines, displayResourceName } from "@/lib/resource-display";
 import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
 import { Countdown } from "@/components/countdown";
+import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 
 type PrimaryProps = {
   site: MineSiteDetails;
@@ -60,7 +61,7 @@ function LabeledStackLines({ label, lines }: { label: string; lines: { key: stri
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-1">
       <div className="bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
@@ -69,6 +70,41 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
       <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
         <div className="flex flex-col gap-1 text-[11px]">{children}</div>
       </div>
+    </section>
+  );
+}
+
+/** Same expand/collapse control as dashboard `Panel` (session-backed ▴/▸). */
+function MineDetailSectionCard({
+  panelKey,
+  title,
+  children,
+  uppercaseTitle = true,
+}: {
+  panelKey: string;
+  title: string;
+  children: ReactNode;
+  uppercaseTitle?: boolean;
+}) {
+  const [open, setOpen] = useDashboardPanelOpen(panelKey, true);
+  return (
+    <section className="mb-1">
+      <div className="flex min-w-0 items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-cyan-500">
+        <span className={`min-w-0 truncate ${uppercaseTitle ? "uppercase" : "normal-case"}`}>{title}</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+          className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
+        >
+          {open ? "▴" : "▸"}
+        </button>
+      </div>
+      {open ? (
+        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
+          <div className="flex flex-col gap-1 text-[11px]">{children}</div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -131,17 +167,18 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps
     text: `${displayResourceName(k, resourceNames)}: ${Number(v).toFixed(1)} t`,
   }));
 
+  const pk = (slug: string) => `play-mine:${site.id}:${slug}`;
+
   return (
     <div>
       <div className="mt-1 grid auto-rows-min grid-cols-1 gap-2">
-        <Card title="Identity">
-          <Kv label="Deposit" value={site.key} />
+        <MineDetailSectionCard panelKey={pk("identity")} title={site.key} uppercaseTitle={false}>
           <Kv label="Site key" value={site.siteKey} />
           <Kv label="Location" value={site.location ?? site.roomKey ?? "—"} />
           <Kv label="Room" value={site.roomKey} />
-        </Card>
+        </MineDetailSectionCard>
 
-        <Card title="Status">
+        <MineDetailSectionCard panelKey={pk("status")} title="Status">
           <Kv label="Owner" value={site.owner ?? "Unclaimed"} />
           <Kv label="Claimed" value={site.isClaimed ? "Yes" : "No"} />
           <Kv label="Active" value={site.active ? "Yes" : "No"} />
@@ -156,9 +193,9 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps
             }
           />
           <Kv label="Survey" value={`Level ${site.surveyLevel}`} />
-        </Card>
+        </MineDetailSectionCard>
 
-        <Card title="Deposit">
+        <MineDetailSectionCard panelKey={pk("deposit")} title="Deposit">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5">
               <span className="text-zinc-500">Volume</span>
@@ -185,19 +222,19 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps
           <Kv label="Output" value={`${site.baseOutputTons} t/cycle`} />
           <Kv label="Resources" value={site.resources} />
           <LabeledStackLines label="Composition" lines={compositionLines} />
-        </Card>
+        </MineDetailSectionCard>
 
-        <Card title="Hazard">
+        <MineDetailSectionCard panelKey={pk("hazard")} title="Hazard">
           <Kv label="Level" value={site.hazardLevel} />
           <Kv label="Rating" value={site.hazardLabel} />
-        </Card>
+        </MineDetailSectionCard>
 
-        <Card title="Licensing">
+        <MineDetailSectionCard panelKey={pk("licensing")} title="Licensing">
           <Kv label="License" value={`Level ${site.licenseLevel}`} />
           <Kv label="Tax" value={`${(site.taxRate * 100).toFixed(1)}%`} />
-        </Card>
+        </MineDetailSectionCard>
 
-        <Card title="Cycle">
+        <MineDetailSectionCard panelKey={pk("cycle")} title="Cycle">
           <Kv
             label="Next cycle"
             value={
@@ -218,20 +255,20 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps
           />
           <Kv label="Last processed" value={formatDate(site.lastProcessedAt)} />
           <Kv label="Est. value" value={`${site.estimatedValuePerCycle.toLocaleString()} cr`} />
-        </Card>
+        </MineDetailSectionCard>
 
-        <Card title="Depletion">
+        <MineDetailSectionCard panelKey={pk("depletion")} title="Depletion">
           <Kv label="Rate" value={`${(site.depletionRate * 100).toFixed(2)}%`} />
           <Kv label="Floor" value={`${Math.round(site.richnessFloor * 100)}%`} />
-        </Card>
+        </MineDetailSectionCard>
 
-        <Card title="Storage">
+        <MineDetailSectionCard panelKey={pk("storage")} title="Storage">
           <Kv label="Used" value={`${site.storageUsed} / ${site.storageCapacity} t`} />
           {inventoryLines.length > 0 ? <LabeledStackLines label="Stored" lines={inventoryLines} /> : null}
-        </Card>
+        </MineDetailSectionCard>
 
         {site.rig && (
-          <Card title="Rig (active)">
+          <MineDetailSectionCard panelKey={pk("rig")} title="Rig (active)">
             <Kv label="Model" value={site.rig} />
             <Kv label="Rating" value={site.rigRating ?? "—"} />
             <Kv label="Wear" value={site.rigWear != null ? `${site.rigWear}%` : "—"} />
@@ -241,7 +278,7 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps
             <Kv label="Target" value={site.rigTargetFamily ?? "—"} />
             <Kv label="Purity" value={site.rigPurityCutoff ?? "—"} />
             <Kv label="Maintenance" value={site.rigMaintenanceLevel ?? "—"} />
-          </Card>
+          </MineDetailSectionCard>
         )}
       </div>
     </div>

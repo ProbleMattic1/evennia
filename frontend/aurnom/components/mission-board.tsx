@@ -79,7 +79,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
     try {
       const res = await playTravel({ destination: roomKey });
       setNotice(res.message ?? `Moved to ${roomKey}.`);
-      router.push(`/play?room=${encodeURIComponent(roomKey)}`);
+      router.push("/");
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Travel failed.");

@@ -54,6 +54,7 @@ from commands.property_place import CmdOpenProperty, CmdVisitProperty
 from commands.npc_parcel_mission import CmdAskParcelClerk, CmdAskParcelCommuter
 from commands.npc_promenade import CmdAskGuide
 from commands.reload_ambient import CmdReloadAmbient
+from commands.reload_missions import CmdReloadMissions
 from commands.shop import CmdBuy, CmdShop
 from commands.vehicles import (
     CmdBoardVehicle,
@@ -143,6 +144,7 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
         self.add(CmdPointBuy())
         self.add(CmdCharCreate())
         self.add(CmdReloadAmbient())
+        self.add(CmdReloadMissions())
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

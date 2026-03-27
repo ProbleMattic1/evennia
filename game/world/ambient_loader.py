@@ -5,15 +5,16 @@ Call from at_server_start and from reload command.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from evennia.utils import logger
 
 from typeclasses.system_alerts import ALERT_CATEGORIES, ALERT_SEVERITIES
 from world.ambient_registry import replace_ambient_registry
+from world.json_bulk_loader import discover_chunk_paths, merge_validated_rows
 
-_DEFAULT_JSON = Path(__file__).resolve().parent / "data" / "ambient_templates.json"
+_DATA_DIR = Path(__file__).resolve().parent / "data"
+_DEFAULT_JSON = _DATA_DIR / "ambient_templates.json"
 
 REQUIRED_KEYS = frozenset(
     {"id", "cadence", "weight", "cooldown_seconds", "severity", "category", "title", "detail"}
@@ -21,16 +22,16 @@ REQUIRED_KEYS = frozenset(
 ALLOWED_CADENCE = frozenset({"tick", "strong"})
 
 
-def _validate_row(raw: dict, index: int) -> tuple[dict | None, str | None]:
+def _normalize_ambient_row(raw: dict, _ref: str) -> tuple[dict | None, str | None]:
     missing = REQUIRED_KEYS - raw.keys()
     if missing:
-        return None, f"row {index}: missing keys {sorted(missing)}"
+        return None, f"missing keys {sorted(missing)}"
     cid = str(raw["id"]).strip()
     if not cid:
-        return None, f"row {index}: empty id"
+        return None, "empty id"
     cadence = str(raw["cadence"]).strip()
     if cadence not in ALLOWED_CADENCE:
-        return None, f"row {index}: bad cadence {cadence!r}"
+        return None, f"bad cadence {cadence!r}"
     sev = str(raw["severity"]).strip()
     if sev not in ALERT_SEVERITIES:
         sev = "info"
@@ -61,28 +62,14 @@ def _validate_row(raw: dict, index: int) -> tuple[dict | None, str | None]:
     return row, None
 
 
-def rows_from_json(path: Path | None = None) -> tuple[list[dict], list[str]]:
-    path = path or _DEFAULT_JSON
-    if not path.is_file():
-        return [], [f"ambient JSON not found: {path}"]
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        return [], [f"ambient JSON parse error: {exc}"]
-    if not isinstance(data, list):
-        return [], ["ambient JSON root must be a list"]
-    rows: list[dict] = []
-    errors: list[str] = []
-    for i, raw in enumerate(data):
-        if not isinstance(raw, dict):
-            errors.append(f"row {i}: not an object")
-            continue
-        row, err = _validate_row(raw, i)
-        if err:
-            errors.append(err)
-            continue
-        rows.append(row)
-    return rows, errors
+def ambient_source_paths(explicit: Path | None = None) -> list[Path]:
+    if explicit is not None:
+        return [explicit]
+    return discover_chunk_paths(
+        data_dir=_DATA_DIR,
+        chunk_subdir="ambient.d",
+        legacy_file=_DEFAULT_JSON,
+    )
 
 
 def index_by_cadence(rows: list[dict]) -> dict[str, tuple[dict, ...]]:
@@ -97,12 +84,13 @@ def index_by_cadence(rows: list[dict]) -> dict[str, tuple[dict, ...]]:
 
 
 def load_ambient_from_json(path: Path | None = None) -> int:
-    rows, errs = rows_from_json(path)
+    paths = ambient_source_paths(path)
+    rows, errs = merge_validated_rows(paths, validate_row=_normalize_ambient_row)
     by_c = index_by_cadence(rows)
     vids = frozenset(t["id"] for t in rows)
     ver = replace_ambient_registry(by_cadence=by_c, valid_ids=vids, errors=tuple(errs))
     logger.log_info(
-        f"[ambient] registry v{ver} tick={len(by_c['tick'])} "
+        f"[ambient] registry v{ver} files={len(paths)} tick={len(by_c['tick'])} "
         f"strong={len(by_c['strong'])} errors={len(errs)}"
     )
     return ver

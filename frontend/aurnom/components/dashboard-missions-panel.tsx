@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { GameLogPanel } from "@/components/game-log-panel";
 import type { MissionActive, MissionChoice, MissionOpportunity, MissionsState } from "@/lib/ui-api";
 import { acceptMission, chooseMission, playInteract, playTravel } from "@/lib/ui-api";
+import { useMsgStream } from "@/lib/use-msg-stream";
 
 type Props = {
   missions: MissionsState;
@@ -26,6 +27,7 @@ type ChoiceDialogState = {
  */
 export function DashboardMissionsPanel({ missions, onChanged }: Props) {
   const router = useRouter();
+  const { messages: gameLog } = useMsgStream();
 
   const opportunities = missions.opportunities ?? [];
   const active = missions.active ?? [];
@@ -102,7 +104,7 @@ export function DashboardMissionsPanel({ missions, onChanged }: Props) {
 
   async function handleTravel(m: MissionActive, roomKey: string) {
     await run(`travel:${m.id}:${roomKey}`, async () => playTravel({ destination: roomKey }));
-    router.push(`/play?room=${encodeURIComponent(roomKey)}`);
+    router.push("/");
     router.refresh();
   }
 
@@ -136,6 +138,11 @@ export function DashboardMissionsPanel({ missions, onChanged }: Props) {
               </button>
             </div>
           ) : null}
+
+          <div className="mb-1.5">
+            <div className="mb-0.5 text-[10px] uppercase tracking-wide text-zinc-500">Game log</div>
+            <GameLogPanel messages={gameLog} compact />
+          </div>
 
           <div className="space-y-1">
             {active.length > 0 ? (
@@ -332,12 +339,6 @@ export function DashboardMissionsPanel({ missions, onChanged }: Props) {
             ) : null}
 
             <div className="mt-2 flex items-center gap-1">
-              <Link
-                href="/play"
-                className="shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-[10px] text-cyan-400 hover:bg-cyan-900/40"
-              >
-                Open Play →
-              </Link>
               <TinyButton onClick={() => setDetailMission(null)}>Close</TinyButton>
             </div>
           </div>
@@ -411,4 +412,3 @@ function formatRewards(rewards: Record<string, unknown>) {
   }
   return parts.length ? `Rewards: ${parts.join(" · ")}` : "";
 }
-

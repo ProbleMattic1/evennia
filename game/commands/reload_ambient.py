@@ -13,9 +13,13 @@ class CmdReloadAmbient(Command):
     """
     Reload ambient world templates from JSON (no full server reload).
 
+    With no arguments, loads ``world/data/ambient.d/*.json`` (sorted) plus
+    optional ``world/data/ambient_templates.json``. With a path, loads that
+    file only.
+
     Usage:
       reloadambient
-      reloadambient /absolute/or/server/path/ambient_templates.json
+      reloadambient /absolute/or/server/path/some_file.json
     """
 
     key = "reloadambient"

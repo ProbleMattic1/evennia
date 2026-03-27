@@ -33,7 +33,7 @@ export default function BankPage() {
       <CsHeader
         title={data.bankName}
         subtitle={data.roomName}
-        actions={<CsButtonLink href="/play?room=Alpha%20Prime%20Central%20Reserve">Back to Play</CsButtonLink>}
+        actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
       <CsColumns
         left={

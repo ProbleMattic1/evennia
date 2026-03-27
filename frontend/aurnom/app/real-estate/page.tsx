@@ -175,7 +175,7 @@ export default function RealEstatePage() {
       <CsHeader
         title={data.brokerName}
         subtitle={REALTY_OFFICE_ROOM}
-        actions={<CsButtonLink href={`/play?room=${encodeURIComponent(REALTY_OFFICE_ROOM)}`}>Back to Play</CsButtonLink>}
+        actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
       <CsColumns
         left={

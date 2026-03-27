@@ -129,7 +129,7 @@ function ShopPageInner() {
       <CsHeader
         title={view.shopName}
         subtitle={view.roomName}
-        actions={<CsButtonLink href={`/play?room=${encodeURIComponent(view.roomName)}`}>Back to Play</CsButtonLink>}
+        actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
 
       {actionError ? (

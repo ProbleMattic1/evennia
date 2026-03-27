@@ -24,6 +24,7 @@ Design notes
 
 from commands.command import Command
 from typeclasses.mining import RESOURCE_CATALOG
+from world.web_interactions import InteractionError, handle_survey
 
 
 # ---------------------------------------------------------------------------
@@ -108,24 +109,14 @@ class CmdSurvey(Command):
 
     def func(self):
         caller = self.caller
-        site = _find_site_in_room(caller)
-        if not site:
-            caller.msg("There is no minable deposit here.")
+        try:
+            dialogue, interaction_key = handle_survey(caller)
+        except InteractionError as exc:
+            caller.msg(str(exc))
             return
-
-        new_level, report = site.advance_survey()
-        from typeclasses.mining import SURVEY_LEVELS
-        label = SURVEY_LEVELS.get(new_level, "?")
-        if new_level >= 3:
-            caller.msg(f"|wSurvey complete ({label}).|n\n{report}")
-        else:
-            remaining = 3 - new_level
-            caller.msg(
-                f"|wSurvey advanced to level {new_level} ({label}).|n  "
-                f"({remaining} more survey{'s' if remaining > 1 else ''} to full assessment)\n{report}"
-            )
+        caller.msg(dialogue)
         caller.missions.sync_global_seeds()
-        caller.missions.sync_interaction("survey")
+        caller.missions.sync_interaction(interaction_key)
 
 
 class CmdClaimSite(Command):

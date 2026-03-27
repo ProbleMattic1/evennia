@@ -11,6 +11,7 @@ from evennia.utils import utils
 
 from world.bootstrap_hub import HUB_ROOM_KEY
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
+from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
 
 DEFAULT_PLAY_ROOM = HUB_ROOM_KEY
 
@@ -237,7 +238,7 @@ def _room_actions(room):
         {
             "key": "look",
             "label": "Refresh View",
-            "href": f"/play?room={room.key}",
+            "href": "/play",
         }
     )
     return actions
@@ -1078,7 +1079,10 @@ def _web_refresh_bundle(request, *, room_key=None):
     play_data = {}
     try:
         factory = RequestFactory()
-        get_req = factory.get("/ui/play", {"room": room_key or DEFAULT_PLAY_ROOM})
+        play_params = {}
+        if room_key:
+            play_params["room"] = room_key
+        get_req = factory.get("/ui/play", play_params)
         get_req.user = request.user
         play = play_state(get_req)
         play_data = json.loads(play.content.decode("utf-8")) if hasattr(play, "content") else {}
@@ -1088,21 +1092,27 @@ def _web_refresh_bundle(request, *, room_key=None):
     return {"dashboard": dashboard, "play": play_data}
 
 
-ALLOWED_WEB_INTERACTIONS = {
-    "askguide": lambda payload: "askguide",
-    "askguide:property": lambda payload: "askguide property",
-    "askguide:mining": lambda payload: "askguide mining",
-    "askguide:security": lambda payload: "askguide security",
-    "askguide:transit": lambda payload: "askguide transit",
-    "parcel:commuter": lambda payload: "askparcelcommuter",
-    "parcel:supply_clerk": lambda payload: "askparcelclerk",
-    "survey": lambda payload: "survey",
-}
+
+
+def _resolve_play_room_key(request):
+    """
+    Default Play view to the character's Evennia location; ?room= overrides
+    (GM/tools, deep links). Unauthenticated users get the public hub default.
+    """
+    q = (request.GET.get("room") or "").strip()
+    if q:
+        return q
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
+        loc = getattr(char, "location", None) if char else None
+        if loc:
+            return loc.key
+    return DEFAULT_PLAY_ROOM
 
 
 @require_GET
 def play_state(request):
-    room_key = request.GET.get("room") or DEFAULT_PLAY_ROOM
+    room_key = _resolve_play_room_key(request)
     room = _first_object(room_key)
     if not room:
         raise Http404(f"Room '{room_key}' was not found.")
@@ -1193,24 +1203,31 @@ def play_interact(request):
     interaction_key = str(body.get("interactionKey") or "").strip().lower()
     payload = dict(body.get("payload") or {})
 
-    if interaction_key not in ALLOWED_WEB_INTERACTIONS:
+    handler = WEB_INTERACTION_HANDLERS.get(interaction_key)
+    if handler is None:
         return JsonResponse(
             {"ok": False, "code": "INTERACTION_NOT_ALLOWED", "message": "Interaction is not allowed from web."},
             status=400,
         )
 
-    cmd = ALLOWED_WEB_INTERACTIONS[interaction_key](payload)
     try:
-        char.execute_cmd(cmd)
+        dialogue, resolved_key = handler(char, payload)
+    except InteractionError as exc:
+        return JsonResponse(
+            {"ok": False, "code": "INTERACTION_FAILED", "message": str(exc)},
+            status=400,
+        )
     except Exception as exc:
         return JsonResponse(
             {"ok": False, "code": "INTERACTION_FAILED", "message": f"Interaction failed: {exc}"},
             status=500,
         )
 
+    char.msg(dialogue)
+
     try:
         char.missions.sync_global_seeds()
-        char.missions.sync_interaction(interaction_key)
+        char.missions.sync_interaction(resolved_key)
         if char.location:
             char.missions.sync_room(char.location)
     except Exception:
@@ -1219,6 +1236,36 @@ def play_interact(request):
     room_key = char.location.key if getattr(char, "location", None) else DEFAULT_PLAY_ROOM
     bundle = _web_refresh_bundle(request, room_key=room_key)
     return JsonResponse({"ok": True, "message": "Interaction executed.", **bundle})
+
+
+@require_GET
+def msg_stream(request):
+    """
+    Incremental message stream for the web frontend.
+    Returns messages buffered on the character since a given sequence number.
+
+    Query params:
+        since (int): Return only messages with seq > this value. Default 0 (all).
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "messages": [], "seq": 0}, status=401)
+
+    char, err_msg = _resolve_character_for_web(request.user)
+    if not char:
+        return JsonResponse(
+            {"ok": False, "messages": [], "seq": 0, "error": err_msg or "No character."},
+            status=400,
+        )
+
+    try:
+        since = int(request.GET.get("since", 0))
+    except (TypeError, ValueError):
+        since = 0
+
+    messages = char.get_web_msg_buffer(since_seq=since)
+    latest_seq = int(messages[-1]["seq"]) if messages else int(since)
+
+    return JsonResponse({"ok": True, "messages": messages, "seq": latest_seq})
 
 
 NAV_KIOSKS = {
@@ -3082,4 +3129,65 @@ def package_buy_listed(request):
         "ok": True,
         "message": msg,
         "dashboard": dash_data,
+    })
+
+
+@require_GET
+def debug_msg_buffer(request):
+    """
+    Diagnostic endpoint — only active when DEBUG=True.
+
+    Returns the resolved character, web_msg_buffer length, and the actual
+    SERVER_SESSION_CLASS so we can verify the mirror plumbing is wired up.
+    """
+    from django.conf import settings as django_settings
+
+    if not django_settings.DEBUG:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Only available in DEBUG mode.")
+
+    import evennia
+
+    session_cls = getattr(django_settings, "SERVER_SESSION_CLASS", "<not set>")
+
+    sessions_iter = list(evennia.SESSION_HANDLER.values())
+    if sessions_iter:
+        actual_session_cls = (
+            type(sessions_iter[0]).__module__
+            + "."
+            + type(sessions_iter[0]).__qualname__
+        )
+    else:
+        actual_session_cls = "<no sessions connected>"
+
+    char_info = None
+    buf_len = None
+    buf_seq = None
+
+    if request.user.is_authenticated:
+        char, err = _resolve_character_for_web(request.user)
+        if char:
+            char_info = {
+                "id": char.id,
+                "key": char.key,
+                "typeclass": char.typeclass_path,
+            }
+            raw_buf = char.attributes.get("web_msg_buffer", default=[])
+            buf_len = (
+                len(raw_buf)
+                if isinstance(raw_buf, (list, tuple))
+                else f"not a list: {type(raw_buf).__name__}"
+            )
+            buf_seq = char.attributes.get("web_msg_seq", default=0)
+        else:
+            char_info = {"error": err}
+    else:
+        char_info = {"error": "not authenticated"}
+
+    return JsonResponse({
+        "settings_session_class": session_cls,
+        "actual_session_class": actual_session_cls,
+        "character": char_info,
+        "web_msg_buffer_len": buf_len,
+        "web_msg_seq": buf_seq,
     })
