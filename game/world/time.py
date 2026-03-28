@@ -72,6 +72,13 @@ def next_period_after_completed(
     return completed_boundary.astimezone(UTC) + timedelta(seconds=period_seconds)
 
 
+def next_mining_delivery_slot_after(dt: datetime) -> datetime:
+    """First instant at the next mining delivery grid boundary after the slot containing dt."""
+    dt = dt.astimezone(UTC)
+    slot_start = floor_period(dt, MINING_DELIVERY_PERIOD)
+    return next_period_after_completed(slot_start, MINING_DELIVERY_PERIOD)
+
+
 def start_of_utc_day(dt: datetime) -> datetime:
     d = dt.astimezone(UTC).date()
     return datetime(d.year, d.month, d.day, tzinfo=UTC)

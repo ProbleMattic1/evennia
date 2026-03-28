@@ -222,7 +222,9 @@ def _serialize_processing_summary(char):
             kl = obj.key.lower()
             if "receiving" in kl or "bay" in kl:
                 receiving_bay = obj
-        if obj.tags.has("refinery", category="mining") and not refinery_obj:
+        if refinery_obj is None and obj.is_typeclass(
+            "typeclasses.refining.Refinery", exact=False
+        ):
             refinery_obj = obj
 
     raw_used = 0.0
@@ -259,7 +261,7 @@ def _serialize_processing_summary(char):
                 haulers.append({
                     "id": h.id,
                     "key": h.key,
-                    "deliveryMode": h.db.hauler_delivery_mode or "sell",
+                    "deliveryMode": h.db.hauler_delivery_mode or "buffer",
                 })
         my_haulers = haulers
 
@@ -354,13 +356,28 @@ def _serialize_nav(char, mines):
     claims_nav = []
     properties_nav = []
     if char:
+        from typeclasses.mining import _resource_rarity_tier, _volume_tier
+
         for obj in char.contents:
             if getattr(obj, "destination", None):
                 continue
             if getattr(obj.db, "is_template", False):
                 continue
             if obj.tags.has("mining_claim", category="mining"):
-                claims_nav.append({"label": obj.key, "href": f"/claims/{obj.id}"})
+                claim_row = {"label": obj.key, "href": f"/claims/{obj.id}"}
+                site = getattr(obj.db, "site_ref", None)
+                if site and hasattr(site, "db"):
+                    deposit = site.db.deposit or {}
+                    comp = deposit.get("composition") or {}
+                    richness = float(deposit.get("richness", 0) or 0)
+                    base_tons = float(deposit.get("base_output_tons", 0) or 0)
+                    volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
+                    rarity_tier, rarity_tier_cls = _resource_rarity_tier(comp)
+                    claim_row["volumeTier"] = volume_tier
+                    claim_row["volumeTierCls"] = volume_tier_cls
+                    claim_row["resourceRarityTier"] = rarity_tier
+                    claim_row["resourceRarityTierCls"] = rarity_tier_cls
+                claims_nav.append(claim_row)
             if obj.tags.has("property_claim", category="realty"):
                 properties_nav.append({"label": obj.key, "href": f"/properties/{obj.id}"})
 

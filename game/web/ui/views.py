@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 from evennia import search_object
 from evennia.utils import utils
 
+from world.bootstrap_frontier import get_player_start_room
 from world.bootstrap_hub import HUB_ROOM_KEY
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
 from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
@@ -39,14 +40,13 @@ def _first_object(key):
 
 def _ensure_character_in_default_room(char):
     """
-    If a resolved character has no in-world location (limbo / legacy data), put them on
-    the hub so web travel and room display work without a telnet/webclient session.
+    If a resolved character has no in-world location (e.g. created via web without a room),
+    place them in the new-player zone so web travel and room display work. Existing
+    characters with a location are unchanged on redeploy.
     """
     if not char or getattr(char, "location", None):
         return
-    room = _first_object(DEFAULT_PLAY_ROOM)
-    if not room:
-        return
+    room = get_player_start_room()
     try:
         char.move_to(room)
     except Exception:
@@ -650,7 +650,12 @@ def property_claim_detail_state(request):
     lot = getattr(claim.db, "lot_ref", None)
     lot_payload = serialize_property_lot_detail(lot) if lot else None
     holding = getattr(lot.db, "holding_ref", None) if lot else None
-    holding_payload = serialize_property_holding_for_web(holding) if holding else None
+    if holding and char:
+        holding_payload = serialize_property_holding_for_web(
+            holding, char=char, feed_room=getattr(char, "location", None)
+        )
+    else:
+        holding_payload = serialize_property_holding_for_web(holding) if holding else None
 
     preview = None
     if char:
@@ -661,6 +666,8 @@ def property_claim_detail_state(request):
     story_lines = []
     if lot and lot.location:
         story_lines = _room_story_lines(lot.location)
+
+    from world.processor_web import portable_processors_carried_for_json
 
     return JsonResponse(
         {
@@ -678,6 +685,7 @@ def property_claim_detail_state(request):
             "storyLines": story_lines,
             "inventoryPreview": preview,
             "isOwner": is_owner,
+            "portableProcessorsCarried": portable_processors_carried_for_json(char),
         }
     )
 
@@ -791,6 +799,197 @@ def property_install_structure(request):
             "ok": True,
             "message": msg,
             "holding": serialize_property_holding_for_web(holding),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def property_processor_deploy(request):
+    """Body: { "claimId": int, "processorId": int }"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+        pid = int(body.get("processorId"))
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "message": "Missing or invalid claimId or processorId."},
+            status=400,
+        )
+
+    from world.processor_web import ProcessorWebError, web_deploy_portable_processor
+
+    try:
+        out = web_deploy_portable_processor(char, cid, pid)
+    except ProcessorWebError as e:
+        return JsonResponse({"ok": False, "message": str(e)}, status=400)
+
+    rk = char.location.key if getattr(char, "location", None) else None
+    bundle = _web_refresh_bundle(request, room_key=rk)
+    return JsonResponse({**out, **bundle})
+
+
+@csrf_exempt
+@require_POST
+def property_workshop_queue(request):
+    """
+    Body: { "claimId": int, "workshopId": int, "recipeKey": string, "runs"?: int }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+        wid = int(body.get("workshopId"))
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "message": "Missing or invalid claimId or workshopId."},
+            status=400,
+        )
+
+    recipe_key = body.get("recipeKey")
+    if not recipe_key or not isinstance(recipe_key, str):
+        return JsonResponse({"ok": False, "message": "Missing or invalid recipeKey."}, status=400)
+
+    try:
+        runs = int(body.get("runs") or 1)
+    except (TypeError, ValueError):
+        runs = 1
+    if runs < 1:
+        runs = 1
+
+    from world.manufacturing_web import web_queue_job
+
+    try:
+        out = web_queue_job(char, cid, wid, recipe_key, runs)
+    except AssertionError:
+        return JsonResponse({"ok": False, "message": "Not allowed or invalid workshop."}, status=403)
+    except PermissionError as e:
+        return JsonResponse({"ok": False, "message": str(e)}, status=403)
+    except ValueError as e:
+        return JsonResponse({"ok": False, "message": str(e)}, status=400)
+
+    return JsonResponse(out)
+
+
+@csrf_exempt
+@require_POST
+def property_workshop_feed(request):
+    """
+    Body: { "claimId": int, "workshopId": int, "productKey": string, "units": number,
+            "holdingSourcesOnly"?: bool }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+        wid = int(body.get("workshopId"))
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "message": "Missing or invalid claimId or workshopId."},
+            status=400,
+        )
+
+    product_key = body.get("productKey")
+    if not product_key or not isinstance(product_key, str):
+        return JsonResponse({"ok": False, "message": "Missing or invalid productKey."}, status=400)
+
+    try:
+        units = float(body.get("units"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Missing or invalid units."}, status=400)
+
+    holding_only = bool(body.get("holdingSourcesOnly"))
+
+    from world.manufacturing_web import web_feed
+
+    try:
+        out = web_feed(char, cid, wid, product_key, units, holding_sources_only=holding_only)
+    except AssertionError:
+        return JsonResponse(
+            {"ok": False, "message": "Could not feed workshop (no refined output in range)."},
+            status=400,
+        )
+
+    return JsonResponse(out)
+
+
+@csrf_exempt
+@require_POST
+def property_workshop_collect(request):
+    """
+    Body: { "claimId": int, "workshopId": int, "productKey"?: string }
+    Omit productKey to sell all output.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    try:
+        cid = int(body.get("claimId"))
+        wid = int(body.get("workshopId"))
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "message": "Missing or invalid claimId or workshopId."},
+            status=400,
+        )
+
+    pk = body.get("productKey")
+    if pk is not None and not isinstance(pk, str):
+        return JsonResponse({"ok": False, "message": "Invalid productKey."}, status=400)
+    product_key = pk.strip() if isinstance(pk, str) and pk.strip() else None
+
+    from world.manufacturing_web import web_collect
+
+    try:
+        out = web_collect(char, cid, wid, product_key)
+    except AssertionError:
+        return JsonResponse({"ok": False, "message": "Not allowed, empty output, or invalid product."}, status=400)
+    except PermissionError as e:
+        return JsonResponse({"ok": False, "message": str(e)}, status=403)
+
+    return JsonResponse(out)
+
+
+@require_GET
+def manufacturing_ops_health(request):
+    """Staff-only: manufacturing engine registry size."""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"ok": False, "message": "Forbidden."}, status=403)
+
+    from typeclasses.manufacturing import get_manufacturing_engine
+
+    eng = get_manufacturing_engine(create_missing=False)
+    reg = dict(eng.db.registry or {}) if eng else {}
+    total_ws = sum(len(v) for v in reg.values())
+    return JsonResponse(
+        {
+            "ok": True,
+            "engineKey": eng.key if eng else None,
+            "registryHoldingCount": len(reg),
+            "registryWorkshopIdsTotal": total_ws,
         }
     )
 
@@ -1683,7 +1882,9 @@ def processing_state(request):
             key_lower = obj.key.lower()
             if "receiving" in key_lower or "bay" in key_lower:
                 receiving_bay = obj
-        if obj.tags.has("refinery", category="mining") and not refinery_obj:
+        if refinery_obj is None and obj.is_typeclass(
+            "typeclasses.refining.Refinery", exact=False
+        ):
             refinery_obj = obj
 
     raw_used = 0.0
@@ -1723,7 +1924,7 @@ def processing_state(request):
                     haulers.append({
                         "id": h.id,
                         "key": h.key,
-                        "deliveryMode": h.db.hauler_delivery_mode or "sell",
+                        "deliveryMode": h.db.hauler_delivery_mode or "buffer",
                     })
             my_delivery_modes = haulers
 
@@ -1818,6 +2019,10 @@ def _dashboard_property_portfolio(char):
     """
     from typeclasses.property_claim_market import lot_listing_price
     from typeclasses.property_claims import get_property_claim_kind
+    from world.property_structure_upgrade_registry import (
+        holding_has_any_structure_upgrade_offer,
+        holding_has_parcel_buildout,
+    )
 
     rows = []
     ref_total = 0
@@ -1830,9 +2035,15 @@ def _dashboard_property_portfolio(char):
             continue
         lot = getattr(obj.db, "lot_ref", None)
         ref_cr = None
+        structure_upgrades_available = False
+        has_built_on_parcel = False
         if lot is not None and lot.tags.has("property_lot", category="realty"):
             ref_cr = int(lot_listing_price(lot))
             ref_total += ref_cr
+            holding = getattr(lot.db, "holding_ref", None)
+            if holding and getattr(holding.db, "title_owner", None) == char:
+                has_built_on_parcel = holding_has_parcel_buildout(holding)
+                structure_upgrades_available = holding_has_any_structure_upgrade_offer(holding)
         rows.append(
             {
                 "claimId": obj.id,
@@ -1841,6 +2052,8 @@ def _dashboard_property_portfolio(char):
                 "tier": int(obj.db.lot_tier or 1),
                 "zone": get_property_claim_kind(obj),
                 "referenceListPriceCr": ref_cr,
+                "structureUpgradesAvailable": structure_upgrades_available,
+                "hasBuiltOnParcel": has_built_on_parcel,
             }
         )
     rows.sort(key=lambda r: r["claimKey"])

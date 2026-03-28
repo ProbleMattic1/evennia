@@ -22,9 +22,11 @@ db.is_installed       bool    True when placed in a base room
 
 from evennia.objects.objects import DefaultObject
 
+from typeclasses.commodity_demand import get_commodity_demand_engine
+
 from .objects import ObjectParent
-from .refining import REFINING_RECIPES
 from .mining import RESOURCE_CATALOG
+from .refining import REFINING_RECIPES
 
 
 class PortableProcessor(ObjectParent, DefaultObject):
@@ -49,6 +51,27 @@ class PortableProcessor(ObjectParent, DefaultObject):
         self.tags.add("refinery", category="mining")  # so haulers can find it via get_refinery_in_room
         self.locks.add("get:true();drop:true()")
 
+    def _parcel_allows_install(self, char, room):
+        """True if room is this character's titled parcel interior."""
+        holding = getattr(room.db, "holding_ref", None)
+        if not holding or getattr(holding.db, "title_owner", None) != char:
+            return False
+        if getattr(self.db, "owner", None) not in (None, char):
+            return False
+        return True
+
+    def at_get(self, getter, **kwargs):
+        super().at_get(getter, **kwargs)
+        self.db.is_installed = False
+
+    def at_drop(self, dropper, **kwargs):
+        super().at_drop(dropper, **kwargs)
+        loc = self.location
+        if loc and self._parcel_allows_install(dropper, loc):
+            self.db.is_installed = True
+        else:
+            self.db.is_installed = False
+
     def feed(self, resource_key, tons):
         """Add raw ore to input. Returns actual tons added (capped by remaining capacity)."""
         if resource_key not in RESOURCE_CATALOG:
@@ -66,6 +89,82 @@ class PortableProcessor(ObjectParent, DefaultObject):
         inv[resource_key] = round(float(inv.get(resource_key, 0.0)) + actual, 2)
         self.db.input_inventory = inv
         return actual
+
+    def process_recipe(self, recipe_key, batches=1):
+        """
+        Same contract as typeclasses.refining.Refinery.process_recipe.
+        Applies db.efficiency to produced units (portable Mk bonus).
+        """
+        demand_eng = get_commodity_demand_engine(create_missing=False)
+        recipe = REFINING_RECIPES.get(recipe_key)
+        if not recipe:
+            return 0, f"Unknown recipe '{recipe_key}'."
+
+        batches = max(1, int(batches))
+        inv = self.db.input_inventory or {}
+
+        possible = batches
+        for res_key, required_per_batch in recipe["inputs"].items():
+            available = float(inv.get(res_key, 0.0))
+            max_from_this = int(available / float(required_per_batch))
+            possible = min(possible, max_from_this)
+
+        if possible <= 0:
+            needed = {
+                RESOURCE_CATALOG.get(k, {}).get("name", k): v * batches
+                for k, v in recipe["inputs"].items()
+            }
+            return 0, (
+                f"Insufficient inputs for {recipe['name']}. "
+                f"Need: {', '.join(f'{v}t {k}' for k, v in needed.items())}."
+            )
+
+        for res_key, required_per_batch in recipe["inputs"].items():
+            consumed = round(float(required_per_batch) * possible, 2)
+            remaining = round(float(inv.get(res_key, 0.0)) - consumed, 2)
+            if remaining <= 0:
+                inv.pop(res_key, None)
+            else:
+                inv[res_key] = remaining
+        self.db.input_inventory = inv
+
+        efficiency = float(self.db.efficiency or 1.0)
+        out_inv = self.db.output_inventory or {}
+        base_units = recipe.get("output_units", 1) * possible
+        units_produced = round(float(base_units) * efficiency, 2)
+        out_inv[recipe_key] = round(float(out_inv.get(recipe_key, 0.0)) + units_produced, 2)
+        self.db.output_inventory = out_inv
+
+        if demand_eng:
+            demand_eng.record_supply(recipe_key, float(units_produced))
+
+        return possible, (
+            f"Processed {possible} batch(es) of {recipe['name']}. "
+            f"Produced {units_produced} unit(s) (efficiency {efficiency:.2f}x)."
+        )
+
+    def collect_product(self, product_key, units=None):
+        """Same as Refinery.collect_product — for collectproduct command."""
+        out_inv = self.db.output_inventory or {}
+        available = float(out_inv.get(product_key, 0.0))
+        if available <= 0:
+            return 0.0, 0
+
+        if units is None:
+            collected = available
+        else:
+            collected = round(min(float(units), available), 2)
+
+        remaining = round(available - collected, 2)
+        if remaining <= 0:
+            out_inv.pop(product_key, None)
+        else:
+            out_inv[product_key] = remaining
+        self.db.output_inventory = out_inv
+
+        recipe = REFINING_RECIPES.get(product_key, {})
+        value = int(collected * recipe.get("base_value_cr", 0))
+        return collected, value
 
     def process_all(self):
         """

@@ -282,10 +282,22 @@ def _serialize_incident_for_web(raw):
     }
 
 
-def serialize_property_holding_for_web(holding):
-    """CamelCase payload for UI; omit internal script/registry ids."""
+def serialize_property_holding_for_web(holding, char=None, feed_room=None):
+    """CamelCase payload for UI; omit internal script/registry ids.
+
+    When char is set, manufacturing feed-stock lists are computed for fabrication UI dropdowns.
+    feed_room is typically char.location (used when aggregating room + holding sources).
+    """
     if not holding or not holding.tags.has(PROPERTY_HOLDING_TAG, category=PROPERTY_HOLDING_CATEGORY):
         return None
+
+    from typeclasses.manufacturing import (
+        serialize_manufactured_catalog_for_web,
+        serialize_manufacturing_recipes_for_web,
+        serialize_workshops_for_web,
+    )
+    from world.manufacturing_ui import manufacturing_feed_stock_rows
+    from world.processor_web import portable_processors_deployed_for_json
 
     op = dict(holding.db.operation or {})
     ledger = dict(holding.db.ledger or {})
@@ -359,4 +371,22 @@ def serialize_property_holding_for_web(holding):
         "nextExtraStructureSlotPriceCr": next_extra_structure_slot_price_cr(holding),
         "retoolFeeCr": RETOOL_FEE_CR,
         "deedTransferFeeCr": PROPERTY_DEED_TRANSFER_FEE_CR,
+        "workshops": serialize_workshops_for_web(holding),
+        "manufacturingRecipes": serialize_manufacturing_recipes_for_web(),
+        "manufacturedProducts": serialize_manufactured_catalog_for_web(),
+        "manufacturingFeedStockHoldingOnly": (
+            manufacturing_feed_stock_rows(holding, char, holding_sources_only=True, room=None)
+            if char
+            else []
+        ),
+        "manufacturingFeedStockWithRoom": (
+            manufacturing_feed_stock_rows(
+                holding, char, holding_sources_only=False, room=feed_room
+            )
+            if char
+            else []
+        ),
+        "portableProcessorsDeployed": (
+            portable_processors_deployed_for_json(holding, char) if char else []
+        ),
     }

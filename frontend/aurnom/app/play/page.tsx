@@ -77,7 +77,7 @@ function PlayPageInner() {
             <CsPanel title="Story Output">
               <StoryPanel lines={data.storyLines} compact />
             </CsPanel>
-            <CsPanel title="Exits">
+            <CsPanel title="Destinations">
               <ExitGrid exits={data.exits} />
             </CsPanel>
             {data.site ? (

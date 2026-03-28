@@ -4,9 +4,9 @@ Autonomous Hauler system.
 HaulerEngine   - Global script; processes hauler routes on schedule.
 Helpers        - effective_capacity, effective_cycle_seconds (nominal tier), resolve_room.
 
-Schedule: one autonomous run per UTC calendar day (pickup at mine, then deliver at plant).
-Each hauler's run time is UTC midnight + a deterministic stagger to spread load.
-Automation upgrades tighten the stagger window (earlier cluster after midnight).
+Schedule: pickup at MiningSite.db.last_ore_deposit_at + HAULER_PICKUP_OFFSET_SEC when that
+instant is still in the future; otherwise mine next_cycle_at + HAULER_PICKUP_OFFSET_SEC.
+arm_hauler_pickup_after_mining_deposit calls set_hauler_next_cycle for matching haulers.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -14,18 +14,14 @@ from datetime import UTC, datetime, timedelta
 from evennia import search_object, search_tag
 
 from world.time import (
-    DAY,
     HOUR,
     MINING_DELIVERY_PERIOD,
-    ceil_period,
-    start_of_utc_day,
     to_iso,
     utc_now,
 )
 from evennia.utils import logger
 
 from .scripts import Script
-from .mining import get_commodity_bid
 
 
 HAULER_ENGINE_INTERVAL = 1800  # 30 min wake
@@ -36,6 +32,8 @@ CAPACITY_BONUS_PER_EXPANSION = 0.25  # +25% per cargo_expansion level
 HAULER_STAGGER_WINDOW_BASE_SEC = 6 * HOUR
 HAULER_STAGGER_WINDOW_MIN_SEC = HOUR
 HAULER_MAX_PIPELINE_STEPS = 12
+
+HAULER_PICKUP_OFFSET_SEC = MINING_DELIVERY_PERIOD // 2
 
 
 def _now():
@@ -88,7 +86,7 @@ def effective_capacity(hauler):
 def effective_cycle_seconds(hauler):
     """
     Nominal "tier" interval in seconds (legacy Mk I/II/III hours field).
-    Wall-clock scheduling is daily UTC; this remains for compatibility and rough tier display.
+    Pickup cadence follows last_ore_deposit_at or mine next_cycle_at + HAULER_PICKUP_OFFSET_SEC; tier display only.
     """
     base_hours = float(hauler.db.hauler_base_cycle_hours or HAULER_CYCLE_BASE_HOURS)
     upgrades = hauler.db.hauler_upgrades or {}
@@ -99,33 +97,40 @@ def effective_cycle_seconds(hauler):
 
 
 def stagger_window_seconds(hauler):
-    """Seconds after UTC midnight in which this hauler's daily slot may fall."""
+    """Legacy helper used by hauler upgrades / status copy (not used for hauler run scheduling)."""
     upgrades = hauler.db.hauler_upgrades or {}
     aut_level = int(upgrades.get("automation", 0) or 0)
     window = HAULER_STAGGER_WINDOW_BASE_SEC >> aut_level
     return max(HAULER_STAGGER_WINDOW_MIN_SEC, window)
 
 
-def hauler_stagger_offset_seconds(hauler):
-    """Stable sub-day offset from hauler primary key (spreads fleet across the window)."""
-    window = stagger_window_seconds(hauler)
-    return hauler.id % window
-
-
 def compute_next_hauler_run_at(hauler, after: datetime | None = None) -> datetime:
-    """
-    Next eligible pickup time: UTC day boundary + stagger, strictly after `after`.
-    Snapped up to MINING_DELIVERY_PERIOD for alignment with mining grid.
-    """
-    after = (after or utc_now()).astimezone(UTC)
-    offset = timedelta(seconds=hauler_stagger_offset_seconds(hauler))
-    sod = start_of_utc_day(after)
-    today_slot = sod + offset
-    if today_slot > after:
-        target = today_slot
+    mine_room = resolve_room(hauler.db.hauler_mine_room)
+    site = get_site_in_room(mine_room)
+    owner = hauler.db.hauler_owner
+    now_ref = (after or utc_now()).astimezone(UTC)
+    if not site or site.db.owner != owner:
+        raise RuntimeError(
+            f"Hauler {hauler.key!r} has no owned mining site at hauler_mine_room"
+        )
+    mining_next = _parse_ts(site.db.next_cycle_at)
+    if mining_next is None:
+        raise RuntimeError(f"Mining site {site.key!r} has no next_cycle_at")
+    mining_next = mining_next.astimezone(UTC)
+
+    last_dep = _parse_ts(site.db.last_ore_deposit_at)
+    if last_dep is not None:
+        last_dep = last_dep.astimezone(UTC)
+        from_deposit = last_dep + timedelta(seconds=HAULER_PICKUP_OFFSET_SEC)
+        if from_deposit > now_ref:
+            return from_deposit
+        candidate = mining_next + timedelta(seconds=HAULER_PICKUP_OFFSET_SEC)
     else:
-        target = sod + timedelta(seconds=DAY) + offset
-    return ceil_period(target, MINING_DELIVERY_PERIOD)
+        candidate = mining_next
+
+    while candidate <= now_ref:
+        candidate += timedelta(seconds=MINING_DELIVERY_PERIOD)
+    return candidate
 
 
 def get_hauler_next_cycle_at(hauler):
@@ -133,8 +138,22 @@ def get_hauler_next_cycle_at(hauler):
 
 
 def set_hauler_next_cycle(hauler, after: datetime | None = None):
-    """Schedule the hauler's next daily autonomous run (UTC)."""
     hauler.db.hauler_next_cycle_at = to_iso(compute_next_hauler_run_at(hauler, after=after))
+
+
+def arm_hauler_pickup_after_mining_deposit(site):
+    room = site.location
+    owner = site.db.owner
+    if not room or not owner:
+        return
+    for obj in room.contents:
+        if not obj.tags.has("autonomous_hauler", category="mining"):
+            continue
+        if obj.db.hauler_owner != owner:
+            continue
+        if resolve_room(obj.db.hauler_mine_room) != room:
+            continue
+        set_hauler_next_cycle(obj)
 
 
 def format_next_hauler_run_utc(hauler) -> str:
@@ -157,10 +176,13 @@ def get_mining_storage_in_room(room):
 def get_refinery_in_room(room):
     if not room:
         return None
-    for obj in room.contents:
-        if obj.tags.has("refinery", category="mining"):
-            return obj
-    return None
+    candidates = [
+        o for o in room.contents if o.tags.has("refinery", category="mining")
+    ]
+    for o in candidates:
+        if o.is_typeclass("typeclasses.refining.Refinery", exact=False):
+            return o
+    return candidates[0] if candidates else None
 
 
 def get_site_in_room(room):
@@ -259,9 +281,34 @@ def hauler_process_one(hauler):
             set_hauler_next_cycle(hauler)
             return True, "Cargo empty — returning to mine."
 
-        delivery_mode = (hauler.db.hauler_delivery_mode or "sell").lower()
+        delivery_mode = (hauler.db.hauler_delivery_mode or "buffer").lower()
 
         if delivery_mode == "process":
+            from typeclasses.processors import PortableProcessor
+
+            portable = None
+            for o in loc.contents:
+                if o.is_typeclass(PortableProcessor, exact=False) and o.db.owner == owner:
+                    portable = o
+                    break
+
+            if portable:
+                total_fed = 0.0
+                for key, tons in list(cargo.items()):
+                    removed = hauler.unload_cargo(key, tons)
+                    if removed > 0:
+                        fed = portable.feed(key, removed)
+                        total_fed += fed
+                        overflow = round(removed - fed, 2)
+                        if overflow > 0:
+                            hauler.load_cargo(key, overflow)
+                hauler.db.hauler_state = "transit_mine"
+                set_hauler_next_cycle(hauler)
+                return True, (
+                    f"Delivered {total_fed:.1f}t to {portable.key} for processing. "
+                    f"Returning to mine."
+                )
+
             refinery = get_refinery_in_room(loc)
             if refinery:
                 ore_queue = dict(refinery.db.miner_ore_queue or {})
@@ -285,43 +332,19 @@ def hauler_process_one(hauler):
                         f"Returning to mine."
                     )
 
-        # "sell" mode (default) or fallback when no refinery found for process mode
+        # buffer (default) or fallback when process mode cannot queue (no portable/refinery)
         storage = get_mining_storage_in_room(loc)
         if not storage:
             hauler.db.hauler_state = "transit_mine"
             set_hauler_next_cycle(hauler)
             return True, "No receiving storage at refinery — returning to mine."
 
-        gross_total = 0
         for key, tons in list(cargo.items()):
             removed = hauler.unload_cargo(key, tons)
             if removed > 0:
                 inv = storage.db.inventory or {}
                 inv[key] = round(float(inv.get(key, 0)) + removed, 2)
                 storage.db.inventory = inv
-                if delivery_mode == "sell":
-                    price = get_commodity_bid(key, location=loc)
-                    gross_total += int(removed * price)
-
-        if delivery_mode == "sell" and gross_total > 0 and owner:
-            from typeclasses.economy import get_economy
-            from typeclasses.refining import RAW_SALE_FEE_RATE, split_raw_sale_payout
-
-            net, fee = split_raw_sale_payout(gross_total, RAW_SALE_FEE_RATE)
-            econ = get_economy(create_missing=True)
-            owner_acct = econ.get_character_account(owner)
-            plant_acct = "vendor:processing-plant"
-            econ.ensure_account(plant_acct, opening_balance=0)
-            econ.deposit(owner_acct, net, memo=f"Ore sale (net) at {loc.key}")
-            if fee > 0:
-                econ.deposit(plant_acct, fee, memo=f"Plant raw hassle fee at {loc.key}")
-            owner.db.credits = econ.get_character_balance(owner)
-            if owner.sessions.count():
-                owner.msg(
-                    f"|g[Hauler: {hauler.key}]|n Ore sold — gross |y{gross_total:,}|n cr, "
-                    f"hassle fee ({int(RAW_SALE_FEE_RATE * 100)}%) |r{fee:,}|n cr, "
-                    f"net |g{net:,}|n cr deposited."
-                )
 
         hauler.db.hauler_state = "transit_mine"
         set_hauler_next_cycle(hauler)
@@ -341,8 +364,8 @@ def hauler_process_one(hauler):
 class HaulerEngine(Script):
     """
     Global script for autonomous hauler routes.
-    Wakes every 30 min. Each hauler due (daily UTC + stagger) may advance up to
-    HAULER_MAX_PIPELINE_STEPS state transitions per tick (full trip in one wake).
+    Wakes every 30 min. Each hauler due (hauler_next_cycle_at from last deposit or mine next_cycle)
+    may advance up to HAULER_MAX_PIPELINE_STEPS state transitions per tick.
     """
 
     def at_script_creation(self):

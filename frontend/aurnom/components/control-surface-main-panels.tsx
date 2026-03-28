@@ -123,6 +123,23 @@ function inventoryBucket(inv: CsInventory, id: string) {
   return inv.byBucket[id] ?? [];
 }
 
+function formatClaimOptionLabel(c: {
+  key: string;
+  id: number;
+  claimSpecs?: {
+    volumeTier?: string;
+    resourceRarityTier?: string;
+  };
+}) {
+  const keyText = String(c.key || "");
+  const idSuffix = `#${c.id}`;
+  const base = keyText.includes(idSuffix) ? keyText : `${keyText} ${idSuffix}`;
+  const parts: string[] = [];
+  if (c.claimSpecs?.volumeTier) parts.push(c.claimSpecs.volumeTier);
+  if (c.claimSpecs?.resourceRarityTier) parts.push(c.claimSpecs.resourceRarityTier);
+  return parts.length ? `${base} (${parts.join(" / ")})` : base;
+}
+
 /** Not listed in Inventory panel; Mine Operations still reads these buckets from the same payload. */
 const INVENTORY_PANEL_HIDDEN_BUCKETS = new Set(["mining_claim", "property_deed"]);
 
@@ -282,7 +299,7 @@ function MineDeploymentPanel({
             <option value="">Select claim</option>
             {claimRows.map((c) => (
               <option key={`claim-${c.id}`} value={c.id}>
-                {c.key} #{c.id}
+                {formatClaimOptionLabel(c)}
               </option>
             ))}
           </select>
@@ -435,6 +452,24 @@ function PropertiesPanel({ properties }: { properties: DashboardProperty[] }) {
           <span className="text-[10px] text-zinc-500">
             {p.zone} T{p.tier}
           </span>
+          {p.hasBuiltOnParcel ? (
+            <span
+              className="inline-flex shrink-0 items-center justify-center text-[18px] leading-none text-cyan-400"
+              title="Something built on this property"
+              aria-label="Something built on this property"
+            >
+              ★
+            </span>
+          ) : null}
+          {p.structureUpgradesAvailable ? (
+            <span
+              className="inline-flex shrink-0 items-center justify-center text-[10px] leading-none text-amber-400"
+              title="Further structure upgrade available"
+              aria-label="Further structure upgrade available"
+            >
+              ▲
+            </span>
+          ) : null}
           {p.referenceListPriceCr != null ? <span className="font-mono text-zinc-500">{cr(p.referenceListPriceCr)}</span> : null}
           <TinyLink href={`/properties/${p.claimId}`}>→</TinyLink>
         </Row>
@@ -448,8 +483,10 @@ function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims
   return (
     <Panel panelKey="claims" title={`Claims (${claims.length})`}>
       {claims.map((c) => (
-        <div key={c.href}>
+        <div key={c.href} className="flex items-center gap-1">
           <TinyLink href={c.href}>{c.label}</TinyLink>
+          {c.volumeTier ? <Badge label={c.volumeTier} cls={c.volumeTierCls} /> : null}
+          {c.resourceRarityTier ? <Badge label={c.resourceRarityTier} cls={c.resourceRarityTierCls} /> : null}
         </div>
       ))}
     </Panel>

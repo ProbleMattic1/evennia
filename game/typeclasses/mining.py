@@ -288,20 +288,28 @@ COMMODITY_ASK_OVER_BID = COMMODITY_ASK_PREMIUM  # backward-compat alias
 
 def get_commodity_bid(resource_key, location=None):
     """Credits per ton when a miner sells raw ore to the Plant (bid = base price − 3%)."""
+    from typeclasses.commodity_demand import get_commodity_demand_engine
+
     info = RESOURCE_CATALOG.get(resource_key, {})
     base = float(info.get("base_price_cr_per_ton", 0))
     if base <= 0:
         return 0
-    return max(0, int(round(base * COMMODITY_BID_DISCOUNT)))
+    eng = get_commodity_demand_engine(create_missing=False)
+    mult = eng.get_market_multiplier(resource_key) if eng else 1.0
+    return max(0, int(round(base * mult * COMMODITY_BID_DISCOUNT)))
 
 
 def get_commodity_ask(resource_key, location=None):
     """Credits per ton when a buyer purchases raw from the Processing Plant (ask = base price + 3%)."""
+    from typeclasses.commodity_demand import get_commodity_demand_engine
+
     info = RESOURCE_CATALOG.get(resource_key, {})
     base = float(info.get("base_price_cr_per_ton", 0))
     if base <= 0:
         return 0
-    return max(0, int(round(base * COMMODITY_ASK_PREMIUM)))
+    eng = get_commodity_demand_engine(create_missing=False)
+    mult = eng.get_market_multiplier(resource_key) if eng else 1.0
+    return max(0, int(round(base * mult * COMMODITY_ASK_PREMIUM)))
 
 
 def get_commodity_price(resource_key, location=None):
@@ -396,6 +404,7 @@ class MiningSite(ObjectParent, DefaultObject):
     deposit dict gains:
         depletion_rate   float  richness lost per cycle (default 0.002)
         richness_floor   float  minimum richness (default 0.10)
+    db.last_ore_deposit_at  str  ISO UTC when ore last hit linked storage (hauler pickup +15m)
     """
 
     def at_object_creation(self):
@@ -405,6 +414,7 @@ class MiningSite(ObjectParent, DefaultObject):
         self.db.rigs = []
         self.db.linked_storage = None
         self.db.next_cycle_at = None
+        self.db.last_ore_deposit_at = None
         self.db.last_processed_at = None
         self.db.cycle_log = []
         self.db.survey_level = 0
@@ -882,6 +892,12 @@ class MiningSite(ObjectParent, DefaultObject):
             self.schedule_next_cycle(completed_boundary=due_boundary)
         else:
             self.schedule_next_cycle()
+
+        if output:
+            self.db.last_ore_deposit_at = to_iso(utc_now())
+            from typeclasses.haulers import arm_hauler_pickup_after_mining_deposit
+
+            arm_hauler_pickup_after_mining_deposit(self)
 
         full_summary = plain_summary + hazard_note + breakdown_note
         return full_summary

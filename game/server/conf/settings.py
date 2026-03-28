@@ -43,7 +43,8 @@ ROOT_URLCONF = "web.urls"
 # TCP peer, not a hop to strip unless it adds X-Forwarded-For (see frontend proxy).
 UPSTREAM_IPS = ["127.0.0.1", "::1"]
 
-# Default home / start: repurposed by world.bootstrap_hub as NanoMegaPlex Promenade (see #2).
+# Room #2: NanoMegaPlex Promenade after world.bootstrap_hub. Player/guest puppet spawn and home
+# are set in typeclasses.accounts (Frontier Transit Shell) when location is not passed explicitly.
 DEFAULT_HOME = "#2"
 START_LOCATION = "#2"
 GUEST_HOME = "#2"

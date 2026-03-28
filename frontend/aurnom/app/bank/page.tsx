@@ -38,7 +38,7 @@ export default function BankPage() {
       <CsColumns
         left={
           <>
-            <CsPanel title="Exits">
+            <CsPanel title="Destinations">
               <ExitGrid exits={data.exits} />
             </CsPanel>
             <CsPanel title="Bank Output">

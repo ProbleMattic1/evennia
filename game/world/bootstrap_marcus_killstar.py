@@ -98,9 +98,12 @@ def bootstrap_marcus_killstar():
             print(f"[marcus] Linked {MARCUS_CHARACTER_KEY} to {account.username} (credits unchanged).")
         return
 
+    hub = get_hub_room()
+    assert hub, "[marcus] hub missing"
     char, errs = account.create_character(
         key=MARCUS_CHARACTER_KEY,
         typeclass=CHARACTER_TYPECLASS,
+        location=hub,
     )
     if errs:
         print(f"[marcus] create_character failed: {errs}")

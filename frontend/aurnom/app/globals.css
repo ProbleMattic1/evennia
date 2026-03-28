@@ -29,9 +29,106 @@
 }
 
 body {
-  background: var(--background);
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+  background-color: #020617;
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(34, 211, 238, 0.32), transparent 35%),
+    radial-gradient(circle at 82% 14%, rgba(232, 121, 249, 0.28), transparent 38%),
+    radial-gradient(circle at 50% 88%, rgba(59, 130, 246, 0.26), transparent 40%),
+    radial-gradient(circle at 55% 28%, rgba(99, 102, 241, 0.2), transparent 32%);
+  background-size:
+    auto,
+    auto,
+    auto,
+    auto;
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes space-stars-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-220px, -140px, 0);
+  }
+}
+
+@keyframes space-planets-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-10px, 8px, 0) scale(1.02);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Moving star layer: two tiled gradients drifting slowly. */
+body::before {
+  opacity: 0.82;
+  background-image:
+    radial-gradient(1.6px 1.6px at 17px 23px, rgba(255, 255, 255, 0.95), transparent 62%),
+    radial-gradient(1.2px 1.2px at 43px 71px, rgba(186, 230, 253, 0.86), transparent 62%),
+    radial-gradient(1px 1px at 89px 41px, rgba(255, 255, 255, 0.84), transparent 60%),
+    radial-gradient(1.4px 1.4px at 127px 97px, rgba(147, 197, 253, 0.84), transparent 62%),
+    radial-gradient(1.8px 1.8px at 61px 149px, rgba(255, 255, 255, 0.9), transparent 62%),
+    radial-gradient(1.1px 1.1px at 141px 13px, rgba(255, 255, 255, 0.78), transparent 60%),
+    radial-gradient(1px 1px at 11px 131px, rgba(186, 230, 253, 0.8), transparent 60%),
+    radial-gradient(1.3px 1.3px at 109px 179px, rgba(255, 255, 255, 0.84), transparent 62%);
+  background-size:
+    173px 197px,
+    211px 163px,
+    149px 229px,
+    257px 181px,
+    193px 241px,
+    269px 157px,
+    233px 283px,
+    307px 199px;
+  background-position:
+    0 0,
+    37px 19px,
+    71px 43px,
+    17px 83px,
+    59px 29px,
+    101px 67px,
+    23px 109px,
+    79px 11px;
+  animation: space-stars-drift 24s linear infinite;
+  will-change: transform;
+}
+
+/* Soft planetary elements with subtle drift to keep overhead low. */
+body::after {
+  opacity: 0.18;
+  background-image:
+    radial-gradient(circle at 4% 80%, rgba(14, 116, 144, 0.24) 0, rgba(14, 116, 144, 0.24) 46px, rgba(255, 255, 255, 0.08) 48px, rgba(255, 255, 255, 0.08) 50px, transparent 56px),
+    radial-gradient(circle at 96% 18%, rgba(126, 34, 206, 0.2) 0, rgba(126, 34, 206, 0.2) 36px, rgba(255, 255, 255, 0.07) 38px, rgba(255, 255, 255, 0.07) 40px, transparent 46px),
+    radial-gradient(circle at 88% 88%, rgba(30, 64, 175, 0.18) 0, rgba(30, 64, 175, 0.18) 24px, rgba(255, 255, 255, 0.06) 26px, rgba(255, 255, 255, 0.06) 28px, transparent 33px),
+    radial-gradient(circle at 25% 23%, rgba(217, 70, 239, 0.14) 0, rgba(217, 70, 239, 0.14) 18px, rgba(255, 255, 255, 0.05) 20px, rgba(255, 255, 255, 0.05) 22px, transparent 27px),
+    radial-gradient(circle at 63% 10%, rgba(20, 184, 166, 0.14) 0, rgba(20, 184, 166, 0.14) 14px, rgba(255, 255, 255, 0.05) 16px, rgba(255, 255, 255, 0.05) 18px, transparent 23px),
+    radial-gradient(circle at 44% 92%, rgba(168, 85, 247, 0.12) 0, rgba(168, 85, 247, 0.12) 10px, rgba(255, 255, 255, 0.04) 12px, rgba(255, 255, 255, 0.04) 14px, transparent 18px);
+  animation: space-planets-drift 24s ease-in-out infinite;
+  will-change: transform;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Section divider — thin separator between sections */

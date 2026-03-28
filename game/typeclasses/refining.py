@@ -33,7 +33,7 @@ from typeclasses.mining import RESOURCE_CATALOG
 # processed output.  Applied to gross refined value at collect time.
 PROCESSING_FEE_RATE = 0.10  # 10 %
 
-# When the Processing Plant buys raw from a miner (e.g. haul unload "sell"), 2% hassle fee on bid gross.
+# When the Processing Plant buys raw from a miner (e.g. sell commands from storage), 2% hassle fee on bid gross.
 RAW_SALE_FEE_RATE = 0.02  # 2 %
 
 
@@ -211,6 +211,9 @@ class Refinery(ObjectParent, DefaultObject):
         Returns (batches_processed, message).
         Partial processing: runs as many full batches as inputs allow.
         """
+        from typeclasses.commodity_demand import get_commodity_demand_engine
+
+        demand_eng = get_commodity_demand_engine(create_missing=False)
         recipe = REFINING_RECIPES.get(recipe_key)
         if not recipe:
             return 0, f"Unknown recipe '{recipe_key}'."
@@ -250,6 +253,9 @@ class Refinery(ObjectParent, DefaultObject):
         units_produced = recipe.get("output_units", 1) * possible
         out_inv[recipe_key] = round(float(out_inv.get(recipe_key, 0.0)) + units_produced, 2)
         self.db.output_inventory = out_inv
+
+        if demand_eng:
+            demand_eng.record_supply(recipe_key, float(units_produced))
 
         return possible, (
             f"Processed {possible} batch(es) of {recipe['name']}. "
@@ -363,6 +369,9 @@ def _process_miner_queues(refinery):
     Process per-miner ore queues and write output to miner_output.
     Called each RefineryEngine tick for the global plant.
     """
+    from typeclasses.commodity_demand import get_commodity_demand_engine
+
+    demand_eng = get_commodity_demand_engine(create_missing=False)
     queues = dict(refinery.db.miner_ore_queue or {})
     output = dict(refinery.db.miner_output or {})
     changed = False
@@ -396,6 +405,8 @@ def _process_miner_queues(refinery):
                     float(miner_out.get(recipe_key, 0.0)) + units, 2
                 )
                 changed = True
+                if demand_eng:
+                    demand_eng.record_supply(recipe_key, float(units))
 
         if ore_inv:
             queues[owner_id] = ore_inv
@@ -417,7 +428,7 @@ def _process_refinery(refinery):
     if not room:
         return
 
-    # Drain Ore Receiving Bay (MiningStorage) into shared input_inventory (sell-mode ore)
+    # Drain Ore Receiving Bay (MiningStorage) into shared input_inventory (buffer / pooled raw)
     for obj in room.contents:
         if not obj.tags.has("mining_storage", category="mining"):
             continue
@@ -477,6 +488,8 @@ class RefineryEngine(_Script):
 
         refineries = search_tag("refinery", category="mining")
         for refinery in refineries:
+            if not refinery.is_typeclass(Refinery, exact=False):
+                continue
             try:
                 _process_refinery(refinery)
             except Exception as exc:

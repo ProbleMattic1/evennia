@@ -23,7 +23,7 @@ MINING_PACKAGES = [
         "vendor_id": "mining-outfitters",
         "desc": (
             "Entry-level mine-in-a-box. Includes a Mining Rig Mk I, "
-            "Storage Unit (500t), and an Mk I Autonomous Hauler (50t; daily UTC pickup, staggered). "
+            "Storage Unit (500t), and an Mk I Autonomous Hauler (50t; UTC 30m mine grid; hauler +15m after each deposit, idle from mine next_cycle +15m). "
             "Buy to receive package + random claim; use deploymine to deploy."
         ),
         "price": 4_000_000,
@@ -56,7 +56,7 @@ MINING_PACKAGES = [
         "vendor_id": "mining-outfitters",
         "desc": (
             "Entry-level mine-in-a-box. Includes a Mining Rig Mk I, "
-            "Storage Unit (500t), and an Mk I Autonomous Hauler (50t; daily UTC pickup, staggered). "
+            "Storage Unit (500t), and an Mk I Autonomous Hauler (50t; UTC 30m mine grid; hauler +15m after each deposit, idle from mine next_cycle +15m). "
             "Equipment only — obtain a claim deed separately; use deploymine to deploy."
         ),
         "price": 1_000_000,
@@ -89,7 +89,7 @@ MINING_PACKAGES = [
         "vendor_id": "mining-outfitters",
         "desc": (
             "Mid-tier operation for established miners. Includes a Mining Rig Mk II, "
-            "Storage Unit (800t), and an Mk II Autonomous Hauler (120t; daily UTC pickup, staggered). "
+            "Storage Unit (800t), and an Mk II Autonomous Hauler (120t; UTC 30m mine grid; hauler +15m after each deposit, idle from mine next_cycle +15m). "
             "Buy to receive package + random claim; use deploymine to deploy."
         ),
         "price": 9_000_000,
@@ -122,7 +122,7 @@ MINING_PACKAGES = [
         "vendor_id": "mining-outfitters",
         "desc": (
             "Mid-tier operation for established miners. Includes a Mining Rig Mk II, "
-            "Storage Unit (800t), and an Mk II Autonomous Hauler (120t; daily UTC pickup, staggered). "
+            "Storage Unit (800t), and an Mk II Autonomous Hauler (120t; UTC 30m mine grid; hauler +15m after each deposit, idle from mine next_cycle +15m). "
             "Equipment only — obtain a claim deed separately; use deploymine to deploy."
         ),
         "price": 2_250_000,
@@ -155,7 +155,7 @@ MINING_PACKAGES = [
         "vendor_id": "mining-outfitters",
         "desc": (
             "High-output industrial operation. Includes a Mining Rig Mk III, "
-            "Storage Unit (1,500t), and an Mk III Autonomous Hauler (250t; daily UTC pickup, staggered). "
+            "Storage Unit (1,500t), and an Mk III Autonomous Hauler (250t; UTC 30m mine grid; hauler +15m after each deposit, idle from mine next_cycle +15m). "
             "Buy to receive package + random claim; use deploymine to deploy."
         ),
         "price": 14_000_000,
@@ -188,7 +188,7 @@ MINING_PACKAGES = [
         "vendor_id": "mining-outfitters",
         "desc": (
             "High-output industrial operation. Includes a Mining Rig Mk III, "
-            "Storage Unit (1,500t), and an Mk III Autonomous Hauler (250t; daily UTC pickup, staggered). "
+            "Storage Unit (1,500t), and an Mk III Autonomous Hauler (250t; UTC 30m mine grid; hauler +15m after each deposit, idle from mine next_cycle +15m). "
             "Equipment only — obtain a claim deed separately; use deploymine to deploy."
         ),
         "price": 3_500_000,

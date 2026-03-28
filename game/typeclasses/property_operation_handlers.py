@@ -11,9 +11,7 @@ from world.property_incident_templates import (
     expire_property_incidents,
 )
 from world.property_structure_upgrade_registry import structure_income_multiplier_from_upgrades
-from world.time import parse_iso, to_iso
-
-from typeclasses.haulers import compute_next_hauler_run_at
+from world.time import next_mining_delivery_slot_after, parse_iso, to_iso
 
 # --- Long-term balance knobs (tune without touching handler shape) ---
 RESIDENTIAL_RENT_BASE = {1: 50, 2: 120, 3: 280}
@@ -35,7 +33,7 @@ INDUSTRIAL_FAB_UNITS_PER_TIER = {1: 2, 2: 4, 3: 7}
 
 
 def schedule_next(holding, now):
-    return compute_next_hauler_run_at(holding, after=now)
+    return next_mining_delivery_slot_after(now)
 
 
 def _owner_and_econ():

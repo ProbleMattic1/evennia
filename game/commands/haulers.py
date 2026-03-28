@@ -9,11 +9,11 @@ from commands.command import Command
 from evennia import search_object
 
 from typeclasses.haulers import (
+    HAULER_PICKUP_OFFSET_SEC,
     effective_capacity,
     format_next_hauler_run_utc,
     resolve_room,
     set_hauler_next_cycle,
-    stagger_window_seconds,
 )
 
 
@@ -103,6 +103,7 @@ class CmdAssignHauler(Command):
             caller.msg(f"You don't own a mining site in {mine_room.key}.")
             return
 
+        site.schedule_next_cycle()
         hauler.db.hauler_mine_room = mine_room
         hauler.db.hauler_refinery_room = refinery_room
         hauler.db.hauler_state = "at_mine"
@@ -112,7 +113,7 @@ class CmdAssignHauler(Command):
         caller.msg(
             f"|w{hauler.key}|n assigned: {mine_room.key} -> {refinery_room.key}. "
             f"Next autonomous pickup: |c{format_next_hauler_run_utc(hauler)}|n "
-            f"(daily UTC, staggered)."
+            f"(mine next_cycle + {HAULER_PICKUP_OFFSET_SEC // 60}m; +{HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit)."
         )
 
 
@@ -123,7 +124,7 @@ class CmdUpgradeHauler(Command):
     Usage:
       upgradehauler <hauler> <upgrade> [level]
 
-    Upgrades: cargo_expansion (1-2), automation (1-2, tightens daily UTC stagger),
+    Upgrades: cargo_expansion (1-2), automation (1-2, legacy tier interval display),
     reliability (1)
     """
 
@@ -221,15 +222,14 @@ class CmdHaulerStatus(Command):
             route = f"{mine.key if mine else '?'} -> {ref.key if ref else '?'}" if (mine or ref) else "unassigned"
             cap = effective_capacity(h)
             next_str = format_next_hauler_run_utc(h)
-            wmin = stagger_window_seconds(h) // 3600
             upgrades = h.db.hauler_upgrades or {}
             up_str = ", ".join(f"{k}:{v}" for k, v in upgrades.items()) if upgrades else "none"
             lines.append(f"  |w{h.key}|n")
             lines.append(f"    Location: {loc}  State: {state}")
             lines.append(f"    Route: {route}")
-            delivery = h.db.hauler_delivery_mode or "sell"
+            delivery = h.db.hauler_delivery_mode or "buffer"
             lines.append(
-                f"    Capacity: {cap}t  Schedule: daily UTC (~{wmin}h stagger window)  Next: {next_str}  "
+                f"    Capacity: {cap}t  Schedule: mine-linked (+{HAULER_PICKUP_OFFSET_SEC // 60}m after deposits)  Next: {next_str}  "
                 f"Delivery: {delivery}  Upgrades: {up_str}"
             )
         caller.msg("\n".join(lines))
@@ -240,11 +240,10 @@ class CmdSetDeliveryMode(Command):
     Set how your hauler delivers ore at the processing plant.
 
     Usage:
-      setdelivery <hauler> sell|process
+      setdelivery <hauler> buffer|process
 
-    sell    — hauler sells raw ore for credits on every delivery (default)
-    process — ore is queued at the plant for refining; use collectrefined
-              at the Processing Plant to claim your output (minus a 10% fee)
+    buffer  — unload into plant receiving storage only (default); no credits on delivery
+    process — queue ore at the plant refinery for refining; collectrefined for output
     """
 
     key = "setdelivery"
@@ -255,11 +254,11 @@ class CmdSetDeliveryMode(Command):
         caller = self.caller
         args = self.args.strip().split()
         if len(args) < 2:
-            caller.msg("Usage: setdelivery <hauler> sell|process")
+            caller.msg("Usage: setdelivery <hauler> buffer|process")
             return
         mode = args[-1].lower()
-        if mode not in ("sell", "process"):
-            caller.msg("Mode must be 'sell' or 'process'.")
+        if mode not in ("buffer", "process"):
+            caller.msg("Mode must be 'buffer' or 'process'.")
             return
         hauler_name = " ".join(args[:-1])
         hauler = _find_owned_hauler(caller, hauler_name)
@@ -267,8 +266,8 @@ class CmdSetDeliveryMode(Command):
             caller.msg(f"You don't own a hauler matching '{hauler_name}'.")
             return
         hauler.db.hauler_delivery_mode = mode
-        if mode == "sell":
-            desc = "selling raw ore for immediate credits on delivery"
+        if mode == "buffer":
+            desc = "unloading into plant receiving storage (no sale on delivery)"
         else:
             desc = "queuing ore at the plant for refining (collect via collectrefined)"
         caller.msg(f"|w{hauler.key}|n delivery mode set to |w{mode}|n — {desc}.")
@@ -300,3 +299,29 @@ class CmdReleaseHauler(Command):
         hauler.db.hauler_state = "idle"
 
         caller.msg(f"|w{hauler.key}|n is no longer an autonomous hauler. You can still pilot it normally.")
+
+
+class CmdHaulerDueNow(Command):
+    """
+    Make your hauler eligible on the next HaulerEngine tick (testing / ops).
+
+    Usage:
+      haulerduenow <hauler>
+    """
+
+    key = "haulerduenow"
+    locks = "cmd:perm(Builder)"
+    help_category = "Haulers"
+
+    def func(self):
+        caller = self.caller
+        name = self.args.strip()
+        if not name:
+            caller.msg("Usage: haulerduenow <hauler>")
+            return
+        hauler = _find_owned_hauler(caller, name)
+        if not hauler:
+            caller.msg("You don't own an autonomous hauler matching that name.")
+            return
+        hauler.db.hauler_next_cycle_at = "1970-01-01T00:00:00+00:00"
+        caller.msg(f"|w{hauler.key}|n is due now (runs on next hauler engine tick, within ~30m).")

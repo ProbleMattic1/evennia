@@ -160,6 +160,7 @@ def at_server_cold_start():
     """
     from world.bootstrap_character_abilities import bootstrap_character_abilities
     from world.bootstrap_economy import bootstrap_economy
+    from world.bootstrap_frontier import bootstrap_frontier, bootstrap_frontier_hub_links
     from world.bootstrap_haulers import bootstrap_haulers
     from world.bootstrap_hub import bootstrap_hub
     from world.bootstrap_marcus_killstar import bootstrap_marcus_killstar
@@ -184,7 +185,9 @@ def at_server_cold_start():
     from typeclasses.mission_seeds import get_mission_seeds_script
     from typeclasses.system_alerts import get_system_alerts_script
 
+    _run("frontier player arrival", bootstrap_frontier)
     _run("NanoMegaPlex hub (#2 → Promenade)", bootstrap_hub)
+    _run("frontier ↔ hub exits", bootstrap_frontier_hub_links)
     _run("promenade guide NPC", bootstrap_promenade_guide)
     _run("promenade room ambience", bootstrap_promenade_room_ambience)
     _run("global economy script", bootstrap_economy)

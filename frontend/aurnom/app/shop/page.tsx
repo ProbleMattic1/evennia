@@ -141,7 +141,7 @@ function ShopPageInner() {
       <CsColumns
         left={
           <>
-            <CsPanel title="Exits">
+            <CsPanel title="Destinations">
               <ExitGrid exits={view.exits} />
             </CsPanel>
             <CsPanel title={isShips ? "Shipyard Output" : "Shop Output"}>

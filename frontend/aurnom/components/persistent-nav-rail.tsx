@@ -79,6 +79,38 @@ function TinyLink({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
+function UtcClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const dateStr = now.toLocaleDateString("en-GB", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const line = now.toLocaleTimeString("en-GB", {
+    timeZone: "UTC",
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  return (
+    <div
+      className="font-mono tabular-nums tracking-wide text-cyan-600/90"
+      title="Coordinated Universal Time"
+    >
+      <div className="text-[10px] leading-tight text-cyan-600/75">{dateStr}</div>
+      <div className="text-[11px] leading-tight">
+        {line} UTC
+      </div>
+    </div>
+  );
+}
+
 function cr(n: number | null | undefined) {
   if (n == null) return "—";
   return `${n.toLocaleString()} cr`;
@@ -165,7 +197,7 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
         </Panel>
       )}
       {nav.exits.length > 0 && (
-        <Panel panelKey="hub-exits" title="Exits">
+        <Panel panelKey="hub-exits" title="Destinations">
           {nav.exits.map((e) => (
             <div key={e.key} className="text-zinc-400">
               {e.label}
@@ -268,10 +300,13 @@ export function PersistentNavRail() {
 
   return (
     <aside className="sticky top-0 h-svh min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
-      <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-cyan-900/40 pb-1">
-        <Link href="/" className="font-bold text-cyan-400 hover:text-cyan-300">
-          AURNOM
-        </Link>
+      <div className="mb-1 flex flex-wrap items-start gap-x-2 gap-y-0.5 border-b border-cyan-900/40 pb-1">
+        <div className="flex min-w-0 flex-col leading-tight">
+          <Link href="/" className="font-bold text-cyan-400 hover:text-cyan-300">
+            AURNOM
+          </Link>
+          <UtcClock />
+        </div>
         <Link href="/messages" className="text-[10px] font-bold uppercase tracking-widest text-cyan-500 hover:text-cyan-300">
           Messages
         </Link>

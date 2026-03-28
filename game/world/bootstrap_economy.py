@@ -11,6 +11,12 @@ from evennia import create_object, create_script, search_object, search_script
 SCRIPT_PATH = "typeclasses.economy.EconomyEngine"
 SCRIPT_KEY = "global_economy"
 
+COMMODITY_DEMAND_PATH = "typeclasses.commodity_demand.CommodityDemandEngine"
+COMMODITY_DEMAND_KEY = "commodity_demand"
+
+MANUFACTURING_ENGINE_PATH = "typeclasses.manufacturing.ManufacturingEngine"
+MANUFACTURING_ENGINE_KEY = "manufacturing_engine"
+
 
 def _get_or_create_room(key, typeclass="typeclasses.rooms.Room", desc=""):
     found = search_object(key)
@@ -44,6 +50,12 @@ def _get_or_create_bank(room):
 
 
 def bootstrap_economy():
+    from world.manufacturing_loader import load_manufacturing_tables
+
+    _mcat, _mrec, m_err = load_manufacturing_tables()
+    assert not m_err, "manufacturing data errors: " + "; ".join(m_err)
+    assert set(_mcat) == set(_mrec), "manufacturing catalog/recipe id mismatch"
+
     found = search_script(SCRIPT_KEY)
     if found:
         econ = found[0]
@@ -84,6 +96,24 @@ def bootstrap_economy():
     if hub:
         _get_or_create_exit("bank", ["alpha", "reserve"], hub, reserve)
         _get_or_create_exit("back", ["exit", "promenade", "plex", "hub"], reserve, hub)
+
+    cd_found = search_script(COMMODITY_DEMAND_KEY)
+    if cd_found:
+        print(f"[economy] Commodity demand script already exists: {cd_found[0].key}")
+    else:
+        cd = create_script(COMMODITY_DEMAND_PATH, key=COMMODITY_DEMAND_KEY)
+        print(f"[economy] Created commodity demand script: {cd.key}")
+
+    from typeclasses.commodity_demand import seed_procurement_contracts_if_empty
+
+    seed_procurement_contracts_if_empty()
+
+    mf_found = search_script(MANUFACTURING_ENGINE_KEY)
+    if mf_found:
+        print(f"[economy] Manufacturing engine script already exists: {mf_found[0].key}")
+    else:
+        mf = create_script(MANUFACTURING_ENGINE_PATH, key=MANUFACTURING_ENGINE_KEY)
+        print(f"[economy] Created manufacturing engine script: {mf.key}")
 
     print("[economy] Seeded starter regional/location/faction modifiers.")
     print(f"[economy] Treasury account ready: {treasury_account}")

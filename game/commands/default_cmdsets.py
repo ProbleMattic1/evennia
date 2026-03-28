@@ -31,12 +31,20 @@ from commands.refining import (
 )
 from commands.haulers import (
     CmdAssignHauler,
+    CmdHaulerDueNow,
     CmdHaulerStatus,
     CmdReleaseHauler,
     CmdSetDeliveryMode,
     CmdUpgradeHauler,
 )
 from commands.shipyard import CmdShipyard, CmdInspectShip, CmdBuyShip
+from commands.manufacturing import (
+    CmdCollectFab,
+    CmdFeedFab,
+    CmdProcessFab,
+    CmdQueueFab,
+    CmdWorkshopStatus,
+)
 from commands.missions import CmdMissionAccept, CmdMissionChoose, CmdMissions
 from commands.property_ops import (
     CmdBuildProperty,
@@ -96,9 +104,15 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdRefine())
         self.add(CmdCollectProduct())
         self.add(CmdCollectRefined())
+        self.add(CmdWorkshopStatus())
+        self.add(CmdFeedFab())
+        self.add(CmdQueueFab())
+        self.add(CmdProcessFab())
+        self.add(CmdCollectFab())
         self.add(CmdAssignHauler())
         self.add(CmdUpgradeHauler())
         self.add(CmdHaulerStatus())
+        self.add(CmdHaulerDueNow())
         self.add(CmdReleaseHauler())
         self.add(CmdSetDeliveryMode())
         self.add(CmdBoardVehicle())

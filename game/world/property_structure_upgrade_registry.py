@@ -63,6 +63,46 @@ def blueprint_allows_upgrade(d, blueprint_id):
     return (blueprint_id or "") in allowed
 
 
+def holding_has_any_structure_upgrade_offer(holding):
+    """
+    True if some structure on the holding can advance at least one catalog upgrade:
+    blueprint allowed, not maxed, and a price exists for the next level.
+
+    Does not check title_owner or credits (cheap hint for menus / dashboards).
+    """
+    if not holding:
+        return False
+    for st in holding.structures():
+        bid = getattr(st.db, "blueprint_id", None)
+        ups = dict(getattr(st.db, "upgrades", None) or {})
+        for upgrade_key in STRUCTURE_UPGRADE_DEFS:
+            d = STRUCTURE_UPGRADE_DEFS[upgrade_key]
+            if not blueprint_allows_upgrade(d, bid):
+                continue
+            cur = int(ups.get(upgrade_key) or 0)
+            nxt, _price = next_upgrade_level_cost_cr(upgrade_key, cur)
+            if nxt is not None:
+                return True
+    return False
+
+
+def holding_has_parcel_buildout(holding):
+    """
+    True if the holding has at least one installed property structure, or a
+    Workshop (fab/assembly). Does not check title_owner or credits.
+    """
+    if not holding:
+        return False
+    if holding.structures():
+        return True
+    from typeclasses.manufacturing import Workshop
+
+    for obj in holding.contents:
+        if obj.is_typeclass(Workshop, exact=False):
+            return True
+    return False
+
+
 def upgrade_routes_to_advertising(upgrade_key):
     d = upgrade_def(upgrade_key)
     if not d:

@@ -63,6 +63,26 @@ urlpatterns = [
         name="ui-property-install-structure",
     ),
     path(
+        "property/processor-deploy",
+        views.property_processor_deploy,
+        name="ui-property-processor-deploy",
+    ),
+    path(
+        "property/workshop-queue",
+        views.property_workshop_queue,
+        name="ui-property-workshop-queue",
+    ),
+    path(
+        "property/workshop-feed",
+        views.property_workshop_feed,
+        name="ui-property-workshop-feed",
+    ),
+    path(
+        "property/workshop-collect",
+        views.property_workshop_collect,
+        name="ui-property-workshop-collect",
+    ),
+    path(
         "property/structure-upgrade",
         views.property_structure_upgrade,
         name="ui-property-structure-upgrade",
@@ -95,6 +115,11 @@ urlpatterns = [
     path("property/deed-list", views.property_deed_list, name="ui-property-deed-list"),
     path("property/deed-buy", views.property_deed_buy, name="ui-property-deed-buy"),
     path("property/ops-health", views.property_ops_health, name="ui-property-ops-health"),
+    path(
+        "manufacturing/ops-health",
+        views.manufacturing_ops_health,
+        name="ui-manufacturing-ops-health",
+    ),
     path("resources", views.resources_state, name="ui-resources"),
     path("mine/claims", views.mine_claims, name="ui-mine-claims"),
     path("mine/deploy", views.mine_deploy, name="ui-mine-deploy"),

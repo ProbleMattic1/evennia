@@ -10,6 +10,10 @@ import { PropertyDeedListForm } from "@/components/property-deed-list-form";
 import {
   getPropertyClaimDetail,
   installPropertyStructure,
+  propertyProcessorDeploy,
+  propertyWorkshopCollect,
+  propertyWorkshopFeed,
+  propertyWorkshopQueue,
   purchasePropertyExtraSlot,
   purchasePropertyStructureUpgrade,
   retoolPropertyOperation,
@@ -65,6 +69,20 @@ export default function PropertyClaimDetailPage() {
   const [extraSlotErr, setExtraSlotErr] = useState<string | null>(null);
   const [upgradeErr, setUpgradeErr] = useState<string | null>(null);
   const [upgradingKey, setUpgradingKey] = useState<string | null>(null);
+  const [fabWorkshopId, setFabWorkshopId] = useState<number | null>(null);
+  const [fabRecipeKey, setFabRecipeKey] = useState("");
+  const [fabRuns, setFabRuns] = useState("1");
+  const [fabProductKey, setFabProductKey] = useState("");
+  const [fabUnits, setFabUnits] = useState("");
+  const [fabHoldingOnly, setFabHoldingOnly] = useState(true);
+  const [fabCollectKey, setFabCollectKey] = useState("");
+  const [workshopPanelErr, setWorkshopPanelErr] = useState<string | null>(null);
+  const [workshopQueueBusy, setWorkshopQueueBusy] = useState(false);
+  const [workshopFeedBusy, setWorkshopFeedBusy] = useState(false);
+  const [workshopCollectBusy, setWorkshopCollectBusy] = useState(false);
+  const [processorDeployBusy, setProcessorDeployBusy] = useState(false);
+  const [processorDeployErr, setProcessorDeployErr] = useState<string | null>(null);
+  const [processorDeployId, setProcessorDeployId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(claimId)) {
@@ -93,6 +111,17 @@ export default function PropertyClaimDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const rows = data?.portableProcessorsCarried ?? [];
+    if (!rows.length) {
+      setProcessorDeployId(null);
+      return;
+    }
+    setProcessorDeployId((cur) =>
+      cur != null && rows.some((r) => r.id === cur) ? cur : rows[0]!.id,
+    );
+  }, [data?.portableProcessorsCarried]);
 
   useEffect(() => {
     if (typeof window === "undefined" || loading) return;
@@ -131,9 +160,79 @@ export default function PropertyClaimDetailPage() {
     setBuildBlueprintId((prev) => (cat.some((r) => r.id === prev) ? prev : cat[0]!.id));
   }, [data?.holding?.holdingId, data?.holding?.buildCatalog]);
 
+  useEffect(() => {
+    const ws = data?.holding?.workshops ?? [];
+    if (!ws.length) {
+      setFabWorkshopId(null);
+      return;
+    }
+    setFabWorkshopId((cur) =>
+      cur != null && ws.some((w) => w.workshopId === cur) ? cur : ws[0]!.workshopId,
+    );
+  }, [data?.holding?.holdingId, data?.holding?.workshops]);
+
+  useEffect(() => {
+    const h = data?.holding;
+    if (!h?.workshops?.length) return;
+    const ws = h.workshops.find((w) => w.workshopId === fabWorkshopId);
+    const recipes = (h.manufacturingRecipes ?? []).filter((r) => r.stationKind === ws?.stationKind);
+    if (!recipes.length) {
+      setFabRecipeKey("");
+      return;
+    }
+    setFabRecipeKey((prev) => (recipes.some((r) => r.id === prev) ? prev : recipes[0]!.id));
+  }, [
+    data?.holding?.holdingId,
+    fabWorkshopId,
+    data?.holding?.manufacturingRecipes,
+    data?.holding?.workshops,
+  ]);
+
+  useEffect(() => {
+    setFabCollectKey("");
+  }, [fabWorkshopId, data?.holding?.holdingId]);
+
+  useEffect(() => {
+    const h = data?.holding;
+    if (!h) return;
+    const rows = fabHoldingOnly
+      ? (h.manufacturingFeedStockHoldingOnly ?? [])
+      : (h.manufacturingFeedStockWithRoom ?? []);
+    if (!rows.length) {
+      setFabProductKey("");
+      setFabUnits("");
+      return;
+    }
+    if (!fabProductKey || !rows.some((r) => r.productKey === fabProductKey)) {
+      const r0 = rows[0]!;
+      setFabProductKey(r0.productKey);
+      setFabUnits(String(r0.unitsAvailable));
+    }
+  }, [
+    data?.holding?.holdingId,
+    fabHoldingOnly,
+    fabProductKey,
+    data?.holding?.manufacturingFeedStockHoldingOnly,
+    data?.holding?.manufacturingFeedStockWithRoom,
+  ]);
+
   const claim = data?.claim;
   const lot = data?.lot;
   const holding = data?.holding;
+
+  const selectedFabWorkshop =
+    holding?.workshops?.find((w) => w.workshopId === fabWorkshopId) ?? null;
+  const fabRecipeOptions =
+    holding && selectedFabWorkshop
+      ? (holding.manufacturingRecipes ?? []).filter(
+          (r) => r.stationKind === selectedFabWorkshop.stationKind,
+        )
+      : [];
+  const fabFeedRows = holding
+    ? fabHoldingOnly
+      ? (holding.manufacturingFeedStockHoldingOnly ?? [])
+      : (holding.manufacturingFeedStockWithRoom ?? [])
+    : [];
 
   async function handleStartOperation() {
     if (!holding || !Number.isFinite(claimId)) return;
@@ -218,6 +317,90 @@ export default function PropertyClaimDetailPage() {
       setUpgradeErr(e instanceof Error ? e.message : "Could not purchase upgrade.");
     } finally {
       setUpgradingKey(null);
+    }
+  }
+
+  async function handleWorkshopQueue() {
+    if (!holding || !Number.isFinite(claimId) || fabWorkshopId == null) return;
+    setWorkshopPanelErr(null);
+    setWorkshopQueueBusy(true);
+    try {
+      const runs = Math.max(1, parseInt(fabRuns, 10) || 1);
+      await propertyWorkshopQueue({
+        claimId,
+        workshopId: fabWorkshopId,
+        recipeKey: fabRecipeKey,
+        runs,
+      });
+      await load();
+    } catch (e) {
+      setWorkshopPanelErr(e instanceof Error ? e.message : "Queue failed.");
+    } finally {
+      setWorkshopQueueBusy(false);
+    }
+  }
+
+  async function handleWorkshopFeed() {
+    if (!holding || !Number.isFinite(claimId) || fabWorkshopId == null) return;
+    setWorkshopPanelErr(null);
+    setWorkshopFeedBusy(true);
+    try {
+      const rows = fabHoldingOnly
+        ? (holding.manufacturingFeedStockHoldingOnly ?? [])
+        : (holding.manufacturingFeedStockWithRoom ?? []);
+      const cap = rows.find((r) => r.productKey === fabProductKey)?.unitsAvailable;
+      let units = parseFloat(fabUnits);
+      if (!Number.isFinite(units) || units <= 0) {
+        setWorkshopPanelErr("Units must be a positive number.");
+        return;
+      }
+      if (cap != null && units > cap) {
+        units = cap;
+      }
+      await propertyWorkshopFeed({
+        claimId,
+        workshopId: fabWorkshopId,
+        productKey: fabProductKey,
+        units,
+        holdingSourcesOnly: fabHoldingOnly,
+      });
+      await load();
+    } catch (e) {
+      setWorkshopPanelErr(e instanceof Error ? e.message : "Feed failed.");
+    } finally {
+      setWorkshopFeedBusy(false);
+    }
+  }
+
+  async function handleWorkshopCollect() {
+    if (!holding || !Number.isFinite(claimId) || fabWorkshopId == null) return;
+    setWorkshopPanelErr(null);
+    setWorkshopCollectBusy(true);
+    try {
+      await propertyWorkshopCollect({
+        claimId,
+        workshopId: fabWorkshopId,
+        ...(fabCollectKey ? { productKey: fabCollectKey } : {}),
+      });
+      await load();
+    } catch (e) {
+      setWorkshopPanelErr(e instanceof Error ? e.message : "Collect failed.");
+    } finally {
+      setWorkshopCollectBusy(false);
+    }
+  }
+
+  async function handleProcessorDeploy() {
+    if (!holding || !Number.isFinite(claimId) || processorDeployId == null) return;
+    setProcessorDeployErr(null);
+    setProcessorDeployBusy(true);
+    try {
+      await propertyProcessorDeploy({ claimId, processorId: processorDeployId });
+      await load();
+    } catch (e) {
+      setProcessorDeployErr(e instanceof Error ? e.message : "Deploy failed.");
+    } finally {
+      setProcessorDeployBusy(false);
     }
   }
 
@@ -449,6 +632,53 @@ export default function PropertyClaimDetailPage() {
                   </p>
                 </div>
 
+                <div className="border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    Portable ore processor
+                  </p>
+                  <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-500">
+                    Installs the unit into this deed&apos;s parcel interior. You do not need to stand
+                    there. Use <span className="font-mono">visitproperty</span> when you want to be
+                    there in person (same as <span className="font-mono">drop</span> when you are
+                    already inside).
+                  </p>
+                  {(data?.portableProcessorsCarried?.length ?? 0) === 0 ? (
+                    <p className="mt-2 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
+                      No portable ore processor in inventory.
+                    </p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap items-end gap-2">
+                      <label className="flex flex-col gap-0.5 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
+                        Processor
+                        <select
+                          value={processorDeployId ?? ""}
+                          onChange={(ev) => setProcessorDeployId(Number(ev.target.value))}
+                          className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                        >
+                          {(data?.portableProcessorsCarried ?? []).map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.key} · Mk {p.mk} · #{p.id}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        disabled={processorDeployBusy || processorDeployId == null}
+                        onClick={() => void handleProcessorDeploy()}
+                        className="rounded bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 dark:bg-emerald-800 dark:hover:bg-emerald-700"
+                      >
+                        {processorDeployBusy ? "…" : "Deploy here"}
+                      </button>
+                    </div>
+                  )}
+                  {processorDeployErr ? (
+                    <p className="mt-2 font-mono text-[12px] text-red-600 dark:text-red-400">
+                      {processorDeployErr}
+                    </p>
+                  ) : null}
+                </div>
+
                 {upgradeErr ? (
                   <p className="font-mono text-[12px] text-red-600 dark:text-red-400">{upgradeErr}</p>
                 ) : null}
@@ -503,6 +733,199 @@ export default function PropertyClaimDetailPage() {
                     <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-500">
                       In-game: <span className="font-mono">upgradeproperty</span> &lt;structure id&gt;{" "}
                       &lt;upgrade_key&gt;
+                    </p>
+                  </div>
+                ) : null}
+
+                {(holding.workshops?.length ?? 0) > 0 ? (
+                  <div className="border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                      Fabrication (workshops)
+                    </p>
+                    {workshopPanelErr ? (
+                      <p className="mb-2 font-mono text-[12px] text-red-600 dark:text-red-400">
+                        {workshopPanelErr}
+                      </p>
+                    ) : null}
+                    <label className="mt-2 flex flex-col gap-0.5 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
+                      Workshop
+                      <select
+                        value={fabWorkshopId ?? ""}
+                        onChange={(ev) => setFabWorkshopId(Number(ev.target.value))}
+                        className="min-w-[12rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                      >
+                        {(holding.workshops ?? []).map((w) => (
+                          <option key={w.workshopId} value={w.workshopId}>
+                            {w.key} · {w.blueprintId || "—"} · #{w.workshopId}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {selectedFabWorkshop ? (
+                      <div className="mt-2 rounded border border-cyan-900/30 bg-zinc-950/40 p-2 font-mono text-[10px] text-zinc-500 dark:text-zinc-400">
+                        <div>Station: {selectedFabWorkshop.stationKind}</div>
+                        <div>Queue: {selectedFabWorkshop.jobQueue.length} job(s)</div>
+                        <div className="mt-1">
+                          Inputs:{" "}
+                          {Object.keys(selectedFabWorkshop.inputInventory).length
+                            ? Object.entries(selectedFabWorkshop.inputInventory)
+                                .map(([k, v]) => `${k}=${v}`)
+                                .join(", ")
+                            : "—"}
+                        </div>
+                        <div>
+                          Output:{" "}
+                          {Object.keys(selectedFabWorkshop.outputInventory).length
+                            ? Object.entries(selectedFabWorkshop.outputInventory)
+                                .map(([k, v]) => `${k}=${v}`)
+                                .join(", ")
+                            : "—"}
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="mt-3 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Queue job
+                      </p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
+                          Recipe
+                          <select
+                            value={fabRecipeKey}
+                            onChange={(ev) => setFabRecipeKey(ev.target.value)}
+                            className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                          >
+                            {fabRecipeOptions.length === 0 ? (
+                              <option value="">No recipes for this station</option>
+                            ) : (
+                              fabRecipeOptions.map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
+                          runs
+                          <input
+                            value={fabRuns}
+                            onChange={(ev) => setFabRuns(ev.target.value)}
+                            className="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          disabled={workshopQueueBusy || !fabRecipeKey}
+                          onClick={() => void handleWorkshopQueue()}
+                          className="rounded bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-600 disabled:opacity-50 dark:bg-violet-800 dark:hover:bg-violet-700"
+                        >
+                          {workshopQueueBusy ? "…" : "Queue"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Feed refined
+                      </p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
+                          Refined product
+                          <select
+                            value={fabProductKey}
+                            onChange={(ev) => {
+                              const pk = ev.target.value;
+                              setFabProductKey(pk);
+                              const row = fabFeedRows.find((r) => r.productKey === pk);
+                              if (row) setFabUnits(String(row.unitsAvailable));
+                            }}
+                            className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                          >
+                            {fabFeedRows.length === 0 ? (
+                              <option value="">No feed stock</option>
+                            ) : (
+                              fabFeedRows.map((r) => (
+                                <option key={r.productKey} value={r.productKey}>
+                                  {r.name} ({r.unitsAvailable})
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
+                          units
+                          <input
+                            type="number"
+                            min={0.01}
+                            max={
+                              fabFeedRows.find((r) => r.productKey === fabProductKey)?.unitsAvailable ??
+                              undefined
+                            }
+                            step={0.01}
+                            value={fabUnits}
+                            onChange={(ev) => setFabUnits(ev.target.value)}
+                            className="w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                          <input
+                            type="checkbox"
+                            checked={fabHoldingOnly}
+                            onChange={(ev) => setFabHoldingOnly(ev.target.checked)}
+                          />
+                          Holding sources only
+                        </label>
+                        <button
+                          type="button"
+                          disabled={workshopFeedBusy || !fabProductKey || !fabUnits.trim()}
+                          onClick={() => void handleWorkshopFeed()}
+                          className="rounded bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50 dark:bg-amber-800 dark:hover:bg-amber-700"
+                        >
+                          {workshopFeedBusy ? "…" : "Feed"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Collect output
+                      </p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">
+                          Product (optional)
+                          <select
+                            value={fabCollectKey}
+                            onChange={(ev) => setFabCollectKey(ev.target.value)}
+                            className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                          >
+                            <option value="">All</option>
+                            {Object.entries(selectedFabWorkshop?.outputInventory ?? {})
+                              .filter(([, v]) => Number(v) > 0)
+                              .map(([k]) => {
+                                const label =
+                                  (holding.manufacturedProducts ?? []).find((p) => p.id === k)?.name ??
+                                  k;
+                                return (
+                                  <option key={k} value={k}>
+                                    {label}
+                                  </option>
+                                );
+                              })}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          disabled={workshopCollectBusy}
+                          onClick={() => void handleWorkshopCollect()}
+                          className="rounded bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 dark:bg-emerald-900 dark:hover:bg-emerald-800"
+                        >
+                          {workshopCollectBusy ? "…" : "Collect / sell"}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-500">
+                      In-game: <span className="font-mono">queuefab</span>,{" "}
+                      <span className="font-mono">feedfab</span>,{" "}
+                      <span className="font-mono">collectfab</span>
                     </p>
                   </div>
                 ) : null}

@@ -15,7 +15,10 @@ from typeclasses.characters import (
     PARCEL_COMMUTER_CHARACTER_KEY,
     PROMENADE_GUIDE_CHARACTER_KEY,
 )
+from world.bootstrap_frontier import START_ROOM_KEY
 from world.bootstrap_hub import HUB_ROOM_KEY
+
+PROCESSING_PLANT_ROOM_KEY = "Aurnom Ore Processing Plant"
 
 
 class InteractionError(Exception):
@@ -95,6 +98,22 @@ def handle_parcel_clerk(char, payload=None):
 
 
 # ---------------------------------------------------------------------------
+# frontier arrival
+# ---------------------------------------------------------------------------
+
+
+def handle_frontier_kiosk(char, payload=None):
+    loc = char.location
+    if not loc or str(loc.key) != START_ROOM_KEY:
+        raise InteractionError("There is no patched kiosk here.")
+    dialogue = (
+        "The display strobes once, then offers a stingy stipend buffer "
+        "and a cached line of coreward routing noise."
+    )
+    return InteractionLine(dialogue, "frontier:kiosk", None)
+
+
+# ---------------------------------------------------------------------------
 # survey
 # ---------------------------------------------------------------------------
 
@@ -126,6 +145,76 @@ def handle_survey(char, payload=None):
 
 
 # ---------------------------------------------------------------------------
+# procurement board (Phase 1 commodity demand)
+# ---------------------------------------------------------------------------
+
+
+def handle_contract_board(char, payload=None):
+    loc = char.location
+    if not loc:
+        raise InteractionError("You are not at a procurement board.")
+    if str(loc.key) != PROCESSING_PLANT_ROOM_KEY:
+        raise InteractionError("The procurement board is at the Ore Processing Plant.")
+
+    payload = dict(payload or {})
+    action = str(payload.get("action") or "list").strip().lower()
+    from typeclasses.commodity_demand import get_commodity_demand_engine
+
+    demand = get_commodity_demand_engine(create_missing=True)
+
+    if action == "list":
+        state = demand.state
+        rows = [
+            row
+            for row in (state.get("contracts") or {}).values()
+            if row.get("status") in ("open", "active")
+        ]
+        if not rows:
+            return InteractionLine("The procurement board is quiet.", "contractboard", None)
+        lines = ["|wProcurement Board|n"]
+        for row in sorted(rows, key=lambda r: r.get("created_at", ""))[-8:]:
+            lines.append(
+                f"  {row['id']}  {row['commodity_key']}  qty {row['quantity']}  "
+                f"reward {row['reward_cr']:,} cr  {row['status']}"
+            )
+        return InteractionLine("\n".join(lines), "contractboard", None)
+
+    if action == "accept":
+        contract_id = str(payload.get("contractId") or "").strip()
+        if not contract_id:
+            raise InteractionError("Missing contract id.")
+        try:
+            row = demand.accept_contract(char, contract_id)
+        except KeyError:
+            raise InteractionError("Unknown contract.") from None
+        except ValueError as exc:
+            raise InteractionError(str(exc)) from exc
+        return InteractionLine(
+            f"Contract accepted: deliver {row['quantity']}t {row['commodity_key']} to {row['delivery_room_key']}.",
+            "contractboard:accept",
+            None,
+        )
+
+    if action == "complete":
+        contract_id = str(payload.get("contractId") or "").strip()
+        if not contract_id:
+            raise InteractionError("Missing contract id.")
+        try:
+            row = demand.complete_contract(char, contract_id)
+        except KeyError:
+            raise InteractionError("Unknown contract.") from None
+        except ValueError as exc:
+            raise InteractionError(str(exc)) from exc
+        return InteractionLine(
+            f"Contract completed. Paid {row['reward_cr']:,} cr for {row['commodity_key']}.",
+            "contractboard:complete",
+            None,
+        )
+
+    raise InteractionError("Unsupported procurement-board action.")
+
+
+# ---------------------------------------------------------------------------
 # Registry — maps interaction keys to handlers
 # ---------------------------------------------------------------------------
 
@@ -137,5 +226,13 @@ WEB_INTERACTION_HANDLERS = {
     "askguide:transit": lambda char, payload: handle_askguide(char, {"topic": "transit"}),
     "parcel:commuter": handle_parcel_commuter,
     "parcel:supply_clerk": handle_parcel_clerk,
+    "frontier:kiosk": handle_frontier_kiosk,
     "survey": handle_survey,
+    "contractboard": handle_contract_board,
+    "contractboard:accept": lambda char, payload: handle_contract_board(
+        char, {**(payload or {}), "action": "accept"}
+    ),
+    "contractboard:complete": lambda char, payload: handle_contract_board(
+        char, {**(payload or {}), "action": "complete"}
+    ),
 }

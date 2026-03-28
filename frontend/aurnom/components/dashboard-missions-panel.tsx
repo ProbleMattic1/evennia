@@ -141,6 +141,14 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
       return `Ask guide (${topic ?? "default"})`;
     }
     if (key === "survey") return "Run survey";
+    if (key === "contractboard") return "Procurement board";
+    if (key.startsWith("contractboard:")) {
+      const part = key.split(":")[1];
+      return part ? `Procurement board (${part})` : "Procurement board";
+    }
+    if (key === "frontier:kiosk") {
+      return "Transit kiosk";
+    }
     return key;
   }
 
@@ -343,11 +351,11 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
           {roomExits.some((e) => e.destination) ? (
             <div className="mt-1.5">
               <div className="mb-0.5 flex items-center text-[10px] uppercase tracking-wide text-zinc-500">
-                <span>Exits</span>
+                <span>Destinations</span>
                 <button
                   type="button"
                   onClick={toggleExitsOpen}
-                  aria-label={`${exitsOpen ? "Collapse" : "Expand"} Exits`}
+                  aria-label={`${exitsOpen ? "Collapse" : "Expand"} Destinations`}
                   className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
                 >
                   {exitsOpen ? "▴" : "▸"}

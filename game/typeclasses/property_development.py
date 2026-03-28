@@ -4,6 +4,7 @@ Ensure PropertyHolding for a claimed lot; start operations; install structures.
 
 from evennia import create_object
 
+from typeclasses.manufacturing import maybe_spawn_workshop_on_install
 from typeclasses.property_holdings import PropertyHolding
 from typeclasses.property_operation_handlers import OPERATION_HANDLERS
 from typeclasses.property_operation_registry import register_property_holding
@@ -51,6 +52,7 @@ def install_structure(holding, blueprint_id, *, slot_weight=1):
     )
     st.db.slot_weight = int(slot_weight)
     st.apply_blueprint(blueprint_id)
+    maybe_spawn_workshop_on_install(st)
     return st
 
 

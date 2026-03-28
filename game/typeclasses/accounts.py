@@ -24,6 +24,8 @@ several more options for customizing the Guest account system.
 
 from evennia.accounts.accounts import DefaultAccount, DefaultGuest
 
+from world.bootstrap_frontier import get_player_start_room
+
 
 class Account(DefaultAccount):
     """
@@ -136,6 +138,15 @@ class Account(DefaultAccount):
 
     """
 
+    def create_character(self, *args, **kwargs):
+        if not kwargs.get("nohome"):
+            if "location" not in kwargs:
+                start = get_player_start_room()
+                kwargs["location"] = start
+            if "home" not in kwargs:
+                kwargs["home"] = kwargs["location"]
+        return super().create_character(*args, **kwargs)
+
     def at_post_create_character(self, character, **kwargs):
         super().at_post_create_character(character, **kwargs)
         if not (self.is_superuser or self.check_permstring("Developer")):
@@ -172,4 +183,11 @@ class Guest(DefaultGuest):
     characters are deleted after disconnection.
     """
 
-    pass
+    def create_character(self, *args, **kwargs):
+        if not kwargs.get("nohome"):
+            if "location" not in kwargs:
+                start = get_player_start_room()
+                kwargs["location"] = start
+            if "home" not in kwargs:
+                kwargs["home"] = kwargs["location"]
+        return super().create_character(*args, **kwargs)

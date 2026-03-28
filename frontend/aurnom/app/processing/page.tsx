@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
 import { ExitGrid } from "@/components/exit-grid";
 import { StoryPanel } from "@/components/story-panel";
-import { getProcessingState } from "@/lib/ui-api";
+import { getProcessingState, playInteract } from "@/lib/ui-api";
 import type { ProcessingState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
@@ -119,11 +119,56 @@ function MinerSection({ data }: { data: ProcessingState }) {
           </div>
           <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-cyan-500/70">
             Change with{" "}
-            <code className="font-mono text-[11px]">setdelivery &lt;hauler&gt; sell|process</code>
+            <code className="font-mono text-[11px]">setdelivery &lt;hauler&gt; buffer|process</code>
           </p>
         </div>
       )}
     </section>
+  );
+}
+
+function ProcurementBoardPanel() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function runList() {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      await playInteract({
+        interactionKey: "contractboard",
+        payload: { action: "list" },
+      });
+      setNotice("Board listing sent to your game log (dashboard).");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Procurement board action failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-1 space-y-1">
+      <p className="text-[11px] text-zinc-500 dark:text-cyan-500/80">
+        Requires your character to be at the plant in-game. Accept or complete contracts via{" "}
+        <code className="font-mono text-[10px]">play/interact</code> with{" "}
+        <code className="font-mono text-[10px]">contractboard</code> and payload{" "}
+        <code className="font-mono text-[10px]">action: accept | complete</code>,{" "}
+        <code className="font-mono text-[10px]">contractId</code>.
+      </p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void runList()}
+        className="rounded border border-cyan-700/50 bg-cyan-950/40 px-2 py-1 text-[12px] text-cyan-400 hover:bg-cyan-900/50 disabled:opacity-50"
+      >
+        {busy ? "…" : "List open contracts (game log)"}
+      </button>
+      {error ? <p className="text-[11px] text-red-500">{error}</p> : null}
+      {notice ? <p className="text-[11px] text-zinc-500 dark:text-cyan-500/80">{notice}</p> : null}
+    </div>
   );
 }
 
@@ -159,7 +204,7 @@ export default function ProcessingPage() {
       <CsColumns
         left={
           <>
-            <CsPanel title="Exits">
+            <CsPanel title="Destinations">
               <ExitGrid exits={data.exits} />
             </CsPanel>
             <CsPanel title="Plant Output">
@@ -169,7 +214,7 @@ export default function ProcessingPage() {
               <StorageBar used={data.rawStorageUsed} capacity={data.rawStorageCapacity} />
               <div className="mt-2 space-y-0.5">
                 <StatRow
-                  label="Plant buys your raw (haul sell)"
+                  label="Plant buys your raw (from bay / storage)"
                   value={`${(data.rawSaleFeeRate * 100).toFixed(0)}% hassle fee on bid total; you receive the rest`}
                 />
                 <StatRow
@@ -177,6 +222,9 @@ export default function ProcessingPage() {
                   value={`Ask = bid + ${(data.rawAskPremiumRate * 100).toFixed(0)}%`}
                 />
               </div>
+            </CsPanel>
+            <CsPanel title="Procurement board">
+              <ProcurementBoardPanel />
             </CsPanel>
           </>
         }

@@ -119,9 +119,9 @@ def _spawn_hauler(spec, site_room, buyer):
     hauler.db.hauler_state = "idle"
     hauler.db.hauler_upgrades = {}
     hauler.db.hauler_base_cycle_hours = float(spec.get("cycle_hours", 4.0))
-    # Default: sell raw ore for immediate credits. Use `setdelivery <hauler> process`
+    # Default: buffer unload at plant receiving storage. Use `setdelivery <hauler> process`
     # to queue ore for refining at the plant instead.
-    hauler.db.hauler_delivery_mode = "sell"
+    hauler.db.hauler_delivery_mode = "buffer"
     hauler.tags.add("autonomous_hauler", category="mining")
     hauler.locks.add("get:false()")
     return hauler
@@ -170,7 +170,7 @@ def _take_or_spawn_hauler(spec, site_room, buyer):
 
 def _deploy_components_at_site(buyer, site, site_room, components, package_tier):
     """Core deployment: spawn rig/storage/hauler, claim site, link, start cycles."""
-    from typeclasses.haulers import set_hauler_next_cycle
+    from typeclasses.haulers import HAULER_PICKUP_OFFSET_SEC, set_hauler_next_cycle
 
     refinery_rooms = search_object("Aurnom Ore Processing Plant")
     refinery_room = refinery_rooms[0] if refinery_rooms else None
@@ -204,6 +204,9 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
     storage.db.site = site
     storage.db.owner = buyer
 
+    site.db.mine_operation_active = True
+    site.schedule_next_cycle()
+
     hauler.db.hauler_mine_room = site_room
     hauler.db.hauler_refinery_room = refinery_room
     hauler.db.hauler_state = "at_mine"
@@ -214,14 +217,12 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         owned_vehicles.append(hauler)
     buyer.db.owned_vehicles = owned_vehicles
 
-    site.db.mine_operation_active = True
-    site.schedule_next_cycle()
-
     return True, (
         f"Mining operation deployed at {site.key}.\n"
         f"  Site: {site_room.key}\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Mining delivery: UTC 30m grid  Hauler: daily UTC pickup (staggered)\n"
+        f"  Mining delivery: UTC 30m grid  Hauler: after each deposit +{HAULER_PICKUP_OFFSET_SEC // 60}m; "
+        f"idle waits on mine next_cycle + same offset\n"
         f"  Ore will flow to {refinery_room.key} automatically.\n"
         f"  Use mines and haulerstatus to monitor progress."
     )
@@ -229,7 +230,7 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
 
 def _reactivate_components_at_site(buyer, site, site_room, components, package_tier):
     """Restore rig/storage/hauler at an idle owned site; reuse inventory when possible."""
-    from typeclasses.haulers import set_hauler_next_cycle
+    from typeclasses.haulers import HAULER_PICKUP_OFFSET_SEC, set_hauler_next_cycle
 
     refinery_rooms = search_object("Aurnom Ore Processing Plant")
     refinery_room = refinery_rooms[0] if refinery_rooms else None
@@ -258,6 +259,8 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
     storage.db.site = site
     storage.db.owner = buyer
 
+    site.schedule_next_cycle()
+
     hauler.db.hauler_owner = buyer
     hauler.db.allowed_boarders = [buyer]
     hauler.db.hauler_mine_room = site_room
@@ -270,12 +273,11 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
         owned_vehicles.append(hauler)
     buyer.db.owned_vehicles = owned_vehicles
 
-    site.schedule_next_cycle()
-
     return True, (
         f"Mining operation reactivated at {site.key}.\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Mining delivery: UTC 30m grid  Hauler: daily UTC pickup (staggered)\n"
+        f"  Mining delivery: UTC 30m grid  Hauler: after each deposit +{HAULER_PICKUP_OFFSET_SEC // 60}m; "
+        f"idle waits on mine next_cycle + same offset\n"
         f"  Ore will flow to {refinery_room.key} automatically."
     )
 

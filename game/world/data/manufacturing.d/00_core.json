@@ -1,0 +1,62 @@
+[
+  {
+    "table": "catalog",
+    "id": "rig_service_kit",
+    "name": "Rig Service Kit",
+    "category": "industrial_component",
+    "base_value_cr": 4200
+  },
+  {
+    "table": "recipe",
+    "id": "rig_service_kit",
+    "name": "Rig Service Kit",
+    "inputs": { "steel_alloy": 2, "refined_copper": 1 },
+    "output_units": 1,
+    "station_kind": "machine_shop"
+  },
+  {
+    "table": "catalog",
+    "id": "hauler_cargo_rack",
+    "name": "Hauler Cargo Rack",
+    "category": "industrial_component",
+    "base_value_cr": 9800
+  },
+  {
+    "table": "recipe",
+    "id": "hauler_cargo_rack",
+    "name": "Hauler Cargo Rack",
+    "inputs": { "steel_alloy": 3, "titanium_alloy": 1 },
+    "output_units": 1,
+    "station_kind": "fabrication_bay"
+  },
+  {
+    "table": "catalog",
+    "id": "survey_package",
+    "name": "Advanced Survey Package",
+    "category": "industrial_component",
+    "base_value_cr": 7600
+  },
+  {
+    "table": "recipe",
+    "id": "survey_package",
+    "name": "Advanced Survey Package",
+    "inputs": { "rare_earth_oxide": 1, "refined_copper": 2 },
+    "output_units": 1,
+    "station_kind": "machine_shop"
+  },
+  {
+    "table": "catalog",
+    "id": "claim_core_module",
+    "name": "Industrial Claim Core",
+    "category": "industrial_component",
+    "base_value_cr": 18000
+  },
+  {
+    "table": "recipe",
+    "id": "claim_core_module",
+    "name": "Industrial Claim Core",
+    "inputs": { "steel_alloy": 4, "refined_titanium": 1, "refined_cobalt": 1 },
+    "output_units": 1,
+    "station_kind": "fabrication_bay"
+  }
+]

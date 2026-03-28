@@ -20,6 +20,25 @@ lock functions from evennia.locks.lockfuncs.
 
 """
 
+from evennia.utils import logger
+
+
+def title_owner(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    True if accessing_obj is the titled owner of the holding that contains accessed_obj
+    (e.g. Workshop on PropertyHolding).
+    """
+    try:
+        loc = accessed_obj.location
+        if not loc:
+            return False
+        owner = getattr(loc.db, "title_owner", None)
+        return owner is not None and owner == accessing_obj
+    except Exception:
+        logger.log_trace()
+        return False
+
+
 # def myfalse(accessing_obj, accessed_obj, *args, **kwargs):
 #    """
 #    called in lockstring with myfalse().

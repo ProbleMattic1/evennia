@@ -29,13 +29,86 @@ def _effective_location(caller):
     return loc
 
 
-def _find_refinery_in_room(caller):
+def _refinery_candidates_in_room(loc):
+    if not loc:
+        return []
+    return [o for o in loc.contents if o.tags.has("refinery", category="mining")]
+
+
+def _split_args_at_target(args: str):
+    """
+    'refined_iron 5 at mk iii' -> ('refined_iron 5', 'mk iii')
+    'feedrefinery iron 10 at #104' -> ('feedrefinery iron 10', '#104')
+    'at mk iii' -> ('', 'mk iii')  for commands whose only arg is the target
+    """
+    raw = (args or "").strip()
+    lower = raw.lower()
+    if lower.startswith("at "):
+        return "", raw[3:].strip()
+    if " at " not in lower:
+        return raw, None
+    idx = lower.rfind(" at ")
+    if idx < 0:
+        return raw, None
+    main = raw[:idx].strip()
+    target = raw[idx + 4 :].strip()
+    return main, target if target else None
+
+
+def _find_refinery_in_room(caller, target_fragment=None):
+    """
+    If target_fragment: prefer owned portable whose key/id matches, else plant Refinery key/id.
+    Else: prefer caller-owned portable in room, else first Refinery, else any refinery-tagged.
+    """
     loc = _effective_location(caller)
     if not loc:
         return None
-    for obj in loc.contents:
-        if obj.tags.has("refinery", category="mining"):
-            return obj
+
+    candidates = _refinery_candidates_in_room(loc)
+    if not candidates:
+        return None
+
+    portables = [
+        o
+        for o in candidates
+        if o.is_typeclass("typeclasses.processors.PortableProcessor", exact=False)
+    ]
+    plants = [
+        o
+        for o in candidates
+        if o.is_typeclass("typeclasses.refining.Refinery", exact=False)
+    ]
+
+    frag = (target_fragment or "").strip().lower()
+    if frag:
+        for o in portables:
+            if getattr(o.db, "owner", None) != caller:
+                continue
+            key = (o.key or "").lower()
+            if frag in key or frag == str(o.id) or frag == f"#{o.id}":
+                return o
+        for o in plants:
+            key = (o.key or "").lower()
+            if frag in key or frag == str(o.id) or frag == f"#{o.id}":
+                return o
+        return None
+
+    for o in portables:
+        if getattr(o.db, "owner", None) == caller:
+            return o
+    if plants:
+        return plants[0]
+    return candidates[0]
+
+
+def _find_plant_refinery_in_room(caller):
+    """For collectrefined / plant miner queues only."""
+    loc = _effective_location(caller)
+    if not loc:
+        return None
+    for o in loc.contents:
+        if o.is_typeclass("typeclasses.refining.Refinery", exact=False):
+            return o
     return None
 
 
@@ -96,7 +169,10 @@ class CmdRefineStatus(Command):
 
     Usage:
       refinestatus
-      refinery
+      refinestatus at <target>
+
+    Optional |wat <target>|n chooses which refinery when several are present
+    (name fragment, or #dbref). Default: your portable if you own one here, else the plant.
     """
 
     key = "refinestatus"
@@ -105,7 +181,8 @@ class CmdRefineStatus(Command):
 
     def func(self):
         caller = self.caller
-        ref = _find_refinery_in_room(caller)
+        main, target = _split_args_at_target(self.args)
+        ref = _find_refinery_in_room(caller, target_fragment=target)
         if not ref:
             caller.msg("There is no refinery here.")
             return
@@ -119,6 +196,7 @@ class CmdFeedRefinery(Command):
     Usage:
       feedrefinery <resource> <tons>
       feedrefinery all
+      ... at <target>
 
     Transfers ore from a mining storage unit in the same room (or from the
     vehicle you are aboard, if docked here) into the refinery's input bin.
@@ -126,6 +204,7 @@ class CmdFeedRefinery(Command):
     Examples:
       feedrefinery iron 100
       feedrefinery all
+      feedrefinery iron 100 at ore processor
     """
 
     key = "feedrefinery"
@@ -134,7 +213,8 @@ class CmdFeedRefinery(Command):
 
     def func(self):
         caller = self.caller
-        ref = _find_refinery_in_room(caller)
+        main, target = _split_args_at_target(self.args)
+        ref = _find_refinery_in_room(caller, target_fragment=target)
         if not ref:
             caller.msg("There is no refinery here.")
             return
@@ -153,7 +233,7 @@ class CmdFeedRefinery(Command):
 
         from typeclasses.mining import RESOURCE_CATALOG
 
-        args = self.args.strip().lower()
+        args = main.strip().lower()
 
         if args == "all":
             if storage:
@@ -213,6 +293,7 @@ class CmdRefine(Command):
 
     Usage:
       refine <product> [batches]
+      refine <product> [batches] at <target>
 
     Uses ore from the refinery's input bin to produce the named product.
     Default batches is 1; increase to process larger quantities at once.
@@ -223,6 +304,7 @@ class CmdRefine(Command):
       refine refined_iron
       refine refined_copper 10
       refine cut_diamond 5
+      refine refined_iron 5 at ore processor
     """
 
     key = "refine"
@@ -231,12 +313,13 @@ class CmdRefine(Command):
 
     def func(self):
         caller = self.caller
-        ref = _find_refinery_in_room(caller)
+        main, target = _split_args_at_target(self.args)
+        ref = _find_refinery_in_room(caller, target_fragment=target)
         if not ref:
             caller.msg("There is no refinery here.")
             return
 
-        args = self.args.strip().split(None, 1)
+        args = main.strip().split(None, 1)
         if not args:
             caller.msg("Usage: refine <product> [batches]  — use |wrefinelist|n to see options.")
             return
@@ -277,6 +360,8 @@ class CmdCollectProduct(Command):
     Usage:
       collectproduct
       collectproduct <product>
+      collectproduct <product> at <target>
+      collectproduct at <target>
 
     Without arguments, sells everything in the output bin.
     With a product name, sells only that product.
@@ -291,7 +376,8 @@ class CmdCollectProduct(Command):
 
     def func(self):
         caller = self.caller
-        ref = _find_refinery_in_room(caller)
+        main, target = _split_args_at_target(self.args)
+        ref = _find_refinery_in_room(caller, target_fragment=target)
         if not ref:
             caller.msg("There is no refinery here.")
             return
@@ -301,7 +387,7 @@ class CmdCollectProduct(Command):
             caller.msg(f"|w{ref.key}|n output bin is empty.")
             return
 
-        product_query = self.args.strip().lower()
+        product_query = main.strip().lower()
 
         if product_query:
             matched_key = None
@@ -354,7 +440,7 @@ class CmdCollectRefined(Command):
     out your refined output. A 10% processing fee is deducted from the
     gross value; the remainder is deposited to your account.
 
-    See: setdelivery <hauler> process
+    See: setdelivery <hauler> process (buffer mode leaves ore in receiving storage only)
     """
 
     key = "collectrefined"
@@ -363,7 +449,7 @@ class CmdCollectRefined(Command):
 
     def func(self):
         caller = self.caller
-        ref = _find_refinery_in_room(caller)
+        ref = _find_plant_refinery_in_room(caller)
         if not ref:
             caller.msg("There is no refinery here.")
             return
@@ -372,7 +458,7 @@ class CmdCollectRefined(Command):
         if not products:
             caller.msg(
                 "You have no refined output waiting at this plant.\n"
-                "Tip: use |wsetdelivery <hauler> process|n to queue ore for refining."
+                "Tip: use |wsetdelivery <hauler> process|n to queue hauler ore for refining."
             )
             return
 

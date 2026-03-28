@@ -14,6 +14,7 @@ import os
 from evennia import search_object
 from evennia.accounts.models import AccountDB
 
+from world.bootstrap_hub import get_hub_room
 from typeclasses.characters import (
     ABILITY_KEYS,
     CHARACTER_TYPECLASS_PATH,
@@ -113,9 +114,12 @@ def bootstrap_nanomega_realty():
             )
         return
 
+    hub = get_hub_room()
+    assert hub, "[nanomega-realty] hub missing"
     char, errs = account.create_character(
         key=NANOMEGA_REALTY_CHARACTER_KEY,
         typeclass=CHARACTER_TYPECLASS_PATH,
+        location=hub,
     )
     if errs:
         print(f"[nanomega-realty] create_character failed: {errs}")

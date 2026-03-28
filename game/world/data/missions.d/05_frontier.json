@@ -1,0 +1,54 @@
+[
+  {
+    "id": "frontier_wake_kiosk",
+    "title": "Wake the Kiosk",
+    "summary": "One terminal still draws power from a salvage cell. It might pay for a ticket—or just teach you the route names.",
+    "missionKind": "mission",
+    "threadId": "frontier_survival",
+    "storylineId": "arrival_stipend",
+    "giver": {
+      "kind": "faction",
+      "id": "frontier_dock",
+      "name": "Dock residual"
+    },
+    "trigger": {
+      "kind": "room",
+      "roomKeysAny": ["Frontier Transit Shell"]
+    },
+    "eligibility": {
+      "cooldownSeconds": 7200,
+      "maxActive": 1
+    },
+    "objectives": [
+      {
+        "id": "tap_kiosk",
+        "kind": "interaction",
+        "text": "Use the patched transit kiosk.",
+        "interactionKeysAny": ["frontier:kiosk"]
+      },
+      {
+        "id": "payout_choice",
+        "kind": "choice",
+        "prompt": "The kiosk offers a one-time stipend or a cached coreward routing string.",
+        "choices": [
+          {
+            "id": "take_credits",
+            "label": "Drain the stipend buffer.",
+            "outcome": "Credits land; the kiosk’s power cell flatlines.",
+            "morality": { "chaotic": 1 },
+            "rewards": { "credits": 120 },
+            "completeMission": true
+          },
+          {
+            "id": "take_rumor",
+            "label": "Copy the routing string and leave the buffer.",
+            "outcome": "No payout—just a name: NanoMegaPlex Promenade.",
+            "morality": { "lawful": 1 },
+            "rewards": { "credits": 0 },
+            "completeMission": true
+          }
+        ]
+      }
+    ]
+  }
+]

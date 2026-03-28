@@ -68,6 +68,16 @@ export function MissionBoard({ missions, onChanged }: Props) {
     if (key === "survey") {
       return "Run survey";
     }
+    if (key === "contractboard") {
+      return "Procurement board";
+    }
+    if (key.startsWith("contractboard:")) {
+      const part = key.split(":")[1];
+      return part ? `Procurement board (${part})` : "Procurement board";
+    }
+    if (key === "frontier:kiosk") {
+      return "Transit kiosk";
+    }
     return key;
   }
 

@@ -1,0 +1,51 @@
+[
+  {
+    "id": "industrial_fab_floor_ethics",
+    "title": "Fab Floor Ethics",
+    "summary": "NanoMegaPlex leasing is pushing faster fab installs. A clerk wants your read on whether to disclose load-shedding risk to industrial tenants before they sign.",
+    "missionKind": "mission",
+    "threadId": "industrial_parcel_feed",
+    "storylineId": "fabrication_disclosure",
+    "giver": {
+      "kind": "faction",
+      "id": "nanomega_realty",
+      "name": "NanoMegaPlex Real Estate"
+    },
+    "trigger": {
+      "kind": "room",
+      "roomKeysAny": ["NanoMegaPlex Real Estate Office"]
+    },
+    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
+    "objectives": [
+      {
+        "id": "visit_mining_outfitters",
+        "kind": "visit_room",
+        "text": "Check what fabricators and haulers are saying at Mining Outfitters.",
+        "roomKeysAny": ["Aurnom Mining Outfitters"]
+      },
+      {
+        "id": "disclosure_choice",
+        "kind": "choice",
+        "prompt": "The lease packet omits a grid load-shedding clause that could idle new fab bays. What do you tell the clerk?",
+        "choices": [
+          {
+            "id": "full_disclosure",
+            "label": "Insist the risk goes in writing before any industrial signing.",
+            "outcome": "Tenants see the clause; a few walk, but the floor stays defensible.",
+            "morality": { "good": 2, "lawful": 2 },
+            "rewards": { "credits": 140 },
+            "completeMission": true
+          },
+          {
+            "id": "quiet_lane",
+            "label": "Advise a quiet side letter—faster closes, softer headlines.",
+            "outcome": "Deals close fast; when brownouts hit, blame migrates to whoever signed last.",
+            "morality": { "evil": 1, "chaotic": 2 },
+            "rewards": { "credits": 260 },
+            "completeMission": true
+          }
+        ]
+      }
+    ]
+  }
+]

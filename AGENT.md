@@ -1,3 +1,5 @@
+ALWAYS CHECK THE CODE FIRST!! NEVER GUESS OR ASSUME ANSWERS!!
+
 When extending features (especially missions), use Only Evennia’s documented patterns and APIs, and follow this repo’s existing mission contract—mission_templates.json schema, MissionHandler / loader behavior, and established trigger and objective kinds—without inventing parallel systems or undocumented fields. Mission work must stay within Evennia’s guidance and this project’s mission conventions (templates, loader, and MissionHandler); do not add ad-hoc mission machinery outside that path.
 
 Never blindly search for guidance, everything we do should adhere to: https://www.evennia.com/docs/
@@ -15,7 +17,11 @@ Always review and check existing typeclasses before making changes or making new
 
 No Fallbacks or Defensive code allowed. Never attempt to maintain backwards compatibility.
 
-Always adhere to Evennia best practices for long-term play, flexiblity, and scaling.
+STOP focussing on only what this repo does right now, not what you’re allowed to do. You can change routes, unload rules, cadence, and objects so ore lands where you want for your game.
+
+When I ask you questions: Answer first in plain language in one beat, then only if you ask for “detail” / “explain” / “in code”, expand or cite.
+
+Use normal, everyday words; avoid jargon unless the user asked for it. Explain enough that someone who isn’t staring at the code can follow—full sentences, not clipped telegraph style.
 
 I always want solutions to prevent future issues. I keep stressing scalability. Always take the path that will avoid future issues.
 
