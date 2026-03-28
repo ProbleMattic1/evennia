@@ -16,6 +16,12 @@ from world.time import next_mining_delivery_boundary_iso
 from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
+from .room_nav_utils import (
+    is_mining_site_room as _is_mining_site_room,
+    resolve_exit_destination_dict as _resolve_exit_destination,
+    should_show_mining_exit_dict as _should_show_mining_exit,
+)
+
 DEFAULT_PLAY_ROOM = HUB_ROOM_KEY
 
 
@@ -215,33 +221,6 @@ def _character_for_web_purchase(account):
     if char is not None:
         return char, None
     return None, JsonResponse({"ok": False, "message": msg}, status=400)
-
-
-def _resolve_exit_destination(ex):
-    dest_key = ex.get("destination")
-    if not dest_key:
-        return None
-    found = search_object(dest_key)
-    return found[0] if found else None
-
-
-def _is_mining_site_room(room):
-    if not room:
-        return False, None
-    for obj in room.contents:
-        if obj.tags.has("mining_site", category="mining"):
-            return True, obj
-    return False, None
-
-
-def _should_show_mining_exit(ex, char):
-    dest = _resolve_exit_destination(ex)
-    is_site, site = _is_mining_site_room(dest)
-    if not is_site:
-        return True
-    if not getattr(site.db, "is_claimed", False):
-        return False
-    return site.db.owner == char
 
 
 def _room_exits(room):

@@ -12,7 +12,14 @@ collectproduct   Sell refined products at base price and deposit to ledger.
 """
 
 from commands.command import Command
-from typeclasses.refining import PROCESSING_FEE_RATE, REFINING_RECIPES
+from typeclasses.refining import (
+    PROCESSING_FEE_RATE,
+    PROCESSING_PLANT_VENDOR_ACCOUNT,
+    REFINING_RECIPES,
+    execute_refined_payout_from_treasury,
+    refined_payout_breakdown,
+    restore_miner_output_for_payout,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -560,8 +567,10 @@ class CmdCollectRefined(Command):
 
     Your hauler delivers ore into your assigned storage at the plant; the plant
     moves it into your refining queue and produces attributed output. Use this
-    command at the Processing Plant to cash out. A 10% processing fee is deducted
-    from the gross value; the remainder is deposited to your account.
+    command at the Processing Plant to cash out. Payout is funded from the planetary
+    treasury (transfers only): a 10%% processing fee is split between the plant vendor
+    and the treasury; the net is transferred to you. If the treasury cannot cover
+    the payout, collection is refused or your output is restored.
     """
 
     key = "collectrefined"
@@ -575,8 +584,8 @@ class CmdCollectRefined(Command):
             caller.msg("There is no refinery here.")
             return
 
-        products, gross, fee = ref.collect_miner_output(caller.id, fee_rate=PROCESSING_FEE_RATE)
-        if not products:
+        gross_pre = ref.get_miner_output_value(caller.id)
+        if gross_pre <= 0:
             caller.msg(
                 "You have no refined output waiting at this plant.\n"
                 "Ore must reach your assigned storage here (hauler delivery); the plant "
@@ -584,7 +593,39 @@ class CmdCollectRefined(Command):
             )
             return
 
-        net = gross - fee
+        bd_pre = refined_payout_breakdown(gross_pre, PROCESSING_FEE_RATE)
+
+        from typeclasses.economy import get_economy
+
+        econ = get_economy(create_missing=True)
+        treasury_acct = econ.get_treasury_account("alpha-prime")
+        plant_acct = PROCESSING_PLANT_VENDOR_ACCOUNT
+        owner_acct = econ.get_character_account(caller)
+
+        econ.ensure_account(treasury_acct, opening_balance=int(econ.db.tax_pool or 0))
+        econ.ensure_account(plant_acct, opening_balance=0)
+        econ.ensure_account(owner_acct, opening_balance=int(caller.db.credits or 0))
+
+        if econ.get_balance(treasury_acct) < bd_pre["required_from_treasury"]:
+            caller.msg(
+                f"The planetary treasury cannot cover this payout yet "
+                f"(needs |y{bd_pre['required_from_treasury']:,}|n cr, "
+                f"treasury has |y{econ.get_balance(treasury_acct):,}|n cr). "
+                f"Try again later."
+            )
+            return
+
+        products, gross, fee = ref.collect_miner_output(caller.id, fee_rate=PROCESSING_FEE_RATE)
+        bd = refined_payout_breakdown(gross, PROCESSING_FEE_RATE)
+
+        if econ.get_balance(treasury_acct) < bd["required_from_treasury"]:
+            restore_miner_output_for_payout(ref, str(caller.id), products)
+            caller.msg(
+                "Payout was aborted: treasury balance changed. Your refined output was restored. "
+                "Please try again."
+            )
+            return
+
         lines = [f"|wRefined Output Collection — {ref.key}|n"]
         for key, units in products.items():
             recipe = REFINING_RECIPES.get(key, {})
@@ -596,18 +637,33 @@ class CmdCollectRefined(Command):
             f"  {'Processing fee ({:.0%})'.format(PROCESSING_FEE_RATE):<30}"
             f"            |r{fee:>10,}|n cr"
         )
-        lines.append(f"  {'Net payout':<30}            |g{net:>10,}|n cr")
+        lines.append(
+            f"  {'  (plant / treasury fee)':<30}"
+            f"            |y{bd['plant_fee']:>5,}|n / |y{bd['treasury_fee']:>5,}|n cr"
+        )
+        lines.append(f"  {'Net from treasury':<30}            |g{bd['net']:>10,}|n cr")
 
-        from typeclasses.economy import get_economy
-        econ = get_economy(create_missing=True)
-        owner_acct = econ.get_character_account(caller)
-        if fee > 0:
-            plant_acct = "vendor:processing-plant"
-            econ.ensure_account(plant_acct, opening_balance=0)
-            econ.deposit(plant_acct, fee, memo=f"Processing fee from {caller.key}")
-        econ.deposit(owner_acct, net, memo=f"Refined output collection at {ref.key}")
+        try:
+            execute_refined_payout_from_treasury(
+                econ,
+                treasury_account=treasury_acct,
+                plant_vendor_account=plant_acct,
+                miner_account=owner_acct,
+                net=bd["net"],
+                plant_fee=bd["plant_fee"],
+                gross=gross,
+                fee=fee,
+                treasury_fee=bd["treasury_fee"],
+                memo_miner=f"Refined output collection at {ref.key}",
+                memo_plant=f"Plant fee share from {caller.key} at {ref.key}",
+            )
+        except Exception:
+            restore_miner_output_for_payout(ref, str(caller.id), products)
+            caller.msg("Payout failed; your refined output was restored. Please contact staff.")
+            raise
+
         caller.db.credits = econ.get_character_balance(caller)
 
-        lines.append(f"\n|gDeposited |y{net:,}|g cr to your account.|n")
+        lines.append(f"\n|gReceived |y{bd['net']:,}|g cr from treasury.|n")
         lines.append(f"Balance: |y{caller.db.credits:,}|n cr.")
         caller.msg("\n".join(lines))

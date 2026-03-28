@@ -197,3 +197,34 @@ body > * {
     40px 20px,
     10px 60px;
 }
+
+/* Universal Locator — @xyflow/react: subtle zoom bar + readable minimap (scoped) */
+.locator-flow.react-flow.dark {
+  --xy-controls-button-background-color-default: rgba(24, 24, 27, 0.82);
+  --xy-controls-button-background-color-hover-default: rgba(39, 39, 42, 0.88);
+  --xy-controls-button-color-default: #71717a;
+  --xy-controls-button-color-hover-default: #a1a1aa;
+  --xy-controls-button-border-color-default: rgba(63, 63, 70, 0.45);
+  --xy-controls-box-shadow-default: none;
+  --xy-minimap-background-color-default: #09090b;
+  --xy-minimap-node-background-color-default: rgba(34, 211, 238, 0.45);
+  --xy-minimap-node-stroke-color-default: rgba(34, 211, 238, 0.35);
+  --xy-minimap-mask-background-color-default: rgba(9, 9, 11, 0.55);
+}
+
+.locator-flow .react-flow__controls {
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(63, 63, 70, 0.4);
+}
+
+.locator-flow .react-flow__controls-button {
+  height: 20px;
+  width: 20px;
+  padding: 2px;
+}
+
+.locator-flow .react-flow__controls-button svg {
+  max-width: 9px;
+  max-height: 9px;
+}

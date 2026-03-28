@@ -114,6 +114,12 @@ def generate_mining_site(is_jackpot=False):
     )
     site.db.deposit = deposit
     site.db.hazard_level = hazard
+    try:
+        from web.ui.world_graph import invalidate_world_graph_cache
+
+        invalidate_world_graph_cache()
+    except Exception:
+        pass
     return site
 
 

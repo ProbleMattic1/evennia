@@ -88,6 +88,7 @@ def bootstrap_marcus_killstar():
             char.move_to(hub)
         account.db._last_puppet = char
         char.db.rpg_pointbuy_done = True
+        char.db.mining_owner_uses_npc_production = True
         if _marcus_reset_stats_requested():
             _apply_marcus_ability_scores(char)
             print(f"[marcus] Re-applied ability scores for {MARCUS_CHARACTER_KEY}.")
@@ -111,6 +112,7 @@ def bootstrap_marcus_killstar():
 
     _apply_marcus_ability_scores(char)
     char.db.rpg_pointbuy_done = True
+    char.db.mining_owner_uses_npc_production = True
     _apply_marcus_credits(char)
     account.db._last_puppet = char
     print(

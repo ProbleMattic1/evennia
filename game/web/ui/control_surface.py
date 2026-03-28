@@ -369,6 +369,7 @@ def _serialize_nav(char, mines):
         {"key": "bank", "label": "Bank", "href": "/bank"},
         {"key": "processing", "label": "Processing Plant", "href": "/processing"},
         {"key": "real-estate", "label": "Real Estate Agency", "href": "/real-estate"},
+        {"key": "locator", "label": "Universal Locator", "href": "/locator"},
     ]
     kiosk_hrefs = {k.get("href") for k in kiosks}
     for service in required_services:

@@ -229,6 +229,14 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
         >
           Home
         </Link>
+        <Link
+          href="/locator"
+          className="shrink-0 truncate rounded border border-cyan-900/50 px-1.5 py-0.5 text-[10px] text-cyan-500 no-underline hover:bg-cyan-950/40 hover:text-cyan-300"
+          title="Universal Locator"
+          onClick={afterNav}
+        >
+          Map
+        </Link>
         <button
           type="button"
           onClick={(e) => {

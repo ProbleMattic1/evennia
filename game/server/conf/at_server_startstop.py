@@ -182,6 +182,7 @@ def at_server_cold_start():
     from world.bootstrap_haulers import bootstrap_haulers
     from world.bootstrap_hub import bootstrap_hub
     from world.bootstrap_marcus_killstar import bootstrap_marcus_killstar
+    from world.bootstrap_marcus_mines import bootstrap_marcus_mines
     from world.bootstrap_nanomega_advertising import bootstrap_nanomega_advertising
     from world.bootstrap_nanomega_construction import bootstrap_nanomega_construction
     from world.bootstrap_nanomega_realty import bootstrap_nanomega_realty
@@ -235,6 +236,7 @@ def at_server_cold_start():
     _run("mining engine + sample sites + Ashfall Basin", bootstrap_mining)
     _run("hauler engine + refinery engine + receiving bay", bootstrap_haulers)
     _run("mining sale packages (Starter Pack, Pro Pack)", bootstrap_mining_packages)
+    _run("Marcus Killstar mining pads", bootstrap_marcus_mines)
     _run("NPC industrial miners (plant supply)", bootstrap_npc_industrial_miners)
     _run(
         "NanoMegaPlex NPC industrial miners (plant supply)",

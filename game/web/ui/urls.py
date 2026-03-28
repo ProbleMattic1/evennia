@@ -2,6 +2,7 @@ from django.urls import path
 from django.views.generic import RedirectView
 
 from . import views
+from . import world_graph
 from .control_surface import control_surface_state
 
 urlpatterns = [
@@ -13,6 +14,7 @@ urlpatterns = [
     path("play/interact", views.play_interact, name="ui-play-interact"),
     path("msg-stream", views.msg_stream, name="ui-msg-stream"),
     path("nav", views.nav_state, name="ui-nav"),
+    path("world-graph", world_graph.world_graph_state, name="ui-world-graph"),
     path("dashboard", views.dashboard_state, name="ui-dashboard"),
     path("dashboard/ack-alert", views.dashboard_ack_alert, name="ui-dashboard-ack-alert"),
     path("bank", views.bank_state, name="ui-bank"),

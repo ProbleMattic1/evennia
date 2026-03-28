@@ -17,6 +17,8 @@ Economy integration:
     Refined products have a base_value_cr (per unit) stored in the recipe.
     The collectproduct command in commands/refining.py sells via grant_character_credits
     (base value only in Pass 3; Pass 4 can add market modifiers).
+    CmdCollectRefined and NPC auto-collect pay miners from treasury:transfer only; a share
+    of the processing fee goes to the plant vendor account, the rest stays with treasury.
 
 Transport integration:
     Vehicle cargo can be transferred to db.input_inventory via CmdFeedRefinery
@@ -33,6 +35,13 @@ from typeclasses.mining import RESOURCE_CATALOG
 # processed output.  Applied to gross refined value at collect time.
 PROCESSING_FEE_RATE = 0.10  # 10 %
 
+# Vendor ledger for the global Processing Plant (receives treasury transfers only).
+PROCESSING_PLANT_VENDOR_ACCOUNT = "vendor:processing-plant"
+
+# Fraction of the *processing fee* that stays with treasury (not remitted to plant vendor).
+# Remainder of the fee is paid from treasury → plant vendor.
+PROCESSING_FEE_TREASURY_SHARE = 0.5
+
 # When the Processing Plant buys raw from a miner (e.g. sell commands from storage), 2% hassle fee on bid gross.
 RAW_SALE_FEE_RATE = 0.02  # 2 %
 
@@ -44,6 +53,103 @@ def split_raw_sale_payout(gross_cr, fee_rate=None):
     fee = max(0, int(round(gross_cr * float(fee_rate))))
     net = max(0, gross_cr - fee)
     return net, fee
+
+
+def split_processing_fee_plant_treasury(fee_cr: int, treasury_share: float | None = None) -> tuple[int, int]:
+    """
+    Split integer processing fee into (plant_fee, treasury_fee) with exact conservation.
+    treasury_fee is the portion retained by treasury (not transferred to plant).
+    """
+    fee_cr = max(0, int(fee_cr))
+    if fee_cr <= 0:
+        return 0, 0
+    if treasury_share is None:
+        ts = float(PROCESSING_FEE_TREASURY_SHARE)
+    else:
+        ts = float(treasury_share)
+    ts = max(0.0, min(1.0, ts))
+    treasury_fee = int(round(fee_cr * ts))
+    treasury_fee = max(0, min(fee_cr, treasury_fee))
+    plant_fee = fee_cr - treasury_fee
+    return plant_fee, treasury_fee
+
+
+def compute_refined_collection_amounts(gross_cr: int, fee_rate: float) -> tuple[int, int, int]:
+    """
+    Match Refinery.collect_miner_output fee math exactly: fee = int(gross * fee_rate), net = gross - fee.
+    Returns (gross, fee, net).
+    """
+    gross_cr = max(0, int(gross_cr))
+    fee = int(gross_cr * float(fee_rate))
+    net = gross_cr - fee
+    return gross_cr, fee, net
+
+
+def refined_payout_breakdown(gross_cr: int, fee_rate: float, fee_treasury_share: float | None = None) -> dict:
+    """
+    Full settlement breakdown for treasury-funded plant payout.
+    required_from_treasury must be available on treasury before collect_miner_output.
+    """
+    gross, fee, net = compute_refined_collection_amounts(gross_cr, fee_rate)
+    plant_fee, treasury_fee = split_processing_fee_plant_treasury(fee, treasury_share=fee_treasury_share)
+    required = net + plant_fee
+    return {
+        "gross": gross,
+        "fee": fee,
+        "net": net,
+        "plant_fee": plant_fee,
+        "treasury_fee": treasury_fee,
+        "required_from_treasury": required,
+    }
+
+
+def restore_miner_output_for_payout(refinery, owner_id_str: str, products: dict) -> None:
+    """Merge products back into refinery.db.miner_output after a failed treasury payout."""
+    out = dict(refinery.db.miner_output or {})
+    oid = str(owner_id_str)
+    cur = dict(out.get(oid, {}))
+    for k, v in (products or {}).items():
+        cur[k] = round(float(cur.get(k, 0.0)) + float(v), 2)
+    out[oid] = cur
+    refinery.db.miner_output = out
+
+
+def execute_refined_payout_from_treasury(
+    econ,
+    *,
+    treasury_account: str,
+    plant_vendor_account: str,
+    miner_account: str,
+    net: int,
+    plant_fee: int,
+    gross: int,
+    fee: int,
+    treasury_fee: int,
+    memo_miner: str,
+    memo_plant: str,
+) -> None:
+    """
+    Transfer only — no minting. Treasury must already have been checked >= net + plant_fee.
+    treasury_fee is informational only (not moved).
+    """
+    _ = gross, fee, treasury_fee
+    net = max(0, int(net))
+    plant_fee = max(0, int(plant_fee))
+    if net > 0:
+        econ.transfer(
+            treasury_account,
+            miner_account,
+            net,
+            memo=memo_miner,
+        )
+    if plant_fee > 0:
+        econ.transfer(
+            treasury_account,
+            plant_vendor_account,
+            plant_fee,
+            memo=memo_plant,
+        )
+    econ.db.tax_pool = econ.get_balance(treasury_account)
 
 
 # ---------------------------------------------------------------------------
@@ -463,8 +569,8 @@ def _ingest_plant_player_storages_into_queues(refinery, room):
 
 def _auto_collect_registered_npc_miner_outputs(refinery):
     """
-    Ledger-only settlement for registry NPCs: same fee split as collectrefined,
-    no search_object / no Character load. Account key player:{id} matches Economy.
+    Ledger-only settlement for registry NPCs: treasury funds net + plant fee share;
+    transfers only (no mint). Same rules as collectrefined. Account key player:{id}.
     """
     from evennia.utils import logger
 
@@ -493,34 +599,66 @@ def _auto_collect_registered_npc_miner_outputs(refinery):
         candidates = candidates[:NPC_MINER_AUTO_COLLECT_MAX_PER_TICK]
 
     econ = get_economy(create_missing=True)
-    plant_acct = "vendor:processing-plant"
+    treasury_acct = econ.get_treasury_account("alpha-prime")
+    plant_acct = PROCESSING_PLANT_VENDOR_ACCOUNT
+    econ.ensure_account(treasury_acct, opening_balance=int(econ.db.tax_pool or 0))
     econ.ensure_account(plant_acct, opening_balance=0)
 
     for owner_id_str in candidates:
+        gross_pre = refinery.get_miner_output_value(int(owner_id_str))
+        if gross_pre <= 0:
+            continue
+
+        bd_pre = refined_payout_breakdown(gross_pre, PROCESSING_FEE_RATE)
+        if econ.get_balance(treasury_acct) < bd_pre["required_from_treasury"]:
+            logger.log_warn(
+                f"[RefineryEngine] NPC auto-collect skipped owner {owner_id_str}: "
+                f"treasury short (need {bd_pre['required_from_treasury']}, "
+                f"have {econ.get_balance(treasury_acct)})"
+            )
+            continue
+
         products, gross, fee = refinery.collect_miner_output(
             int(owner_id_str), fee_rate=PROCESSING_FEE_RATE
         )
         if not products:
             continue
 
-        net = gross - fee
+        bd = refined_payout_breakdown(gross, PROCESSING_FEE_RATE)
+        if econ.get_balance(treasury_acct) < bd["required_from_treasury"]:
+            restore_miner_output_for_payout(refinery, owner_id_str, products)
+            logger.log_warn(
+                f"[RefineryEngine] NPC auto-collect restored owner {owner_id_str}: "
+                f"treasury short after collect (need {bd['required_from_treasury']}, "
+                f"have {econ.get_balance(treasury_acct)})"
+            )
+            continue
+
         owner_acct = f"player:{owner_id_str}"
         econ.ensure_account(owner_acct, opening_balance=0)
 
-        if fee > 0:
-            econ.deposit(
-                plant_acct,
-                fee,
-                memo=f"Processing fee (NPC auto) owner {owner_id_str}",
+        try:
+            execute_refined_payout_from_treasury(
+                econ,
+                treasury_account=treasury_acct,
+                plant_vendor_account=plant_acct,
+                miner_account=owner_acct,
+                net=bd["net"],
+                plant_fee=bd["plant_fee"],
+                gross=gross,
+                fee=fee,
+                treasury_fee=bd["treasury_fee"],
+                memo_miner=f"Refined output auto-collection at {refinery.key}",
+                memo_plant=f"Plant fee share (NPC auto) owner {owner_id_str} at {refinery.key}",
             )
-        econ.deposit(
-            owner_acct,
-            net,
-            memo=f"Refined output auto-collection at {refinery.key}",
-        )
+        except Exception:
+            restore_miner_output_for_payout(refinery, owner_id_str, products)
+            raise
+
         logger.log_info(
             f"[RefineryEngine] NPC auto-collect owner {owner_id_str} at {refinery.key}: "
-            f"net {net} cr (gross {gross}, fee {fee})"
+            f"net {bd['net']} cr from treasury (gross {gross}, fee {fee}: "
+            f"plant_fee {bd['plant_fee']}, treasury_fee {bd['treasury_fee']})"
         )
 
 
@@ -585,7 +723,8 @@ class RefineryEngine(_Script):
       2. Ingests owner-tagged destination silos (players and NPCs) into per-owner miner queues.
       3. Drains legacy Ore Receiving Bay (non–player-silo MiningStorage) into pooled input.
       4. Runs REFINING_RECIPES on pooled input, then processes miner queues to miner_output.
-      5. Auto-collects miner_output for ids in NpcMinerRegistryScript (ledger player:{id}, capped per tick).
+      5. Auto-collects miner_output for ids in NpcMinerRegistryScript via treasury transfers
+         (net + plant fee share from alpha-prime treasury; capped per tick).
     """
 
     def at_script_creation(self):

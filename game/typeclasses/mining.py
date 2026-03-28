@@ -106,6 +106,26 @@ FAMILY_CATEGORIES = {
 }
 
 
+def mining_owner_skips_wear_and_breakdown(owner):
+    """
+    True when this owner's mines use NPC-style rig rules: no wear accumulation,
+    no breakdown random roll, and output ignores stored wear.
+
+    - All characters with db.is_npc (industrial NPCs).
+    - Seeded characters with db.mining_owner_uses_npc_production (e.g. Marcus Killstar).
+
+    Hazards remain controlled per-site via db.hazard_level (use 0 to disable).
+    """
+    if not owner:
+        return False
+    db = getattr(owner, "db", None)
+    if db is None:
+        return False
+    if getattr(db, "is_npc", False):
+        return True
+    return bool(getattr(db, "mining_owner_uses_npc_production", False))
+
+
 # ---------------------------------------------------------------------------
 # Resource catalog
 # ---------------------------------------------------------------------------
@@ -691,8 +711,9 @@ class MiningSite(ObjectParent, DefaultObject):
         Raises RuntimeError if called when no operational rigs exist — the
         engine guards against this via is_active; the error surfaces bugs.
 
-        Sites owned by an NPC character (``owner.db.is_npc``) do not accumulate
-        wear, cannot break down, and ignore stored wear for output calculation.
+        Sites owned by an NPC character (``owner.db.is_npc``) or with
+        ``owner.db.mining_owner_uses_npc_production`` do not accumulate wear,
+        cannot break down, and ignore stored wear for output calculation.
         """
         from typeclasses.system_alerts import enqueue_system_alert
 
@@ -712,9 +733,7 @@ class MiningSite(ObjectParent, DefaultObject):
         deposit = self.db.deposit
 
         _owner = self.db.owner
-        npc_owned = bool(
-            _owner and getattr(getattr(_owner, "db", None), "is_npc", False)
-        )
+        npc_owned = mining_owner_skips_wear_and_breakdown(_owner)
 
         # -- Storage capacity check --
         capacity = float(storage.db.capacity_tons)

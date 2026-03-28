@@ -16,7 +16,7 @@ import type {
 } from "@/lib/ui-api";
 import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
-import { dashboardAckAlert, mineDeploy } from "@/lib/ui-api";
+import { dashboardAckAlert, mineDeploy, mineRepairRig } from "@/lib/ui-api";
 
 function Panel({
   panelKey,
@@ -336,9 +336,11 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
 function MineDashboardRow({
   m,
   resourceNames,
+  onRepairRig,
 }: {
   m: DashboardMine;
   resourceNames: ReturnType<typeof buildResourceNameLookup>;
+  onRepairRig: (siteId: number) => void;
 }) {
   const composition = m.composition || {};
   const hasProduces = Object.keys(composition).length > 0;
@@ -355,6 +357,15 @@ function MineDashboardRow({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1">
             <span className="min-w-0 flex-1 truncate font-mono text-zinc-200">{m.key}</span>
+            {m.rigWear != null && m.rigWear >= 70 ? (
+              <button
+                type="button"
+                onClick={() => onRepairRig(m.id)}
+                className="shrink-0 font-mono text-[10px] text-amber-400 hover:text-amber-300"
+              >
+                Repair rig ⚠
+              </button>
+            ) : null}
             {m.location ? (
               <span className="inline-flex translate-y-px">
                 <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>Visit mine →</TinyLink>
@@ -370,11 +381,16 @@ function MineDashboardRow({
             </button>
           </div>
           {m.volumeTier ? (
-            <div className="mt-0.5">
+            <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
               <Row>
                 <Badge label={m.volumeTier} cls={m.volumeTierCls} />
                 <Badge label={m.resourceRarityTier ?? ""} cls={m.resourceRarityTierCls} />
               </Row>
+              {m.estimatedValuePerCycle != null ? (
+                <span className="shrink-0 font-mono text-[10px] text-zinc-400">
+                  {cr(m.estimatedValuePerCycle)}<span className="text-zinc-600"> yld</span>
+                </span>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -382,7 +398,6 @@ function MineDashboardRow({
       {open ? (
         <div className={`ml-3 mt-1 items-start gap-x-2 ${hasProduces ? "grid grid-cols-2" : ""}`}>
           <div className="min-w-0 space-y-0">
-            <Kv k="yield/cycle" v={cr(m.estimatedValuePerCycle)} />
             <Kv k="storage" v={`${m.storageUsed}/${m.storageCapacity} t`} />
             {m.rigWear != null ? <Kv k="rig wear" v={`${m.rigWear}%${!m.rigOperational ? " ⚠ offline" : ""}`} /> : null}
             {Object.keys(m.inventory || {}).length > 0 ? (
@@ -419,11 +434,13 @@ function MinesPanel({
   market,
   miningNextCycleAt,
   onReload,
+  onRepairRig,
 }: {
   mines: DashboardMine[];
   market: MarketCommodity[];
   miningNextCycleAt: string;
   onReload: () => void;
+  onRepairRig: (siteId: number) => void;
 }) {
   const resourceNames = useMemo(() => buildResourceNameLookup(market), [market]);
   const [open, setOpen] = useDashboardPanelOpen("mines", true);
@@ -465,7 +482,7 @@ function MinesPanel({
       {open ? (
         <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
           {mines.map((m) => (
-            <MineDashboardRow key={m.key} m={m} resourceNames={resourceNames} />
+            <MineDashboardRow key={m.key} m={m} resourceNames={resourceNames} onRepairRig={onRepairRig} />
           ))}
         </div>
       ) : null}
@@ -550,6 +567,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
     (packageId: number, claimId: number) => run(() => mineDeploy({ packageId, claimId })),
     [run],
   );
+  const repairRigCb = useCallback((siteId: number) => run(() => mineRepairRig({ siteId })), [run]);
 
   return (
     <div className="min-h-svh bg-zinc-950 font-mono text-[11px] text-zinc-300">
@@ -572,6 +590,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
             market={data.market}
             miningNextCycleAt={data.miningNextCycleAt ?? ""}
             onReload={onReload}
+            onRepairRig={repairRigCb}
           />
         </div>
         <div className="min-w-0 overflow-y-auto p-1.5">
