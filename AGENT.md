@@ -2,6 +2,8 @@ ALWAYS CHECK THE CODE FIRST!! NEVER GUESS OR ASSUME ANSWERS!!
 
 When extending features (especially missions), use Only Evennia’s documented patterns and APIs, and follow this repo’s existing mission contract—mission_templates.json schema, MissionHandler / loader behavior, and established trigger and objective kinds—without inventing parallel systems or undocumented fields. Mission work must stay within Evennia’s guidance and this project’s mission conventions (templates, loader, and MissionHandler); do not add ad-hoc mission machinery outside that path.
 
+Don't constantly reference the current mechanics as permanent, stop focusing on what things do now and focus on what I want them to be doing.
+
 Never blindly search for guidance, everything we do should adhere to: https://www.evennia.com/docs/
 
 For all Python Modules reference this list before making something new:

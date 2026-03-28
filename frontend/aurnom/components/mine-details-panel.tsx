@@ -16,12 +16,10 @@ import {
 import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
 import { compositionToLines, displayResourceName } from "@/lib/resource-display";
 import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
-import { Countdown } from "@/components/countdown";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 
 type PrimaryProps = {
   site: MineSiteDetails;
-  onCycleCountdownExpired?: () => void;
 };
 
 const EMPTY_MISSIONS: MissionsState = {
@@ -156,7 +154,7 @@ type ReturnedEquipment = NonNullable<
 >;
 
 /** Primary mine UI: read-only core cards only (left column on Play). */
-export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps) {
+export function MineDetailsPanel({ site }: PrimaryProps) {
   const resourceNames = useResourceNameLookup();
   const compositionLines = compositionToLines(site.composition || {}, resourceNames).map((l) => ({
     key: l.key,
@@ -235,24 +233,6 @@ export function MineDetailsPanel({ site, onCycleCountdownExpired }: PrimaryProps
         </MineDetailSectionCard>
 
         <MineDetailSectionCard panelKey={pk("cycle")} title="Cycle">
-          <Kv
-            label="Next cycle"
-            value={
-              site.nextCycleAt ? (
-                <span className="flex flex-col items-end gap-0.5">
-                  <span>{formatDate(site.nextCycleAt)}</span>
-                  <Countdown
-                    targetIso={site.nextCycleAt}
-                    prefix=""
-                    className="text-[11px] text-amber-600 dark:text-amber-400"
-                    onExpired={onCycleCountdownExpired}
-                  />
-                </span>
-              ) : (
-                "—"
-              )
-            }
-          />
           <Kv label="Last processed" value={formatDate(site.lastProcessedAt)} />
           <Kv label="Est. value" value={`${site.estimatedValuePerCycle.toLocaleString()} cr`} />
         </MineDetailSectionCard>

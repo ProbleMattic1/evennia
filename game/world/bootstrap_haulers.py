@@ -56,6 +56,11 @@ def bootstrap_haulers():
         create_script("typeclasses.refining.RefineryEngine")
         print("[haulers] Created RefineryEngine.")
 
+    from world.npc_miner_registry import get_npc_miner_registry
+
+    get_npc_miner_registry()
+    print("[haulers] NpcMinerRegistryScript ready.")
+
     # Ore Receiving Bay at the processing plant
     refinery_rooms = search_object("Aurnom Ore Processing Plant")
     if refinery_rooms:

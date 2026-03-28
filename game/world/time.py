@@ -20,6 +20,11 @@ HOUR = 3600
 DAY = 86400
 MINING_DELIVERY_PERIOD = 30 * MINUTE  # 1800 s = 30 min; change to 3 * HOUR before live launch
 
+# HaulerEngine wake: must be <= HAULER_PICKUP_OFFSET_SEC (half-period) so a hauler
+# that becomes due at deposit+offset is picked up within roughly one engine interval.
+# 5 * MINUTE scales to many haulers (O(n) scan per tick); tune 300–900 as needed.
+HAULER_ENGINE_INTERVAL_SEC = 5 * MINUTE
+
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
@@ -77,6 +82,18 @@ def next_mining_delivery_slot_after(dt: datetime) -> datetime:
     dt = dt.astimezone(UTC)
     slot_start = floor_period(dt, MINING_DELIVERY_PERIOD)
     return next_period_after_completed(slot_start, MINING_DELIVERY_PERIOD)
+
+
+def next_mining_delivery_boundary_iso() -> str:
+    """
+    Next UTC epoch-aligned instant for the mining delivery grid (>= now), as ISO string.
+
+    Matches the default branch of MiningSite.schedule_next_cycle(None), which uses
+    ceil_period(utc_now(), MINING_DELIVERY_PERIOD). For web/UI when all mines share
+    the same period without scanning objects.
+    """
+    iso = to_iso(ceil_period(utc_now(), MINING_DELIVERY_PERIOD))
+    return iso if iso else ""
 
 
 def start_of_utc_day(dt: datetime) -> datetime:

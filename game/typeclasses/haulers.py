@@ -15,6 +15,7 @@ from evennia import search_object, search_tag
 
 from world.time import (
     HOUR,
+    HAULER_ENGINE_INTERVAL_SEC,
     MINING_DELIVERY_PERIOD,
     to_iso,
     utc_now,
@@ -24,7 +25,7 @@ from evennia.utils import logger
 from .scripts import Script
 
 
-HAULER_ENGINE_INTERVAL = 1800  # 30 min wake
+HAULER_ENGINE_INTERVAL = HAULER_ENGINE_INTERVAL_SEC
 HAULER_CYCLE_BASE_HOURS = 4.0  # legacy Mk tier field on packages
 CYCLE_REDUCTION_PER_AUTOMATION = 0.5  # kept for effective_cycle_seconds() compatibility
 CAPACITY_BONUS_PER_EXPANSION = 0.25  # +25% per cargo_expansion level
@@ -34,6 +35,11 @@ HAULER_STAGGER_WINDOW_MIN_SEC = HOUR
 HAULER_MAX_PIPELINE_STEPS = 12
 
 HAULER_PICKUP_OFFSET_SEC = MINING_DELIVERY_PERIOD // 2
+
+# Player-assigned ore silo at haul destination (plant or parcel). Ingested into
+# per-owner refinery queues by RefineryEngine; not mixed into pooled plant input.
+PLANT_PLAYER_STORAGE_TAG = "plant_player_ore_storage"
+PLANT_PLAYER_STORAGE_CATEGORY = "mining"
 
 
 def _now():
@@ -173,6 +179,60 @@ def get_mining_storage_in_room(room):
     return None
 
 
+def get_plant_player_storage(room, owner):
+    """
+    Player-assigned ore storage in the destination room (one object per owner per room).
+    """
+    if not room or not owner:
+        return None
+    for obj in room.contents:
+        if not obj.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
+            continue
+        if getattr(obj.db, "owner", None) == owner:
+            return obj
+    return None
+
+
+def get_or_create_plant_player_storage(room, owner):
+    """Create a tagged MiningStorage for this owner in room on first haul delivery."""
+    from evennia import create_object
+
+    from typeclasses.mining import MiningStorage
+
+    existing = get_plant_player_storage(room, owner)
+    if existing:
+        return existing
+    key = f"{owner.key}'s plant ore storage"
+    st = create_object(
+        MiningStorage,
+        key=key,
+        location=room,
+        home=room,
+    )
+    st.db.owner = owner
+    st.db.site = None
+    st.tags.add(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY)
+    st.tags.add("mining_storage", category="mining")
+    st.locks.add("get:false()")
+    return st
+
+
+def get_player_destination_storage(room, owner):
+    """
+    Haulers always unload here: the player's assigned storage in this room.
+    Prefers tagged plant silo; else any mining_storage with same owner; else creates silo.
+    """
+    if not room or not owner:
+        return None
+    p = get_plant_player_storage(room, owner)
+    if p:
+        return p
+    for obj in room.contents:
+        if obj.tags.has("mining_storage", category="mining") and getattr(obj.db, "owner", None) == owner:
+            return obj
+    return get_or_create_plant_player_storage(room, owner)
+
+
 def get_refinery_in_room(room):
     if not room:
         return None
@@ -270,7 +330,7 @@ def hauler_process_one(hauler):
         hauler.db.hauler_state = "unloading"
         return True, f"Arrived at {refinery_room.key}. Unloading."
 
-    # ---- At refinery: unload into receiving storage or miner queue ----
+    # ---- At destination: always player-assigned storage (then distribution) ----
     if state == "unloading":
         if loc != refinery_room:
             hauler.move_to(refinery_room, quiet=True, move_hooks=False)
@@ -281,63 +341,11 @@ def hauler_process_one(hauler):
             set_hauler_next_cycle(hauler)
             return True, "Cargo empty — returning to mine."
 
-        delivery_mode = (hauler.db.hauler_delivery_mode or "buffer").lower()
-
-        if delivery_mode == "process":
-            from typeclasses.processors import PortableProcessor
-
-            portable = None
-            for o in loc.contents:
-                if o.is_typeclass(PortableProcessor, exact=False) and o.db.owner == owner:
-                    portable = o
-                    break
-
-            if portable:
-                total_fed = 0.0
-                for key, tons in list(cargo.items()):
-                    removed = hauler.unload_cargo(key, tons)
-                    if removed > 0:
-                        fed = portable.feed(key, removed)
-                        total_fed += fed
-                        overflow = round(removed - fed, 2)
-                        if overflow > 0:
-                            hauler.load_cargo(key, overflow)
-                hauler.db.hauler_state = "transit_mine"
-                set_hauler_next_cycle(hauler)
-                return True, (
-                    f"Delivered {total_fed:.1f}t to {portable.key} for processing. "
-                    f"Returning to mine."
-                )
-
-            refinery = get_refinery_in_room(loc)
-            if refinery:
-                ore_queue = dict(refinery.db.miner_ore_queue or {})
-                owner_id = str(owner.id) if owner else None
-                if owner_id:
-                    owner_queue = dict(ore_queue.get(owner_id, {}))
-                    total_queued = 0.0
-                    for key, tons in list(cargo.items()):
-                        removed = hauler.unload_cargo(key, tons)
-                        if removed > 0:
-                            owner_queue[key] = round(
-                                float(owner_queue.get(key, 0)) + removed, 2
-                            )
-                            total_queued += removed
-                    ore_queue[owner_id] = owner_queue
-                    refinery.db.miner_ore_queue = ore_queue
-                    hauler.db.hauler_state = "transit_mine"
-                    set_hauler_next_cycle(hauler)
-                    return True, (
-                        f"Queued {total_queued:.1f}t for processing at {refinery.key}. "
-                        f"Returning to mine."
-                    )
-
-        # buffer (default) or fallback when process mode cannot queue (no portable/refinery)
-        storage = get_mining_storage_in_room(loc)
+        storage = get_player_destination_storage(loc, owner)
         if not storage:
             hauler.db.hauler_state = "transit_mine"
             set_hauler_next_cycle(hauler)
-            return True, "No receiving storage at refinery — returning to mine."
+            return True, "No player-assigned storage at destination — returning to mine."
 
         for key, tons in list(cargo.items()):
             removed = hauler.unload_cargo(key, tons)
@@ -364,8 +372,9 @@ def hauler_process_one(hauler):
 class HaulerEngine(Script):
     """
     Global script for autonomous hauler routes.
-    Wakes every 30 min. Each hauler due (hauler_next_cycle_at from last deposit or mine next_cycle)
-    may advance up to HAULER_MAX_PIPELINE_STEPS state transitions per tick.
+    Wakes every HAULER_ENGINE_INTERVAL seconds. Each hauler due (hauler_next_cycle_at from last
+    deposit or mine next_cycle) may advance up to HAULER_MAX_PIPELINE_STEPS state transitions
+    per tick.
     """
 
     def at_script_creation(self):
@@ -373,7 +382,7 @@ class HaulerEngine(Script):
         self.desc = "Drives autonomous hauler routes (mine <-> refinery)."
         self.persistent = True
         self.interval = HAULER_ENGINE_INTERVAL
-        self.start_delay = True
+        self.start_delay = False
         self.repeats = 0
 
     def at_repeat(self, **kwargs):
@@ -381,6 +390,7 @@ class HaulerEngine(Script):
         haulers = search_tag("autonomous_hauler", category="mining")
         processed = 0
         errors = 0
+        scanned = 0
 
         for hauler in haulers:
             try:
@@ -389,6 +399,7 @@ class HaulerEngine(Script):
                 if not hauler.db.hauler_owner:
                     continue
 
+                scanned += 1
                 steps = 0
                 while steps < HAULER_MAX_PIPELINE_STEPS:
                     next_at = get_hauler_next_cycle_at(hauler)
@@ -417,5 +428,6 @@ class HaulerEngine(Script):
                 errors += 1
                 logger.log_err(f"[hauler_engine] Error on {getattr(hauler, 'key', '?')}: {err}")
 
-        if processed or errors:
-            logger.log_info(f"[hauler_engine] Tick — {processed} step(s), {errors} error(s).")
+        logger.log_info(
+            f"[hauler_engine] Tick — scanned={scanned} step(s)={processed} error(s)={errors}"
+        )

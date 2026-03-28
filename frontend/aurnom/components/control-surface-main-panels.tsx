@@ -336,11 +336,9 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
 function MineDashboardRow({
   m,
   resourceNames,
-  onReload,
 }: {
   m: DashboardMine;
   resourceNames: ReturnType<typeof buildResourceNameLookup>;
-  onReload: () => void;
 }) {
   const composition = m.composition || {};
   const hasProduces = Object.keys(composition).length > 0;
@@ -357,6 +355,11 @@ function MineDashboardRow({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1">
             <span className="min-w-0 flex-1 truncate font-mono text-zinc-200">{m.key}</span>
+            {m.location ? (
+              <span className="inline-flex translate-y-px">
+                <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>Visit mine →</TinyLink>
+              </span>
+            ) : null}
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
@@ -390,16 +393,6 @@ function MineDashboardRow({
                   .join(" · ")}
               />
             ) : null}
-            {m.nextCycleAt ? (
-              <div className="text-zinc-500">
-                <Countdown targetIso={m.nextCycleAt} prefix="next:" onExpired={onReload} />
-              </div>
-            ) : null}
-            {m.location ? (
-              <div className="mt-0.5">
-                <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>Visit mine →</TinyLink>
-              </div>
-            ) : null}
           </div>
           {hasProduces ? (
             <div className="min-w-0 border-l border-zinc-800/60 pl-2">
@@ -424,21 +417,59 @@ function MineDashboardRow({
 function MinesPanel({
   mines,
   market,
+  miningNextCycleAt,
   onReload,
 }: {
   mines: DashboardMine[];
   market: MarketCommodity[];
+  miningNextCycleAt: string;
   onReload: () => void;
 }) {
   const resourceNames = useMemo(() => buildResourceNameLookup(market), [market]);
+  const [open, setOpen] = useDashboardPanelOpen("mines", true);
+  const allActive = mines.every((m) => m.active);
+  const nextAt =
+    [miningNextCycleAt, mines.find((m) => m.nextCycleAt)?.nextCycleAt].find((s) => s && String(s).length > 0) ?? null;
 
   if (mines.length === 0) return null;
+
+  const title = `Mines (${mines.length})`;
+
   return (
-    <Panel panelKey="mines" title={`Mines (${mines.length})`}>
-      {mines.map((m) => (
-        <MineDashboardRow key={m.key} m={m} resourceNames={resourceNames} onReload={onReload} />
-      ))}
-    </Panel>
+    <section className="mb-1">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
+        {!open ? (
+          <span
+            className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
+            title={allActive ? "All mines active" : "At least one mine inactive"}
+            aria-hidden
+          >
+            ●
+          </span>
+        ) : null}
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        {nextAt ? (
+          <span className="shrink-0 font-mono text-[10px] font-normal normal-case tracking-normal text-cyan-400/90">
+            <Countdown targetIso={nextAt} prefix="next:" onExpired={onReload} />
+          </span>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+          className="shrink-0 px-1 text-cyan-400 hover:text-cyan-300"
+        >
+          {open ? "▴" : "▸"}
+        </button>
+      </div>
+      {open ? (
+        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
+          {mines.map((m) => (
+            <MineDashboardRow key={m.key} m={m} resourceNames={resourceNames} />
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -536,7 +567,12 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
             <DashboardMissionsPanel missions={data.missions} roomExits={data.roomExits} onChanged={onReload} />
           ) : null}
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
-          <MinesPanel mines={data.mines} market={data.market} onReload={onReload} />
+          <MinesPanel
+            mines={data.mines}
+            market={data.market}
+            miningNextCycleAt={data.miningNextCycleAt ?? ""}
+            onReload={onReload}
+          />
         </div>
         <div className="min-w-0 overflow-y-auto p-1.5">
           {data.groupedAlerts ? <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} /> : null}

@@ -690,6 +690,9 @@ class MiningSite(ObjectParent, DefaultObject):
         The best available rig (lowest wear among operational rigs) is used.
         Raises RuntimeError if called when no operational rigs exist — the
         engine guards against this via is_active; the error surfaces bugs.
+
+        Sites owned by an NPC character (``owner.db.is_npc``) do not accumulate
+        wear, cannot break down, and ignore stored wear for output calculation.
         """
         from typeclasses.system_alerts import enqueue_system_alert
 
@@ -707,6 +710,11 @@ class MiningSite(ObjectParent, DefaultObject):
 
         storage = self.db.linked_storage
         deposit = self.db.deposit
+
+        _owner = self.db.owner
+        npc_owned = bool(
+            _owner and getattr(getattr(_owner, "db", None), "is_npc", False)
+        )
 
         # -- Storage capacity check --
         capacity = float(storage.db.capacity_tons)
@@ -737,7 +745,9 @@ class MiningSite(ObjectParent, DefaultObject):
 
         mode_out = MODE_OUTPUT_MODIFIERS[mode]
         power_out = POWER_OUTPUT_MODIFIERS[power_level]
-        wear_out = 1.0 - (wear * WEAR_OUTPUT_PENALTY)
+        wear_out = (
+            1.0 if npc_owned else (1.0 - (wear * WEAR_OUTPUT_PENALTY))
+        )
 
         total_tons = base_tons * richness * rig_rating * mode_out * power_out * wear_out
 
@@ -815,29 +825,32 @@ class MiningSite(ObjectParent, DefaultObject):
         deposit["richness"] = round(new_richness, 4)
         self.db.deposit = deposit
 
-        # -- Wear accumulation --
-        mode_wear = MODE_WEAR_MODIFIERS[mode]
-        power_wear = POWER_WEAR_MODIFIERS[power_level]
-        maint_wear = MAINTENANCE_WEAR_MODIFIERS[maintenance]
-        new_wear = min(1.0, wear + WEAR_PER_CYCLE_BASE * mode_wear * power_wear * maint_wear)
-
-        # -- Breakdown check --
-        breakdown_base = BREAKDOWN_BASE[maintenance]
-        breakdown_chance = breakdown_base * (1.0 + wear * 2.0)
-        broke_down = random.random() < breakdown_chance or new_wear >= 1.0
-
-        rig.db.wear = round(new_wear, 4)
-        if broke_down:
-            rig.db.is_operational = False
-            rig.db.wear = 1.0
-            enqueue_system_alert(
-                severity="critical",
-                category="mining",
-                title="Mining rig breakdown",
-                detail=f"{rig.key} at {self.key} requires repair.",
-                source=self.key,
-                dedupe_key=f"rig-breakdown:{self.id}:{rig.id}",
+        # -- Wear accumulation & breakdown (skipped for NPC-owned sites) --
+        broke_down = False
+        if not npc_owned:
+            mode_wear = MODE_WEAR_MODIFIERS[mode]
+            power_wear = POWER_WEAR_MODIFIERS[power_level]
+            maint_wear = MAINTENANCE_WEAR_MODIFIERS[maintenance]
+            new_wear = min(
+                1.0, wear + WEAR_PER_CYCLE_BASE * mode_wear * power_wear * maint_wear
             )
+
+            breakdown_base = BREAKDOWN_BASE[maintenance]
+            breakdown_chance = breakdown_base * (1.0 + wear * 2.0)
+            broke_down = random.random() < breakdown_chance or new_wear >= 1.0
+
+            rig.db.wear = round(new_wear, 4)
+            if broke_down:
+                rig.db.is_operational = False
+                rig.db.wear = 1.0
+                enqueue_system_alert(
+                    severity="critical",
+                    category="mining",
+                    title="Mining rig breakdown",
+                    detail=f"{rig.key} at {self.key} requires repair.",
+                    source=self.key,
+                    dedupe_key=f"rig-breakdown:{self.id}:{rig.id}",
+                )
 
         # -- Extraction tax --
         tax_note = ""

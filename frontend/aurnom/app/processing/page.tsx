@@ -99,27 +99,22 @@ function MinerSection({ data }: { data: ProcessingState }) {
       {myHaulers && myHaulers.length > 0 && (
         <div className="mt-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-cyan-400/90">
-            Hauler Delivery Modes
+            Hauler delivery
           </p>
           <div className="mt-1 space-y-0.5">
             {myHaulers.map((h) => (
               <div key={h.id} className="flex items-center justify-between gap-2">
                 <span className="truncate text-[12px] text-zinc-500 dark:text-zinc-300">{h.key}</span>
-                <span
-                  className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
-                    h.deliveryMode === "process"
-                      ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-700/50"
-                      : "bg-zinc-100 text-zinc-500 dark:bg-cyan-950/40 dark:text-cyan-300"
-                  }`}
-                >
-                  {h.deliveryMode}
+                <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] font-medium text-zinc-600 ring-1 ring-zinc-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:ring-cyan-800/50">
+                  assigned storage
                 </span>
               </div>
             ))}
           </div>
           <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-cyan-500/70">
-            Change with{" "}
-            <code className="font-mono text-[11px]">setdelivery &lt;hauler&gt; buffer|process</code>
+            Haulers always unload into your assigned storage at the destination room. At the plant, ore is
+            queued for your refining; use collectrefined. For a personal processor, use feedprocessor in
+            that room.
           </p>
         </div>
       )}

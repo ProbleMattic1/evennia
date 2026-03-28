@@ -9,6 +9,7 @@ from commands.command import Command
 from evennia import search_object
 
 from typeclasses.haulers import (
+    HAULER_ENGINE_INTERVAL,
     HAULER_PICKUP_OFFSET_SEC,
     effective_capacity,
     format_next_hauler_run_utc,
@@ -113,7 +114,8 @@ class CmdAssignHauler(Command):
         caller.msg(
             f"|w{hauler.key}|n assigned: {mine_room.key} -> {refinery_room.key}. "
             f"Next autonomous pickup: |c{format_next_hauler_run_utc(hauler)}|n "
-            f"(mine next_cycle + {HAULER_PICKUP_OFFSET_SEC // 60}m; +{HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit)."
+            f"(mine next_cycle + {HAULER_PICKUP_OFFSET_SEC // 60}m; +{HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit). "
+            f"Dispatch runs every {HAULER_ENGINE_INTERVAL // 60}m (typically within one interval after eligible time)."
         )
 
 
@@ -227,23 +229,26 @@ class CmdHaulerStatus(Command):
             lines.append(f"  |w{h.key}|n")
             lines.append(f"    Location: {loc}  State: {state}")
             lines.append(f"    Route: {route}")
-            delivery = h.db.hauler_delivery_mode or "buffer"
             lines.append(
-                f"    Capacity: {cap}t  Schedule: mine-linked (+{HAULER_PICKUP_OFFSET_SEC // 60}m after deposits)  Next: {next_str}  "
-                f"Delivery: {delivery}  Upgrades: {up_str}"
+                f"    Capacity: {cap}t  Schedule: mine-linked (+{HAULER_PICKUP_OFFSET_SEC // 60}m after deposits); "
+                f"dispatch every {HAULER_ENGINE_INTERVAL // 60}m  Next: {next_str}  "
+                f"Delivery: assigned storage at destination  Upgrades: {up_str}"
             )
         caller.msg("\n".join(lines))
 
 
 class CmdSetDeliveryMode(Command):
     """
-    Set how your hauler delivers ore at the processing plant.
+    Legacy command — hauler delivery is fixed.
 
     Usage:
-      setdelivery <hauler> buffer|process
+      setdelivery <hauler> <anything>
 
-    buffer  — unload into plant receiving storage only (default); no credits on delivery
-    process — queue ore at the plant refinery for refining; collectrefined for output
+    Autonomous haulers always unload into |wyour assigned storage|n at the haul
+    destination room (created on first delivery if needed). At the Processing Plant,
+    the refinery cycle moves your ore into your refining queue; use |wcollectrefined|n
+    for payout. To feed a personal processor from storage, use |wfeedprocessor|n in
+    that room.
     """
 
     key = "setdelivery"
@@ -253,24 +258,19 @@ class CmdSetDeliveryMode(Command):
     def func(self):
         caller = self.caller
         args = self.args.strip().split()
-        if len(args) < 2:
-            caller.msg("Usage: setdelivery <hauler> buffer|process")
+        if len(args) < 1:
+            caller.msg(
+                "Haulers always deliver to your assigned storage at the destination. "
+                "Use |wassignhauler|n to set the destination room. "
+                "See |whelp collectrefined|n and |whelp feedprocessor|n."
+            )
             return
-        mode = args[-1].lower()
-        if mode not in ("buffer", "process"):
-            caller.msg("Mode must be 'buffer' or 'process'.")
-            return
-        hauler_name = " ".join(args[:-1])
-        hauler = _find_owned_hauler(caller, hauler_name)
-        if not hauler:
-            caller.msg(f"You don't own a hauler matching '{hauler_name}'.")
-            return
-        hauler.db.hauler_delivery_mode = mode
-        if mode == "buffer":
-            desc = "unloading into plant receiving storage (no sale on delivery)"
-        else:
-            desc = "queuing ore at the plant for refining (collect via collectrefined)"
-        caller.msg(f"|w{hauler.key}|n delivery mode set to |w{mode}|n — {desc}.")
+        caller.msg(
+            "|wDelivery mode is no longer configurable.|n Haulers always unload into your "
+            "assigned storage at the haul destination. At the plant, ore is queued for "
+            "your attributed refining automatically; use |wcollectrefined|n here. "
+            "For a personal processor, use |wfeedprocessor|n where it is deployed."
+        )
 
 
 class CmdReleaseHauler(Command):
@@ -324,4 +324,6 @@ class CmdHaulerDueNow(Command):
             caller.msg("You don't own an autonomous hauler matching that name.")
             return
         hauler.db.hauler_next_cycle_at = "1970-01-01T00:00:00+00:00"
-        caller.msg(f"|w{hauler.key}|n is due now (runs on next hauler engine tick, within ~30m).")
+        caller.msg(
+            f"|w{hauler.key}|n is due now (runs on next hauler engine tick, within ~{HAULER_ENGINE_INTERVAL // 60}m)."
+        )

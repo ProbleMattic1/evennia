@@ -363,6 +363,9 @@ class Refinery(ObjectParent, DefaultObject):
 
 REFINERY_ENGINE_INTERVAL = 1800   # 30 min tick
 
+# Max NPC auto-settlements per refinery per engine tick (bounded script time).
+NPC_MINER_AUTO_COLLECT_MAX_PER_TICK = 2000
+
 
 def _process_miner_queues(refinery):
     """
@@ -420,17 +423,124 @@ def _process_miner_queues(refinery):
         refinery.db.miner_output = output
 
 
+def _ingest_plant_player_storages_into_queues(refinery, room):
+    """
+    Move ore from owner-tagged destination silos into per-owner miner_ore_queue.
+    Players and NPCs share the same attributed path (no pooled NPC branch).
+    """
+    from evennia.utils import logger
+
+    from typeclasses.haulers import PLANT_PLAYER_STORAGE_CATEGORY, PLANT_PLAYER_STORAGE_TAG
+
+    queues = dict(refinery.db.miner_ore_queue or {})
+    changed_queue = False
+
+    for obj in list(room.contents):
+        if not obj.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
+            continue
+        ch = getattr(obj.db, "owner", None)
+        if not ch:
+            continue
+        inv = dict(obj.db.inventory or {})
+        if not inv:
+            continue
+
+        oid = str(ch.id)
+        acc = dict(queues.get(oid, {}))
+        for res_key, tons in inv.items():
+            tons = float(tons)
+            if tons <= 0:
+                continue
+            acc[res_key] = round(float(acc.get(res_key, 0)) + tons, 2)
+            changed_queue = True
+        queues[oid] = acc
+        obj.db.inventory = {}
+        logger.log_info(f"[RefineryEngine] Ingested silo {obj.key} → queue {oid}")
+
+    if changed_queue:
+        refinery.db.miner_ore_queue = queues
+
+
+def _auto_collect_registered_npc_miner_outputs(refinery):
+    """
+    Ledger-only settlement for registry NPCs: same fee split as collectrefined,
+    no search_object / no Character load. Account key player:{id} matches Economy.
+    """
+    from evennia.utils import logger
+
+    from typeclasses.economy import get_economy
+    from world.npc_miner_registry import is_registered_npc_miner_owner_id
+
+    output = refinery.db.miner_output or {}
+    if not output:
+        return
+
+    candidates = []
+    for owner_id_str in output.keys():
+        if not is_registered_npc_miner_owner_id(str(owner_id_str)):
+            continue
+        try:
+            int(owner_id_str)
+        except (TypeError, ValueError):
+            continue
+        candidates.append(str(owner_id_str))
+
+    if not candidates:
+        return
+
+    candidates.sort()
+    if len(candidates) > NPC_MINER_AUTO_COLLECT_MAX_PER_TICK:
+        candidates = candidates[:NPC_MINER_AUTO_COLLECT_MAX_PER_TICK]
+
+    econ = get_economy(create_missing=True)
+    plant_acct = "vendor:processing-plant"
+    econ.ensure_account(plant_acct, opening_balance=0)
+
+    for owner_id_str in candidates:
+        products, gross, fee = refinery.collect_miner_output(
+            int(owner_id_str), fee_rate=PROCESSING_FEE_RATE
+        )
+        if not products:
+            continue
+
+        net = gross - fee
+        owner_acct = f"player:{owner_id_str}"
+        econ.ensure_account(owner_acct, opening_balance=0)
+
+        if fee > 0:
+            econ.deposit(
+                plant_acct,
+                fee,
+                memo=f"Processing fee (NPC auto) owner {owner_id_str}",
+            )
+        econ.deposit(
+            owner_acct,
+            net,
+            memo=f"Refined output auto-collection at {refinery.key}",
+        )
+        logger.log_info(
+            f"[RefineryEngine] NPC auto-collect owner {owner_id_str} at {refinery.key}: "
+            f"net {net} cr (gross {gross}, fee {fee})"
+        )
+
+
 def _process_refinery(refinery):
     """Move ore from receiving storage and run all possible recipes."""
     from evennia.utils import logger
+
+    from typeclasses.haulers import PLANT_PLAYER_STORAGE_CATEGORY, PLANT_PLAYER_STORAGE_TAG
 
     room = refinery.location
     if not room:
         return
 
-    # Drain Ore Receiving Bay (MiningStorage) into shared input_inventory (buffer / pooled raw)
+    _ingest_plant_player_storages_into_queues(refinery, room)
+
+    # Drain Ore Receiving Bay (MiningStorage) into shared input_inventory — not player silos
     for obj in room.contents:
         if not obj.tags.has("mining_storage", category="mining"):
+            continue
+        if obj.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
             continue
         obj_key_lower = obj.key.lower()
         if "receiving" not in obj_key_lower and "bay" not in obj_key_lower:
@@ -450,15 +560,17 @@ def _process_refinery(refinery):
         refinery.db.input_inventory = in_inv
         obj.db.inventory = {}
 
-    # Run all shared recipes until no more batches are possible
+    # Run all shared recipes until no more batches are possible (pooled input only)
     for recipe_key in REFINING_RECIPES:
         while True:
             batches, _ = refinery.process_recipe(recipe_key, batches=1)
             if batches == 0:
                 break
 
-    # Process per-miner queues (process-mode deliveries)
+    # Per-owner queues (from player destination silos)
     _process_miner_queues(refinery)
+
+    _auto_collect_registered_npc_miner_outputs(refinery)
 
 
 from .scripts import Script as _Script  # noqa: E402 — must follow Refinery definition
@@ -470,9 +582,10 @@ class RefineryEngine(_Script):
 
     Every tick (30 min):
       1. Finds all Refinery objects.
-      2. Per refinery, locates the "Ore Receiving Bay" MiningStorage in the same
-         room and drains it into the refinery's input_inventory.
-      3. Runs all REFINING_RECIPES for as many batches as inputs allow.
+      2. Ingests owner-tagged destination silos (players and NPCs) into per-owner miner queues.
+      3. Drains legacy Ore Receiving Bay (non–player-silo MiningStorage) into pooled input.
+      4. Runs REFINING_RECIPES on pooled input, then processes miner queues to miner_output.
+      5. Auto-collects miner_output for ids in NpcMinerRegistryScript (ledger player:{id}, capped per tick).
     """
 
     def at_script_creation(self):

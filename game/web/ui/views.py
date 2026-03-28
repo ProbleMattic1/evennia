@@ -12,6 +12,7 @@ from evennia.utils import utils
 from world.bootstrap_frontier import get_player_start_room
 from world.bootstrap_hub import HUB_ROOM_KEY
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
+from world.time import next_mining_delivery_boundary_iso
 from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
@@ -1391,6 +1392,7 @@ def play_state(request):
         raise Http404(f"Room '{room_key}' was not found.")
 
     data = _serialize_room(room)
+    data["miningNextCycleAt"] = next_mining_delivery_boundary_iso()
     is_site, site = _is_mining_site_room(room)
     char = None
     if request.user.is_authenticated:
@@ -1924,7 +1926,7 @@ def processing_state(request):
                     haulers.append({
                         "id": h.id,
                         "key": h.key,
-                        "deliveryMode": h.db.hauler_delivery_mode or "buffer",
+                        "deliveryMode": "assigned_storage",
                     })
             my_delivery_modes = haulers
 
@@ -2060,6 +2062,27 @@ def _dashboard_property_portfolio(char):
     return rows, int(ref_total)
 
 
+def _personal_plant_ore_stored_value_cr(char):
+    """
+    Same logic as game.web.ui.control_surface._personal_plant_ore_stored_value_cr;
+    duplicated here to avoid import cycles (control_surface imports this module).
+    """
+    from typeclasses.haulers import get_plant_player_storage
+    from typeclasses.mining import get_commodity_bid
+
+    room = _first_object(PROCESSING_PLANT_ROOM_KEY)
+    if not room or not char:
+        return 0
+    storage = get_plant_player_storage(room, char)
+    if not storage:
+        return 0
+    sloc = storage.location
+    total = 0.0
+    for k, tons in (storage.db.inventory or {}).items():
+        total += float(tons) * get_commodity_bid(str(k), location=sloc)
+    return int(round(total))
+
+
 @require_GET
 def dashboard_state(request):
     """
@@ -2100,6 +2123,7 @@ def dashboard_state(request):
                 "propertyReferenceListValueTotalCr": 0,
                 "miningEstimatedValuePerCycle": 0,
                 "miningTotalStoredValue": 0,
+                "miningPersonalStoredValue": 0,
                 "message": None,
                 "alerts": [],
                 "groupedAlerts": empty_alerts,
@@ -2132,6 +2156,7 @@ def dashboard_state(request):
                 "propertyReferenceListValueTotalCr": 0,
                 "miningEstimatedValuePerCycle": 0,
                 "miningTotalStoredValue": 0,
+                "miningPersonalStoredValue": 0,
                 "message": msg,
                 "alerts": alerts,
                 "groupedAlerts": grouped_alerts,
@@ -2303,6 +2328,7 @@ def dashboard_state(request):
         })
 
     properties, property_ref_total_cr = _dashboard_property_portfolio(char)
+    mining_personal_stored = _personal_plant_ore_stored_value_cr(char)
 
     room_key = char.location.key if char.location else None
     rpg = char.get_rpg_dashboard_snapshot()
@@ -2320,6 +2346,7 @@ def dashboard_state(request):
             "propertyReferenceListValueTotalCr": property_ref_total_cr,
             "miningEstimatedValuePerCycle": int(round(mining_value_per_cycle)),
             "miningTotalStoredValue": int(round(mining_total_stored)),
+            "miningPersonalStoredValue": mining_personal_stored,
             "message": None,
             "alerts": alerts,
             "groupedAlerts": grouped_alerts,

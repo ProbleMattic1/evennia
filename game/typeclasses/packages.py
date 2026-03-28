@@ -17,7 +17,40 @@ reactivate_mine_from_package(buyer, package_obj, site)
     Restart operations at an idle owned site using inventory equipment or spawns.
 """
 
+import copy
+
 from evennia import create_object, search_object
+
+
+def _deploy_instance_suffix(buyer, site) -> str:
+    """
+    Stable, short token for object keys: owner display key + site primary key.
+    Caps length so keys stay readable; site.id guarantees uniqueness.
+    """
+    bk = (getattr(buyer, "key", None) or "?").strip()[:12] or "?"
+    sid = getattr(site, "id", None)
+    if sid is None:
+        sid = 0
+    return f"{bk}:{sid}"[:28]
+
+
+def _prepare_deploy_components(components, buyer, site):
+    """
+    Deep-copy rig/storage/hauler entries and append a unique suffix to each key.
+    Safe to call with MINING_PACKAGES or Object.db lists — originals are never mutated.
+    """
+    if not components:
+        return []
+    out = copy.deepcopy(components)
+    unique = _deploy_instance_suffix(buyer, site)
+    for c in out:
+        if c.get("type") not in ("rig", "storage", "hauler"):
+            continue
+        base = (c.get("key") or "").strip()
+        if not base:
+            continue
+        c["key"] = f"{base} [{unique}]"
+    return out
 
 
 def _deploy_profile_for_tier_string(tier_str):
@@ -119,9 +152,6 @@ def _spawn_hauler(spec, site_room, buyer):
     hauler.db.hauler_state = "idle"
     hauler.db.hauler_upgrades = {}
     hauler.db.hauler_base_cycle_hours = float(spec.get("cycle_hours", 4.0))
-    # Default: buffer unload at plant receiving storage. Use `setdelivery <hauler> process`
-    # to queue ore for refining at the plant instead.
-    hauler.db.hauler_delivery_mode = "buffer"
     hauler.tags.add("autonomous_hauler", category="mining")
     hauler.locks.add("get:false()")
     return hauler
@@ -170,12 +200,18 @@ def _take_or_spawn_hauler(spec, site_room, buyer):
 
 def _deploy_components_at_site(buyer, site, site_room, components, package_tier):
     """Core deployment: spawn rig/storage/hauler, claim site, link, start cycles."""
-    from typeclasses.haulers import HAULER_PICKUP_OFFSET_SEC, set_hauler_next_cycle
+    from typeclasses.haulers import (
+        HAULER_ENGINE_INTERVAL,
+        HAULER_PICKUP_OFFSET_SEC,
+        set_hauler_next_cycle,
+    )
 
     refinery_rooms = search_object("Aurnom Ore Processing Plant")
     refinery_room = refinery_rooms[0] if refinery_rooms else None
     if not refinery_room:
         return False, "No processing plant found. Contact an administrator."
+
+    components = _prepare_deploy_components(components, buyer, site)
 
     rig = storage = hauler = None
     for comp in components:
@@ -221,21 +257,28 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         f"Mining operation deployed at {site.key}.\n"
         f"  Site: {site_room.key}\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Mining delivery: UTC 30m grid  Hauler: after each deposit +{HAULER_PICKUP_OFFSET_SEC // 60}m; "
-        f"idle waits on mine next_cycle + same offset\n"
-        f"  Ore will flow to {refinery_room.key} automatically.\n"
-        f"  Use mines and haulerstatus to monitor progress."
+        f"  Mining delivery: UTC 30m grid  Hauler pickup: scheduled {HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit; "
+        f"autonomous dispatch every {HAULER_ENGINE_INTERVAL // 60}m (usually within one interval after that). "
+        f"Idle waits on mine next_cycle + same pickup offset.\n"
+        f"  Ore will flow to your assigned storage at {refinery_room.key} automatically.\n"
+        f"  Use mines and haulerstatus to monitor progress; |wcollectrefined|n at the plant for attributed output."
     )
 
 
 def _reactivate_components_at_site(buyer, site, site_room, components, package_tier):
     """Restore rig/storage/hauler at an idle owned site; reuse inventory when possible."""
-    from typeclasses.haulers import HAULER_PICKUP_OFFSET_SEC, set_hauler_next_cycle
+    from typeclasses.haulers import (
+        HAULER_ENGINE_INTERVAL,
+        HAULER_PICKUP_OFFSET_SEC,
+        set_hauler_next_cycle,
+    )
 
     refinery_rooms = search_object("Aurnom Ore Processing Plant")
     refinery_room = refinery_rooms[0] if refinery_rooms else None
     if not refinery_room:
         return False, "No processing plant found. Contact an administrator."
+
+    components = _prepare_deploy_components(components, buyer, site)
 
     rig = storage = hauler = None
     for comp in components:
@@ -276,9 +319,10 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
     return True, (
         f"Mining operation reactivated at {site.key}.\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Mining delivery: UTC 30m grid  Hauler: after each deposit +{HAULER_PICKUP_OFFSET_SEC // 60}m; "
-        f"idle waits on mine next_cycle + same offset\n"
-        f"  Ore will flow to {refinery_room.key} automatically."
+        f"  Mining delivery: UTC 30m grid  Hauler pickup: scheduled {HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit; "
+        f"autonomous dispatch every {HAULER_ENGINE_INTERVAL // 60}m (usually within one interval after that). "
+        f"Idle waits on mine next_cycle + same pickup offset.\n"
+        f"  Ore will flow to your assigned storage at {refinery_room.key} automatically."
     )
 
 

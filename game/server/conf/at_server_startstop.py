@@ -54,6 +54,24 @@ def at_server_start():
                 engine.restart()
                 print("[startup] MiningEngine interval patched to 60s and restarted.")
 
+        from world.time import HAULER_ENGINE_INTERVAL_SEC
+
+        hauler_scripts = search_script("hauler_engine")
+        if hauler_scripts:
+            he = hauler_scripts[0]
+            need_restart = False
+            if int(he.interval) != int(HAULER_ENGINE_INTERVAL_SEC):
+                he.interval = HAULER_ENGINE_INTERVAL_SEC
+                need_restart = True
+            if getattr(he, "start_delay", False):
+                he.start_delay = False
+                need_restart = True
+            if need_restart:
+                he.restart()
+                print(
+                    "[startup] HaulerEngine interval/start_delay synced from world.time and restarted."
+                )
+
         # Verify SiteDiscoveryEngine is running and has a valid future ETA
         from datetime import timedelta
 
@@ -171,6 +189,10 @@ def at_server_cold_start():
     from world.bootstrap_mining import bootstrap_mining
     from world.bootstrap_mining_claim_sale import bootstrap_mining_claim_sale
     from world.bootstrap_mining_packages import bootstrap_mining_packages
+    from world.bootstrap_npc_industrial_miners import bootstrap_npc_industrial_miners
+    from world.bootstrap_npc_nanomega_industrial_miners import (
+        bootstrap_npc_nanomega_industrial_miners,
+    )
     from world.bootstrap_processors import bootstrap_processors
     from world.bootstrap_shipyard import bootstrap_shipyard
     from world.bootstrap_shops import bootstrap_shops
@@ -213,6 +235,11 @@ def at_server_cold_start():
     _run("mining engine + sample sites + Ashfall Basin", bootstrap_mining)
     _run("hauler engine + refinery engine + receiving bay", bootstrap_haulers)
     _run("mining sale packages (Starter Pack, Pro Pack)", bootstrap_mining_packages)
+    _run("NPC industrial miners (plant supply)", bootstrap_npc_industrial_miners)
+    _run(
+        "NanoMegaPlex NPC industrial miners (plant supply)",
+        bootstrap_npc_nanomega_industrial_miners,
+    )
     _run("random mining claim deed at Mining Outfitters", bootstrap_mining_claim_sale)
     _run("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)
     _run("system alerts queue", lambda: get_system_alerts_script(create_missing=True))

@@ -20,12 +20,12 @@ function PlayPageInner() {
   const { data, error, loading, reload } = useUiResource(loader);
 
   useEffect(() => {
-    const iso = data?.site?.nextCycleAt;
+    const iso = data?.miningNextCycleAt ?? data?.site?.nextCycleAt;
     if (!iso) return;
     if (new Date(iso).getTime() > Date.now()) return;
     const id = setInterval(() => reload(), 15000);
     return () => clearInterval(id);
-  }, [data?.site?.nextCycleAt, reload]);
+  }, [data?.miningNextCycleAt, data?.site?.nextCycleAt, reload]);
 
   if (loading) {
     return (
@@ -82,7 +82,7 @@ function PlayPageInner() {
             </CsPanel>
             {data.site ? (
               <CsPanel title="Mine Site">
-                <MineDetailsPanel site={data.site} onCycleCountdownExpired={reload} />
+                <MineDetailsPanel site={data.site} />
               </CsPanel>
             ) : null}
           </>

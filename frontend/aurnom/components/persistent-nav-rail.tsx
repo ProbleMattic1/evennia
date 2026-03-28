@@ -128,12 +128,14 @@ function PlayerPanel({
   morality,
   miningValuePerCycle,
   miningStoredValue,
+  miningPersonalStoredValue,
   propertyRefValue,
 }: {
   char: CsCharacter;
   morality: Morality;
   miningValuePerCycle: number;
   miningStoredValue: number;
+  miningPersonalStoredValue: number;
   propertyRefValue: number;
 }) {
   const hp = char.vitals?.hp;
@@ -146,9 +148,10 @@ function PlayerPanel({
       </Row>
       <Kv k="room" v={char.room ?? "—"} />
       <Kv k="credits" v={cr(char.credits)} />
-      <Kv k="mine yield/cycle" v={cr(miningValuePerCycle)} />
-      <Kv k="ore stored" v={cr(miningStoredValue)} />
-      <Kv k="property ref val" v={cr(propertyRefValue)} />
+      <Kv k="mine yld/cycle" v={cr(miningValuePerCycle)} />
+      <Kv k="mine storage" v={cr(miningStoredValue)} />
+      <Kv k="local storage" v={cr(miningPersonalStoredValue)} />
+      <Kv k="prop val" v={cr(propertyRefValue)} />
       {hp && <Kv k="hp" v={`${hp.current} / ${hp.max ?? "?"} · AC ${char.armorClass}`} />}
       <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
         {abilityRows.map(([key, ability]) => (
@@ -263,6 +266,7 @@ export function PersistentNavRail() {
             morality={data.missions?.morality ?? { good: 0, evil: 0, lawful: 0, chaotic: 0 }}
             miningValuePerCycle={data.miningEstimatedValuePerCycle ?? 0}
             miningStoredValue={data.miningTotalStoredValue ?? 0}
+            miningPersonalStoredValue={data.miningPersonalStoredValue ?? 0}
             propertyRefValue={data.propertyReferenceListValueTotalCr ?? 0}
           />
         </>

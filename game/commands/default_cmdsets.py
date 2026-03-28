@@ -24,6 +24,7 @@ from commands.mining import (
 from commands.refining import (
     CmdCollectProduct,
     CmdCollectRefined,
+    CmdFeedProcessorFromStorage,
     CmdFeedRefinery,
     CmdRefine,
     CmdRefineList,
@@ -101,6 +102,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdRefineList())
         self.add(CmdRefineStatus())
         self.add(CmdFeedRefinery())
+        self.add(CmdFeedProcessorFromStorage())
         self.add(CmdRefine())
         self.add(CmdCollectProduct())
         self.add(CmdCollectRefined())

@@ -126,6 +126,116 @@ def _find_mining_storage_in_room(caller):
 # Commands
 # ---------------------------------------------------------------------------
 
+
+class CmdFeedProcessorFromStorage(Command):
+    """
+    Move ore from your assigned storage in this room into your personal processor.
+
+    Usage:
+      feedprocessor <resource> <tons>
+      feedprocessor all
+      feedprocessor <resource> <tons> at <processor name or #dbref>
+
+    Requires your PortableProcessor in the same room. Haulers deliver to your
+    assigned storage first; use this to distribute ore into the processor.
+    """
+
+    key = "feedprocessor"
+    aliases = ["feedfromstorage", "storagetoprocessor"]
+    help_category = "Refining"
+
+    def func(self):
+        from typeclasses.haulers import get_player_destination_storage
+
+        caller = self.caller
+        main, target = _split_args_at_target(self.args)
+        loc = _effective_location(caller)
+        if not loc:
+            caller.msg("You have no location.")
+            return
+
+        proc = _find_refinery_in_room(caller, target_fragment=target)
+        if not proc or not proc.is_typeclass(
+            "typeclasses.processors.PortableProcessor", exact=False
+        ):
+            caller.msg(
+                "No personal processor here that you own. Deploy one in this room, "
+                "or use |wfeedprocessor ... at <name>|n if several are present."
+            )
+            return
+        if getattr(proc.db, "owner", None) != caller:
+            caller.msg("That processor is not yours.")
+            return
+
+        storage = get_player_destination_storage(loc, caller)
+        if not storage:
+            caller.msg("No assigned storage for you in this room.")
+            return
+
+        from typeclasses.mining import RESOURCE_CATALOG
+
+        args = main.strip().lower()
+
+        def _return_overflow(key, overflow):
+            if overflow <= 0:
+                return
+            inv = storage.db.inventory or {}
+            inv[key] = round(float(inv.get(key, 0)) + overflow, 2)
+            storage.db.inventory = inv
+
+        if args == "all":
+            inv = dict(storage.db.inventory or {})
+            if not inv:
+                caller.msg("Your assigned storage is empty.")
+                return
+            lines = [f"|wFed into {proc.key} from {storage.key}:|n"]
+            for key, tons in list(inv.items()):
+                tons = float(tons)
+                if tons <= 0:
+                    continue
+                removed = storage.withdraw(key, tons)
+                if removed <= 0:
+                    continue
+                fed = proc.feed(key, removed)
+                overflow = round(removed - fed, 2)
+                _return_overflow(key, overflow)
+                name = RESOURCE_CATALOG.get(key, {}).get("name", key)
+                lines.append(f"  {name}: {fed}t")
+            caller.msg("\n".join(lines))
+            return
+
+        parts = args.split(None, 1)
+        if len(parts) < 2:
+            caller.msg("Usage: feedprocessor <resource> <tons>  OR  feedprocessor all")
+            return
+        resource_query, tons_str = parts
+        try:
+            tons_req = float(tons_str)
+        except ValueError:
+            caller.msg("Tons must be a number.")
+            return
+
+        inventory = storage.db.inventory or {}
+        matched_key = None
+        for key in inventory:
+            name = RESOURCE_CATALOG.get(key, {}).get("name", key)
+            if resource_query in name.lower() or resource_query in key.lower():
+                matched_key = key
+                break
+        if not matched_key:
+            caller.msg(f"No resource matching '{resource_query}' in your assigned storage.")
+            return
+
+        removed = storage.withdraw(matched_key, tons_req)
+        if removed <= 0:
+            caller.msg("Nothing moved.")
+            return
+        fed = proc.feed(matched_key, removed)
+        overflow = round(removed - fed, 2)
+        _return_overflow(matched_key, overflow)
+        name = RESOURCE_CATALOG.get(matched_key, {}).get("name", matched_key)
+        caller.msg(f"Fed |w{fed}t|n of {name} into |w{proc.key}|n (from assigned storage).")
+
 class CmdRefineList(Command):
     """
     List all available refining recipes.
@@ -230,6 +340,19 @@ class CmdFeedRefinery(Command):
         if not storage and not vehicle_source:
             caller.msg("No mining storage or vehicle cargo found as a source.")
             return
+
+        from typeclasses.haulers import PLANT_PLAYER_STORAGE_CATEGORY, PLANT_PLAYER_STORAGE_TAG
+
+        if storage and ref.is_typeclass("typeclasses.refining.Refinery", exact=False):
+            if storage.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
+                if getattr(storage.db, "owner", None) == caller:
+                    caller.msg(
+                        "Ore in your assigned plant storage is ingested automatically into your "
+                        "refining queue. Use |wcollectrefined|n here when output is ready. "
+                        "To move ore into a personal processor, use |wfeedprocessor|n in the room "
+                        "where that processor is deployed."
+                    )
+                    return
 
         from typeclasses.mining import RESOURCE_CATALOG
 
@@ -435,12 +558,10 @@ class CmdCollectRefined(Command):
     Usage:
       collectrefined
 
-    When your hauler delivers in 'process' mode, ore is queued here for
-    automated refining. Use this command at the Processing Plant to cash
-    out your refined output. A 10% processing fee is deducted from the
-    gross value; the remainder is deposited to your account.
-
-    See: setdelivery <hauler> process (buffer mode leaves ore in receiving storage only)
+    Your hauler delivers ore into your assigned storage at the plant; the plant
+    moves it into your refining queue and produces attributed output. Use this
+    command at the Processing Plant to cash out. A 10% processing fee is deducted
+    from the gross value; the remainder is deposited to your account.
     """
 
     key = "collectrefined"
@@ -458,7 +579,8 @@ class CmdCollectRefined(Command):
         if not products:
             caller.msg(
                 "You have no refined output waiting at this plant.\n"
-                "Tip: use |wsetdelivery <hauler> process|n to queue hauler ore for refining."
+                "Ore must reach your assigned storage here (hauler delivery); the plant "
+                "refinery cycle then fills your queue."
             )
             return
 

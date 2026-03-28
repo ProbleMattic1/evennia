@@ -48,7 +48,7 @@ class PortableProcessor(ObjectParent, DefaultObject):
         self.db.owner = None
         self.db.is_installed = False
         self.tags.add("portable_processor", category="mining")
-        self.tags.add("refinery", category="mining")  # so haulers can find it via get_refinery_in_room
+        self.tags.add("refinery", category="mining")  # refinery-tagged for room discovery / UI
         self.locks.add("get:true();drop:true()")
 
     def _parcel_allows_install(self, char, room):

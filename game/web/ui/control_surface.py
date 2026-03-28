@@ -18,6 +18,7 @@ from django.views.decorators.http import require_GET
 from evennia import search_object
 
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
+from world.time import next_mining_delivery_boundary_iso
 
 from .views import (
     BANK_ROOM_KEY,
@@ -207,6 +208,30 @@ def _serialize_mines(char):
     return mines, int(round(mining_value_per_cycle)), int(round(mining_total_stored))
 
 
+def _personal_plant_ore_stored_value_cr(char):
+    """
+    Bid-valued ore sitting in this character's plant-assigned silo(s).
+
+    Uses the processing plant room only (O(room contents)); avoids a global
+    tag scan on every control-surface poll. Extend with more room keys if you
+    add additional haul destinations.
+    """
+    from typeclasses.haulers import get_plant_player_storage
+    from typeclasses.mining import get_commodity_bid
+
+    room = _first_object(PROCESSING_PLANT_ROOM_KEY)
+    if not room or not char:
+        return 0
+    storage = get_plant_player_storage(room, char)
+    if not storage:
+        return 0
+    sloc = storage.location
+    total = 0.0
+    for k, tons in (storage.db.inventory or {}).items():
+        total += float(tons) * get_commodity_bid(str(k), location=sloc)
+    return int(round(total))
+
+
 def _serialize_processing_summary(char):
     from typeclasses.mining import COMMODITY_ASK_OVER_BID
     from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE, REFINING_RECIPES
@@ -261,7 +286,7 @@ def _serialize_processing_summary(char):
                 haulers.append({
                     "id": h.id,
                     "key": h.key,
-                    "deliveryMode": h.db.hauler_delivery_mode or "buffer",
+                    "deliveryMode": "assigned_storage",
                 })
         my_haulers = haulers
 
@@ -448,8 +473,10 @@ def control_surface_state(request):
         "inventory": _EMPTY_INVENTORY,
         "ships": [],
         "mines": [],
+        "miningNextCycleAt": next_mining_delivery_boundary_iso(),
         "miningEstimatedValuePerCycle": 0,
         "miningTotalStoredValue": 0,
+        "miningPersonalStoredValue": 0,
         "properties": [],
         "propertyReferenceListValueTotalCr": 0,
         "processing": None,
@@ -498,6 +525,7 @@ def control_surface_state(request):
     inventory = _serialize_inventory(char)
     ships = _serialize_ships(char)
     mines, mining_value_per_cycle, mining_total_stored = _serialize_mines(char)
+    mining_personal_stored = _personal_plant_ore_stored_value_cr(char)
     properties, property_ref_total = _dashboard_property_portfolio(char)
     processing = _serialize_processing_summary(char)
     nav = _serialize_nav(char, mines)
@@ -511,8 +539,10 @@ def control_surface_state(request):
         "inventory": inventory,
         "ships": ships,
         "mines": mines,
+        "miningNextCycleAt": next_mining_delivery_boundary_iso(),
         "miningEstimatedValuePerCycle": mining_value_per_cycle,
         "miningTotalStoredValue": mining_total_stored,
+        "miningPersonalStoredValue": mining_personal_stored,
         "properties": properties,
         "propertyReferenceListValueTotalCr": property_ref_total,
         "processing": processing,
