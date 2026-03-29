@@ -75,6 +75,24 @@ class SystemAlertsScript(DefaultScript):
         self.db.acked_by_account = ack_map
         return True
 
+    def ack_all_for_account(self, account_id: int) -> int:
+        """Ack every queued alert id for this account. Returns how many new acks were added."""
+        key = str(int(account_id))
+        ack_map = dict(self.db.acked_by_account or {})
+        acked = set(ack_map.get(key, []))
+        added = 0
+        for row in self.db.events or []:
+            aid = row.get("id")
+            if not aid:
+                continue
+            sid = str(aid)
+            if sid not in acked:
+                added += 1
+                acked.add(sid)
+        ack_map[key] = sorted(acked)
+        self.db.acked_by_account = ack_map
+        return added
+
     def get_visible_for_account(self, account_id: int, limit: int = 200) -> list[dict[str, Any]]:
         key = str(int(account_id))
         acked = set((self.db.acked_by_account or {}).get(key, []))

@@ -209,8 +209,16 @@ class EconomyEngine(Script):
         amount = int(amount or 0)
         if amount < 0:
             raise ValueError("transfer amount must be >= 0")
-        self.withdraw(from_account, amount, memo=memo)
-        self.deposit(to_account, amount, memo=memo)
+        if amount == 0:
+            return {
+                "from_balance": self.get_balance(from_account),
+                "to_balance": self.get_balance(to_account),
+            }
+        current = self.get_balance(from_account)
+        if current < amount:
+            raise ValueError(f"insufficient funds in {from_account}")
+        self.set_balance(from_account, current - amount)
+        self.set_balance(to_account, self.get_balance(to_account) + amount)
         self.record_transaction(
             tx_type="transfer",
             amount=amount,

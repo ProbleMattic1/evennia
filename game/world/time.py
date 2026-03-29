@@ -27,8 +27,11 @@ FLORA_HAULER_PICKUP_OFFSET_SEC = 15 * MINUTE
 
 # HaulerEngine wake: must be <= each pipeline's pickup offset (mining: half of 30m = 15m;
 # flora: FLORA_HAULER_PICKUP_OFFSET_SEC) so a hauler due at deposit+offset is picked up
-# within roughly one engine interval. 5 * MINUTE scales O(n) hauler scans; tune 300–900 as needed.
+# within roughly one engine interval. Tune 300–900 as needed.
 HAULER_ENGINE_INTERVAL_SEC = 5 * MINUTE
+
+# Max haulers processed per engine tick (due query uses ORDER BY next_run LIMIT this).
+MAX_HAULERS_PER_ENGINE_TICK = 400
 
 
 def utc_now() -> datetime:

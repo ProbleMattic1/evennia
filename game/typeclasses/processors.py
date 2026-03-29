@@ -25,8 +25,7 @@ from evennia.objects.objects import DefaultObject
 from typeclasses.commodity_demand import get_commodity_demand_engine
 
 from .objects import ObjectParent
-from .mining import RESOURCE_CATALOG
-from .refining import REFINING_RECIPES
+from .refining import REFINING_RECIPES, is_plant_raw_resource_key, plant_raw_resource_display_name
 
 
 class PortableProcessor(ObjectParent, DefaultObject):
@@ -73,8 +72,8 @@ class PortableProcessor(ObjectParent, DefaultObject):
             self.db.is_installed = False
 
     def feed(self, resource_key, tons):
-        """Add raw ore to input. Returns actual tons added (capped by remaining capacity)."""
-        if resource_key not in RESOURCE_CATALOG:
+        """Add raw ore or flora to input. Returns actual tons added (capped by remaining capacity)."""
+        if not is_plant_raw_resource_key(resource_key):
             return 0.0
         tons = round(float(tons), 2)
         if tons <= 0:
@@ -111,7 +110,7 @@ class PortableProcessor(ObjectParent, DefaultObject):
 
         if possible <= 0:
             needed = {
-                RESOURCE_CATALOG.get(k, {}).get("name", k): v * batches
+                plant_raw_resource_display_name(k): v * batches
                 for k, v in recipe["inputs"].items()
             }
             return 0, (
@@ -238,7 +237,7 @@ class PortableProcessor(ObjectParent, DefaultObject):
         if inv:
             lines.append("  Input:")
             for key, tons in sorted(inv.items()):
-                name = RESOURCE_CATALOG.get(key, {}).get("name", key)
+                name = plant_raw_resource_display_name(key)
                 lines.append(f"    {name:<28} {float(tons):>8.2f} t")
         else:
             lines.append("  Input: empty")

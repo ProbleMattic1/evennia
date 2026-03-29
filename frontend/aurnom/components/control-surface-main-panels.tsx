@@ -16,33 +16,39 @@ import type {
 } from "@/lib/ui-api";
 import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
-import { dashboardAckAlert, mineDeploy, mineRepairRig } from "@/lib/ui-api";
+import { dashboardAckAlert, dashboardAckAllAlerts, mineDeploy, mineRepairRig } from "@/lib/ui-api";
 
 function Panel({
   panelKey,
   title,
   children,
   className = "",
+  headerActions,
 }: {
   panelKey: string;
   title: string;
   children: ReactNode;
   className?: string;
+  /** Rendered in the header bar, immediately left of the expand/collapse control. */
+  headerActions?: ReactNode;
 }) {
   const [open, setOpen] = useDashboardPanelOpen(panelKey, true);
 
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
-        <span>{title}</span>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
-          className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
-        >
-          {open ? "▴" : "▸"}
-        </button>
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
+        <span className="min-w-0 truncate">{title}</span>
+        <div className="ml-auto flex shrink-0 items-center gap-1 normal-case tracking-normal">
+          {headerActions}
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+            className="px-1 text-cyan-400 hover:text-cyan-300"
+          >
+            {open ? "▴" : "▸"}
+          </button>
+        </div>
       </div>
       {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div> : null}
     </section>
@@ -146,9 +152,13 @@ const INVENTORY_PANEL_HIDDEN_BUCKETS = new Set(["mining_claim", "property_deed"]
 function AlertsPanel({
   grouped,
   onAck,
+  onAckAll,
+  busy,
 }: {
   grouped: DashboardGroupedAlerts;
   onAck: (id: string) => void;
+  onAckAll: () => void;
+  busy?: boolean;
 }) {
   const all = [...grouped.critical, ...grouped.warning, ...grouped.info];
   if (all.length === 0) return null;
@@ -160,16 +170,26 @@ function AlertsPanel({
   };
 
   return (
-    <Panel panelKey="alerts" title={`Alerts (${all.length})`}>
-      {all.map((a: DashboardAlert) => (
-        <Row key={a.id} className="mb-0.5 items-start">
-          <span className={`shrink-0 text-[9px] font-bold uppercase ${sevColor(a.severity)}`}>
-            {a.severity[0].toUpperCase()}
-          </span>
-          <span className="min-w-0 flex-1 text-zinc-300">{a.title}</span>
-          <TinyButton onClick={() => onAck(a.id)}>×</TinyButton>
-        </Row>
-      ))}
+    <Panel
+      panelKey="alerts"
+      title={`Alerts (${all.length})`}
+      headerActions={
+        <TinyButton onClick={onAckAll} disabled={busy}>
+          Clear all
+        </TinyButton>
+      }
+    >
+      <div className="max-h-[min(220px,40vh)] min-h-[48px] overflow-y-auto overflow-x-hidden pr-0.5 [scrollbar-gutter:stable]">
+        {all.map((a: DashboardAlert) => (
+          <Row key={a.id} className="mb-0.5 items-start">
+            <span className={`shrink-0 text-[9px] font-bold uppercase ${sevColor(a.severity)}`}>
+              {a.severity[0].toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1 text-zinc-300">{a.title}</span>
+            <TinyButton onClick={() => onAck(a.id)}>×</TinyButton>
+          </Row>
+        ))}
+      </div>
     </Panel>
   );
 }
@@ -333,6 +353,28 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
   );
 }
 
+const RESOURCE_SITE_KIND_ORDER = ["mining_site", "flora_site"] as const;
+
+function resourceSiteKindKey(m: DashboardMine): string {
+  if (m.kind && String(m.kind).length > 0) return String(m.kind);
+  if (m.siteKind === "flora") return "flora_site";
+  return "mining_site";
+}
+
+function resourceCategoryTitle(kindKey: string): string {
+  if (kindKey === "mining_site") return "Mines";
+  if (kindKey === "flora_site") return "Flora harvesters";
+  return kindKey
+    .split("_")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}
+
+function visitProductionSiteLabel(m: DashboardMine): string {
+  if (m.kind === "flora_site" || m.siteKind === "flora") return "Visit stand →";
+  return "Visit mine →";
+}
+
 function MineDashboardRow({
   m,
   resourceNames,
@@ -345,7 +387,7 @@ function MineDashboardRow({
   const composition = m.composition || {};
   const hasProduces = Object.keys(composition).length > 0;
   const produceLines = hasProduces ? compositionToLines(composition, resourceNames) : [];
-  const rowPanelKey = `mine-row:${encodeURIComponent(m.key)}`;
+  const rowPanelKey = `resource-row:${encodeURIComponent(m.key)}`;
   const [open, setOpen] = useDashboardPanelOpen(rowPanelKey, true);
 
   return (
@@ -368,7 +410,7 @@ function MineDashboardRow({
             ) : null}
             {m.location ? (
               <span className="inline-flex translate-y-px">
-                <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>Visit mine →</TinyLink>
+                <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>{visitProductionSiteLabel(m)}</TinyLink>
               </span>
             ) : null}
             <button
@@ -429,28 +471,93 @@ function MineDashboardRow({
   );
 }
 
-function MinesPanel({
-  mines,
+function ResourcesCategoryGroup({
+  kindKey,
+  items,
+  resourceNames,
+  onRepairRig,
+}: {
+  kindKey: string;
+  items: DashboardMine[];
+  resourceNames: ReturnType<typeof buildResourceNameLookup>;
+  onRepairRig: (siteId: number) => void;
+}) {
+  const title = `${resourceCategoryTitle(kindKey)} (${items.length})`;
+  const [open, setOpen] = useDashboardPanelOpen(`resources:${kindKey}`, true);
+  const allActive = items.every((m) => m.active);
+
+  return (
+    <div className="mb-1 last:mb-0">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest text-cyan-500">
+        {!open ? (
+          <span
+            className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
+            title={allActive ? "All sites in this category active" : "At least one site inactive"}
+            aria-hidden
+          >
+            ●
+          </span>
+        ) : null}
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+          className="shrink-0 px-1 text-cyan-400 hover:text-cyan-300"
+        >
+          {open ? "▴" : "▸"}
+        </button>
+      </div>
+      {open ? (
+        <div className="pt-0.5">
+          {items.map((m) => (
+            <MineDashboardRow key={m.key} m={m} resourceNames={resourceNames} onRepairRig={onRepairRig} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ResourcesPanel({
+  resources,
   market,
   miningNextCycleAt,
   onReload,
   onRepairRig,
 }: {
-  mines: DashboardMine[];
+  resources: DashboardMine[];
   market: MarketCommodity[];
   miningNextCycleAt: string;
   onReload: () => void;
   onRepairRig: (siteId: number) => void;
 }) {
   const resourceNames = useMemo(() => buildResourceNameLookup(market), [market]);
-  const [open, setOpen] = useDashboardPanelOpen("mines", true);
-  const allActive = mines.every((m) => m.active);
+  const [open, setOpen] = useDashboardPanelOpen("resources", true);
+  const allActive = resources.every((m) => m.active);
   const nextAt =
-    [miningNextCycleAt, mines.find((m) => m.nextCycleAt)?.nextCycleAt].find((s) => s && String(s).length > 0) ?? null;
+    [miningNextCycleAt, resources.find((m) => m.nextCycleAt)?.nextCycleAt].find((s) => s && String(s).length > 0) ??
+    null;
 
-  if (mines.length === 0) return null;
+  if (resources.length === 0) return null;
 
-  const title = `Mines (${mines.length})`;
+  const byKind = new Map<string, DashboardMine[]>();
+  for (const m of resources) {
+    const k = resourceSiteKindKey(m);
+    if (!byKind.has(k)) byKind.set(k, []);
+    byKind.get(k)!.push(m);
+  }
+  for (const list of byKind.values()) {
+    list.sort((a, b) => a.key.localeCompare(b.key));
+  }
+  const orderedKindKeys = [
+    ...RESOURCE_SITE_KIND_ORDER.filter((k) => (byKind.get(k)?.length ?? 0) > 0),
+    ...[...byKind.keys()]
+      .filter((k) => !RESOURCE_SITE_KIND_ORDER.includes(k as (typeof RESOURCE_SITE_KIND_ORDER)[number]))
+      .sort((a, b) => a.localeCompare(b)),
+  ];
+
+  const title = `Resources (${resources.length})`;
 
   return (
     <section className="mb-1">
@@ -458,7 +565,7 @@ function MinesPanel({
         {!open ? (
           <span
             className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
-            title={allActive ? "All mines active" : "At least one mine inactive"}
+            title={allActive ? "All resource sites active" : "At least one resource site inactive"}
             aria-hidden
           >
             ●
@@ -481,8 +588,14 @@ function MinesPanel({
       </div>
       {open ? (
         <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
-          {mines.map((m) => (
-            <MineDashboardRow key={m.key} m={m} resourceNames={resourceNames} onRepairRig={onRepairRig} />
+          {orderedKindKeys.map((kindKey) => (
+            <ResourcesCategoryGroup
+              key={kindKey}
+              kindKey={kindKey}
+              items={byKind.get(kindKey) ?? []}
+              resourceNames={resourceNames}
+              onRepairRig={onRepairRig}
+            />
           ))}
         </div>
       ) : null}
@@ -490,38 +603,103 @@ function MinesPanel({
   );
 }
 
+const PROPERTY_KIND_ORDER = ["commercial", "industrial", "residential"] as const;
+
+function propertyKindBucket(zone: string | undefined): (typeof PROPERTY_KIND_ORDER)[number] {
+  const z = (zone || "residential").toLowerCase();
+  if (z === "commercial" || z === "industrial" || z === "residential") return z;
+  return "residential";
+}
+
+function propertyKindTitle(kind: (typeof PROPERTY_KIND_ORDER)[number]): string {
+  if (kind === "commercial") return "Commercial";
+  if (kind === "industrial") return "Industrial";
+  return "Residential";
+}
+
+function PropertiesKindGroup({
+  kind,
+  items,
+}: {
+  kind: (typeof PROPERTY_KIND_ORDER)[number];
+  items: DashboardProperty[];
+}) {
+  const title = `${propertyKindTitle(kind)} (${items.length})`;
+  const [open, setOpen] = useDashboardPanelOpen(`properties:${kind}`, true);
+
+  return (
+    <div className="mb-1 last:mb-0">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest text-cyan-500">
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+          className="shrink-0 px-1 text-cyan-400 hover:text-cyan-300"
+        >
+          {open ? "▴" : "▸"}
+        </button>
+      </div>
+      {open ? (
+        <div className="space-y-0 pt-0.5">
+          {items.map((p) => (
+            <Row key={p.claimId}>
+              <span className="flex-1 truncate text-zinc-300">{p.claimKey}</span>
+              <span className="text-[10px] text-zinc-500">
+                {p.zone} T{p.tier}
+              </span>
+              {p.hasBuiltOnParcel ? (
+                <span
+                  className="inline-flex shrink-0 items-center justify-center text-[18px] leading-none text-cyan-400"
+                  title="Something built on this property"
+                  aria-label="Something built on this property"
+                >
+                  ★
+                </span>
+              ) : null}
+              {p.structureUpgradesAvailable ? (
+                <span
+                  className="inline-flex shrink-0 items-center justify-center text-[10px] leading-none text-amber-400"
+                  title="Further structure upgrade available"
+                  aria-label="Further structure upgrade available"
+                >
+                  ▲
+                </span>
+              ) : null}
+              {p.referenceListPriceCr != null ? (
+                <span className="font-mono text-zinc-500">{cr(p.referenceListPriceCr)}</span>
+              ) : null}
+              <TinyLink href={`/properties/${p.claimId}`}>→</TinyLink>
+            </Row>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PropertiesPanel({ properties }: { properties: DashboardProperty[] }) {
   if (properties.length === 0) return null;
+
+  const byKind: Record<(typeof PROPERTY_KIND_ORDER)[number], DashboardProperty[]> = {
+    commercial: [],
+    industrial: [],
+    residential: [],
+  };
+  for (const p of properties) {
+    byKind[propertyKindBucket(p.zone)].push(p);
+  }
+  for (const k of PROPERTY_KIND_ORDER) {
+    byKind[k].sort((a, b) => a.claimKey.localeCompare(b.claimKey));
+  }
+
   return (
     <Panel panelKey="properties" title={`Properties (${properties.length})`}>
-      {properties.map((p) => (
-        <Row key={p.claimId}>
-          <span className="flex-1 truncate text-zinc-300">{p.claimKey}</span>
-          <span className="text-[10px] text-zinc-500">
-            {p.zone} T{p.tier}
-          </span>
-          {p.hasBuiltOnParcel ? (
-            <span
-              className="inline-flex shrink-0 items-center justify-center text-[18px] leading-none text-cyan-400"
-              title="Something built on this property"
-              aria-label="Something built on this property"
-            >
-              ★
-            </span>
-          ) : null}
-          {p.structureUpgradesAvailable ? (
-            <span
-              className="inline-flex shrink-0 items-center justify-center text-[10px] leading-none text-amber-400"
-              title="Further structure upgrade available"
-              aria-label="Further structure upgrade available"
-            >
-              ▲
-            </span>
-          ) : null}
-          {p.referenceListPriceCr != null ? <span className="font-mono text-zinc-500">{cr(p.referenceListPriceCr)}</span> : null}
-          <TinyLink href={`/properties/${p.claimId}`}>→</TinyLink>
-        </Row>
-      ))}
+      {PROPERTY_KIND_ORDER.map((kind) => {
+        const items = byKind[kind];
+        if (items.length === 0) return null;
+        return <PropertiesKindGroup key={kind} kind={kind} items={items} />;
+      })}
     </Panel>
   );
 }
@@ -569,6 +747,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
   );
 
   const ackAlert = useCallback((alertId: string) => run(() => dashboardAckAlert({ alertId })), [run]);
+  const ackAllAlerts = useCallback(() => run(() => dashboardAckAllAlerts()), [run]);
   const deployMineCb = useCallback(
     (packageId: number, claimId: number) => run(() => mineDeploy({ packageId, claimId })),
     [run],
@@ -591,8 +770,8 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
             <DashboardMissionsPanel missions={data.missions} roomExits={data.roomExits} onChanged={onReload} />
           ) : null}
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
-          <MinesPanel
-            mines={data.mines}
+          <ResourcesPanel
+            resources={data.resources ?? data.mines}
             market={data.market}
             miningNextCycleAt={data.miningNextCycleAt ?? ""}
             onReload={onReload}
@@ -600,7 +779,9 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           />
         </div>
         <div className="min-w-0 overflow-y-auto p-1.5">
-          {data.groupedAlerts ? <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} /> : null}
+          {data.groupedAlerts ? (
+            <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} onAckAll={ackAllAlerts} busy={busy} />
+          ) : null}
           {busy ? <div className="mb-1 text-[10px] text-zinc-500">Working...</div> : null}
           <InventoryPanel inventory={data.inventory} />
           <ShipsPanel ships={data.ships} />

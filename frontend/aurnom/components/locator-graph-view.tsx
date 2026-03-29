@@ -20,6 +20,37 @@ import { useEffect, useMemo } from "react";
 import { HUB_ROOM_KEY } from "@/lib/locator-zones";
 import type { WorldGraphEdge, WorldGraphRoom, WorldGraphState } from "@/lib/ui-api";
 
+/** Matches `game/world/bootstrap_frontier.py` */
+const FRONTIER_PROMENADE_KEY = "Frontier Promenade";
+
+const NANOMASS_CENTER = { x: 0, y: 0 };
+const FRONTIER_MASS_CENTER = { x: 1100, y: 0 };
+/** Contractor / industrial grids (plex + Ashfall NPC pads), separate from promenade masses */
+const INDUSTRIAL_MASS_CENTER = { x: 550, y: 520 };
+
+function isIndustrialMassRoom(r: WorldGraphRoom): boolean {
+  const z = r.locatorZone;
+  if (z === "plex-industrial" || z === "ashfall-industrial") return true;
+  const k = r.key;
+  return (
+    k === "Ashfall Industrial Grid" ||
+    k.startsWith("Ashfall Industrial Pad ") ||
+    k === "NanoMegaPlex Industrial Subdeck" ||
+    k.startsWith("NanoMegaPlex Industrial Pad ") ||
+    k === "Frontier Industrial Subdeck" ||
+    k.startsWith("Frontier Industrial Pad ")
+  );
+}
+
+function clusterForRoom(r: WorldGraphRoom): "nano" | "frontier" | "industrial" {
+  if (isIndustrialMassRoom(r)) return "industrial";
+  if (r.venueId === "frontier_outpost") return "frontier";
+  if (r.venueId === "nanomega_core") return "nano";
+  const k = r.key;
+  if (k === "Frontier Transit Shell" || k.startsWith("Frontier ")) return "frontier";
+  return "nano";
+}
+
 type LocatorNodeData = {
   label: string;
   roomKey: string;
@@ -30,15 +61,26 @@ type LocatorNodeData = {
   dim: boolean;
 };
 
-function layoutPosition(roomKey: string): { x: number; y: number } {
-  if (roomKey === HUB_ROOM_KEY) return { x: 0, y: 0 };
+function layoutPosition(r: WorldGraphRoom): { x: number; y: number } {
+  if (r.key === HUB_ROOM_KEY) return { ...NANOMASS_CENTER };
+  if (r.key === FRONTIER_PROMENADE_KEY) return { ...FRONTIER_MASS_CENTER };
+
+  const cl = clusterForRoom(r);
+  const center =
+    cl === "frontier" ? FRONTIER_MASS_CENTER : cl === "industrial" ? INDUSTRIAL_MASS_CENTER : NANOMASS_CENTER;
+  const k = r.key;
   let h = 0;
-  for (let i = 0; i < roomKey.length; i++) {
-    h = (h * 31 + roomKey.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < k.length; i++) {
+    h = (h * 31 + k.charCodeAt(i)) >>> 0;
   }
   const angle = ((h % 360) * Math.PI) / 180;
-  const radius = 380 + (h % 7) * 95;
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+  const radiusBase = cl === "industrial" ? 100 : 130;
+  const radiusStep = cl === "industrial" ? 48 : 52;
+  const radius = radiusBase + (h % 6) * radiusStep;
+  return {
+    x: center.x + Math.cos(angle) * radius,
+    y: center.y + Math.sin(angle) * radius,
+  };
 }
 
 function LocatorNode({ data }: NodeProps) {
@@ -127,6 +169,34 @@ function buildFlowEdges(
   return out;
 }
 
+function massConnectorEdge(rooms: WorldGraphRoom[]): Edge | null {
+  let nanoId: string | undefined;
+  let frontierId: string | undefined;
+  for (const r of rooms) {
+    if (r.key === HUB_ROOM_KEY) nanoId = String(r.id);
+    else if (r.key === FRONTIER_PROMENADE_KEY) frontierId = String(r.id);
+  }
+  if (!nanoId || !frontierId) return null;
+  return {
+    id: "locator-mass-connector",
+    source: nanoId,
+    target: frontierId,
+    type: "straight",
+    selectable: false,
+    focusable: false,
+    interactionWidth: 0,
+    animated: false,
+    style: {
+      stroke: "#a78bfa",
+      strokeWidth: 2.5,
+      strokeDasharray: "12 8",
+      opacity: 0.9,
+    },
+    markerEnd: undefined,
+    zIndex: 0,
+  };
+}
+
 function buildFlowNodes(
   rooms: WorldGraphRoom[],
   filter: string,
@@ -142,7 +212,7 @@ function buildFlowNodes(
       const canStep = adjacentKeys ? adjacentKeys.has(r.key) : false;
       const here = currentRoomKey === r.key;
       const dim = reachableIds ? !reachable : false;
-      const pos = layoutPosition(r.key);
+      const pos = layoutPosition(r);
       return {
         id: String(r.id),
         type: "locator",
@@ -206,10 +276,15 @@ export function LocatorGraphView({
     [data.rooms, data.currentRoomKey, filter, reachableIds, adjacentKeys],
   );
 
-  const edges: Edge[] = useMemo(
-    () => buildFlowEdges(data.edges, data.edgesAll, schematic, reduceMotion),
-    [data.edges, data.edgesAll, schematic, reduceMotion],
-  );
+  const edges: Edge[] = useMemo(() => {
+    const base = buildFlowEdges(data.edges, data.edgesAll, schematic, reduceMotion);
+    const q = filter.trim().toLowerCase();
+    const visibleRooms = q
+      ? data.rooms.filter((r) => r.key.toLowerCase().includes(q))
+      : data.rooms;
+    const spine = massConnectorEdge(visibleRooms);
+    return spine ? [spine, ...base] : base;
+  }, [data.rooms, data.edges, data.edgesAll, schematic, reduceMotion, filter]);
 
   return (
     <div className="h-[min(60vh,640px)] w-full min-h-[320px] rounded border border-cyan-900/40 bg-zinc-950">
@@ -244,10 +319,13 @@ export function LocatorGraphView({
             aria-label="Overview map"
           />
           <FitViewOnChange deps={`${nodes.length}-${edges.length}-${schematic}-${filter}`} />
-          <Panel position="top-left" className="m-2 max-w-[240px] text-[10px] text-zinc-500">
-            Click a node marked <span className="text-cyan-400">Go</span> to travel one hop. Hub mining
-            routes you cannot use stay off the cyan graph unless Full topology is on. Lower right: small{" "}
-            <span className="text-zinc-400">overview map</span> (viewport); drag it to pan.
+          <Panel position="top-left" className="m-2 max-w-[280px] text-[10px] text-zinc-500">
+            Three clusters: <span className="text-cyan-400">NanoMegaPlex</span> (coreward),{" "}
+            <span className="text-violet-400">Frontier</span> (rim), and{" "}
+            <span className="text-amber-400">industrial mines</span> (plex + Ashfall contractor grids). The dashed{" "}
+            <span className="text-violet-300">violet</span> line links the two promenades only (not travel). Click{" "}
+            <span className="text-cyan-400">Go</span> for cyan exits. Hub mining routes stay off the cyan graph unless
+            Full topology is on.
           </Panel>
         </ReactFlow>
       </ReactFlowProvider>

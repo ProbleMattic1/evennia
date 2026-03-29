@@ -18,7 +18,6 @@ from typeclasses.packages import _deploy_components_at_site
 from world.bootstrap_hub import get_hub_room
 from world.bootstrap_mining import _get_or_create_exit
 from world.bootstrap_mining_packages import MINING_PACKAGES
-from world.npc_miner_registry import register_npc_miner_character_id
 
 LOG_PREFIX = "[marcus-mines]"
 DEPLOY_TAG = "marcus_killstar_supply"
@@ -166,9 +165,6 @@ def bootstrap_marcus_mines():
     if not char.is_typeclass(CHARACTER_TYPECLASS_PATH, exact=False):
         print(f"{LOG_PREFIX} {MARCUS_CHARACTER_KEY!r} is not a Character; skip.")
         return
-
-    # Same registry industrial NPCs use for automatic plant settlement (optional).
-    register_npc_miner_character_id(char.id)
 
     deposit = _marcus_deposit()
     if not deposit.get("composition"):

@@ -280,8 +280,8 @@ export function PersistentNavRail() {
           <PlayerPanel
             char={data.character}
             morality={data.missions?.morality ?? { good: 0, evil: 0, lawful: 0, chaotic: 0 }}
-            miningValuePerCycle={data.miningEstimatedValuePerCycle ?? 0}
-            miningStoredValue={data.miningTotalStoredValue ?? 0}
+            miningValuePerCycle={data.productionEstimatedValuePerCycle ?? data.miningEstimatedValuePerCycle ?? 0}
+            miningStoredValue={data.productionTotalStoredValue ?? data.miningTotalStoredValue ?? 0}
             miningPersonalStoredValue={data.miningPersonalStoredValue ?? 0}
             propertyRefValue={data.propertyReferenceListValueTotalCr ?? 0}
           />
@@ -337,7 +337,20 @@ export function PersistentNavRail() {
 
       {railBody}
 
-      <NavPanel nav={data?.nav ?? { hubRoomKey: "", exits: [], kiosks: [], shops: [], claims: [], properties: [], mines: [] }} />
+      <NavPanel
+        nav={
+          data?.nav ?? {
+            hubRoomKey: "",
+            exits: [],
+            kiosks: [],
+            shops: [],
+            claims: [],
+            properties: [],
+            resources: [],
+            mines: [],
+          }
+        }
+      />
     </aside>
   );
 }

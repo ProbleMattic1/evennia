@@ -19,7 +19,6 @@ from typeclasses.haulers import set_hauler_next_cycle
 from typeclasses.vehicles import Hauler
 from world.bootstrap_hub import get_hub_room
 from world.bootstrap_mining import _get_or_create_exit
-from world.npc_miner_registry import register_npc_miner_character_id
 
 LOG_PREFIX = "[marcus-flora]"
 DEPLOY_TAG = "marcus_killstar_flora_supply"
@@ -283,8 +282,6 @@ def bootstrap_marcus_flora():
     if not char.is_typeclass(CHARACTER_TYPECLASS_PATH, exact=False):
         print(f"{LOG_PREFIX} {MARCUS_CHARACTER_KEY!r} is not a Character; skip.")
         return
-
-    register_npc_miner_character_id(char.id)
 
     deposit = _marcus_flora_deposit()
     if not deposit.get("composition"):

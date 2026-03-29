@@ -19,6 +19,9 @@ urlpatterns = [
     path("world-graph", world_graph.world_graph_state, name="ui-world-graph"),
     path("dashboard", views.dashboard_state, name="ui-dashboard"),
     path("dashboard/ack-alert", views.dashboard_ack_alert, name="ui-dashboard-ack-alert"),
+    # Accept with or without trailing slash (proxies/clients vary; POST does not follow APPEND_SLASH redirects).
+    path("dashboard/ack-all-alerts", views.dashboard_ack_all_alerts, name="ui-dashboard-ack-all-alerts"),
+    path("dashboard/ack-all-alerts/", views.dashboard_ack_all_alerts),
     path("bank", views.bank_state, name="ui-bank"),
     path("real-estate", views.real_estate_state, name="ui-real-estate"),
     path("real-estate/purchase", views.real_estate_purchase, name="ui-real-estate-purchase"),

@@ -69,6 +69,28 @@ BREAKDOWN_BASE             = {"low": 0.08, "standard": 0.03, "premium": 0.01}
 
 WEAR_OUTPUT_PENALTY = 0.30  # 30 % output loss at full wear
 
+
+def rig_normalized_mode_power(rig):
+    """
+    Return (mode, power_level) strings valid for output/wear modifier tables.
+    Missing or invalid db fields default to balanced / normal.
+    """
+    db = getattr(rig, "db", None)
+    mode = getattr(db, "mode", None) if db else None
+    power = getattr(db, "power_level", None) if db else None
+    if mode not in MODE_OUTPUT_MODIFIERS:
+        mode = "balanced"
+    if power not in POWER_OUTPUT_MODIFIERS:
+        power = "normal"
+    return mode, power
+
+
+def rig_output_modifiers(rig):
+    """Return (mode_mult, power_mult) for ton / CR estimates and process_cycle."""
+    mode, power = rig_normalized_mode_power(rig)
+    return MODE_OUTPUT_MODIFIERS[mode], POWER_OUTPUT_MODIFIERS[power]
+
+
 # Hazard constants (Pass 3)
 HAZARD_CHANCE_BASE = 0.06   # base 6 % per cycle at hazard_level 1.0
 HAZARD_RAID_STEAL_FRAC = 0.20   # raid steals up to 20 % of storage
@@ -413,14 +435,15 @@ def estimated_site_value_per_cycle_cr(site):
 
     total = 0.0
     if site.is_active and active_rig:
-        rig_rating = float(active_rig.db.rig_rating)
-        wear_mod = 1.0 - (float(active_rig.db.wear) * WEAR_OUTPUT_PENALTY)
+        rig_rating = float(active_rig.db.rig_rating or 0)
+        wear_mod = 1.0 - (float(active_rig.db.wear or 0) * WEAR_OUTPUT_PENALTY)
+        mode_mod, power_mod = rig_output_modifiers(active_rig)
         tons_out = (
             base_tons
             * richness
             * rig_rating
-            * MODE_OUTPUT_MODIFIERS[active_rig.db.mode]
-            * POWER_OUTPUT_MODIFIERS[active_rig.db.power_level]
+            * mode_mod
+            * power_mod
             * wear_mod
         )
         for k, frac in raw_comp.items():
@@ -793,16 +816,17 @@ class MiningSite(ObjectParent, DefaultObject):
         # -- Rig settings --
         richness = float(deposit["richness"])
         base_tons = float(deposit["base_output_tons"])
-        rig_rating = float(rig.db.rig_rating)
-        mode = rig.db.mode
-        power_level = rig.db.power_level
+        rig_rating = float(rig.db.rig_rating or 0)
         target_family = rig.db.target_family
+        if target_family not in FAMILY_CATEGORIES:
+            target_family = "mixed"
         purity_cutoff = rig.db.purity_cutoff
+        if purity_cutoff not in PURITY_THRESHOLDS:
+            purity_cutoff = "medium"
         maintenance = rig.db.maintenance_level
-        wear = float(rig.db.wear)
+        wear = float(rig.db.wear or 0)
 
-        mode_out = MODE_OUTPUT_MODIFIERS[mode]
-        power_out = POWER_OUTPUT_MODIFIERS[power_level]
+        mode_out, power_out = rig_output_modifiers(rig)
         wear_out = (
             1.0 if npc_owned else (1.0 - (wear * WEAR_OUTPUT_PENALTY))
         )
@@ -886,14 +910,16 @@ class MiningSite(ObjectParent, DefaultObject):
         # -- Wear accumulation & breakdown (skipped for NPC-owned sites) --
         broke_down = False
         if not npc_owned:
-            mode_wear = MODE_WEAR_MODIFIERS[mode]
-            power_wear = POWER_WEAR_MODIFIERS[power_level]
-            maint_wear = MAINTENANCE_WEAR_MODIFIERS[maintenance]
+            wear_mode, wear_power = rig_normalized_mode_power(rig)
+            mode_wear = MODE_WEAR_MODIFIERS[wear_mode]
+            power_wear = POWER_WEAR_MODIFIERS[wear_power]
+            maint_key = maintenance if maintenance in MAINTENANCE_WEAR_MODIFIERS else "standard"
+            maint_wear = MAINTENANCE_WEAR_MODIFIERS[maint_key]
             new_wear = min(
                 1.0, wear + WEAR_PER_CYCLE_BASE * mode_wear * power_wear * maint_wear
             )
 
-            breakdown_base = BREAKDOWN_BASE[maintenance]
+            breakdown_base = BREAKDOWN_BASE[maint_key]
             breakdown_chance = breakdown_base * (1.0 + wear * 2.0)
             broke_down = random.random() < breakdown_chance or new_wear >= 1.0
 

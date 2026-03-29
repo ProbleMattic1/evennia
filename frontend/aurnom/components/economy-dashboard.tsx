@@ -88,7 +88,8 @@ export function EconomyDashboard({
   const tPs = impliedPortfolioTonsPerSec(data);
   const progress = miningCycleProgress(now, data.miningNextCycleAt, period);
 
-  const compRows = useMemo(() => aggregateEstimatedComposition(data.mines ?? []), [data.mines]);
+  const resourceSites = data.resources ?? data.mines ?? [];
+  const compRows = useMemo(() => aggregateEstimatedComposition(resourceSites), [resourceSites]);
   const compChartData = useMemo(
     () => compRows.slice(0, 12).map((r) => ({ name: r.key, tons: Math.round(r.tons * 10) / 10 })),
     [compRows],
@@ -174,7 +175,8 @@ export function EconomyDashboard({
             ) : null}
           </div>
           <p className="mt-2 text-[9px] text-zinc-600">
-            Stored (bid): sites {data.miningTotalStoredValue?.toLocaleString() ?? 0} cr · plant silo{" "}
+            Stored (bid): sites{" "}
+            {(data.productionTotalStoredValue ?? data.miningTotalStoredValue)?.toLocaleString() ?? 0} cr · plant silo{" "}
             {data.miningPersonalStoredValue?.toLocaleString() ?? 0} cr
           </p>
         </div>
@@ -231,7 +233,7 @@ export function EconomyDashboard({
       {compChartData.length > 0 ? (
         <section className="flex h-56 min-h-0 flex-col rounded border border-cyan-900/40 bg-zinc-950/90 p-2">
           <p className="mb-1 shrink-0 px-1 text-[9px] uppercase tracking-widest text-zinc-500">
-            Estimated output mix (active mines, t/cycle implied)
+            Estimated output mix (active resource sites, t/cycle implied)
           </p>
           <div className="min-h-0 min-w-0 flex-1">
             <ResponsiveContainer width="100%" height="100%">
@@ -297,12 +299,12 @@ export function EconomyDashboard({
       ) : null}
 
       <section className="rounded border border-cyan-900/40 bg-zinc-950/90 p-3">
-        <p className="text-[9px] uppercase tracking-widest text-zinc-500">Mines</p>
-        {(data.mines ?? []).length === 0 ? (
+        <p className="text-[9px] uppercase tracking-widest text-zinc-500">Resources</p>
+        {resourceSites.length === 0 ? (
           <p className="mt-1 text-[10px] text-zinc-600">No sites on file for this character.</p>
         ) : (
           <ul className="mt-2 max-h-48 space-y-1 overflow-auto">
-            {(data.mines ?? []).map((m) => (
+            {resourceSites.map((m) => (
               <li
                 key={m.id}
                 className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-800/80 py-1 text-[10px]"

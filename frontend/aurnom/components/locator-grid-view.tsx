@@ -219,10 +219,10 @@ export function LocatorGridView({
 }: LocatorGridViewProps) {
   const { treemapData, maxPlayerCount, empty } = useMemo(
     () => {
-      const b = buildStationTreemapData(data.rooms, filter);
+      const b = buildStationTreemapData(data.rooms, filter, data.venueCatalog ?? []);
       return { treemapData: b.data, maxPlayerCount: b.maxPlayerCount, empty: b.empty };
     },
-    [data.rooms, filter],
+    [data.rooms, data.venueCatalog, filter],
   );
 
   const renderContent = useCallback(
@@ -252,10 +252,10 @@ export function LocatorGridView({
   return (
     <div className="max-h-[min(72vh,720px)] min-h-[320px] rounded border border-cyan-900/40 bg-zinc-950 p-2">
       <p className="mb-2 text-[10px] text-zinc-500">
-        Station <span className="text-zinc-400">treemap</span>: rectangle area ≈ relative scale (megaplex hub &amp;
-        concourses vs industrial pads &amp; claims).{" "}
-        <span className="text-cyan-400">NanoMegaPlex</span> nests promenade, retail, services, realty, meridian, and
-        agency. Color ≈ player density in this view. <span className="text-cyan-400">Travel</span> when adjacent.
+        Station <span className="text-zinc-400">treemap</span>: rectangle area ≈ relative scale (hub &amp; concourses
+        vs industrial pads &amp; claims). Each <span className="text-cyan-400">venue</span> from the server gets its own
+        block for promenade-adjacent rooms; industrial pads split by venue where needed (e.g. plex vs frontier). Color
+        ≈ player density. <span className="text-cyan-400">Travel</span> when adjacent.
       </p>
       {empty ? (
         <div className="flex min-h-[280px] items-center justify-center text-[11px] text-zinc-500">

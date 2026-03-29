@@ -4,10 +4,10 @@ Refining system — Pass 3.
 Components
 ----------
 REFINING_RECIPES   dict of output_key -> recipe definition
-Refinery           Object typeclass; accepts raw ore, produces refined materials
+Refinery           Object typeclass; accepts raw ore and flora, produces refined materials
 
 A Refinery has two inventory dicts:
-    db.input_inventory   {resource_key: float tons}  — raw ore fed in
+    db.input_inventory   {resource_key: float tons}  — raw ore or flora fed in
     db.output_inventory  {product_key: float units}  — refined products ready
 
 Workers (or commands) call refinery.process_recipe(recipe_key, batches) to
@@ -43,6 +43,38 @@ PROCESSING_FEE_TREASURY_SHARE = 1.0
 
 # When the Processing Plant buys raw from a miner (e.g. sell commands from storage), 2% hassle fee on bid gross.
 RAW_SALE_FEE_RATE = 0.02  # 2 %
+
+
+def is_plant_raw_resource_key(resource_key: str) -> bool:
+    """True if key is mineable ore or flora raw accepted at the global plant."""
+    from typeclasses.flora import FLORA_RESOURCE_CATALOG
+
+    return resource_key in RESOURCE_CATALOG or resource_key in FLORA_RESOURCE_CATALOG
+
+
+def plant_raw_resource_display_name(resource_key: str) -> str:
+    from typeclasses.flora import FLORA_RESOURCE_CATALOG
+
+    if resource_key in RESOURCE_CATALOG:
+        return RESOURCE_CATALOG[resource_key].get("name", resource_key)
+    if resource_key in FLORA_RESOURCE_CATALOG:
+        return FLORA_RESOURCE_CATALOG[resource_key].get("name", resource_key)
+    return resource_key
+
+
+def _silo_owner_contracted_for_plant_ingest(owner) -> bool:
+    """True if owner's plant silo may be emptied into miner_ore_queue (npc_miner_registry)."""
+    if not owner:
+        return False
+    from world.npc_miner_registry import is_registered_npc_miner_owner_id
+
+    oid = getattr(owner, "id", None)
+    if oid is None:
+        return False
+    try:
+        return is_registered_npc_miner_owner_id(str(int(oid)))
+    except (TypeError, ValueError):
+        return False
 
 
 def split_raw_sale_payout(gross_cr, fee_rate=None):
@@ -266,6 +298,127 @@ REFINING_RECIPES = {
         "base_value_cr": 4800,
         "category": "alloy",
     },
+    # Flora (5 t raw → 1 unit; base_value ≈ 1.1 × FLORA_RESOURCE_CATALOG base_price_cr_per_ton × 5)
+    "refined_wild_harvest_biomass": {
+        "name": "Refined Wild Harvest Biomass",
+        "desc": "Stabilized botanical feedstock.",
+        "inputs": {"wild_harvest_biomass": 5.0},
+        "output_units": 1,
+        "base_value_cr": 275,
+        "category": "refined_flora",
+    },
+    "refined_structural_cane": {
+        "name": "Refined Structural Cane",
+        "desc": "Processed fibre stock for composites.",
+        "inputs": {"structural_cane": 5.0},
+        "output_units": 1,
+        "base_value_cr": 358,
+        "category": "refined_flora",
+    },
+    "refined_cellulose_pulp_bale": {
+        "name": "Refined Cellulose Pulp",
+        "desc": "Mill-ready pulp fraction.",
+        "inputs": {"cellulose_pulp_bale": 5.0},
+        "output_units": 1,
+        "base_value_cr": 385,
+        "category": "refined_flora",
+    },
+    "refined_algal_mat": {
+        "name": "Refined Algal Mat",
+        "desc": "Concentrated algae mass for chemistry lines.",
+        "inputs": {"algal_mat": 5.0},
+        "output_units": 1,
+        "base_value_cr": 468,
+        "category": "refined_flora",
+    },
+    "refined_lichen_aggregate": {
+        "name": "Refined Lichen Aggregate",
+        "desc": "Standardized lichen sheets for slow-release use.",
+        "inputs": {"lichen_aggregate": 5.0},
+        "output_units": 1,
+        "base_value_cr": 523,
+        "category": "refined_flora",
+    },
+    "refined_medicinal_sap": {
+        "name": "Refined Medicinal Sap",
+        "desc": "Pharma-grade sap precursor.",
+        "inputs": {"medicinal_sap": 5.0},
+        "output_units": 1,
+        "base_value_cr": 2310,
+        "category": "refined_flora",
+    },
+    "refined_volatile_terpene_resin": {
+        "name": "Refined Terpene Resin",
+        "desc": "Fractionated resin for solvents and scents.",
+        "inputs": {"volatile_terpene_resin": 5.0},
+        "output_units": 1,
+        "base_value_cr": 3190,
+        "category": "refined_flora",
+    },
+    "refined_spore_culture_mass": {
+        "name": "Refined Spore Culture",
+        "desc": "Enzyme-ready spore biomass.",
+        "inputs": {"spore_culture_mass": 5.0},
+        "output_units": 1,
+        "base_value_cr": 3520,
+        "category": "refined_flora",
+    },
+    "refined_xenohybrid_foliage": {
+        "name": "Refined Xenohybrid Foliage",
+        "desc": "Purified lab-cross metabolite feed.",
+        "inputs": {"xenohybrid_foliage": 5.0},
+        "output_units": 1,
+        "base_value_cr": 3960,
+        "category": "refined_flora",
+    },
+    "refined_crystalline_nectar_concentrate": {
+        "name": "Refined Nectar Concentrate",
+        "desc": "Crystalline floral nectar product.",
+        "inputs": {"crystalline_nectar_concentrate": 5.0},
+        "output_units": 1,
+        "base_value_cr": 11550,
+        "category": "refined_flora",
+    },
+    "refined_deep_root_tuber": {
+        "name": "Refined Deep Root Tuber",
+        "desc": "Starch fraction ready for industrial use.",
+        "inputs": {"deep_root_tuber": 5.0},
+        "output_units": 1,
+        "base_value_cr": 605,
+        "category": "refined_flora",
+    },
+    "refined_pollen_aggregate": {
+        "name": "Refined Pollen Aggregate",
+        "desc": "Protein-filtered pollen stock.",
+        "inputs": {"pollen_aggregate": 5.0},
+        "output_units": 1,
+        "base_value_cr": 2805,
+        "category": "refined_flora",
+    },
+    "refined_vascular_sheath_fibre": {
+        "name": "Refined Vascular Sheath Fibre",
+        "desc": "Textile-grade vascular bundles.",
+        "inputs": {"vascular_sheath_fibre": 5.0},
+        "output_units": 1,
+        "base_value_cr": 660,
+        "category": "refined_flora",
+    },
+    "refined_bioluminescent_moss": {
+        "name": "Refined Bioluminescent Moss",
+        "desc": "Stabilized luciferase pathway culture.",
+        "inputs": {"bioluminescent_moss": 5.0},
+        "output_units": 1,
+        "base_value_cr": 15400,
+        "category": "refined_flora",
+    },
+    "refined_heritage_seed_pod_lot": {
+        "name": "Refined Heritage Seed Pod Lot",
+        "desc": "Vault-grade certified genotype pods.",
+        "inputs": {"heritage_seed_pod_lot": 5.0},
+        "output_units": 1,
+        "base_value_cr": 18700,
+        "category": "refined_flora",
+    },
 }
 
 
@@ -280,9 +433,10 @@ class Refinery(ObjectParent, DefaultObject):
     db.input_inventory   {resource_key: float tons}  raw ore in
     db.output_inventory  {product_key: float units}  refined goods out
     db.owner             character ref (or None for public/station facility)
-    db.auto_ingest_assigned_silo  bool  if True, RefineryEngine empties plant silos into miner_ore_queue
+    db.auto_ingest_assigned_silo  bool  legacy unused; RefineryEngine never used this for all silos.
+         Contracted NPC silos are ingested when owner id is in npc_miner_registry (see RefineryEngine).
 
-    Players feed raw ore (from storage or vehicle cargo) into input_inventory,
+    Players feed raw ore or flora (from storage or vehicle cargo) into input_inventory,
     then call process_recipe() to convert it.  Output accumulates in
     output_inventory until collected.
     """
@@ -296,7 +450,7 @@ class Refinery(ObjectParent, DefaultObject):
         # keyed by str(character.id).
         self.db.miner_ore_queue = {}   # {owner_id: {resource_key: tons}}
         self.db.miner_output = {}      # {owner_id: {product_key: units}}
-        # If True, RefineryEngine pulls assigned plant silo ore into miner_ore_queue each tick.
+        # Legacy; RefineryEngine ingests assigned silos only for npc_miner_registry owners.
         self.db.auto_ingest_assigned_silo = False
         self.tags.add("refinery", category="mining")
         self.locks.add("get:false()")
@@ -304,8 +458,8 @@ class Refinery(ObjectParent, DefaultObject):
     # ------------------------------------------------------------------
 
     def feed(self, resource_key, tons):
-        """Add raw ore to input inventory. Returns actual tons added."""
-        if resource_key not in RESOURCE_CATALOG:
+        """Add raw ore or flora to input inventory. Returns actual tons added."""
+        if not is_plant_raw_resource_key(resource_key):
             return 0.0
         tons = round(float(tons), 2)
         if tons <= 0:
@@ -316,8 +470,8 @@ class Refinery(ObjectParent, DefaultObject):
         return tons
 
     def enqueue_miner_ore(self, owner_id, resource_key, tons):
-        """Add ore to this refinery's attributed miner queue for owner_id. Returns tons added."""
-        if resource_key not in RESOURCE_CATALOG:
+        """Add raw ore or flora to this refinery's attributed miner queue. Returns tons added."""
+        if not is_plant_raw_resource_key(resource_key):
             return 0.0
         tons = round(float(tons), 2)
         if tons <= 0:
@@ -356,7 +510,7 @@ class Refinery(ObjectParent, DefaultObject):
 
         if possible <= 0:
             needed = {
-                RESOURCE_CATALOG.get(k, {}).get("name", k): v * batches
+                plant_raw_resource_display_name(k): v * batches
                 for k, v in recipe["inputs"].items()
             }
             return 0, (
@@ -474,7 +628,7 @@ class Refinery(ObjectParent, DefaultObject):
             lines.append("  Raw inputs:")
             for key in sorted(inv_in):
                 tons = float(inv_in[key])
-                name = RESOURCE_CATALOG.get(key, {}).get("name", key)
+                name = plant_raw_resource_display_name(key)
                 lines.append(f"    {name:<28} {tons:>8.2f} t")
         else:
             lines.append("  Raw inputs  : empty")
@@ -510,7 +664,7 @@ NPC_MINER_AUTO_COLLECT_MAX_PER_TICK = 2000
 
 def _process_miner_queues(refinery):
     """
-    Process per-miner ore queues and write output to miner_output.
+    Process per-miner ore/flora queues and write output to miner_output.
     Called each RefineryEngine tick for the global plant.
     """
     from typeclasses.commodity_demand import get_commodity_demand_engine
@@ -566,8 +720,8 @@ def _process_miner_queues(refinery):
 
 def _ingest_plant_player_storages_into_queues(refinery, room):
     """
-    Move ore from owner-tagged destination silos into per-owner miner_ore_queue.
-    Players and NPCs share the same attributed path (no pooled NPC branch).
+    Move ore/flora from owner-tagged destination silos into per-owner miner_ore_queue.
+    Only silos whose owner id is in npc_miner_registry (contracted plant operators).
     """
     from evennia.utils import logger
 
@@ -581,6 +735,8 @@ def _ingest_plant_player_storages_into_queues(refinery, room):
             continue
         ch = getattr(obj.db, "owner", None)
         if not ch:
+            continue
+        if not _silo_owner_contracted_for_plant_ingest(ch):
             continue
         inv = dict(obj.db.inventory or {})
         if not inv:
@@ -705,8 +861,7 @@ def _process_refinery(refinery):
     if not room:
         return
 
-    if getattr(refinery.db, "auto_ingest_assigned_silo", False):
-        _ingest_plant_player_storages_into_queues(refinery, room)
+    _ingest_plant_player_storages_into_queues(refinery, room)
 
     # Drain Ore Receiving Bay (MiningStorage) into shared input_inventory — not player silos
     for obj in room.contents:
@@ -739,7 +894,7 @@ def _process_refinery(refinery):
             if batches == 0:
                 break
 
-    # Per-owner queues (from player destination silos)
+    # Per-owner queues (from contracted operators' destination silos)
     _process_miner_queues(refinery)
 
     _auto_collect_registered_npc_miner_outputs(refinery)
@@ -750,12 +905,12 @@ from .scripts import Script as _Script  # noqa: E402 — must follow Refinery de
 
 class RefineryEngine(_Script):
     """
-    Global persistent script that automatically feeds and processes ore.
+    Global persistent script that automatically feeds and processes ore and flora.
 
     Every tick (30 min):
       1. Finds all Refinery objects.
-      2. If refinery.db.auto_ingest_assigned_silo is True, ingests owner-tagged destination
-         silos (players and NPCs) into per-owner miner queues.
+      2. Ingests owner-tagged destination silos into per-owner miner queues only when the
+         silo owner's character id is in npc_miner_registry (contracted NPC operators).
       3. Drains legacy Ore Receiving Bay (non–player-silo MiningStorage) into pooled input.
       4. Runs REFINING_RECIPES on pooled input, then processes miner queues to miner_output.
       5. Auto-collects miner_output for ids in NpcMinerRegistryScript via treasury transfers

@@ -8,11 +8,10 @@ from __future__ import annotations
 
 from evennia import search_object
 
-from typeclasses.mining import RESOURCE_CATALOG
 from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
 from typeclasses.property_places import open_property_shell, resolve_property_root_room
 from typeclasses.processors import PortableProcessor
-from typeclasses.refining import REFINING_RECIPES
+from typeclasses.refining import REFINING_RECIPES, is_plant_raw_resource_key
 
 
 class ProcessorWebError(Exception):
@@ -188,7 +187,7 @@ def web_processor_status(char, claim_id: int, processor_id: int):
 def web_processor_feed(char, claim_id: int, processor_id: int, resource_key: str, tons: float):
     _, _, proc = _processor_on_claim_interior(char, claim_id, processor_id)
     rk = str(resource_key).strip()
-    if rk not in RESOURCE_CATALOG:
+    if not is_plant_raw_resource_key(rk):
         raise ProcessorWebError("Unknown resource.")
     actual = proc.feed(rk, float(tons))
     if actual <= 0:

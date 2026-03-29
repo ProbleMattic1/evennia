@@ -17,6 +17,7 @@ from typeclasses.refining import (
     PROCESSING_PLANT_VENDOR_ACCOUNT,
     REFINING_RECIPES,
     execute_refined_payout_from_treasury,
+    plant_raw_resource_display_name,
     refined_payout_breakdown,
     restore_miner_output_for_payout,
 )
@@ -179,8 +180,6 @@ class CmdFeedProcessorFromStorage(Command):
             caller.msg("No assigned storage for you in this room.")
             return
 
-        from typeclasses.mining import RESOURCE_CATALOG
-
         args = main.strip().lower()
 
         def _return_overflow(key, overflow):
@@ -206,7 +205,7 @@ class CmdFeedProcessorFromStorage(Command):
                 fed = proc.feed(key, removed)
                 overflow = round(removed - fed, 2)
                 _return_overflow(key, overflow)
-                name = RESOURCE_CATALOG.get(key, {}).get("name", key)
+                name = plant_raw_resource_display_name(key)
                 lines.append(f"  {name}: {fed}t")
             caller.msg("\n".join(lines))
             return
@@ -225,7 +224,7 @@ class CmdFeedProcessorFromStorage(Command):
         inventory = storage.db.inventory or {}
         matched_key = None
         for key in inventory:
-            name = RESOURCE_CATALOG.get(key, {}).get("name", key)
+            name = plant_raw_resource_display_name(key)
             if resource_query in name.lower() or resource_query in key.lower():
                 matched_key = key
                 break
@@ -240,7 +239,7 @@ class CmdFeedProcessorFromStorage(Command):
         fed = proc.feed(matched_key, removed)
         overflow = round(removed - fed, 2)
         _return_overflow(matched_key, overflow)
-        name = RESOURCE_CATALOG.get(matched_key, {}).get("name", matched_key)
+        name = plant_raw_resource_display_name(matched_key)
         caller.msg(f"Fed |w{fed}t|n of {name} into |w{proc.key}|n (from assigned storage).")
 
 class CmdRefineList(Command):
@@ -356,10 +355,11 @@ class CmdFeedRefinery(Command):
             if storage.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
                 if getattr(storage.db, "owner", None) == caller:
                     caller.msg(
-                        "Ore in your assigned plant storage is ingested automatically into your "
-                        "refining queue. Use |wcollectrefined|n here when output is ready. "
-                        "To move ore into a personal processor, use |wfeedprocessor|n in the room "
-                        "where that processor is deployed."
+                        "Ore and flora in your assigned plant storage stay here until you act. "
+                        "Contracted NPC operators' silos are pulled into the plant queue on the "
+                        "RefineryEngine schedule. Use |wfeedrefinery|n to move material into the "
+                        "shared refinery input, then |wrefine|n; use |wcollectrefined|n for attributed "
+                        "output. For a personal processor, use |wfeedprocessor|n where it is deployed."
                     )
                     return
 
@@ -378,7 +378,7 @@ class CmdFeedRefinery(Command):
             lines = [f"|wFed into {ref.key}:|n"]
             for key, tons in contents.items():
                 actual = ref.feed(key, tons)
-                name = RESOURCE_CATALOG.get(key, {}).get("name", key)
+                name = plant_raw_resource_display_name(key)
                 lines.append(f"  {name}: {actual}t")
             caller.msg("\n".join(lines))
             return
@@ -401,7 +401,7 @@ class CmdFeedRefinery(Command):
 
         matched_key = None
         for key in inventory:
-            name = RESOURCE_CATALOG.get(key, {}).get("name", key)
+            name = plant_raw_resource_display_name(key)
             if resource_query in name.lower() or resource_query in key.lower():
                 matched_key = key
                 break
@@ -415,7 +415,7 @@ class CmdFeedRefinery(Command):
             actual_moved = vehicle_source.unload_cargo(matched_key, tons_req)
 
         ref.feed(matched_key, actual_moved)
-        name = RESOURCE_CATALOG.get(matched_key, {}).get("name", matched_key)
+        name = plant_raw_resource_display_name(matched_key)
         caller.msg(f"Fed |w{actual_moved}t|n of {name} into |w{ref.key}|n.")
 
 

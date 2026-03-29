@@ -299,7 +299,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                   </button>
                 </div>
                 {availableOpen ? (
-                  <div className="mt-0.5 space-y-0.5">
+                  <div className="mt-0.5 max-h-[min(280px,45vh)] min-h-[48px] space-y-0.5 overflow-y-auto overflow-x-hidden border border-cyan-900/40 bg-zinc-950/80 p-1.5 pr-2 [scrollbar-gutter:stable]">
                     {opportunities.map((op) => (
                       <div key={op.id} className="flex min-w-0 items-baseline gap-2">
                         <button

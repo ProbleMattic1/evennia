@@ -13,17 +13,24 @@ FLORA_DELIVERY_PERIOD.
 
 arm_hauler_pickup_after_mining_deposit / arm_hauler_pickup_after_flora_deposit arm haulers
 tagged autonomous_hauler in category mining / flora respectively.
+
+At the processing plant, haulers unload into per-owner assigned silos. RefineryEngine moves
+silo contents into miner_ore_queue only for owners registered in npc_miner_registry (contracted
+NPC operators); other owners' material stays until they use plant commands.
 """
 
 from datetime import UTC, datetime, timedelta
 
-from evennia import search_object, search_tag
+from django.utils import timezone
+from evennia import search_object
+from evennia.objects.models import ObjectDB
 
 from world.time import (
     FLORA_DELIVERY_PERIOD,
     FLORA_HAULER_PICKUP_OFFSET_SEC,
     HOUR,
     HAULER_ENGINE_INTERVAL_SEC,
+    MAX_HAULERS_PER_ENGINE_TICK,
     MINING_DELIVERY_PERIOD,
     to_iso,
     utc_now,
@@ -162,8 +169,13 @@ def compute_next_hauler_run_at(hauler, after: datetime | None = None) -> datetim
     else:
         candidate = next_c
 
-    while candidate <= now_ref:
-        candidate += step
+    if candidate <= now_ref:
+        step_sec = step.total_seconds()
+        delta_sec = (now_ref - candidate).total_seconds()
+        k = int(delta_sec // step_sec) + 1
+        candidate = candidate + timedelta(seconds=k * step_sec)
+        if candidate <= now_ref:
+            candidate += step
     return candidate
 
 
@@ -173,6 +185,12 @@ def get_hauler_next_cycle_at(hauler):
 
 def set_hauler_next_cycle(hauler, after: datetime | None = None):
     hauler.db.hauler_next_cycle_at = to_iso(compute_next_hauler_run_at(hauler, after=after))
+    try:
+        from world.hauler_dispatch import sync_hauler_dispatch_row
+
+        sync_hauler_dispatch_row(hauler)
+    except Exception:
+        logger.log_trace("sync_hauler_dispatch_row failed")
 
 
 def arm_hauler_pickup_after_mining_deposit(site):
@@ -439,9 +457,9 @@ def hauler_process_one(hauler):
 class HaulerEngine(Script):
     """
     Global script for autonomous hauler routes.
-    Wakes every HAULER_ENGINE_INTERVAL seconds. Each hauler due (hauler_next_cycle_at from last
-    deposit or mine next_cycle) may advance up to HAULER_MAX_PIPELINE_STEPS state transitions
-    per tick.
+    Wakes every HAULER_ENGINE_INTERVAL seconds. Loads up to MAX_HAULERS_PER_ENGINE_TICK due
+    haulers (HaulerDispatchRow next_run <= now), ordered by next_run. Each may advance up to
+    HAULER_MAX_PIPELINE_STEPS state transitions per tick.
     """
 
     def at_script_creation(self):
@@ -453,19 +471,33 @@ class HaulerEngine(Script):
         self.repeats = 0
 
     def at_repeat(self, **kwargs):
+        from world.hauler_dispatch import delete_hauler_dispatch_row, fetch_due_hauler_ids
+
         now = _now()
-        haulers = list(search_tag("autonomous_hauler", category="mining")) + list(
-            search_tag("autonomous_hauler", category="flora")
-        )
+        now_tz = timezone.now()
+        due_ids = fetch_due_hauler_ids(now=now_tz, limit=MAX_HAULERS_PER_ENGINE_TICK)
+
         processed = 0
         errors = 0
         scanned = 0
 
-        for hauler in haulers:
+        for hid in due_ids:
             try:
+                try:
+                    hauler = ObjectDB.objects.get(id=hid)
+                except ObjectDB.DoesNotExist:
+                    delete_hauler_dispatch_row(hid)
+                    continue
+
                 if not getattr(hauler.db, "is_vehicle", False):
                     continue
                 if not hauler.db.hauler_owner:
+                    continue
+                if not (
+                    hauler.tags.has("autonomous_hauler", category="mining")
+                    or hauler.tags.has("autonomous_hauler", category="flora")
+                ):
+                    delete_hauler_dispatch_row(hid)
                     continue
 
                 scanned += 1
@@ -498,5 +530,6 @@ class HaulerEngine(Script):
                 logger.log_err(f"[hauler_engine] Error on {getattr(hauler, 'key', '?')}: {err}")
 
         logger.log_info(
-            f"[hauler_engine] Tick — scanned={scanned} step(s)={processed} error(s)={errors}"
+            f"[hauler_engine] Tick — due_fetched={len(due_ids)} scanned={scanned} "
+            f"step(s)={processed} error(s)={errors}"
         )

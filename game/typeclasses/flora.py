@@ -138,6 +138,22 @@ FLORA_RESOURCE_CATALOG = {
 }
 
 
+def get_flora_commodity_bid(resource_key, location=None):
+    """
+    Credits per ton for raw flora (mirrors mining get_commodity_bid: catalog base × demand × bid discount).
+    """
+    from typeclasses.commodity_demand import get_commodity_demand_engine
+    from typeclasses.mining import COMMODITY_BID_DISCOUNT
+
+    info = FLORA_RESOURCE_CATALOG.get(resource_key, {})
+    base = float(info.get("base_price_cr_per_ton", 0))
+    if base <= 0:
+        return 0
+    eng = get_commodity_demand_engine(create_missing=False)
+    mult = eng.get_market_multiplier(resource_key) if eng else 1.0
+    return max(0, int(round(base * mult * COMMODITY_BID_DISCOUNT)))
+
+
 def _now():
     return utc_now()
 
@@ -170,6 +186,9 @@ class FloraSite(ObjectParent, DefaultObject):
             "depletion_rate": 0.002,
             "richness_floor": 0.10,
         }
+        self.db.license_level = 0
+        self.db.tax_rate = 0.0
+        self.db.hazard_level = 0.0
         self.tags.add("flora_site", category="flora")
         self.db.allowed_purposes = ["flora"]
         self.locks.add("get:false()")
@@ -188,6 +207,12 @@ class FloraSite(ObjectParent, DefaultObject):
                 "depletion_rate": 0.002,
                 "richness_floor": 0.10,
             }
+        if self.db.license_level is None:
+            self.db.license_level = 0
+        if self.db.tax_rate is None:
+            self.db.tax_rate = 0.0
+        if self.db.hazard_level is None:
+            self.db.hazard_level = 0.0
 
     @property
     def is_active(self):

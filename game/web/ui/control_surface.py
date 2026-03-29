@@ -4,10 +4,10 @@ Aggregated control-surface read model for the frontend 3-column UI.
 Single endpoint: GET /ui/control-surface
 Returns a ControlSurfaceState JSON payload containing every piece of information
 the 3-column shell needs — character stats, alerts, missions, inventory, ships,
-mines, properties, processing summary, live market rates, and dynamic nav.
+resources (mirrored as mines for compatibility), properties, processing summary, live market rates, and dynamic nav.
 
-All data is assembled from existing private helpers in views.py so there is no
-logic duplication; this file is a pure composition layer.
+Most blocks compose helpers imported from views.py or world.*; production-site
+rows use ``world.mining_site_metrics.owned_production_sites_for_dashboard``.
 """
 
 import json
@@ -39,7 +39,8 @@ from .views import (
     _room_exits,
 )
 
-SCHEMA_VERSION = 1
+# v2: ``resources``, ``nav.resources``, ``production*`` aggregate keys (``mines`` / ``mining*`` retained).
+SCHEMA_VERSION = 2
 
 
 # ---------------------------------------------------------------------------
@@ -121,23 +122,10 @@ def _serialize_ships(char):
     return ships
 
 
-def _serialize_mines(char):
-    from world.mining_site_metrics import site_to_dashboard_row
+def _serialize_resources(char):
+    from world.mining_site_metrics import owned_production_sites_for_dashboard
 
-    mines = []
-    mining_value_per_cycle = 0.0
-    mining_total_stored = 0.0
-
-    for site in char.db.owned_sites or []:
-        packed = site_to_dashboard_row(site)
-        if not packed:
-            continue
-        row, cycle_cr, stored_cr = packed
-        mines.append(row)
-        mining_value_per_cycle += cycle_cr
-        mining_total_stored += stored_cr
-
-    return mines, int(round(mining_value_per_cycle)), int(round(mining_total_stored))
+    return owned_production_sites_for_dashboard(char)
 
 
 def _personal_plant_ore_stored_value_cr(char):
@@ -264,7 +252,7 @@ _KIOSK_HREF = {
 }
 
 
-def _serialize_nav(char, mines):
+def _serialize_nav(char, resources):
     from world.bootstrap_shops import all_item_shop_specs
     from world.venues import all_venue_ids, get_venue
 
@@ -362,9 +350,15 @@ def _serialize_nav(char, mines):
             if obj.tags.has("property_claim", category="realty"):
                 properties_nav.append({"label": obj.key, "href": f"/properties/{obj.id}"})
 
-    mines_nav = [
-        {"label": m["key"], "href": f"/claims/{m['id']}", "active": m["active"]}
-        for m in mines
+    resources_nav = [
+        {
+            "key": m["key"],
+            "label": m["key"],
+            "href": f"/claims/{m['id']}",
+            "active": m["active"],
+            "kind": m.get("kind") or m.get("siteKind"),
+        }
+        for m in resources
     ]
 
     return {
@@ -375,7 +369,8 @@ def _serialize_nav(char, mines):
         "shops": shops,
         "claims": claims_nav,
         "properties": properties_nav,
-        "mines": mines_nav,
+        "resources": resources_nav,
+        "mines": resources_nav,
     }
 
 
@@ -397,6 +392,7 @@ _EMPTY_NAV = {
     "shops": [],
     "claims": [],
     "properties": [],
+    "resources": [],
     "mines": [],
 }
 _EMPTY_INVENTORY = empty_inventory_payload()
@@ -433,8 +429,11 @@ def control_surface_state(request):
         "credits": None,
         "inventory": _EMPTY_INVENTORY,
         "ships": [],
+        "resources": [],
         "mines": [],
         "miningNextCycleAt": next_mining_delivery_boundary_iso(),
+        "productionEstimatedValuePerCycle": 0,
+        "productionTotalStoredValue": 0,
         "miningEstimatedValuePerCycle": 0,
         "miningTotalStoredValue": 0,
         "miningPersonalStoredValue": 0,
@@ -489,11 +488,11 @@ def control_surface_state(request):
     character_block = _serialize_character_block(char, credits)
     inventory = _serialize_inventory(char)
     ships = _serialize_ships(char)
-    mines, mining_value_per_cycle, mining_total_stored = _serialize_mines(char)
+    resources, mining_value_per_cycle, mining_total_stored = _serialize_resources(char)
     mining_personal_stored = _personal_plant_ore_stored_value_cr(char)
     properties, property_ref_total = _dashboard_property_portfolio(char)
     processing = _serialize_processing_summary(char)
-    nav = _serialize_nav(char, mines)
+    nav = _serialize_nav(char, resources)
     room_exits = _room_exits(char.location) if getattr(char, "location", None) else []
 
     return JsonResponse({
@@ -503,8 +502,11 @@ def control_surface_state(request):
         "credits": credits,
         "inventory": inventory,
         "ships": ships,
-        "mines": mines,
+        "resources": resources,
+        "mines": resources,
         "miningNextCycleAt": next_mining_delivery_boundary_iso(),
+        "productionEstimatedValuePerCycle": mining_value_per_cycle,
+        "productionTotalStoredValue": mining_total_stored,
         "miningEstimatedValuePerCycle": mining_value_per_cycle,
         "miningTotalStoredValue": mining_total_stored,
         "miningPersonalStoredValue": mining_personal_stored,

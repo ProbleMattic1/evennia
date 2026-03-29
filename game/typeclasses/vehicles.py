@@ -331,3 +331,24 @@ class Hauler(Vehicle):
     def at_object_creation(self):
         super().at_object_creation()
         self.db.vehicle_kind = 'hauler'
+
+    def cargo_space_available(self):
+        from typeclasses.haulers import effective_capacity
+
+        cap = float(effective_capacity(self))
+        return max(0.0, cap - self.cargo_total_mass())
+
+    def load_cargo(self, resource_key, tons):
+        from typeclasses.haulers import effective_capacity
+
+        cap = float(effective_capacity(self))
+        if cap <= 0:
+            raise ValueError(f"{self.key} has no cargo hold.")
+        space = self.cargo_space_available()
+        loaded = round(min(float(tons), space), 2)
+        if loaded <= 0:
+            return 0.0
+        cargo = self.db.cargo or {}
+        cargo[resource_key] = round(float(cargo.get(resource_key, 0.0)) + loaded, 2)
+        self.db.cargo = cargo
+        return loaded

@@ -17,11 +17,12 @@ from django.views.decorators.http import require_GET
 from evennia.objects.models import ObjectDB
 
 from typeclasses.characters import CHARACTER_TYPECLASS_PATH
-from world.bootstrap_hub import HUB_ROOM_KEY
+from world.locator_zones import all_venue_hub_keys, locator_zone_for_room
+from world.venues import VENUES
 
 from .room_nav_utils import should_show_mining_exit_dict
 
-CACHE_KEY = "ui:world_graph:v1"
+CACHE_KEY = "ui:world_graph:v2"
 CACHE_TTL = 45
 
 ROOM_TYPECLASS_SUBSTRING = "typeclasses.rooms.Room"
@@ -48,7 +49,7 @@ def _room_has_mining_site(room) -> bool:
 
 
 def _edge_visible_for_char(e: dict, char) -> bool:
-    if e["fromKey"] != HUB_ROOM_KEY:
+    if e["fromKey"] not in all_venue_hub_keys():
         return True
     return should_show_mining_exit_dict({"destination": e["toKey"]}, char)
 
@@ -77,11 +78,15 @@ def _build_skeleton() -> dict:
             rid = r.id
             if rid not in seen_room_ids:
                 seen_room_ids.add(rid)
+                has_mining = _room_has_mining_site(r)
+                vid = getattr(r.db, "venue_id", None)
                 rooms_out.append(
                     {
                         "id": rid,
                         "key": r.key,
-                        "hasMiningSite": _room_has_mining_site(r),
+                        "hasMiningSite": has_mining,
+                        "venueId": vid,
+                        "locatorZone": locator_zone_for_room(r, has_mining_site=has_mining),
                     }
                 )
 
@@ -180,9 +185,12 @@ def build_world_graph_payload(*, char) -> dict:
                 {e["toKey"] for e in edges if e["fromId"] == current_room_id}
             )
 
+    venue_catalog = [{"id": vid, "label": str(spec["label"])} for vid, spec in VENUES.items()]
+
     return {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "generatedAt": timezone.now().isoformat(),
+        "venueCatalog": venue_catalog,
         "rooms": rooms,
         "edges": edges,
         "edgesAll": edges_all,

@@ -292,11 +292,15 @@ class CmdReleaseHauler(Command):
             caller.msg("You don't own an autonomous hauler matching that name.")
             return
 
+        from world.hauler_dispatch import delete_hauler_dispatch_row
+
         hauler.tags.remove("autonomous_hauler", category="mining")
         hauler.db.hauler_owner = None
         hauler.db.hauler_mine_room = None
         hauler.db.hauler_refinery_room = None
         hauler.db.hauler_state = "idle"
+
+        delete_hauler_dispatch_row(hauler)
 
         caller.msg(f"|w{hauler.key}|n is no longer an autonomous hauler. You can still pilot it normally.")
 
@@ -324,6 +328,9 @@ class CmdHaulerDueNow(Command):
             caller.msg("You don't own an autonomous hauler matching that name.")
             return
         hauler.db.hauler_next_cycle_at = "1970-01-01T00:00:00+00:00"
+        from world.hauler_dispatch import sync_hauler_dispatch_row
+
+        sync_hauler_dispatch_row(hauler)
         caller.msg(
             f"|w{hauler.key}|n is due now (runs on next hauler engine tick, within ~{HAULER_ENGINE_INTERVAL // 60}m)."
         )

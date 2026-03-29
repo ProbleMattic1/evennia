@@ -367,9 +367,8 @@ def _serialize_mining_site(site, char=None):
         RESOURCE_CATALOG,
         compute_rig_repair_charge,
         get_commodity_bid,
-        MODE_OUTPUT_MODIFIERS,
-        POWER_OUTPUT_MODIFIERS,
         rig_needs_service,
+        rig_output_modifiers,
         split_rig_repair_revenue,
         WEAR_OUTPUT_PENALTY,
     )
@@ -388,12 +387,9 @@ def _serialize_mining_site(site, char=None):
     estimated_value_per_cycle = 0
     loc = site.location
     if site.is_active and active_rig:
-        rig_rating = float(active_rig.db.rig_rating)
-        mode = active_rig.db.mode
-        power = active_rig.db.power_level
-        wear = float(active_rig.db.wear)
-        mode_mod = MODE_OUTPUT_MODIFIERS[mode]
-        power_mod = POWER_OUTPUT_MODIFIERS[power]
+        rig_rating = float(active_rig.db.rig_rating or 0)
+        wear = float(active_rig.db.wear or 0)
+        mode_mod, power_mod = rig_output_modifiers(active_rig)
         wear_mod = 1.0 - (wear * WEAR_OUTPUT_PENALTY)
         total_tons = base_tons * richness * rig_rating * mode_mod * power_mod * wear_mod
         for k, frac in raw_comp.items():
@@ -2272,103 +2268,9 @@ def dashboard_state(request):
             )
     ships.extend(ships_other)
 
-    from typeclasses.mining import (
-        get_commodity_bid,
-        MODE_OUTPUT_MODIFIERS,
-        POWER_OUTPUT_MODIFIERS,
-        WEAR_OUTPUT_PENALTY,
-    )
+    from world.mining_site_metrics import owned_production_sites_for_dashboard
 
-    mines = []
-    mining_value_per_cycle = 0
-    mining_total_stored = 0
-
-    for site in (char.db.owned_sites or []):
-        if not site or not getattr(site, "db", None):
-            continue
-        site_installed_rigs = [r for r in (site.db.rigs or []) if r]
-        site_operational_rigs = [r for r in site_installed_rigs if r.db.is_operational]
-        site_active_rig = min(site_operational_rigs, key=lambda r: r.db.wear) if site_operational_rigs else None
-
-        storage = site.db.linked_storage
-        deposit = site.db.deposit
-        richness = float(deposit.get("richness", 0))
-        raw_comp = deposit.get("composition") or {}
-        comp = {str(k): float(v) for k, v in raw_comp.items()}
-        next_cycle = site.db.next_cycle_at
-
-        raw_inv = storage.db.inventory if storage else {}
-        inv = {str(k): float(v) for k, v in raw_inv.items()}
-        cap = float(storage.db.capacity_tons) if storage else 500.0
-        used = sum(inv.values()) if inv else 0
-
-        sloc = site.location
-        for k, tons in inv.items():
-            price = get_commodity_bid(k, location=sloc)
-            mining_total_stored += tons * price
-
-        base_tons = float(deposit.get("base_output_tons", 0))
-        estimated_value_per_cycle = 0
-        estimated_output_tons = 0
-        if site.is_active and site_active_rig:
-            rig_rating = float(site_active_rig.db.rig_rating)
-            mode = site_active_rig.db.mode
-            power = site_active_rig.db.power_level
-            wear = float(site_active_rig.db.wear)
-            mode_mod = MODE_OUTPUT_MODIFIERS[mode]
-            power_mod = POWER_OUTPUT_MODIFIERS[power]
-            wear_mod = 1.0 - (wear * WEAR_OUTPUT_PENALTY)
-            total_tons = base_tons * richness * rig_rating * mode_mod * power_mod * wear_mod
-            estimated_output_tons = total_tons
-            for k, frac in raw_comp.items():
-                price = get_commodity_bid(k, location=sloc)
-                val = total_tons * float(frac) * price
-                estimated_value_per_cycle += val
-                mining_value_per_cycle += val
-        else:
-            estimated_output_tons = base_tons * richness
-            for k, frac in raw_comp.items():
-                price = get_commodity_bid(k, location=sloc)
-                estimated_value_per_cycle += estimated_output_tons * float(frac) * price
-
-        from typeclasses.mining import _volume_tier, _resource_rarity_tier
-
-        volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-        resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(raw_comp)
-
-        mines.append({
-            "id": site.id,
-            "key": site.key,
-            "location": site.location.key if site.location else None,
-            "active": site.is_active,
-            "richness": richness,
-            "volumeTier": volume_tier,
-            "volumeTierCls": volume_tier_cls,
-            "resourceRarityTier": resource_rarity_tier,
-            "resourceRarityTierCls": resource_rarity_tier_cls,
-            "baseOutputTons": deposit.get("base_output_tons", 0),
-            "estimatedOutputTons": round(estimated_output_tons, 1),
-            "estimatedValuePerCycle": int(round(estimated_value_per_cycle)),
-            "composition": comp,
-            "nextCycleAt": next_cycle,
-            "rigs": [
-                {
-                    "key": r.key,
-                    "wear": int(r.db.wear * 100),
-                    "operational": r.db.is_operational,
-                }
-                for r in site_installed_rigs
-            ],
-            "rig": site_active_rig.key if site_active_rig else None,
-            "rigWear": int(site_active_rig.db.wear * 100) if site_active_rig else None,
-            "rigOperational": site_active_rig.db.is_operational if site_active_rig else False,
-            "storageUsed": round(used, 1),
-            "storageCapacity": cap,
-            "inventory": inv,
-            "licenseLevel": int(site.db.license_level),
-            "taxRate": float(site.db.tax_rate),
-            "hazardLevel": float(site.db.hazard_level),
-        })
+    mines, mining_value_per_cycle, mining_total_stored = owned_production_sites_for_dashboard(char)
 
     properties, property_ref_total_cr = _dashboard_property_portfolio(char)
     mining_personal_stored = _personal_plant_ore_stored_value_cr(char)
@@ -2567,6 +2469,26 @@ def dashboard_ack_alert(request):
     bundle = _web_refresh_bundle(request)
     dash_data = bundle.get("dashboard", {})
     return JsonResponse({"ok": True, "message": "Alert acknowledged.", "dashboard": dash_data})
+
+
+@csrf_exempt
+@require_POST
+def dashboard_ack_all_alerts(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    from typeclasses.system_alerts import get_system_alerts_script
+
+    script = get_system_alerts_script(create_missing=True)
+    if not script:
+        return JsonResponse({"ok": False, "message": "Alerts script unavailable."}, status=500)
+
+    cleared = script.ack_all_for_account(request.user.id)
+
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
+    msg = f"Cleared {cleared} alert(s)." if cleared else "No alerts to clear."
+    return JsonResponse({"ok": True, "message": msg, "cleared": cleared, "dashboard": dash_data})
 
 
 @require_GET
