@@ -35,8 +35,8 @@ function exitPieceKey(piece: OutboundExitDisplayPiece, index: number): string {
 function SingleExitLine({ ex }: { ex: OutboundExit }) {
   return (
     <>
-      <span className="text-cyan-600/90">{ex.exitKey}</span>
-      <span className="text-zinc-600"> → </span>
+      <span className="text-cyan-300">{ex.exitKey}</span>
+      <span className="text-ui-soft"> → </span>
       {ex.toKey}
     </>
   );
@@ -44,7 +44,7 @@ function SingleExitLine({ ex }: { ex: OutboundExit }) {
 
 function OutboundExitsCell({ exits, roomId }: { exits: OutboundExit[]; roomId: number }) {
   if (exits.length === 0) {
-    return <span className="text-zinc-600">—</span>;
+    return <span className="text-ui-soft">—</span>;
   }
 
   const pieces = outboundExitDisplayPieces(exits);
@@ -61,11 +61,11 @@ function OutboundExitsCell({ exits, roomId }: { exits: OutboundExit[]; roomId: n
         ) : (
           <li key={exitPieceKey(piece, i)} className="list-none">
             <details className="ml-[-0.5rem]">
-              <summary className="cursor-pointer select-none text-cyan-600/90 hover:text-cyan-400">
+              <summary className="cursor-pointer select-none text-cyan-300 hover:text-cyan-400">
                 {piece.cluster.label}{" "}
-                <span className="text-zinc-500">({piece.cluster.count})</span>
+                <span className="text-ui-muted">({piece.cluster.count})</span>
               </summary>
-              <ul className="mt-1 list-inside list-disc space-y-0.5 border-l border-zinc-800 pl-2 text-zinc-400">
+              <ul className="mt-1 list-inside list-disc space-y-0.5 border-l border-zinc-800 pl-2 text-ui-muted">
                 {piece.cluster.exits.map((ex) => (
                   <li key={`${ex.exitKey}→${ex.toKey}`}>
                     <SingleExitLine ex={ex} />
@@ -90,8 +90,8 @@ function OutboundExitsCell({ exits, roomId }: { exits: OutboundExit[]; roomId: n
 
   return (
     <details id={summaryId}>
-      <summary className="cursor-pointer select-none text-zinc-400 hover:text-zinc-300">
-        {summaryBits.join(" · ")} — <span className="text-cyan-600/80">expand</span>
+      <summary className="cursor-pointer select-none text-ui-muted hover:text-zinc-300">
+        {summaryBits.join(" · ")} — <span className="text-cyan-300">expand</span>
       </summary>
       <div className="mt-1 border-t border-zinc-800/80 pt-1">{list}</div>
     </details>
@@ -137,14 +137,14 @@ export function LocatorFlattenedView({
 
   return (
     <div className="rounded border border-cyan-900/40 bg-zinc-950">
-      <p id="locator-flattened-desc" className="border-b border-cyan-900/30 px-2 py-2 text-[10px] text-zinc-500">
-        Directory by location (hops + exits). Industrial <span className="text-amber-600/90">pad bays</span> are omitted
+      <p id="locator-flattened-desc" className="border-b border-cyan-900/30 px-2 py-2 text-[10px] text-ui-muted">
+        Directory by location (hops + exits). Industrial <span className="text-amber-600">pad bays</span> are omitted
         from the table until you search or enable the checkbox — staging grids stay one row each. Staging exits stay
         collapsed until expanded. <span className="text-cyan-400">Travel</span> = one hop only (same as Graph &quot;Go&quot;).
       </p>
       {industrialPadBayCount > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-cyan-900/20 px-2 py-1.5 font-mono text-[10px] text-zinc-500">
-          <label className="flex cursor-pointer items-center gap-1.5 text-zinc-400 hover:text-zinc-300">
+        <div className="flex flex-wrap items-center gap-2 border-b border-cyan-900/20 px-2 py-1.5 font-mono text-[10px] text-ui-muted">
+          <label className="flex cursor-pointer items-center gap-1.5 text-ui-muted hover:text-zinc-300">
             <input
               type="checkbox"
               checked={showPadBays}
@@ -153,7 +153,7 @@ export function LocatorFlattenedView({
             />
             Include industrial pad bays
           </label>
-          <span className="text-zinc-600">
+          <span className="text-ui-soft">
             (
             {showPadBays
               ? `${industrialPadBayCount} listed`
@@ -169,7 +169,7 @@ export function LocatorFlattenedView({
           className="w-full border-collapse font-mono text-[10px] text-zinc-300"
           aria-describedby="locator-flattened-desc"
         >
-          <thead className="sticky top-0 z-[1] bg-zinc-900/95 text-left text-zinc-500">
+          <thead className="sticky top-0 z-[1] bg-zinc-900/95 text-left text-ui-muted">
             <tr>
               <th scope="col" className="border-b border-cyan-900/40 px-2 py-1.5 font-normal">
                 Location
@@ -207,14 +207,14 @@ export function LocatorFlattenedView({
                         </span>
                       ) : null}
                       {r.hasMiningSite ? (
-                        <span className="rounded bg-amber-950/80 px-1 text-[9px] text-amber-500/90">Mine</span>
+                        <span className="rounded bg-amber-950/80 px-1 text-[9px] text-amber-400">Mine</span>
                       ) : null}
                     </span>
                   </td>
-                  <td className="border-b border-zinc-800/80 px-2 py-1.5 align-top text-zinc-500">
+                  <td className="border-b border-zinc-800/80 px-2 py-1.5 align-top text-ui-muted">
                     {hop !== undefined ? hop : "—"}
                   </td>
-                  <td className="border-b border-zinc-800/80 px-2 py-1.5 align-top text-zinc-400">
+                  <td className="border-b border-zinc-800/80 px-2 py-1.5 align-top text-ui-muted">
                     <OutboundExitsCell exits={exits} roomId={r.id} />
                   </td>
                   <td className="border-b border-zinc-800/80 px-2 py-1.5 align-top">
@@ -229,9 +229,9 @@ export function LocatorFlattenedView({
                         Travel
                       </button>
                     ) : here ? (
-                      <span className="text-zinc-600">—</span>
+                      <span className="text-ui-soft">—</span>
                     ) : (
-                      <span className="text-zinc-600" title="Not adjacent">
+                      <span className="text-ui-soft" title="Not adjacent">
                         —
                       </span>
                     )}

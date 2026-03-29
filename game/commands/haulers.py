@@ -232,7 +232,7 @@ class CmdHaulerStatus(Command):
             lines.append(
                 f"    Capacity: {cap}t  Schedule: mine-linked (+{HAULER_PICKUP_OFFSET_SEC // 60}m after deposits); "
                 f"dispatch every {HAULER_ENGINE_INTERVAL // 60}m  Next: {next_str}  "
-                f"Delivery: assigned storage at destination  Upgrades: {up_str}"
+                f"Delivery: Ore Receiving Bay at plant (paid on unload)  Upgrades: {up_str}"
             )
         caller.msg("\n".join(lines))
 
@@ -244,11 +244,10 @@ class CmdSetDeliveryMode(Command):
     Usage:
       setdelivery <hauler> <anything>
 
-    Autonomous haulers always unload into |wyour assigned storage|n at the haul
-    destination room (created on first delivery if needed). At the Processing Plant,
-    the refinery cycle moves your ore into your refining queue; use |wcollectrefined|n
-    for payout. To feed a personal processor from storage, use |wfeedprocessor|n in
-    that room.
+    Autonomous haulers unload into the plant |wOre Receiving Bay|n; the treasury pays
+    you on delivery (plant raw purchase). Use |wfeedrefinery|n to move ore from the bay
+    into refining when you want processing; |wcollectrefined|n for refined payout.
+    Personal processors still use |wfeedprocessor|n from your assigned storage in that room.
     """
 
     key = "setdelivery"
@@ -260,16 +259,16 @@ class CmdSetDeliveryMode(Command):
         args = self.args.strip().split()
         if len(args) < 1:
             caller.msg(
-                "Haulers always deliver to your assigned storage at the destination. "
+                "At the processing plant, haulers unload to the Ore Receiving Bay and you are paid on delivery. "
                 "Use |wassignhauler|n to set the destination room. "
-                "See |whelp collectrefined|n and |whelp feedprocessor|n."
+                "See |whelp feedrefinery|n, |whelp collectrefined|n, and |whelp feedprocessor|n."
             )
             return
         caller.msg(
-            "|wDelivery mode is no longer configurable.|n Haulers always unload into your "
-            "assigned storage at the haul destination. At the plant, ore is queued for "
-            "your attributed refining automatically; use |wcollectrefined|n here. "
-            "For a personal processor, use |wfeedprocessor|n where it is deployed."
+            "|wDelivery mode is no longer configurable.|n At the plant, haulers unload into the "
+            "Ore Receiving Bay and you are paid on delivery. Use |wfeedrefinery|n to feed the "
+            "refinery from the bay (or your assigned silo is queued first when you use feedrefinery). "
+            "|wcollectrefined|n collects refined output. For a personal processor, use |wfeedprocessor|n."
         )
 
 

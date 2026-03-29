@@ -111,7 +111,7 @@ function ShopPageInner() {
   if (loading) {
     return (
       <CsPage>
-        <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading shop state…</p>
+        <p className="text-sm text-ui-accent-readable">Loading shop state…</p>
       </CsPage>
     );
   }
@@ -159,7 +159,7 @@ function ShopPageInner() {
                   <li key={entry.id} className="rounded border border-cyan-900/30 p-2">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-sm font-medium text-zinc-200">{entry.key}</span>
-                      <span className="text-[12px] text-zinc-500">
+                      <span className="text-[12px] text-ui-muted">
                         {entry.price != null ? `${entry.price.toLocaleString()} cr` : "N/A"}
                       </span>
                       <button
@@ -186,12 +186,12 @@ function ShopPageInner() {
                     </div>
                     {expanded ? (
                       <>
-                        {entry.description ? <p className="mt-0.5 text-[12px] text-zinc-400">{entry.description}</p> : null}
-                        {entry.summary ? <p className="mt-0.5 text-[12px] text-zinc-500">{entry.summary}</p> : null}
+                        {entry.description ? <p className="mt-0.5 text-[12px] text-ui-muted">{entry.description}</p> : null}
+                        {entry.summary ? <p className="mt-0.5 text-[12px] text-ui-muted">{entry.summary}</p> : null}
                         <div className="mt-1 flex gap-1.5">
                           <button
                             type="button"
-                            className="rounded border border-cyan-700/50 px-2 py-0.5 text-[12px] text-cyan-400 disabled:text-cyan-500/50"
+                            className="rounded border border-cyan-700/50 px-2 py-0.5 text-[12px] text-cyan-400 disabled:text-ui-muted"
                             disabled={rowBusy}
                             onClick={() => onInspect(entry.id, entry.key)}
                           >
@@ -224,7 +224,7 @@ export default function ShopPage() {
     <Suspense
       fallback={
         <CsPage>
-          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading shop state…</p>
+          <p className="text-sm text-ui-accent-readable">Loading shop state…</p>
         </CsPage>
       }
     >

@@ -107,7 +107,7 @@ function LocatorNode({ data }: NodeProps) {
             <span className="rounded bg-amber-900/50 px-1 text-[9px] uppercase text-amber-200">You</span>
           ) : null}
           {d.hasMiningSite ? (
-            <span className="rounded bg-amber-950/80 px-1 text-[9px] text-amber-500/90">Mine</span>
+            <span className="rounded bg-amber-950/80 px-1 text-[9px] text-amber-400">Mine</span>
           ) : null}
           {d.canStep ? (
             <span className="rounded bg-cyan-900/40 px-1 text-[9px] text-cyan-300">Go</span>
@@ -319,7 +319,7 @@ export function LocatorGraphView({
             aria-label="Overview map"
           />
           <FitViewOnChange deps={`${nodes.length}-${edges.length}-${schematic}-${filter}`} />
-          <Panel position="top-left" className="m-2 max-w-[280px] text-[10px] text-zinc-500">
+          <Panel position="top-left" className="m-2 max-w-[280px] text-[10px] text-ui-muted">
             Three clusters: <span className="text-cyan-400">NanoMegaPlex</span> (coreward),{" "}
             <span className="text-violet-400">Frontier</span> (rim), and{" "}
             <span className="text-amber-400">industrial mines</span> (plex + Ashfall contractor grids). The dashed{" "}

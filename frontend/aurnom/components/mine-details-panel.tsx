@@ -45,7 +45,7 @@ function formatDate(s: string | null) {
 function LabeledStackLines({ label, lines }: { label: string; lines: { key: string; text: string }[] }) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="shrink-0 text-zinc-500">{label}</span>
+      <span className="shrink-0 text-ui-muted">{label}</span>
       {lines.length === 0 ? (
         <span className="min-w-0 truncate text-right font-mono text-zinc-200">—</span>
       ) : (
@@ -62,7 +62,7 @@ function LabeledStackLines({ label, lines }: { label: string; lines: { key: stri
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-1">
-      <div className="bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
+      <div className="bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
         {title}
       </div>
       <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
@@ -87,7 +87,7 @@ function MineDetailSectionCard({
   const [open, setOpen] = useDashboardPanelOpen(panelKey, true);
   return (
     <section className="mb-1">
-      <div className="flex min-w-0 items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-cyan-500">
+      <div className="flex min-w-0 items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-cyan-300">
         <span className={`min-w-0 truncate ${uppercaseTitle ? "uppercase" : "normal-case"}`}>{title}</span>
         <button
           type="button"
@@ -110,7 +110,7 @@ function MineDetailSectionCard({
 function Kv({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="shrink-0 text-zinc-500">{label}</span>
+      <span className="shrink-0 text-ui-muted">{label}</span>
       <span className="min-w-0 truncate text-right font-mono text-zinc-200">
         {value}
       </span>
@@ -196,7 +196,7 @@ export function MineDetailsPanel({ site }: PrimaryProps) {
         <MineDetailSectionCard panelKey={pk("deposit")} title="Deposit">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5">
-              <span className="text-zinc-500">Volume</span>
+              <span className="text-ui-muted">Volume</span>
               <span
                 className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${
                   volumeTierStyle(site.volumeTierCls).badge
@@ -206,7 +206,7 @@ export function MineDetailsPanel({ site }: PrimaryProps) {
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-zinc-500">Rarity</span>
+              <span className="text-ui-muted">Rarity</span>
               <span
                 className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${
                   rarityTierStyle(site.resourceRarityTierCls).badge
@@ -434,7 +434,7 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
                     : "Rig, storage, and hauler (when present) returned to your inventory."}
                 </p>
                 {equipmentLines.length > 0 ? (
-                  <ul className="list-inside list-disc font-mono text-[11px] text-zinc-400">
+                  <ul className="list-inside list-disc font-mono text-[11px] text-ui-muted">
                     {equipmentLines.map((line) => (
                       <li key={line}>{line}</li>
                     ))}
@@ -484,7 +484,7 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2 border-t border-cyan-900/50 pt-2">
                   <label className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-zinc-500">List price (cr)</span>
+                    <span className="text-[11px] text-ui-muted">List price (cr)</span>
                     <input
                       type="number"
                       min={0}
@@ -522,7 +522,7 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
               >
                 <span className="font-mono text-[12px] text-zinc-300">{r.key}</span>
                 {r.repairTotalCr != null ? (
-                  <span className="text-xs text-zinc-500">
+                  <span className="text-xs text-ui-muted">
                     Total {r.repairTotalCr.toLocaleString()} cr — service{" "}
                     {(r.repairVendorCr ?? 0).toLocaleString()} cr, tax{" "}
                     {(r.repairTaxCr ?? 0).toLocaleString()} cr (3%)
@@ -565,25 +565,25 @@ export function MineSiteSecondaryPanel({ site }: { site: MineSiteDetails }) {
 
       <Card title="Cycle log">
         {site.cycleLog.length > 0 ? (
-          <ul className="max-h-[min(200px,35vh)] space-y-0.5 overflow-y-auto text-xs text-zinc-500">
+          <ul className="max-h-[min(200px,35vh)] space-y-0.5 overflow-y-auto text-xs text-ui-muted">
             {site.cycleLog.map((line, i) => (
               <li key={i}>{line}</li>
             ))}
           </ul>
         ) : (
-          <span className="text-xs text-zinc-500">—</span>
+          <span className="text-xs text-ui-muted">—</span>
         )}
       </Card>
 
       <Card title="Hazard log">
         {site.hazardLog.length > 0 ? (
-          <ul className="max-h-[min(200px,35vh)] space-y-0.5 overflow-y-auto text-xs text-zinc-500">
+          <ul className="max-h-[min(200px,35vh)] space-y-0.5 overflow-y-auto text-xs text-ui-muted">
             {site.hazardLog.map((line, i) => (
               <li key={i}>{line}</li>
             ))}
           </ul>
         ) : (
-          <span className="text-xs text-zinc-500">—</span>
+          <span className="text-xs text-ui-muted">—</span>
         )}
       </Card>
     </div>

@@ -4,7 +4,7 @@ Bootstrap for the autonomous hauler system.
 Creates:
 - HaulerEngine global script
 - RefineryEngine global script
-- Ore Receiving Bay storage at the refinery room (buffer-mode hauler drop-offs)
+- Ore Receiving Bay storage at the refinery room (autonomous hauler unload + plant intake)
 - Processing Plant treasury account in the economy engine
 
 The standalone hauler depot and direct-sale templates have been removed.

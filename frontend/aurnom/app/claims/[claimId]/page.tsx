@@ -93,7 +93,7 @@ export default function ClaimDetailPage() {
         }
       />
 
-      {loading && <p className="px-2 py-3 font-mono text-sm text-zinc-500">Loading…</p>}
+      {loading && <p className="px-2 py-3 font-mono text-sm text-ui-muted">Loading…</p>}
       {error && <p className="px-2 py-3 font-mono text-sm text-red-600">{error}</p>}
 
       {data?.ok && site ? (
@@ -106,17 +106,17 @@ export default function ClaimDetailPage() {
               <CsPanel title="Deposit">
               <dl className="mt-2 grid gap-1 text-sm">
                 <div className="flex justify-between gap-2">
-                  <dt className="text-zinc-500">Location</dt>
+                  <dt className="text-ui-muted">Location</dt>
                   <dd className="font-mono text-zinc-200">{site.roomKey}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-zinc-500">Volume</dt>
+                  <dt className="text-ui-muted">Volume</dt>
                   <dd>
                     <span className={`rounded px-1.5 py-0.5 font-mono text-[12px] ${volT.badge}`}>{site.volumeTier}</span>
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-zinc-500">Rarity</dt>
+                  <dt className="text-ui-muted">Rarity</dt>
                   <dd>
                     <span className={`rounded px-1.5 py-0.5 font-mono text-[12px] ${rarT.badge}`}>
                       {site.resourceRarityTier}
@@ -124,11 +124,11 @@ export default function ClaimDetailPage() {
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-zinc-500">Hazard</dt>
+                  <dt className="text-ui-muted">Hazard</dt>
                   <dd className="font-mono">{site.hazardLabel}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-zinc-500">Allowed purposes</dt>
+                  <dt className="text-ui-muted">Allowed purposes</dt>
                   <dd className="text-right font-mono text-[12px]">
                     {(data.claim?.allowedPurposes ?? ["mining"]).join(", ")}
                   </dd>
@@ -149,7 +149,7 @@ export default function ClaimDetailPage() {
             <>
               {data.isOwner && !data.isListed ? (
                 <CsPanel title="Sell Deed">
-                  <p className="mt-1 text-[12px] text-zinc-500">
+                  <p className="mt-1 text-[12px] text-ui-muted">
                     List this claim on the claims market at your price (escrow until sold).
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -170,7 +170,7 @@ export default function ClaimDetailPage() {
                       {listBusy ? "Listing…" : "List for sale"}
                     </button>
                   </div>
-                  {listMsg ? <p className="mt-2 font-mono text-[12px] text-zinc-500">{listMsg}</p> : null}
+                  {listMsg ? <p className="mt-2 font-mono text-[12px] text-ui-muted">{listMsg}</p> : null}
                 </CsPanel>
               ) : null}
               <CsPanel title="Status">
@@ -183,9 +183,9 @@ export default function ClaimDetailPage() {
                     .
                   </p>
                 ) : (
-                  <p className="font-mono text-[12px] text-zinc-500">Not currently listed on claims market.</p>
+                  <p className="font-mono text-[12px] text-ui-muted">Not currently listed on claims market.</p>
                 )}
-                <p className="mt-2 text-[12px] text-zinc-500">
+                <p className="mt-2 text-[12px] text-ui-muted">
                   <Link href="/" className="underline">
                     Home dashboard
                   </Link>{" "}

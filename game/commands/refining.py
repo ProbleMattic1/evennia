@@ -130,6 +130,19 @@ def _find_mining_storage_in_room(caller):
     return None
 
 
+def _find_mining_storage_in_room_excluding(caller, exclude=None):
+    loc = _effective_location(caller)
+    if not loc:
+        return None
+    for obj in loc.contents:
+        if not obj.tags.has("mining_storage", category="mining"):
+            continue
+        if exclude is not None and obj is exclude:
+            continue
+        return obj
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -315,9 +328,10 @@ class CmdFeedRefinery(Command):
       ... at <target>
 
     Transfers ore from a mining storage unit in the same room (or from the
-    vehicle you are aboard, if docked here) into the refinery. From your
-    assigned plant storage, ore goes into your attributed plant queue; from
-    other sources, into the refinery's shared input bin.
+    vehicle you are aboard, if docked here) into the refinery. At the plant,
+    your assigned silo is used first (attributed queue); otherwise ore in the
+    Ore Receiving Bay (haul deliveries) feeds the shared input bin; then other
+    room storage or vehicle cargo.
 
     Examples:
       feedrefinery iron 100
@@ -330,42 +344,85 @@ class CmdFeedRefinery(Command):
     help_category = "Refining"
 
     def func(self):
+        from typeclasses.haulers import get_plant_ore_receiving_bay, get_plant_player_storage
+
         caller = self.caller
         main, target = _split_args_at_target(self.args)
+        loc = _effective_location(caller)
+        if not loc:
+            caller.msg("You have no location.")
+            return
+
         ref = _find_refinery_in_room(caller, target_fragment=target)
         if not ref:
             caller.msg("There is no refinery here.")
             return
 
-        # Source: mining storage in room takes priority over vehicle cargo
-        storage = _find_mining_storage_in_room(caller)
+        is_plant_refinery = ref.is_typeclass("typeclasses.refining.Refinery", exact=False)
+        plant_silo = get_plant_player_storage(loc, caller) if is_plant_refinery else None
+        bay = get_plant_ore_receiving_bay(loc) if is_plant_refinery else None
+
+        args = main.strip().lower()
+
+        # Plant Refinery: attributed miner_ore_queue from assigned plant silo first
+        if is_plant_refinery and plant_silo:
+            pinv = plant_silo.db.inventory or {}
+            if args == "all" and pinv:
+                moved = ref.transfer_owner_plant_silo_to_miner_queue(caller)
+                if moved:
+                    lines = [f"|wQueued at {ref.key} from {plant_silo.key}:|n"]
+                    for key, tons in sorted(moved.items()):
+                        name = plant_raw_resource_display_name(key)
+                        lines.append(f"  {name}: {tons}t")
+                    caller.msg("\n".join(lines))
+                    return
+                caller.msg("Nothing valid to queue in your assigned plant storage.")
+                return
+
+            if args != "all" and pinv:
+                parts_early = args.split(None, 1)
+                if len(parts_early) >= 2:
+                    resource_query_early, tons_str_early = parts_early
+                    try:
+                        tons_req_early = float(tons_str_early)
+                    except ValueError:
+                        caller.msg("Tons must be a number.")
+                        return
+                    matched_plant = None
+                    for key in pinv:
+                        name = plant_raw_resource_display_name(key)
+                        if resource_query_early in name.lower() or resource_query_early in key.lower():
+                            matched_plant = key
+                            break
+                    if matched_plant is not None:
+                        actual_moved = plant_silo.withdraw(matched_plant, tons_req_early)
+                        if actual_moved <= 0:
+                            caller.msg("Nothing moved.")
+                            return
+                        queued = ref.enqueue_miner_ore(caller.id, matched_plant, actual_moved)
+                        name = plant_raw_resource_display_name(matched_plant)
+                        caller.msg(
+                            f"Queued |w{queued}t|n of {name} at |w{ref.key}|n "
+                            f"(from assigned plant storage)."
+                        )
+                        return
+
+        silo_exclude = plant_silo if is_plant_refinery else None
+        storage = None
+        if is_plant_refinery and bay and (bay.db.inventory or {}):
+            storage = bay
+        if storage is None:
+            storage = _find_mining_storage_in_room_excluding(caller, exclude=silo_exclude)
+
         vehicle_source = None
         if not storage:
-            loc = caller.location
-            if loc and getattr(loc.db, "is_vehicle", False):
-                vehicle_source = loc
+            cloc = caller.location
+            if cloc and getattr(cloc.db, "is_vehicle", False):
+                vehicle_source = cloc
 
         if not storage and not vehicle_source:
             caller.msg("No mining storage or vehicle cargo found as a source.")
             return
-
-        from typeclasses.haulers import PLANT_PLAYER_STORAGE_CATEGORY, PLANT_PLAYER_STORAGE_TAG
-
-        if storage and ref.is_typeclass("typeclasses.refining.Refinery", exact=False):
-            if storage.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
-                if getattr(storage.db, "owner", None) == caller:
-                    caller.msg(
-                        "Ore and flora in your assigned plant storage stay here until you act. "
-                        "Contracted NPC operators' silos are pulled into the plant queue on the "
-                        "RefineryEngine schedule. Use |wfeedrefinery|n to move material into the "
-                        "shared refinery input, then |wrefine|n; use |wcollectrefined|n for attributed "
-                        "output. For a personal processor, use |wfeedprocessor|n where it is deployed."
-                    )
-                    return
-
-        from typeclasses.mining import RESOURCE_CATALOG
-
-        args = main.strip().lower()
 
         if args == "all":
             if storage:
@@ -567,9 +624,9 @@ class CmdCollectRefined(Command):
     Usage:
       collectrefined
 
-    Your hauler delivers ore into your assigned storage at the plant; the plant
-    moves it into your refining queue and produces attributed output. Use this
-    command at the Processing Plant to cash out. Payout is funded from the planetary
+    Use |wfeedrefinery|n to queue ore from your plant silo or the Ore Receiving Bay
+    into refining; attributed output accumulates here. Use this command at the
+    Processing Plant to cash out. Payout is funded from the planetary
     treasury (transfers only): a 10%% processing fee is retained by the treasury; the
     net is transferred to you. If the treasury cannot cover the payout, collection is
     refused or your output is restored.
@@ -590,8 +647,8 @@ class CmdCollectRefined(Command):
         if gross_pre <= 0:
             caller.msg(
                 "You have no refined output waiting at this plant.\n"
-                "Ore must reach your assigned storage here (hauler delivery); the plant "
-                "refinery cycle then fills your queue."
+                "Haulers deliver to the Ore Receiving Bay (you are paid on delivery). "
+                "Use |wfeedrefinery|n to move ore from the bay or your silo into refining."
             )
             return
 

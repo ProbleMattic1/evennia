@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from world.time import FLORA_DELIVERY_PERIOD, MINING_DELIVERY_PERIOD
+
 RESOURCE_KIND_MINING = "mining_site"
 RESOURCE_KIND_FLORA = "flora_site"
 
@@ -106,6 +108,9 @@ def site_to_dashboard_row(site) -> tuple[dict[str, Any], int, int] | None:
     tax = site.db.tax_rate
     haz = site.db.hazard_level
 
+    delivery_period = int(FLORA_DELIVERY_PERIOD if is_flora else MINING_DELIVERY_PERIOD)
+    accrual_cr = int(round(cycle_value_cr))
+
     row = {
         "id": site.id,
         "key": site.key,
@@ -137,6 +142,8 @@ def site_to_dashboard_row(site) -> tuple[dict[str, Any], int, int] | None:
         "licenseLevel": int(lic if lic is not None else 0),
         "taxRate": float(tax if tax is not None else 0.0),
         "hazardLevel": float(haz if haz is not None else 0.0),
+        "deliveryPeriodSeconds": delivery_period,
+        "accrualValuePerCycle": accrual_cr,
     }
     return row, int(round(cycle_value_cr)), int(round(stored_value_cr))
 

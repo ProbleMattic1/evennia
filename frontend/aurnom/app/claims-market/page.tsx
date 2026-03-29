@@ -12,7 +12,7 @@ export default function ClaimsMarketLegacyPage() {
   }, [router]);
   return (
     <CsPage>
-      <p className="p-2 text-sm text-zinc-500 dark:text-cyan-500/80">Redirecting to Real Estate…</p>
+      <p className="p-2 text-sm text-ui-accent-readable">Redirecting to Real Estate…</p>
     </CsPage>
   );
 }

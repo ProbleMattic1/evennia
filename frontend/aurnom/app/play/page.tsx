@@ -30,7 +30,7 @@ function PlayPageInner() {
   if (loading) {
     return (
       <CsPage>
-        <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading play state…</p>
+        <p className="text-sm text-ui-accent-readable">Loading play state…</p>
       </CsPage>
     );
   }
@@ -98,7 +98,7 @@ export default function PlayPage() {
     <Suspense
       fallback={
         <CsPage>
-          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading play state…</p>
+          <p className="text-sm text-ui-accent-readable">Loading play state…</p>
         </CsPage>
       }
     >

@@ -1,5 +1,9 @@
 ALWAYS CHECK THE CODE FIRST!! NEVER GUESS OR ASSUME ANSWERS!!
 
+I want product rules, not a defense of today’s code.
+
+NO HEDGING, EVER!!!! It only leads to failure. No hedging whatsoever, never ever.
+
 I am more concerned with setting up the backend properly for growth, then adapt the frontend.
 
 When extending features (especially missions), use Only Evennia’s documented patterns and APIs, and follow this repo’s existing mission contract—mission_templates.json schema, MissionHandler / loader behavior, and established trigger and objective kinds—without inventing parallel systems or undocumented fields. Mission work must stay within Evennia’s guidance and this project’s mission conventions (templates, loader, and MissionHandler); do not add ad-hoc mission machinery outside that path.

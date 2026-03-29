@@ -14,9 +14,9 @@ FLORA_DELIVERY_PERIOD.
 arm_hauler_pickup_after_mining_deposit / arm_hauler_pickup_after_flora_deposit arm haulers
 tagged autonomous_hauler in category mining / flora respectively.
 
-At the processing plant, haulers unload into per-owner assigned silos. RefineryEngine moves
-silo contents into miner_ore_queue only for owners registered in npc_miner_registry (contracted
-NPC operators); other owners' material stays until they use plant commands.
+At the processing plant, haulers unload into the shared Ore Receiving Bay; the treasury
+pays the hauler owner (plant raw purchase). Assigned plant silos are fed only via
+feedprocessor / feedrefinery silo paths, not by autonomous hauler unload.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -51,8 +51,9 @@ HAULER_MAX_PIPELINE_STEPS = 12
 
 HAULER_PICKUP_OFFSET_SEC = MINING_DELIVERY_PERIOD // 2
 
-# Player-assigned ore silo at haul destination (plant or parcel). Ingested into
-# per-owner refinery queues by RefineryEngine; not mixed into pooled plant input.
+# Player-assigned ore silo at haul destination (plant or parcel). Queued into
+# miner_ore_queue via feedrefinery / transfer_owner_plant_silo_to_miner_queue;
+# not mixed into pooled plant input until then.
 PLANT_PLAYER_STORAGE_TAG = "plant_player_ore_storage"
 PLANT_PLAYER_STORAGE_CATEGORY = "mining"
 
@@ -240,6 +241,24 @@ def get_mining_storage_in_room(room):
     return None
 
 
+def get_plant_ore_receiving_bay(room):
+    """
+    Shared plant raw intake (Ore Receiving Bay). Excludes per-owner plant silos.
+    Matches the object the web UI uses for rawStorageUsed when key contains receiving/bay.
+    """
+    if not room:
+        return None
+    for obj in room.contents:
+        if not obj.tags.has("mining_storage", category="mining"):
+            continue
+        if obj.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
+            continue
+        kl = (obj.key or "").lower()
+        if "receiving" in kl or "bay" in kl:
+            return obj
+    return None
+
+
 def get_plant_player_storage(room, owner):
     """
     Player-assigned ore storage in the destination room (one object per owner per room).
@@ -280,7 +299,8 @@ def get_or_create_plant_player_storage(room, owner):
 
 def get_player_destination_storage(room, owner):
     """
-    Haulers always unload here: the player's assigned storage in this room.
+    Player-assigned plant silo in this room (e.g. feedprocessor / feedrefinery silo path).
+    Autonomous haulers unload to Ore Receiving Bay, not this storage.
     Prefers tagged plant silo; else any mining_storage with same owner; else creates silo.
     """
     if not room or not owner:
@@ -415,7 +435,7 @@ def hauler_process_one(hauler):
         hauler.db.hauler_state = "unloading"
         return True, f"Arrived at {refinery_room.key}. Unloading."
 
-    # ---- At destination: always player-assigned storage (then distribution) ----
+    # ---- At destination: Ore Receiving Bay + treasury purchase from hauler owner ----
     if state == "unloading":
         if loc != refinery_room:
             hauler.move_to(refinery_room, quiet=True, move_hooks=False)
@@ -426,22 +446,60 @@ def hauler_process_one(hauler):
             set_hauler_next_cycle(hauler)
             return True, "Cargo empty — returning to mine."
 
-        storage = get_player_destination_storage(loc, owner)
-        if not storage:
+        bay = get_plant_ore_receiving_bay(refinery_room)
+        if not bay:
             hauler.db.hauler_state = "transit_mine"
             set_hauler_next_cycle(hauler)
-            return True, "No player-assigned storage at destination — returning to mine."
+            return True, "No Ore Receiving Bay at destination — returning to mine."
 
+        cap = float(getattr(bay.db, "capacity_tons", 0) or 0)
+        delivered = {}
         for key, tons in list(cargo.items()):
-            removed = hauler.unload_cargo(key, tons)
-            if removed > 0:
-                inv = storage.db.inventory or {}
-                inv[key] = round(float(inv.get(key, 0)) + removed, 2)
-                storage.db.inventory = inv
+            t = float(tons)
+            if t <= 0:
+                continue
+            used = bay.total_mass()
+            space = max(0.0, cap - used)
+            add = round(min(t, space), 2)
+            if add <= 0:
+                continue
+            removed = hauler.unload_cargo(key, add)
+            if removed <= 0:
+                continue
+            inv = bay.db.inventory or {}
+            inv[key] = round(float(inv.get(key, 0)) + removed, 2)
+            bay.db.inventory = inv
+            delivered[key] = round(float(delivered.get(key, 0)) + removed, 2)
+
+        if not delivered:
+            hauler.db.hauler_state = "transit_mine"
+            set_hauler_next_cycle(hauler)
+            return True, "Ore Receiving Bay full — could not unload. Returning to mine."
+
+        from typeclasses.refining import settle_plant_raw_purchase_from_treasury
+
+        try:
+            total_net = settle_plant_raw_purchase_from_treasury(
+                owner,
+                refinery_room,
+                delivered,
+                is_flora_hauler=is_flora_hauler,
+                memo=f"Plant raw intake ({hauler.key})",
+            )
+        except ValueError:
+            for rk, t in list(delivered.items()):
+                bay.withdraw(rk, t)
+                hauler.load_cargo(rk, t)
+            hauler.db.hauler_state = "transit_mine"
+            set_hauler_next_cycle(hauler)
+            return True, "Plant treasury could not cover purchase; cargo retained."
 
         hauler.db.hauler_state = "transit_mine"
         set_hauler_next_cycle(hauler)
-        return True, f"Unloaded at {storage.key}. Returning to mine."
+        return True, (
+            f"Unloaded at {bay.key} ({sum(delivered.values()):.1f} t); "
+            f"paid {owner.key} {total_net:,} cr net. Returning to mine."
+        )
 
     # ---- Transit back to mine ----
     if state == "transit_mine":

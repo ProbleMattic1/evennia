@@ -51,7 +51,7 @@ export function PropertyDeedListForm({ defaultClaimId }: PropertyDeedListFormPro
 
   return (
     <>
-      <p className="mt-1 text-[12px] text-zinc-500 dark:text-cyan-500/70">
+      <p className="mt-1 text-[12px] text-ui-accent-readable">
         List this deed on the property market at your price (hub escrow until sold). Buyers browse listed
         deeds on the{" "}
         <Link href="/real-estate#property-deed-resale-market" className="text-sky-700 underline dark:text-sky-400">
@@ -61,12 +61,12 @@ export function PropertyDeedListForm({ defaultClaimId }: PropertyDeedListFormPro
         <span className="font-mono">buypropertydeed</span>.
       </p>
       {listMsg ? (
-        <p className="mt-2 font-mono text-[12px] text-zinc-500 dark:text-zinc-400">{listMsg}</p>
+        <p className="mt-2 font-mono text-[12px] text-ui-muted">{listMsg}</p>
       ) : null}
       <div className="mt-3 border-t border-cyan-900/40 pt-2">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">List your deed</p>
+        <p className="text-[11px] font-medium uppercase tracking-wide text-ui-muted">List your deed</p>
         <div className="mt-2 flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-0.5 text-[11px] text-zinc-500">
+          <label className="flex flex-col gap-0.5 text-[11px] text-ui-muted">
             Claim id
             <input
               type="text"
@@ -77,7 +77,7 @@ export function PropertyDeedListForm({ defaultClaimId }: PropertyDeedListFormPro
               placeholder="#id"
             />
           </label>
-          <label className="flex flex-col gap-0.5 text-[11px] text-zinc-500">
+          <label className="flex flex-col gap-0.5 text-[11px] text-ui-muted">
             Price (cr)
             <input
               type="text"

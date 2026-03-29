@@ -125,7 +125,7 @@ export function UniversalLocatorMap() {
 
   if (loading && !data) {
     return (
-      <div className="rounded border border-cyan-900/50 bg-zinc-950 p-4 font-mono text-[11px] text-cyan-500">
+      <div className="rounded border border-cyan-900/50 bg-zinc-950 p-4 font-mono text-[11px] text-cyan-300">
         Loading station graph…
       </div>
     );
@@ -159,14 +159,14 @@ export function UniversalLocatorMap() {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-zinc-400">
+      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-ui-muted">
         <span>
           Snapshot:{" "}
           <time dateTime={data.generatedAt} className="text-zinc-300">
             {new Date(data.generatedAt).toLocaleString()}
           </time>
         </span>
-        {refreshing ? <span className="text-cyan-500">Refreshing…</span> : null}
+        {refreshing ? <span className="text-cyan-300">Refreshing…</span> : null}
         <div
           className="ml-auto flex flex-wrap items-center gap-1"
           role="tablist"
@@ -183,7 +183,7 @@ export function UniversalLocatorMap() {
                 "rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide",
                 mode === t.id
                   ? "border-cyan-500 bg-cyan-950/60 text-cyan-300"
-                  : "border-cyan-900/50 text-zinc-500 hover:border-cyan-800 hover:text-zinc-400",
+                  : "border-cyan-900/50 text-ui-muted hover:border-cyan-800 hover:text-ui-soft",
               ].join(" ")}
               onClick={() => setMode(t.id)}
             >
@@ -192,7 +192,7 @@ export function UniversalLocatorMap() {
           ))}
         </div>
         {mode === "graph" ? (
-          <label className="flex cursor-pointer items-center gap-1 text-zinc-400">
+          <label className="flex cursor-pointer items-center gap-1 text-ui-muted">
             <input
               type="checkbox"
               checked={schematic}
@@ -216,7 +216,7 @@ export function UniversalLocatorMap() {
         placeholder="Filter rooms…"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        className="w-full max-w-sm rounded border border-cyan-900/50 bg-zinc-950 px-2 py-1 font-mono text-[11px] text-zinc-200 placeholder:text-zinc-600"
+        className="w-full max-w-sm rounded border border-cyan-900/50 bg-zinc-950 px-2 py-1 font-mono text-[11px] text-zinc-200 placeholder:text-ui-soft"
         aria-label="Filter rooms"
       />
 
@@ -269,7 +269,7 @@ export function LocatorPageChrome({ children }: { children: React.ReactNode }) {
           <h1 className="text-sm font-bold uppercase tracking-widest text-cyan-400">
             Universal Locator
           </h1>
-          <span className="text-zinc-500">Interactive station map</span>
+          <span className="text-ui-muted">Interactive station map</span>
           <Link
             href="/"
             className="ml-auto rounded border border-cyan-800/60 px-2 py-1 text-cyan-400 hover:bg-cyan-950/50"

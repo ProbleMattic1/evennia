@@ -12,19 +12,19 @@ const CAT: Record<string, { label: string; text: string; badge: string; heading:
     label:   "Metal",
     text:    "text-emerald-600 dark:text-emerald-400",
     badge:   "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-700/50",
-    heading: "text-emerald-600/80 dark:text-emerald-500/60",
+    heading: "text-emerald-700 dark:text-emerald-400",
   },
   exotic_metal: {
     label:   "Exotic",
     text:    "text-amber-600 dark:text-amber-400",
     badge:   "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-700/50",
-    heading: "text-amber-600/80 dark:text-amber-500/60",
+    heading: "text-amber-700 dark:text-amber-400",
   },
   gem_bearing: {
     label:   "Gem",
     text:    "text-cyan-600 dark:text-cyan-400",
     badge:   "bg-cyan-100 text-cyan-800 ring-1 ring-cyan-300 dark:bg-cyan-950 dark:text-cyan-400 dark:ring-cyan-700/50",
-    heading: "text-cyan-600/80 dark:text-cyan-500/60",
+    heading: "text-cyan-700 dark:text-cyan-300",
   },
 };
 
@@ -35,11 +35,11 @@ function cat(c: MarketCommodity) {
 // ─── Price delta helper ───────────────────────────────────────────────────────
 
 function priceDelta(sell: number, base: number) {
-  if (!base) return { icon: "—", pct: 0, cls: "text-zinc-500 dark:text-zinc-500" };
+  if (!base) return { icon: "—", pct: 0, cls: "text-ui-muted" };
   const pct = Math.round(((sell - base) / base) * 100);
   if (pct > 0) return { icon: "▲", pct, cls: "text-emerald-600 dark:text-emerald-400" };
   if (pct < 0) return { icon: "▼", pct: Math.abs(pct), cls: "text-red-600 dark:text-red-400" };
-  return { icon: "—", pct: 0, cls: "text-zinc-500 dark:text-zinc-500" };
+  return { icon: "—", pct: 0, cls: "text-ui-muted" };
 }
 
 // ─── Shared hook ─────────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ export function CommodityTickerStrip() {
   if (loading && !data) {
     return (
       <div className="overflow-hidden rounded border border-cyan-900/40 bg-zinc-950/80 px-3 py-2">
-        <p className="animate-pulse font-mono text-[13px] text-zinc-500">
+        <p className="animate-pulse font-mono text-[13px] text-ui-muted">
           SYNCING MARKET FEED…
         </p>
       </div>
@@ -81,7 +81,7 @@ export function CommodityTickerStrip() {
       <div className="flex min-w-0 items-center justify-between border-b border-cyan-900/50 bg-cyan-950/40 px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500 dark:bg-cyan-400" />
-          <span className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-cyan-400/90">
+          <span className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-cyan-300">
             Aurnom Commodity Exchange · Live Pricing
           </span>
         </div>
@@ -101,7 +101,7 @@ export function CommodityTickerStrip() {
                 className="inline-flex items-center gap-1.5 font-mono text-[13px]"
               >
                 <span className={cat(c).text}>{c.name.toUpperCase()}</span>
-                <span className="text-zinc-500 dark:text-zinc-300">
+                <span className="text-ui-muted dark:text-zinc-300">
                   {c.sellPriceCrPerTon.toLocaleString()} cr/t
                 </span>
                 <span className={d.cls}>
@@ -139,13 +139,13 @@ function CommodityRow({ c }: { c: MarketCommodity }) {
           {s.label}
         </span>
       </td>
-      <td className="py-1.5 pr-3 text-right font-mono text-sm text-zinc-500">
+      <td className="py-1.5 pr-3 text-right font-mono text-sm text-ui-muted">
         {c.basePriceCrPerTon.toLocaleString()}
       </td>
       <td className="py-1.5 pr-3 text-right font-mono text-sm font-semibold text-zinc-100">
         {c.sellPriceCrPerTon.toLocaleString()}
       </td>
-      <td className="py-1.5 pr-3 text-right font-mono text-sm text-zinc-500">
+      <td className="py-1.5 pr-3 text-right font-mono text-sm text-ui-muted">
         {c.buyPriceCrPerTon.toLocaleString()}
       </td>
       <td className={`py-1.5 pl-3 text-right font-mono text-sm font-bold tabular-nums ${d.cls}`}>
@@ -185,12 +185,12 @@ export function CommodityTickerTable() {
     <section className="overflow-hidden rounded border border-cyan-900/40 bg-zinc-950/80">
       {/* Header */}
       <div className="flex min-w-0 flex-col gap-2 border-b border-cyan-900/50 bg-cyan-950/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-cyan-400/90">
+        <h2 className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-cyan-300">
           Market Rates — All Commodities
         </h2>
         <div className="flex shrink-0 items-center gap-2">
           {lastUpdated && (
-            <span className="font-mono text-[12px] text-zinc-500">
+            <span className="font-mono text-[12px] text-ui-muted">
               SYNC {lastUpdated.toLocaleTimeString()}
             </span>
           )}
@@ -198,7 +198,7 @@ export function CommodityTickerTable() {
             type="button"
             onClick={reload}
             disabled={loading}
-            className="rounded border border-cyan-700/50 px-1.5 py-0.5 font-mono text-[12px] text-cyan-400/90 transition hover:border-cyan-500 hover:text-cyan-300 disabled:opacity-30"
+            className="rounded border border-cyan-700/50 px-1.5 py-0.5 font-mono text-[12px] text-cyan-300 transition hover:border-cyan-500 hover:text-cyan-300 disabled:opacity-30"
           >
             {loading ? "…" : "↻"}
           </button>
@@ -213,7 +213,7 @@ export function CommodityTickerTable() {
           </p>
         )}
         {loading && !data && (
-          <p className="animate-pulse py-3 text-center font-mono text-sm text-zinc-500 dark:text-zinc-500">
+          <p className="animate-pulse py-3 text-center font-mono text-sm text-ui-muted">
             SYNCING MARKET FEED…
           </p>
         )}
@@ -233,7 +233,7 @@ export function CommodityTickerTable() {
                 ).map(([h, align, extra]) => (
                   <th
                     key={h}
-                    className={`pb-1.5 font-mono text-[12px] uppercase tracking-wider text-zinc-500 ${align} ${extra}`}
+                    className={`pb-1.5 font-mono text-[12px] uppercase tracking-wider text-ui-muted ${align} ${extra}`}
                   >
                     {h}
                   </th>

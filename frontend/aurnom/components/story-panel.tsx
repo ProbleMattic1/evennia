@@ -16,7 +16,7 @@ export function StoryPanel({ title, lines, compact }: Props) {
   return (
     <div>
       {title ? (
-        <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-500">{title}</div>
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-300">{title}</div>
       ) : null}
       <div className={boxClass}>
         {lines.map((line) => (

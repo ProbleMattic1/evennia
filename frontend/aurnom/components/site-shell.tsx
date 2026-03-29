@@ -35,7 +35,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
   return (
     <SiteNavProvider>
-      <div className="mx-auto flex min-h-svh w-[85%] min-w-0 flex-1 flex-col lg:flex-row">
+      <div className="dark mx-auto flex min-h-svh w-[85%] min-w-0 flex-1 flex-col lg:flex-row">
         <SiteNavAside />
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -84,7 +84,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 <div className="flex items-center justify-end border-b border-cyan-900/50 p-2 dark:border-cyan-900/50">
                   <button
                     type="button"
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-zinc-500 dark:text-cyan-400"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ui-muted dark:text-cyan-400"
                     onClick={close}
                   >
                     <span className="sr-only">Close</span>

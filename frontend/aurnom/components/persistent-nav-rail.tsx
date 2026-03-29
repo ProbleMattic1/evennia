@@ -54,7 +54,7 @@ function Panel({
 
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
+      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
         <span>{title}</span>
         <button
           type="button"
@@ -73,7 +73,7 @@ function Panel({
 function Kv({ k, v }: { k: string; v: ReactNode }) {
   return (
     <div className="flex min-w-0 gap-1">
-      <span className="shrink-0 text-zinc-500">{k}</span>
+      <span className="shrink-0 text-ui-muted">{k}</span>
       <span className="min-w-0 truncate font-mono text-zinc-200">{v}</span>
     </div>
   );
@@ -115,10 +115,10 @@ function UtcClock() {
   });
   return (
     <div
-      className="font-mono tabular-nums tracking-wide text-cyan-600/90"
+      className="font-mono tabular-nums tracking-wide text-cyan-300"
       title="Coordinated Universal Time"
     >
-      <div className="text-[10px] leading-tight text-cyan-600/75">{dateStr}</div>
+      <div className="text-[10px] leading-tight text-cyan-300">{dateStr}</div>
       <div className="text-[11px] leading-tight">
         {line} UTC
       </div>
@@ -170,12 +170,12 @@ function PlayerPanel({
       {hp && <Kv k="hp" v={`${hp.current} / ${hp.max ?? "?"} · AC ${char.armorClass}`} />}
       <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
         {abilityRows.map(([key, ability]) => (
-          <span key={key} className="text-zinc-500">
+          <span key={key} className="text-ui-muted">
             {key.toUpperCase()} <span className="text-zinc-200">{ability.score}</span>
           </span>
         ))}
       </div>
-      <div className="mt-0.5 flex gap-3 text-[10px] text-zinc-500">
+      <div className="mt-0.5 flex gap-3 text-[10px] text-ui-muted">
         <span>
           G <span className="text-zinc-300">{morality.good}</span>
         </span>
@@ -218,7 +218,7 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
       {nav.exits.length > 0 && (
         <Panel panelKey="hub-exits" title="Destinations">
           {nav.exits.map((e) => (
-            <div key={e.key} className="text-zinc-400">
+            <div key={e.key} className="text-ui-muted">
               {e.label}
             </div>
           ))}
@@ -291,8 +291,8 @@ export function PersistentNavRail() {
     if (data?.authenticated) {
       const rows = data.playableCharacters ?? [];
       return (
-        <div className="space-y-1 text-zinc-400">
-          {data.message ? <p className="text-amber-200/90">{data.message}</p> : null}
+        <div className="space-y-1 text-ui-muted">
+          {data.message ? <p className="text-amber-200">{data.message}</p> : null}
           {pickErr ? <p className="text-red-400">{pickErr}</p> : null}
           {rows.length > 0 ? (
             <div className="space-y-0.5">
@@ -310,12 +310,12 @@ export function PersistentNavRail() {
               ))}
             </div>
           ) : (
-            <p className="text-zinc-500">No playable character on this account.</p>
+            <p className="text-ui-muted">No playable character on this account.</p>
           )}
         </div>
       );
     }
-    return <div className="text-zinc-500">Not logged in.</div>;
+    return <div className="text-ui-muted">Not logged in.</div>;
   })();
 
   return (
@@ -327,10 +327,10 @@ export function PersistentNavRail() {
           </Link>
           <UtcClock />
         </div>
-        <Link href="/messages" className="text-[10px] font-bold uppercase tracking-widest text-cyan-500 hover:text-cyan-300">
+        <Link href="/messages" className="text-[10px] font-bold uppercase tracking-widest text-cyan-300 hover:text-cyan-300">
           Messages
         </Link>
-        {(loading || pickBusy || switchBusy) && <span className="ml-auto text-[9px] text-zinc-500">…</span>}
+        {(loading || pickBusy || switchBusy) && <span className="ml-auto text-[9px] text-ui-muted">…</span>}
       </div>
 
       {!data && error ? <div className="mb-1 text-red-400">{error}</div> : null}

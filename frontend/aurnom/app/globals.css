@@ -7,6 +7,10 @@
   --foreground: #171717;
   --accent-cyan: #06b6d4;
   --accent-magenta: #d946ef;
+  /* Secondary copy on light surfaces (WCAG AA vs white ~4.5:1+ at typical sizes). */
+  --ui-text-muted: #52525b;
+  --ui-text-soft: #3f3f46;
+  --ui-text-accent-readable: #0e7490;
 }
 
 .dark {
@@ -17,6 +21,10 @@
   --accent-glow: rgba(34, 211, 238, 0.15);
   --border-subtle: rgb(51 65 85);
   --border-accent: rgba(34, 211, 238, 0.35);
+  /* Spec tokens for copy on near-black panels (zinc-950 / #020617). */
+  --ui-text-muted: #a1a1aa;
+  --ui-text-soft: #d4d4d4;
+  --ui-text-accent-readable: #67e8f9;
 }
 
 @theme inline {
@@ -26,6 +34,18 @@
   --color-cyber-magenta: var(--accent-magenta);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+@layer utilities {
+  .text-ui-muted {
+    color: var(--ui-text-muted);
+  }
+  .text-ui-soft {
+    color: var(--ui-text-soft);
+  }
+  .text-ui-accent-readable {
+    color: var(--ui-text-accent-readable);
+  }
 }
 
 body {

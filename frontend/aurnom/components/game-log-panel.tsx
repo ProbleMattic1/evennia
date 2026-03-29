@@ -21,8 +21,8 @@ export function GameLogPanel({ messages, compact }: Props) {
   }, [messages]);
 
   const emptyClass = compact
-    ? "min-h-[72px] border border-cyan-900/40 bg-zinc-950/80 p-1.5 font-mono text-[10px] leading-snug text-zinc-500"
-    : "min-h-[120px] border border-cyan-900/40 bg-zinc-950/80 p-2 font-mono text-[11px] leading-5 text-zinc-500";
+    ? "min-h-[72px] border border-cyan-900/40 bg-zinc-950/80 p-1.5 font-mono text-[10px] leading-snug text-ui-muted"
+    : "min-h-[120px] border border-cyan-900/40 bg-zinc-950/80 p-2 font-mono text-[11px] leading-5 text-ui-muted";
 
   const listClass = compact
     ? "max-h-[min(200px,35vh)] min-h-[72px] overflow-y-auto border border-cyan-900/40 bg-zinc-950/80 p-1.5 font-mono text-[10px] leading-snug text-zinc-200"

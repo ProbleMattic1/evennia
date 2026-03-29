@@ -36,7 +36,7 @@ function Panel({
 
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
         <span className="min-w-0 truncate">{title}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1 normal-case tracking-normal">
           {headerActions}
@@ -58,8 +58,8 @@ function Panel({
 function Kv({ k, v, dim }: { k: string; v: ReactNode; dim?: boolean }) {
   return (
     <div className="flex min-w-0 gap-1">
-      <span className="shrink-0 text-zinc-500">{k}</span>
-      <span className={`min-w-0 truncate font-mono ${dim ? "text-zinc-500" : "text-zinc-200"}`}>{v}</span>
+      <span className="shrink-0 text-ui-muted">{k}</span>
+      <span className={`min-w-0 truncate font-mono ${dim ? "text-ui-muted" : "text-zinc-200"}`}>{v}</span>
     </div>
   );
 }
@@ -115,9 +115,9 @@ function Badge({ label, cls }: { label: string; cls?: string }) {
     return <span className={`${base} bg-green-900/60 text-green-300`}>{label}</span>;
   }
   if (cls === "common") {
-    return <span className={`${base} bg-zinc-700/60 text-zinc-400`}>{label}</span>;
+    return <span className={`${base} bg-zinc-700/60 text-ui-muted`}>{label}</span>;
   }
-  return <span className={`${base} bg-zinc-700/60 text-zinc-400`}>{label}</span>;
+  return <span className={`${base} bg-zinc-700/60 text-ui-muted`}>{label}</span>;
 }
 
 function cr(n: number | null | undefined) {
@@ -166,7 +166,7 @@ function AlertsPanel({
   const sevColor = (s: string) => {
     if (s === "critical") return "text-red-400";
     if (s === "warning") return "text-yellow-400";
-    return "text-zinc-400";
+    return "text-ui-muted";
   };
 
   return (
@@ -200,7 +200,7 @@ function MarketPanel({ commodities }: { commodities: MarketCommodity[] }) {
     <Panel panelKey="market" title="Market">
       <table className="w-full table-fixed text-[10px]">
         <thead>
-          <tr className="text-zinc-500">
+          <tr className="text-ui-muted">
             <th className="w-1/2 text-left font-normal">resource</th>
             <th className="w-1/4 text-right font-normal">sell</th>
             <th className="w-1/4 text-right font-normal">buy</th>
@@ -242,7 +242,7 @@ function InventoryPanel({ inventory }: { inventory: CsInventory }) {
         const title = labels[bucketId] ?? bucketId.replace(/_/g, " ");
         return (
           <div key={bucketId} className="mt-0.5 first:mt-0">
-            <div className="text-[10px] uppercase text-zinc-500">{title}</div>
+            <div className="text-[10px] uppercase text-ui-muted">{title}</div>
             {rows.map((item) => (
               <Row key={`${bucketId}-${item.stacked && item.ids?.length ? item.ids.join("-") : item.id}-${item.key}`}>
                 <span className="flex-1 truncate text-zinc-300">
@@ -250,7 +250,7 @@ function InventoryPanel({ inventory }: { inventory: CsInventory }) {
                   {item.key}
                 </span>
                 {bucketId === "mining_package" && item.estimatedValue != null ? (
-                  <span className="font-mono text-zinc-500">{cr(item.estimatedValue)}</span>
+                  <span className="font-mono text-ui-muted">{cr(item.estimatedValue)}</span>
                 ) : null}
               </Row>
             ))}
@@ -296,7 +296,7 @@ function MineDeploymentPanel({
         <Kv k="claims" v={claimRows.length} />
       </div>
       <>
-          <label className="mt-1 block text-[10px] uppercase tracking-wide text-zinc-500">Package</label>
+          <label className="mt-1 block text-[10px] uppercase tracking-wide text-ui-muted">Package</label>
           <select
             className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-200"
             value={packageId}
@@ -310,7 +310,7 @@ function MineDeploymentPanel({
             ))}
           </select>
 
-          <label className="mt-1 block text-[10px] uppercase tracking-wide text-zinc-500">Claim</label>
+          <label className="mt-1 block text-[10px] uppercase tracking-wide text-ui-muted">Claim</label>
           <select
             className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-200"
             value={claimId}
@@ -345,8 +345,8 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
             {s.count && s.count > 1 ? `${s.count}× ` : ""}
             {s.key}
           </span>
-          {s.state ? <span className="text-[10px] text-zinc-500">{s.state}</span> : null}
-          {s.location ? <span className="text-[10px] text-zinc-500">{s.location}</span> : null}
+          {s.state ? <span className="text-[10px] text-ui-muted">{s.state}</span> : null}
+          {s.location ? <span className="text-[10px] text-ui-muted">{s.location}</span> : null}
         </Row>
       ))}
     </Panel>
@@ -393,7 +393,7 @@ function MineDashboardRow({
   return (
     <div className="mb-1 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0">
       <div className="flex min-w-0 items-start gap-1">
-        <span className={`shrink-0 font-semibold ${m.active ? "text-green-400" : "text-zinc-500"}`}>
+        <span className={`shrink-0 font-semibold ${m.active ? "text-green-400" : "text-ui-muted"}`}>
           {m.active ? "●" : "○"}
         </span>
         <div className="min-w-0 flex-1">
@@ -429,8 +429,8 @@ function MineDashboardRow({
                 <Badge label={m.resourceRarityTier ?? ""} cls={m.resourceRarityTierCls} />
               </Row>
               {m.estimatedValuePerCycle != null ? (
-                <span className="shrink-0 font-mono text-[10px] text-zinc-400">
-                  {cr(m.estimatedValuePerCycle)}<span className="text-zinc-600"> yld</span>
+                <span className="shrink-0 font-mono text-[10px] text-ui-muted">
+                  {cr(m.estimatedValuePerCycle)}<span className="text-ui-soft"> yld</span>
                 </span>
               ) : null}
             </div>
@@ -454,7 +454,7 @@ function MineDashboardRow({
           {hasProduces ? (
             <div className="min-w-0 border-l border-zinc-800/60 pl-2">
               <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="shrink-0 font-mono text-zinc-500">produces</span>
+                <span className="shrink-0 font-mono text-ui-muted">produces</span>
                 <div className="flex min-w-0 flex-col gap-0.5">
                   {produceLines.map((line) => (
                     <span key={line.key} className="font-mono text-zinc-200">
@@ -488,7 +488,7 @@ function ResourcesCategoryGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest text-cyan-500">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest text-cyan-300">
         {!open ? (
           <span
             className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
@@ -561,7 +561,7 @@ function ResourcesPanel({
 
   return (
     <section className="mb-1">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-500">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
         {!open ? (
           <span
             className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
@@ -573,7 +573,7 @@ function ResourcesPanel({
         ) : null}
         <span className="min-w-0 flex-1 truncate">{title}</span>
         {nextAt ? (
-          <span className="shrink-0 font-mono text-[10px] font-normal normal-case tracking-normal text-cyan-400/90">
+          <span className="shrink-0 font-mono text-[10px] font-normal normal-case tracking-normal text-cyan-300">
             <Countdown targetIso={nextAt} prefix="next:" onExpired={onReload} />
           </span>
         ) : null}
@@ -629,7 +629,7 @@ function PropertiesKindGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest text-cyan-500">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest text-cyan-300">
         <span className="min-w-0 flex-1 truncate">{title}</span>
         <button
           type="button"
@@ -645,7 +645,7 @@ function PropertiesKindGroup({
           {items.map((p) => (
             <Row key={p.claimId}>
               <span className="flex-1 truncate text-zinc-300">{p.claimKey}</span>
-              <span className="text-[10px] text-zinc-500">
+              <span className="text-[10px] text-ui-muted">
                 {p.zone} T{p.tier}
               </span>
               {p.hasBuiltOnParcel ? (
@@ -667,7 +667,7 @@ function PropertiesKindGroup({
                 </span>
               ) : null}
               {p.referenceListPriceCr != null ? (
-                <span className="font-mono text-zinc-500">{cr(p.referenceListPriceCr)}</span>
+                <span className="font-mono text-ui-muted">{cr(p.referenceListPriceCr)}</span>
               ) : null}
               <TinyLink href={`/properties/${p.claimId}`}>→</TinyLink>
             </Row>
@@ -714,7 +714,7 @@ function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims
           {c.volumeTier ? <Badge label={c.volumeTier} cls={c.volumeTierCls} /> : null}
           {c.resourceRarityTier ? <Badge label={c.resourceRarityTier} cls={c.resourceRarityTierCls} /> : null}
           <span
-            className="inline-block rounded bg-zinc-700/60 px-1 text-[9px] font-bold uppercase tabular-nums text-zinc-400"
+            className="inline-block rounded bg-zinc-700/60 px-1 text-[9px] font-bold uppercase tabular-nums text-ui-muted"
             title="Est. value per production cycle (local bids)"
           >
             {c.estimatedValuePerCycle != null ? `${c.estimatedValuePerCycle.toLocaleString()} cr/c` : "—"}
@@ -755,7 +755,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
   const repairRigCb = useCallback((siteId: number) => run(() => mineRepairRig({ siteId })), [run]);
 
   return (
-    <div className="min-h-svh bg-zinc-950 font-mono text-[11px] text-zinc-300">
+    <div className="dark min-h-svh bg-zinc-950 font-mono text-[11px] text-zinc-300">
       {flash ? (
         <div className="sticky top-0 z-50 bg-red-900/80 px-2 py-1 text-red-200">
           {flash}{" "}
@@ -782,7 +782,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           {data.groupedAlerts ? (
             <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} onAckAll={ackAllAlerts} busy={busy} />
           ) : null}
-          {busy ? <div className="mb-1 text-[10px] text-zinc-500">Working...</div> : null}
+          {busy ? <div className="mb-1 text-[10px] text-ui-muted">Working...</div> : null}
           <InventoryPanel inventory={data.inventory} />
           <ShipsPanel ships={data.ships} />
           <PropertiesPanel properties={data.properties} />

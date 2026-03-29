@@ -261,8 +261,8 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         f"  Mining delivery: UTC 30m grid  Hauler pickup: scheduled {HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit; "
         f"autonomous dispatch every {HAULER_ENGINE_INTERVAL // 60}m (usually within one interval after that). "
         f"Idle waits on mine next_cycle + same pickup offset.\n"
-        f"  Ore will flow to your assigned storage at {refinery_room.key} automatically.\n"
-        f"  Use mines and haulerstatus to monitor progress; |wcollectrefined|n at the plant for attributed output."
+        f"  Ore will flow to the Ore Receiving Bay at {refinery_room.key} (paid on delivery).\n"
+        f"  Use |wfeedrefinery|n when you want refining; |wcollectrefined|n at the plant for attributed output."
     )
 
 
@@ -324,7 +324,7 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
         f"  Mining delivery: UTC 30m grid  Hauler pickup: scheduled {HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit; "
         f"autonomous dispatch every {HAULER_ENGINE_INTERVAL // 60}m (usually within one interval after that). "
         f"Idle waits on mine next_cycle + same pickup offset.\n"
-        f"  Ore will flow to your assigned storage at {refinery_room.key} automatically."
+        f"  Ore will flow to the Ore Receiving Bay at {refinery_room.key} (paid on delivery)."
     )
 
 

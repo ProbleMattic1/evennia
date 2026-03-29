@@ -153,13 +153,13 @@ function LocatorTreemapCell(props: CellProps) {
                     <span className="rounded bg-amber-900/60 px-1 text-[7px] uppercase text-amber-200">You</span>
                   ) : null}
                   {hasMiningSite ? (
-                    <span className="rounded bg-amber-950/80 px-1 text-[7px] text-amber-500/90">Mine</span>
+                    <span className="rounded bg-amber-950/80 px-1 text-[7px] text-amber-400">Mine</span>
                   ) : null}
                   {canStep && !here ? (
                     <span className="rounded bg-cyan-900/50 px-1 text-[7px] text-cyan-300">Adj</span>
                   ) : null}
                   <span
-                    className="rounded bg-zinc-900/90 px-1 text-[7px] tabular-nums text-zinc-400"
+                    className="rounded bg-zinc-900/90 px-1 text-[7px] tabular-nums text-ui-muted"
                     title="Player characters in this room (excludes NPCs)"
                   >
                     {playerCount}
@@ -182,9 +182,9 @@ function LocatorTreemapCell(props: CellProps) {
                       Travel
                     </button>
                   ) : here ? (
-                    <span className="text-[7px] text-zinc-500">Current location</span>
+                    <span className="text-[7px] text-ui-muted">Current location</span>
                   ) : (
-                    <span className="text-[7px] text-zinc-600">Not adjacent</span>
+                    <span className="text-[7px] text-ui-soft">Not adjacent</span>
                   )}
                 </div>
               ) : null}
@@ -251,14 +251,14 @@ export function LocatorGridView({
 
   return (
     <div className="max-h-[min(72vh,720px)] min-h-[320px] rounded border border-cyan-900/40 bg-zinc-950 p-2">
-      <p className="mb-2 text-[10px] text-zinc-500">
-        Station <span className="text-zinc-400">treemap</span>: rectangle area ≈ relative scale (hub &amp; concourses
+      <p className="mb-2 text-[10px] text-ui-muted">
+        Station <span className="text-ui-muted">treemap</span>: rectangle area ≈ relative scale (hub &amp; concourses
         vs industrial pads &amp; claims). Each <span className="text-cyan-400">venue</span> from the server gets its own
         block for promenade-adjacent rooms; industrial pads split by venue where needed (e.g. plex vs frontier). Color
         ≈ player density. <span className="text-cyan-400">Travel</span> when adjacent.
       </p>
       {empty ? (
-        <div className="flex min-h-[280px] items-center justify-center text-[11px] text-zinc-500">
+        <div className="flex min-h-[280px] items-center justify-center text-[11px] text-ui-muted">
           No locations match this filter.
         </div>
       ) : (

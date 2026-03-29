@@ -23,7 +23,7 @@ import {
 import { useUiResource } from "@/lib/use-ui-resource";
 
 const TIER_COLOR: Record<number, string> = {
-  1: "text-zinc-500 dark:text-cyan-500/80",
+  1: "text-ui-accent-readable",
   2: "text-sky-700 dark:text-sky-400",
   3: "text-amber-700 dark:text-amber-400",
 };
@@ -44,7 +44,7 @@ const RANDOM_ZONE_BTN: Record<PropertyZone, string> = {
 };
 
 function ZoneBadge({ zone, label }: { zone: string; label: string }) {
-  const cls = ZONE_BADGE[zone] ?? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400";
+  const cls = ZONE_BADGE[zone] ?? "bg-zinc-100 text-ui-muted dark:bg-zinc-800 dark:text-ui-muted";
   return (
     <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>
       {label}
@@ -72,7 +72,7 @@ function LotCard({
           <span className={`text-[11px] font-semibold ${TIER_COLOR[lot.tier] ?? TIER_COLOR[1]}`}>
             Tier {lot.tier} — {lot.tierLabel}
           </span>
-          <span className="text-[11px] text-zinc-400 dark:text-cyan-500/60">
+          <span className="text-[11px] text-ui-muted">
             {lot.sizeUnits} unit{lot.sizeUnits !== 1 ? "s" : ""}
           </span>
         </div>
@@ -164,7 +164,7 @@ function RealEstatePageInner() {
   if (loading) {
     return (
       <CsPage>
-        <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading real estate office…</p>
+        <p className="text-sm text-ui-accent-readable">Loading real estate office…</p>
       </CsPage>
     );
   }
@@ -233,7 +233,7 @@ function RealEstatePageInner() {
                 <PropertyDeedResaleBrowse onPurchased={() => void reload()} />
 
                 <div className="mt-3 space-y-2 border-t border-cyan-900/40 pt-3">
-                  <p className="text-[11px] leading-snug text-zinc-500">
+                  <p className="text-[11px] leading-snug text-ui-muted">
                     Buy a random listable parcel by zone (price follows tier and zone, same as choosing a
                     specific lot).
                   </p>
@@ -278,7 +278,7 @@ export default function RealEstatePage() {
     <Suspense
       fallback={
         <CsPage>
-          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading real estate office…</p>
+          <p className="text-sm text-ui-accent-readable">Loading real estate office…</p>
         </CsPage>
       }
     >

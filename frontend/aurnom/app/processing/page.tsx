@@ -14,7 +14,7 @@ import { useUiResource } from "@/lib/use-ui-resource";
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-2 border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30">
-      <span className="text-[12px] text-zinc-500 dark:text-cyan-500/80">{label}</span>
+      <span className="text-[12px] text-ui-muted">{label}</span>
       <span className="font-mono text-sm font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">{value}</span>
     </div>
   );
@@ -26,7 +26,7 @@ function StorageBar({ used, capacity }: { used: number; capacity: number }) {
     pct < 60 ? "bg-emerald-500" : pct < 85 ? "bg-amber-400" : "bg-red-500";
   return (
     <div className="mt-1">
-      <div className="flex justify-between text-[11px] text-zinc-500 mb-0.5 dark:text-cyan-500/80">
+      <div className="flex justify-between text-[11px] text-ui-muted mb-0.5">
         <span>{used.toLocaleString(undefined, { maximumFractionDigits: 1 })} t used</span>
         <span>{capacity.toLocaleString(undefined, { maximumFractionDigits: 0 })} t cap</span>
       </div>
@@ -47,8 +47,8 @@ function MinerSection({ data }: { data: ProcessingState }) {
   if (myOreQueued === null) {
     return (
       <section>
-        <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-500">Your Activity</div>
-        <p className="mt-1 text-[12px] text-zinc-400 dark:text-cyan-500/70">Sign in to see your ore queue and output.</p>
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-300">Your Activity</div>
+        <p className="mt-1 text-[12px] text-ui-accent-readable">Sign in to see your ore queue and output.</p>
       </section>
     );
   }
@@ -57,7 +57,7 @@ function MinerSection({ data }: { data: ProcessingState }) {
 
   return (
     <section>
-      <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-500">Your Activity</div>
+      <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-300">Your Activity</div>
       <div className="mt-1 space-y-0.5">
         <StatRow
           label="Ore queued for processing"
@@ -88,7 +88,7 @@ function MinerSection({ data }: { data: ProcessingState }) {
       </div>
 
       {hasOutput && (
-        <p className="mt-2 text-[12px] text-zinc-500 dark:text-cyan-500/80">
+        <p className="mt-2 text-[12px] text-ui-accent-readable">
           Collect your output with{" "}
           <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-cyan-950/50 dark:text-cyan-300">
             collectrefined
@@ -99,23 +99,23 @@ function MinerSection({ data }: { data: ProcessingState }) {
 
       {myHaulers && myHaulers.length > 0 && (
         <div className="mt-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-cyan-400/90">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ui-accent-readable">
             Hauler delivery
           </p>
           <div className="mt-1 space-y-0.5">
             {myHaulers.map((h) => (
               <div key={h.id} className="flex items-center justify-between gap-2">
-                <span className="truncate text-[12px] text-zinc-500 dark:text-zinc-300">{h.key}</span>
-                <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] font-medium text-zinc-600 ring-1 ring-zinc-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:ring-cyan-800/50">
-                  assigned storage
+                <span className="truncate text-[12px] text-ui-muted dark:text-zinc-300">{h.key}</span>
+                <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] font-medium text-ui-soft ring-1 ring-zinc-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:ring-cyan-800/50">
+                  {h.deliveryMode === "ore_receiving_bay" ? "Ore Receiving Bay" : h.deliveryMode}
                 </span>
               </div>
             ))}
           </div>
-          <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-cyan-500/70">
-            Haulers always unload into your assigned storage at the destination room. At the plant, ore is
-            queued for your refining; use collectrefined. For a personal processor, use feedprocessor in
-            that room.
+          <p className="mt-1.5 text-[11px] text-ui-accent-readable">
+            At the plant, haulers unload into the Ore Receiving Bay and you are paid on delivery. Use
+            feedrefinery to move ore from the bay into refining when you want processing; collectrefined
+            for refined payout. For a personal processor, use feedprocessor in that room.
           </p>
         </div>
       )}
@@ -147,7 +147,7 @@ function ProcurementBoardPanel() {
 
   return (
     <div className="mt-1 space-y-1">
-      <p className="text-[11px] text-zinc-500 dark:text-cyan-500/80">
+      <p className="text-[11px] text-ui-accent-readable">
         Requires your character to be at the plant in-game. Accept or complete contracts via{" "}
         <code className="font-mono text-[10px]">play/interact</code> with{" "}
         <code className="font-mono text-[10px]">contractboard</code> and payload{" "}
@@ -163,7 +163,7 @@ function ProcurementBoardPanel() {
         {busy ? "…" : "List open contracts (game log)"}
       </button>
       {error ? <p className="text-[11px] text-red-500">{error}</p> : null}
-      {notice ? <p className="text-[11px] text-zinc-500 dark:text-cyan-500/80">{notice}</p> : null}
+      {notice ? <p className="text-[11px] text-ui-accent-readable">{notice}</p> : null}
     </div>
   );
 }
@@ -177,7 +177,7 @@ function ProcessingPageInner() {
   if (loading) {
     return (
       <CsPage>
-        <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading processing plant…</p>
+        <p className="text-sm text-ui-accent-readable">Loading processing plant…</p>
       </CsPage>
     );
   }
@@ -280,7 +280,7 @@ export default function ProcessingPage() {
     <Suspense
       fallback={
         <CsPage>
-          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading processing plant…</p>
+          <p className="text-sm text-ui-accent-readable">Loading processing plant…</p>
         </CsPage>
       }
     >

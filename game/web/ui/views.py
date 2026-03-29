@@ -1884,6 +1884,7 @@ def real_estate_purchase_random(request):
 
 @require_GET
 def processing_state(request):
+    from typeclasses.haulers import get_plant_ore_receiving_bay
     from typeclasses.mining import COMMODITY_ASK_OVER_BID
     from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE, REFINING_RECIPES
     from world.venues import get_venue
@@ -1897,14 +1898,9 @@ def processing_state(request):
     if not room:
         raise Http404(f"Room '{plant_key}' was not found.")
 
-    # Locate Ore Receiving Bay and Refinery in the room
-    receiving_bay = None
+    receiving_bay = get_plant_ore_receiving_bay(room)
     refinery_obj = None
     for obj in room.contents:
-        if obj.tags.has("mining_storage", category="mining") and not receiving_bay:
-            key_lower = obj.key.lower()
-            if "receiving" in key_lower or "bay" in key_lower:
-                receiving_bay = obj
         if refinery_obj is None and obj.is_typeclass(
             "typeclasses.refining.Refinery", exact=False
         ):
@@ -1951,7 +1947,7 @@ def processing_state(request):
                     haulers.append({
                         "id": h.id,
                         "key": h.key,
-                        "deliveryMode": "assigned_storage",
+                        "deliveryMode": "ore_receiving_bay",
                     })
             my_delivery_modes = haulers
 

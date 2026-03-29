@@ -60,7 +60,7 @@ export function PropertyDeedResaleBrowse({ onPurchased }: PropertyDeedResaleBrow
       id="property-deed-resale-market"
       className="scroll-mt-4 mt-3 border-t border-cyan-900/40 pt-3"
     >
-      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Listed deeds</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-ui-muted">Listed deeds</p>
       {purchaseSuccess ? (
         <p className="mt-2 font-mono text-[12px] text-emerald-400">{purchaseSuccess}</p>
       ) : null}
@@ -68,7 +68,7 @@ export function PropertyDeedResaleBrowse({ onPurchased }: PropertyDeedResaleBrow
         <p className="mt-2 font-mono text-[12px] text-red-400">{purchaseError}</p>
       ) : null}
       {loading ? (
-        <p className="mt-2 text-sm text-zinc-500">Loading…</p>
+        <p className="mt-2 text-sm text-ui-muted">Loading…</p>
       ) : error ? (
         <p className="mt-2 text-sm text-red-400">{error}</p>
       ) : listings.length === 0 ? (
@@ -82,7 +82,7 @@ export function PropertyDeedResaleBrowse({ onPurchased }: PropertyDeedResaleBrow
             >
               <div className="min-w-0">
                 <div className="truncate font-mono text-sm text-zinc-100">{row.key}</div>
-                <div className="text-[11px] text-zinc-500">
+                <div className="text-[11px] text-ui-muted">
                   #{row.claimId} · {row.kind} · {row.lotKey || "—"} · seller {row.sellerKey}
                 </div>
               </div>

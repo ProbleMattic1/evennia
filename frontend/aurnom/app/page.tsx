@@ -8,7 +8,7 @@ export default function HomePage() {
 
   if (loading && !data) {
     return (
-      <main className="min-h-svh bg-zinc-950 p-2 font-mono text-[11px] text-cyan-400">
+      <main className="dark min-h-svh bg-zinc-950 p-2 font-mono text-[11px] text-cyan-400">
         Loading control surface…
       </main>
     );
@@ -16,7 +16,7 @@ export default function HomePage() {
 
   if (error && !data) {
     return (
-      <main className="min-h-svh bg-zinc-950 p-2 font-mono text-[11px] text-red-400">
+      <main className="dark min-h-svh bg-zinc-950 p-2 font-mono text-[11px] text-red-400">
         Failed to load: {error}
       </main>
     );
@@ -24,7 +24,7 @@ export default function HomePage() {
 
   if (!data) {
     return (
-      <main className="min-h-svh bg-zinc-950 p-2 font-mono text-[11px] text-zinc-500">
+      <main className="dark min-h-svh bg-zinc-950 p-2 font-mono text-[11px] text-ui-muted">
         No data.
       </main>
     );

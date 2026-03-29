@@ -40,7 +40,7 @@ export function ControlSurfaceProvider({ children }: { children: React.ReactNode
   return (
     <ControlSurfaceContext.Provider value={value}>
       <div
-        className="mx-auto grid min-h-svh w-[85%] bg-zinc-950 font-mono text-[11px] text-zinc-300"
+        className="dark mx-auto grid min-h-svh w-[85%] bg-zinc-950 font-mono text-[11px] text-zinc-300"
         style={{ gridTemplateColumns: "minmax(12rem,20%) minmax(20rem,40%) minmax(20rem,40%)" }}
       >
         <PersistentNavRail />

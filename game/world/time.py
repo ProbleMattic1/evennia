@@ -120,6 +120,12 @@ def next_flora_delivery_boundary_iso() -> str:
     return iso if iso else ""
 
 
+def current_flora_delivery_slot_start_iso() -> str:
+    """Start of the UTC epoch-aligned flora delivery slot containing now."""
+    iso = to_iso(floor_period(utc_now(), FLORA_DELIVERY_PERIOD))
+    return iso if iso else ""
+
+
 def start_of_utc_day(dt: datetime) -> datetime:
     d = dt.astimezone(UTC).date()
     return datetime(d.year, d.month, d.day, tzinfo=UTC)

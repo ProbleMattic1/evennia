@@ -19,7 +19,11 @@ from evennia import search_object
 
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
 from world.time import (
+    FLORA_DELIVERY_PERIOD,
     MINING_DELIVERY_PERIOD,
+    current_flora_delivery_slot_start_iso,
+    current_mining_delivery_slot_start_iso,
+    next_flora_delivery_boundary_iso,
     next_mining_delivery_boundary_iso,
     to_iso,
     utc_now,
@@ -153,6 +157,7 @@ def _personal_plant_ore_stored_value_cr(char):
 
 
 def _serialize_processing_summary(char):
+    from typeclasses.haulers import get_plant_ore_receiving_bay
     from typeclasses.mining import COMMODITY_ASK_OVER_BID
     from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE, REFINING_RECIPES
 
@@ -160,13 +165,9 @@ def _serialize_processing_summary(char):
     if not room:
         return None
 
-    receiving_bay = None
+    receiving_bay = get_plant_ore_receiving_bay(room)
     refinery_obj = None
     for obj in room.contents:
-        if obj.tags.has("mining_storage", category="mining") and not receiving_bay:
-            kl = obj.key.lower()
-            if "receiving" in kl or "bay" in kl:
-                receiving_bay = obj
         if refinery_obj is None and obj.is_typeclass(
             "typeclasses.refining.Refinery", exact=False
         ):
@@ -210,7 +211,7 @@ def _serialize_processing_summary(char):
                 haulers.append({
                     "id": h.id,
                     "key": h.key,
-                    "deliveryMode": "assigned_storage",
+                    "deliveryMode": "ore_receiving_bay",
                 })
         my_haulers = haulers
 
@@ -414,12 +415,18 @@ def control_surface_state(request):
     treasury_balance = None
     tbid = treasury_bank_id_for_object(None)
     treasury_balance = econ.get_balance(econ.get_treasury_account(tbid))
+    miner_payout_last_cr, miner_payout_total_cr = econ.get_miner_payout_totals_for_web()
 
     market = _serialize_market()
 
     clock_payload = {
         "miningDeliveryPeriodSeconds": int(MINING_DELIVERY_PERIOD),
+        "floraDeliveryPeriodSeconds": int(FLORA_DELIVERY_PERIOD),
         "serverTimeIso": to_iso(utc_now()) or "",
+        "miningSlotStartIso": current_mining_delivery_slot_start_iso(),
+        "floraSlotStartIso": current_flora_delivery_slot_start_iso(),
+        "miningNextCycleAt": next_mining_delivery_boundary_iso(),
+        "floraNextCycleAt": next_flora_delivery_boundary_iso(),
     }
 
     base_sparse = {
@@ -431,7 +438,8 @@ def control_surface_state(request):
         "ships": [],
         "resources": [],
         "mines": [],
-        "miningNextCycleAt": next_mining_delivery_boundary_iso(),
+        "miningAccrualValuePerCycle": 0,
+        "floraAccrualValuePerCycle": 0,
         "productionEstimatedValuePerCycle": 0,
         "productionTotalStoredValue": 0,
         "miningEstimatedValuePerCycle": 0,
@@ -448,6 +456,8 @@ def control_surface_state(request):
         "roomExits": [],
         "treasuryBalance": treasury_balance,
         "message": None,
+        "minerPayoutLastCycleCr": miner_payout_last_cr,
+        "minerPayoutTotalCr": miner_payout_total_cr,
         **clock_payload,
     }
 
@@ -489,6 +499,16 @@ def control_surface_state(request):
     inventory = _serialize_inventory(char)
     ships = _serialize_ships(char)
     resources, mining_value_per_cycle, mining_total_stored = _serialize_resources(char)
+    mining_accrual_cycle = sum(
+        int(r.get("accrualValuePerCycle") or 0)
+        for r in resources
+        if r.get("siteKind") != "flora"
+    )
+    flora_accrual_cycle = sum(
+        int(r.get("accrualValuePerCycle") or 0)
+        for r in resources
+        if r.get("siteKind") == "flora"
+    )
     mining_personal_stored = _personal_plant_ore_stored_value_cr(char)
     properties, property_ref_total = _dashboard_property_portfolio(char)
     processing = _serialize_processing_summary(char)
@@ -504,7 +524,8 @@ def control_surface_state(request):
         "ships": ships,
         "resources": resources,
         "mines": resources,
-        "miningNextCycleAt": next_mining_delivery_boundary_iso(),
+        "miningAccrualValuePerCycle": mining_accrual_cycle,
+        "floraAccrualValuePerCycle": flora_accrual_cycle,
         "productionEstimatedValuePerCycle": mining_value_per_cycle,
         "productionTotalStoredValue": mining_total_stored,
         "miningEstimatedValuePerCycle": mining_value_per_cycle,
@@ -521,5 +542,7 @@ def control_surface_state(request):
         "roomExits": room_exits,
         "treasuryBalance": treasury_balance,
         "message": None,
+        "minerPayoutLastCycleCr": miner_payout_last_cr,
+        "minerPayoutTotalCr": miner_payout_total_cr,
         **clock_payload,
     })

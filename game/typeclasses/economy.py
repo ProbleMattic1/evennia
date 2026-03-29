@@ -270,6 +270,38 @@ class EconomyEngine(Script):
     def get_treasury_account(self, bank_id="alpha-prime"):
         return f"treasury:{bank_id}"
 
+    def record_miner_treasury_payout(self, amount: int) -> None:
+        """
+        Track credits paid from treasury to a player for miner settlement
+        (plant raw purchase, refined collect). Bucketed by epoch-aligned
+        ``MINING_DELIVERY_PERIOD`` slots (same grid as mining delivery UI).
+        """
+        from world.time import MINING_DELIVERY_PERIOD, floor_period, utc_now, to_iso
+
+        amount = int(amount or 0)
+        if amount <= 0:
+            return
+        slot_iso = to_iso(floor_period(utc_now(), MINING_DELIVERY_PERIOD)) or ""
+        cur_slot = getattr(self.db, "miner_payout_current_slot_start_iso", None) or ""
+        if cur_slot != slot_iso:
+            self.db.miner_payout_last_cycle_cr = int(
+                getattr(self.db, "miner_payout_this_slot_cr", 0) or 0
+            )
+            self.db.miner_payout_this_slot_cr = 0
+            self.db.miner_payout_current_slot_start_iso = slot_iso
+        self.db.miner_payout_this_slot_cr = int(
+            getattr(self.db, "miner_payout_this_slot_cr", 0) or 0
+        ) + amount
+        self.db.miner_payout_total_cr = int(
+            getattr(self.db, "miner_payout_total_cr", 0) or 0
+        ) + amount
+
+    def get_miner_payout_totals_for_web(self) -> tuple[int, int]:
+        """(credits in last *completed* mining slot, all-time treasury miner payouts)."""
+        last = int(getattr(self.db, "miner_payout_last_cycle_cr", 0) or 0)
+        total = int(getattr(self.db, "miner_payout_total_cr", 0) or 0)
+        return last, total
+
     # -----------------------------
     # Price extraction helpers
     # -----------------------------
