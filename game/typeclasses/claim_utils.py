@@ -56,13 +56,14 @@ def _pick_site_name():
     return f"{random.choice(SITE_NAME_PREFIXES)} {random.choice(SITE_NAME_SUFFIXES)}"
 
 
-def generate_mining_site(is_jackpot=False):
+def generate_mining_site(is_jackpot=False, venue_id="nanomega_core"):
     """
     Create a brand-new MiningSite in a new room with randomised deposit data.
     Returns the site object.  The site starts unclaimed.
     """
-    from world.bootstrap_hub import get_hub_room
     from world.bootstrap_mining import _get_or_create_exit, _get_or_create_room
+    from world.venue_resolve import hub_room_for_venue
+    from world.venues import apply_venue_metadata
 
     name = _pick_site_name()
     existing = search_tag("mining_site", category="mining")
@@ -80,8 +81,9 @@ def generate_mining_site(is_jackpot=False):
             "The site is unclaimed and ready for development."
         ),
     )
+    apply_venue_metadata(room, venue_id)
 
-    hub = get_hub_room()
+    hub = hub_room_for_venue(venue_id)
     if hub:
         alias = name.lower().split()[0]
         _get_or_create_exit(name.lower(), [alias], hub, room)
@@ -172,7 +174,12 @@ def grant_random_claim_on_purchase(buyer):
     Generate a fresh mining site and grant a claim to buyer.
     Returns (claim, is_jackpot).
     """
+    from world.venue_resolve import venue_id_for_object
+
     is_jackpot = random.random() < JACKPOT_CHANCE
-    site = generate_mining_site(is_jackpot=is_jackpot)
+    vid = venue_id_for_object(buyer) if buyer else None
+    if not vid:
+        vid = "nanomega_core"
+    site = generate_mining_site(is_jackpot=is_jackpot, venue_id=vid)
     claim = create_claim_for_site(site, buyer, is_jackpot=is_jackpot)
     return claim, is_jackpot

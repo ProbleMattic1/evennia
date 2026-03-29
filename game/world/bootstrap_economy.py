@@ -1,5 +1,7 @@
 """
 Ensures the global_economy script exists and has starter modifiers seeded.
+Creates one CentralBank per venue (branched treasury accounts on the same engine).
+
 Safe to call multiple times (idempotent).
 
 Called from at_server_cold_start so the script is verified alive on every
@@ -42,15 +44,22 @@ def _get_or_create_exit(key, aliases, location, destination, typeclass="typeclas
     )
 
 
-def _get_or_create_bank(room):
+def _get_or_create_bank(room, bank_object_key: str):
     for obj in room.contents:
         if obj.is_typeclass("typeclasses.bank.CentralBank", exact=False):
             return obj
-    return create_object("typeclasses.bank.CentralBank", key="Alpha Prime", location=room, home=room)
+    return create_object(
+        "typeclasses.bank.CentralBank",
+        key=bank_object_key,
+        location=room,
+        home=room,
+    )
 
 
 def bootstrap_economy():
     from world.manufacturing_loader import load_manufacturing_tables
+    from world.venue_resolve import hub_room_for_venue
+    from world.venues import all_venue_ids, apply_venue_metadata, get_venue
 
     _mcat, _mrec, m_err = load_manufacturing_tables()
     assert not m_err, "manufacturing data errors: " + "; ".join(m_err)
@@ -64,12 +73,10 @@ def bootstrap_economy():
         econ = create_script(SCRIPT_PATH, key=SCRIPT_KEY)
         print(f"[economy] Created script: {econ.key}")
 
-    # Idempotent: set_modifier is always a dict write, safe to repeat.
     econ.set_modifier("regional_modifiers", "core-worlds", 1.08)
     econ.set_modifier("regional_modifiers", "frontier", 0.94)
     econ.set_modifier("location_modifiers", "black-market-exchange", 1.40)
     econ.set_modifier("faction_modifiers", "allied-traders-guild", 0.95)
-    # Mining category modifier — base multiplier for raw commodity pricing
     econ.set_modifier("category_modifiers", "mining", 1.00)
     if econ.db.accounts is None:
         econ.db.accounts = {}
@@ -78,24 +85,29 @@ def bootstrap_economy():
     if econ.db.tax_pool is None:
         econ.db.tax_pool = 0
 
-    treasury_account = econ.get_treasury_account("alpha-prime")
-    econ.ensure_account(treasury_account, opening_balance=econ.db.tax_pool or 0)
-    econ.db.tax_pool = econ.get_balance(treasury_account)
+    for venue_id in all_venue_ids():
+        vspec = get_venue(venue_id)
+        bspec = vspec["bank"]
+        reserve = _get_or_create_room(
+            bspec["reserve_room_key"],
+            desc=bspec["reserve_room_desc"],
+        )
+        apply_venue_metadata(reserve, venue_id)
+        bank = _get_or_create_bank(reserve, bspec["bank_object_key"])
+        bank_id = bspec["bank_id"]
+        bank.db.bank_id = bank_id
+        treasury_account = econ.get_treasury_account(bank_id)
+        bank.db.treasury_account = treasury_account
+        econ.ensure_account(treasury_account, opening_balance=int(econ.get_balance(treasury_account) or 0))
 
-    reserve = _get_or_create_room(
-        "Alpha Prime Central Reserve",
-        desc="A secure treasury chamber of armored terminals, sovereign seals, and reserve ledgers.",
-    )
-    bank = _get_or_create_bank(reserve)
-    bank.db.bank_id = "alpha-prime"
-    bank.db.treasury_account = treasury_account
+        hub = hub_room_for_venue(venue_id)
+        if hub:
+            _get_or_create_exit("bank", ["alpha", "reserve", "treasury"], hub, reserve)
+            _get_or_create_exit("back", ["exit", "promenade", "plex", "hub"], reserve, hub)
 
-    from world.bootstrap_hub import get_hub_room
+        print(f"[economy] Reserve '{bspec['reserve_room_key']}' ({bank_id}) ready.")
 
-    hub = get_hub_room()
-    if hub:
-        _get_or_create_exit("bank", ["alpha", "reserve"], hub, reserve)
-        _get_or_create_exit("back", ["exit", "promenade", "plex", "hub"], reserve, hub)
+    econ.db.tax_pool = econ.get_balance(econ.get_treasury_account("alpha-prime"))
 
     cd_found = search_script(COMMODITY_DEMAND_KEY)
     if cd_found:
@@ -116,5 +128,11 @@ def bootstrap_economy():
         print(f"[economy] Created manufacturing engine script: {mf.key}")
 
     print("[economy] Seeded starter regional/location/faction modifiers.")
-    print(f"[economy] Treasury account ready: {treasury_account}")
-    print("[economy] Alpha Prime Central Reserve ready.")
+
+    tel_key = "economy_world_telemetry"
+    tel_found = search_script(tel_key)
+    if tel_found:
+        print(f"[economy] {tel_key} already exists")
+    else:
+        create_script("typeclasses.economy_world_telemetry.EconomyWorldTelemetry", key=tel_key)
+        print(f"[economy] Created script: {tel_key}")

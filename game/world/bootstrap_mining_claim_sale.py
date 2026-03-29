@@ -11,7 +11,7 @@ from evennia import create_object, search_object
 
 CLAIM_SALE_SPEC = {
     "key": "Random Mining Claim Deed",
-    "vendor_id": "mining-outfitters",
+    "vendor_slug": "mining-outfitters",
     "desc": (
         "Survey services register a new unclaimed deposit and issue a deed. "
         "You receive one random claim; use deploymine with a mining package to develop it."
@@ -21,8 +21,10 @@ CLAIM_SALE_SPEC = {
 
 
 def _ensure_claim_sale_template(spec):
+    from world.venues import all_venue_ids
+
     key = spec["key"]
-    vendor_id = spec["vendor_id"]
+    slug = spec["vendor_slug"]
     template = None
     for obj in search_object(key):
         if getattr(obj.db, "is_template", False) and getattr(obj.db, "grants_random_claim_only", False):
@@ -37,7 +39,10 @@ def _ensure_claim_sale_template(spec):
         "base_price_cr": int(spec["price"]),
         "total_price_cr": int(spec["price"]),
     }
-    template.tags.add(vendor_id, category="vendor")
+    if template.tags.has("mining-outfitters", category="vendor"):
+        template.tags.remove("mining-outfitters", category="vendor")
+    for venue_id in all_venue_ids():
+        template.tags.add(f"{venue_id}-{slug}", category="vendor")
     template.locks.add("get:false()")
     return template
 
@@ -45,4 +50,4 @@ def _ensure_claim_sale_template(spec):
 def bootstrap_mining_claim_sale():
     """Create or update the random claim deed catalog template."""
     t = _ensure_claim_sale_template(CLAIM_SALE_SPEC)
-    print(f"[mining_claim_sale] '{t.key}' ready for vendor '{CLAIM_SALE_SPEC['vendor_id']}'.")
+    print(f"[mining_claim_sale] '{t.key}' ready (venue-scoped mining-outfitters tags).")

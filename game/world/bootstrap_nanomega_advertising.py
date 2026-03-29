@@ -1,8 +1,8 @@
 """
-NanoMegaPlex Advertising Agent NPC + Advertising Agency room on the promenade.
+Advertising agency rooms per venue + agent placement.
 
-Runs after bootstrap_hub and bootstrap_nanomega_construction (same account pattern
-as Construction). Idempotent.
+NanoMegaPlex agent: full account / reset env handling.
+Frontier agent: created in bootstrap_frontier_service_npcs; this wires the room and placement.
 """
 
 import os
@@ -13,16 +13,12 @@ from evennia.accounts.models import AccountDB
 from typeclasses.characters import (
     ABILITY_KEYS,
     CHARACTER_TYPECLASS_PATH,
+    FRONTIER_ADVERTISING_CHARACTER_KEY,
     NANOMEGA_ADVERTISING_ABILITY_BASES,
     NANOMEGA_ADVERTISING_CHARACTER_KEY,
 )
-
-ADVERTISING_AGENCY_ROOM_KEY = "NanoMegaPlex Advertising Agency"
-ADVERTISING_AGENCY_DESC = (
-    "Glass-walled suites off the promenade where licensed brokers place tenancy "
-    "and income-stream campaigns on sovereign ad bands. Holo rate cards flicker "
-    "above a reception counter staffed by the station advertising agent."
-)
+from world.venue_resolve import hub_room_for_venue
+from world.venues import all_venue_ids, apply_venue_metadata, get_venue
 
 NANOMEGA_ADVERTISING_CREDITS = 0
 
@@ -101,25 +97,36 @@ def _get_or_create_exit(key, aliases, location, destination):
     )
 
 
-def _wire_hub_and_office():
-    from world.bootstrap_hub import get_hub_room
-
-    hub = get_hub_room()
-    office = _get_or_create_room(ADVERTISING_AGENCY_ROOM_KEY, ADVERTISING_AGENCY_DESC)
+def _wire_venue_advertising(venue_id: str):
+    vspec = get_venue(venue_id)
+    adv = vspec["advertising"]
+    hub = hub_room_for_venue(venue_id)
+    office = _get_or_create_room(adv["room_key"], adv["room_desc"])
+    apply_venue_metadata(office, venue_id)
     if hub:
-        _get_or_create_exit("advertising", ["ads", "ad agency", "marketing", "agency"], hub, office)
-        _get_or_create_exit("promenade", ["back", "exit", "out", "plex", "hub"], office, hub)
+        _get_or_create_exit(
+            adv["hub_exit"],
+            adv["hub_aliases"],
+            hub,
+            office,
+        )
+        _get_or_create_exit(
+            "promenade",
+            ["back", "exit", "out", "plex", "hub"],
+            office,
+            hub,
+        )
     return office
 
 
-def _place_agent(office):
-    found = search_object(NANOMEGA_ADVERTISING_CHARACTER_KEY)
+def _place_agent(office, npc_key: str):
+    found = search_object(npc_key)
     if not found:
         return
     npc = found[0]
     if npc.location != office:
         npc.move_to(office, quiet=True)
-        print(f"[nanomega-advertising] Moved '{npc.key}' into '{office.key}'.")
+        print(f"[advertising] Moved '{npc.key}' into '{office.key}'.")
 
 
 def bootstrap_nanomega_advertising():
@@ -142,15 +149,18 @@ def bootstrap_nanomega_advertising():
         char.db.rpg_pointbuy_done = True
         if _reset_stats_requested():
             _apply_ability_scores(char)
-            print(f"[nanomega-advertising] Re-applied ability scores for {NANOMEGA_ADVERTISING_CHARACTER_KEY!r}.")
+            print(
+                f"[nanomega-advertising] Re-applied ability scores for "
+                f"{NANOMEGA_ADVERTISING_CHARACTER_KEY!r}."
+            )
         if _reset_credits_requested():
             _apply_starting_credits(char)
             print(
                 f"[nanomega-advertising] Updated {NANOMEGA_ADVERTISING_CHARACTER_KEY!r} credits for "
                 f"{account.username}."
             )
-        office = _wire_hub_and_office()
-        _place_agent(office)
+        office = _wire_venue_advertising("nanomega_core")
+        _place_agent(office, NANOMEGA_ADVERTISING_CHARACTER_KEY)
         return
 
     char, errs = account.create_character(
@@ -168,5 +178,11 @@ def bootstrap_nanomega_advertising():
         f"[nanomega-advertising] Created {NANOMEGA_ADVERTISING_CHARACTER_KEY!r} for {account.username} "
         f"(#{char.id})."
     )
-    office = _wire_hub_and_office()
-    _place_agent(office)
+    office = _wire_venue_advertising("nanomega_core")
+    _place_agent(office, NANOMEGA_ADVERTISING_CHARACTER_KEY)
+
+
+def bootstrap_frontier_advertising_wiring():
+    """After frontier NPC exists: agency room + exit wiring + placement."""
+    office = _wire_venue_advertising("frontier_outpost")
+    _place_agent(office, FRONTIER_ADVERTISING_CHARACTER_KEY)

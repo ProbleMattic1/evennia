@@ -11,14 +11,14 @@ Raising ``InteractionError`` signals a user-visible failure.
 from dataclasses import dataclass
 
 from typeclasses.characters import (
+    FRONTIER_PROMENADE_GUIDE_CHARACTER_KEY,
     GENERAL_SUPPLY_CLERK_CHARACTER_KEY,
     PARCEL_COMMUTER_CHARACTER_KEY,
     PROMENADE_GUIDE_CHARACTER_KEY,
 )
 from world.bootstrap_frontier import START_ROOM_KEY
 from world.bootstrap_hub import HUB_ROOM_KEY
-
-PROCESSING_PLANT_ROOM_KEY = "Aurnom Ore Processing Plant"
+from world.venue_resolve import processing_plant_room_for_object
 
 
 class InteractionError(Exception):
@@ -50,15 +50,17 @@ def handle_askguide(char, payload=None):
     loc = char.location
     if not loc:
         raise InteractionError("You are not in a place where a guide could help.")
-    guides = [o for o in loc.contents if o.key == PROMENADE_GUIDE_CHARACTER_KEY]
+    guide_keys = (PROMENADE_GUIDE_CHARACTER_KEY, FRONTIER_PROMENADE_GUIDE_CHARACTER_KEY)
+    guides = [o for o in loc.contents if o.key in guide_keys]
     if not guides:
         raise InteractionError("The station guide is not here.")
+    guide = guides[0]
 
     topic = str((payload or {}).get("topic", "")).strip().lower()
     msg = _GUIDE_REPLIES.get(topic, _GUIDE_DEFAULT)
     interaction_key = "askguide" if not topic else f"askguide:{topic}"
-    dialogue = f'{PROMENADE_GUIDE_CHARACTER_KEY} says, "{msg}"'
-    return InteractionLine(dialogue, interaction_key, PROMENADE_GUIDE_CHARACTER_KEY)
+    dialogue = f'{guide.key} says, "{msg}"'
+    return InteractionLine(dialogue, interaction_key, guide.key)
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +155,8 @@ def handle_contract_board(char, payload=None):
     loc = char.location
     if not loc:
         raise InteractionError("You are not at a procurement board.")
-    if str(loc.key) != PROCESSING_PLANT_ROOM_KEY:
+    plant_room = processing_plant_room_for_object(char)
+    if plant_room is None or loc != plant_room:
         raise InteractionError("The procurement board is at the Ore Processing Plant.")
 
     payload = dict(payload or {})

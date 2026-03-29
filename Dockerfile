@@ -52,10 +52,12 @@ RUN apk update && apk add --no-cache bash gcc jpeg-dev musl-dev procps \
 libffi-dev openssl-dev zlib-dev gettext \
 g++ gfortran python3-dev cmake openblas-dev
 
-# add the project source; this should always be done after all
-# expensive operations have completed to avoid prematurely
-# invalidating the build cache.
-COPY . /usr/src/evennia
+# Evennia installable tree only. The repo root is a monorepo (game, deploy notes, etc.);
+# copying all of it into /usr/src/evennia made setuptools see extra top-level dirs and
+# fail the editable install. Only these paths are the Evennia distribution.
+COPY pyproject.toml setup.py LICENSE.txt README.md /usr/src/evennia/
+COPY bin /usr/src/evennia/bin/
+COPY evennia /usr/src/evennia/evennia/
 
 # Install start/entry scripts under /usr/local/bin so ENTRYPOINT still works if
 # something mounts over /usr/src/evennia (e.g. a dev bind mount).

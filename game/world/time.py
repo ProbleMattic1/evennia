@@ -20,9 +20,14 @@ HOUR = 3600
 DAY = 86400
 MINING_DELIVERY_PERIOD = 30 * MINUTE  # 1800 s = 30 min; change to 3 * HOUR before live launch
 
-# HaulerEngine wake: must be <= HAULER_PICKUP_OFFSET_SEC (half-period) so a hauler
-# that becomes due at deposit+offset is picked up within roughly one engine interval.
-# 5 * MINUTE scales to many haulers (O(n) scan per tick); tune 300–900 as needed.
+# Flora production grid (epoch-aligned UTC). Hauler pickup uses FLORA_HAULER_PICKUP_OFFSET_SEC
+# (fixed 15 min after deposit / next boundary), not half of this period.
+FLORA_DELIVERY_PERIOD = HOUR
+FLORA_HAULER_PICKUP_OFFSET_SEC = 15 * MINUTE
+
+# HaulerEngine wake: must be <= each pipeline's pickup offset (mining: half of 30m = 15m;
+# flora: FLORA_HAULER_PICKUP_OFFSET_SEC) so a hauler due at deposit+offset is picked up
+# within roughly one engine interval. 5 * MINUTE scales O(n) hauler scans; tune 300–900 as needed.
 HAULER_ENGINE_INTERVAL_SEC = 5 * MINUTE
 
 
@@ -93,6 +98,22 @@ def next_mining_delivery_boundary_iso() -> str:
     the same period without scanning objects.
     """
     iso = to_iso(ceil_period(utc_now(), MINING_DELIVERY_PERIOD))
+    return iso if iso else ""
+
+
+def current_mining_delivery_slot_start_iso() -> str:
+    """Start of the UTC epoch-aligned mining delivery slot containing now."""
+    iso = to_iso(floor_period(utc_now(), MINING_DELIVERY_PERIOD))
+    return iso if iso else ""
+
+
+def next_flora_delivery_boundary_iso() -> str:
+    """
+    Next UTC epoch-aligned instant for the flora delivery grid (>= now), as ISO string.
+
+    Matches FloraSite.schedule_next_cycle(None): ceil_period(utc_now(), FLORA_DELIVERY_PERIOD).
+    """
+    iso = to_iso(ceil_period(utc_now(), FLORA_DELIVERY_PERIOD))
     return iso if iso else ""
 
 

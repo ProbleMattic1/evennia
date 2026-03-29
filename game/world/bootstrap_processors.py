@@ -13,7 +13,7 @@ from evennia import create_object, search_object
 PROCESSORS = [
     {
         "key": "Ore Processor Mk I",
-        "vendor_id": "mining-outfitters",
+        "vendor_slug": "mining-outfitters",
         "desc": (
             "A compact, entry-level ore refining unit. Accepts up to 200t of raw ore "
             "and processes it into refined materials. Stores in inventory; install at "
@@ -26,7 +26,7 @@ PROCESSORS = [
     },
     {
         "key": "Ore Processor Mk II",
-        "vendor_id": "mining-outfitters",
+        "vendor_slug": "mining-outfitters",
         "desc": (
             "A mid-tier refining platform with expanded capacity and a 5% output "
             "efficiency bonus. Accepts up to 500t of raw ore. Store in inventory "
@@ -39,7 +39,7 @@ PROCESSORS = [
     },
     {
         "key": "Ore Processor Mk III",
-        "vendor_id": "mining-outfitters",
+        "vendor_slug": "mining-outfitters",
         "desc": (
             "Industrial-grade processing unit. Accepts up to 1,000t of raw ore with "
             "a 12% output efficiency bonus. The choice of serious mining operations. "
@@ -54,9 +54,11 @@ PROCESSORS = [
 
 
 def _ensure_processor_template(spec):
-    """Create or update a PortableProcessor template for Mining Outfitters."""
+    """Create or update a PortableProcessor template; tag each venue mining-outfitters vendor."""
+    from world.venues import all_venue_ids
+
     key = spec["key"]
-    vendor_id = spec["vendor_id"]
+    slug = spec["vendor_slug"]
 
     template = None
     for obj in search_object(key):
@@ -83,14 +85,18 @@ def _ensure_processor_template(spec):
         "base_price_cr": int(spec["price"]),
         "total_price_cr": int(spec["price"]),
     }
-    template.tags.add(vendor_id, category="vendor")
+    for leg in ("mining-outfitters",):
+        if template.tags.has(leg, category="vendor"):
+            template.tags.remove(leg, category="vendor")
+    for venue_id in all_venue_ids():
+        template.tags.add(f"{venue_id}-{slug}", category="vendor")
     template.locks.add("get:false()")
     return template
 
 
 def bootstrap_processors():
-    """Create or update all processor templates at Mining Outfitters. Idempotent."""
+    """Create or update processor templates for every venue's mining outfitters. Idempotent."""
     for spec in PROCESSORS:
         t = _ensure_processor_template(spec)
-        print(f"[processors] '{t.key}' ready for vendor '{spec['vendor_id']}'.")
+        print(f"[processors] '{t.key}' ready (venue-scoped mining-outfitters tags).")
     print("[processors] Bootstrap complete.")

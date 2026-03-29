@@ -4,9 +4,15 @@ Autonomous Hauler system.
 HaulerEngine   - Global script; processes hauler routes on schedule.
 Helpers        - effective_capacity, effective_cycle_seconds (nominal tier), resolve_room.
 
-Schedule: pickup at MiningSite.db.last_ore_deposit_at + HAULER_PICKUP_OFFSET_SEC when that
-instant is still in the future; otherwise mine next_cycle_at + HAULER_PICKUP_OFFSET_SEC.
-arm_hauler_pickup_after_mining_deposit calls set_hauler_next_cycle for matching haulers.
+Mining: pickup at last_ore_deposit_at + HAULER_PICKUP_OFFSET_SEC (half of MINING_DELIVERY_PERIOD)
+when still in the future; otherwise next_cycle_at + that offset; grid step MINING_DELIVERY_PERIOD.
+
+Flora: hourly FLORA_DELIVERY_PERIOD grid; pickup at last_flora_deposit_at +
+FLORA_HAULER_PICKUP_OFFSET_SEC (fixed 15 min), or next_cycle_at + same offset; grid step
+FLORA_DELIVERY_PERIOD.
+
+arm_hauler_pickup_after_mining_deposit / arm_hauler_pickup_after_flora_deposit arm haulers
+tagged autonomous_hauler in category mining / flora respectively.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -14,6 +20,8 @@ from datetime import UTC, datetime, timedelta
 from evennia import search_object, search_tag
 
 from world.time import (
+    FLORA_DELIVERY_PERIOD,
+    FLORA_HAULER_PICKUP_OFFSET_SEC,
     HOUR,
     HAULER_ENGINE_INTERVAL_SEC,
     MINING_DELIVERY_PERIOD,
@@ -92,7 +100,8 @@ def effective_capacity(hauler):
 def effective_cycle_seconds(hauler):
     """
     Nominal "tier" interval in seconds (legacy Mk I/II/III hours field).
-    Pickup cadence follows last_ore_deposit_at or mine next_cycle_at + HAULER_PICKUP_OFFSET_SEC; tier display only.
+    Actual pickup times follow deposit + offset and the production grid (mining vs flora);
+    this field is tier display / legacy upgrades only.
     """
     base_hours = float(hauler.db.hauler_base_cycle_hours or HAULER_CYCLE_BASE_HOURS)
     upgrades = hauler.db.hauler_upgrades or {}
@@ -110,32 +119,51 @@ def stagger_window_seconds(hauler):
     return max(HAULER_STAGGER_WINDOW_MIN_SEC, window)
 
 
+def _hauler_grid_params(hauler):
+    """
+    Return (site, delivery_period_sec, pickup_offset_sec, last_deposit_attr_name).
+    Flora haulers: autonomous_hauler tag category flora. Mining: category mining.
+    """
+    mine_room = resolve_room(hauler.db.hauler_mine_room)
+    if hauler.tags.has("autonomous_hauler", category="flora"):
+        site = get_flora_site_in_room(mine_room)
+        return site, FLORA_DELIVERY_PERIOD, FLORA_HAULER_PICKUP_OFFSET_SEC, "last_flora_deposit_at"
+    site = get_site_in_room(mine_room)
+    return site, MINING_DELIVERY_PERIOD, HAULER_PICKUP_OFFSET_SEC, "last_ore_deposit_at"
+
+
 def compute_next_hauler_run_at(hauler, after: datetime | None = None) -> datetime:
     mine_room = resolve_room(hauler.db.hauler_mine_room)
-    site = get_site_in_room(mine_room)
     owner = hauler.db.hauler_owner
     now_ref = (after or utc_now()).astimezone(UTC)
+
+    site, period_sec, offset_sec, last_dep_attr = _hauler_grid_params(hauler)
+
     if not site or site.db.owner != owner:
         raise RuntimeError(
-            f"Hauler {hauler.key!r} has no owned mining site at hauler_mine_room"
+            f"Hauler {hauler.key!r} has no owned production site at hauler_mine_room"
         )
-    mining_next = _parse_ts(site.db.next_cycle_at)
-    if mining_next is None:
-        raise RuntimeError(f"Mining site {site.key!r} has no next_cycle_at")
-    mining_next = mining_next.astimezone(UTC)
 
-    last_dep = _parse_ts(site.db.last_ore_deposit_at)
+    next_c = _parse_ts(site.db.next_cycle_at)
+    if next_c is None:
+        raise RuntimeError(f"Site {site.key!r} has no next_cycle_at")
+    next_c = next_c.astimezone(UTC)
+
+    last_dep = _parse_ts(getattr(site.db, last_dep_attr, None))
+    offset = timedelta(seconds=offset_sec)
+    step = timedelta(seconds=period_sec)
+
     if last_dep is not None:
         last_dep = last_dep.astimezone(UTC)
-        from_deposit = last_dep + timedelta(seconds=HAULER_PICKUP_OFFSET_SEC)
+        from_deposit = last_dep + offset
         if from_deposit > now_ref:
             return from_deposit
-        candidate = mining_next + timedelta(seconds=HAULER_PICKUP_OFFSET_SEC)
+        candidate = next_c + offset
     else:
-        candidate = mining_next
+        candidate = next_c
 
     while candidate <= now_ref:
-        candidate += timedelta(seconds=MINING_DELIVERY_PERIOD)
+        candidate += step
     return candidate
 
 
@@ -154,6 +182,21 @@ def arm_hauler_pickup_after_mining_deposit(site):
         return
     for obj in room.contents:
         if not obj.tags.has("autonomous_hauler", category="mining"):
+            continue
+        if obj.db.hauler_owner != owner:
+            continue
+        if resolve_room(obj.db.hauler_mine_room) != room:
+            continue
+        set_hauler_next_cycle(obj)
+
+
+def arm_hauler_pickup_after_flora_deposit(site):
+    room = site.location
+    owner = site.db.owner
+    if not room or not owner:
+        return
+    for obj in room.contents:
+        if not obj.tags.has("autonomous_hauler", category="flora"):
             continue
         if obj.db.hauler_owner != owner:
             continue
@@ -254,11 +297,21 @@ def get_site_in_room(room):
     return None
 
 
+def get_flora_site_in_room(room):
+    if not room:
+        return None
+    for obj in room.contents:
+        if obj.tags.has("flora_site", category="flora"):
+            return obj
+    return None
+
+
 def hauler_process_one(hauler):
     """
     Run one step of the hauler's route. Returns (did_work, message).
     State: at_mine -> loading -> transit_refinery -> unloading -> transit_mine
     """
+    from typeclasses.flora import FLORA_RESOURCE_CATALOG
     from typeclasses.mining import RESOURCE_CATALOG
 
     owner = hauler.db.hauler_owner
@@ -283,21 +336,35 @@ def hauler_process_one(hauler):
     if cap <= 0:
         return False, "Hauler has no cargo capacity."
 
+    is_flora_hauler = hauler.tags.has("autonomous_hauler", category="flora")
+    catalog = FLORA_RESOURCE_CATALOG if is_flora_hauler else RESOURCE_CATALOG
+    site_label = "flora site" if is_flora_hauler else "mining site"
+    empty_msg = (
+        "No harvest in storage — next cycle scheduled."
+        if is_flora_hauler
+        else "No ore in storage — next cycle scheduled."
+    )
+    load_fail_msg = (
+        "Could not load harvest — next cycle scheduled."
+        if is_flora_hauler
+        else "Could not load ore — next cycle scheduled."
+    )
+
     # ---- At mine: load from owner's linked storage ----
     if state == "at_mine":
         if loc != mine_room:
             hauler.move_to(mine_room, quiet=True, move_hooks=False)
             loc = mine_room
-        site = get_site_in_room(loc)
+        site = get_flora_site_in_room(loc) if is_flora_hauler else get_site_in_room(loc)
         if not site or site.db.owner != owner:
-            return False, "No owned mining site at mine location."
+            return False, f"No owned {site_label} at mine location."
         storage = site.db.linked_storage
         if not storage:
-            return False, "Mining site has no linked storage."
+            return False, f"{site_label.capitalize()} has no linked storage."
         inv = storage.db.inventory or {}
         if not inv:
             set_hauler_next_cycle(hauler)
-            return True, "No ore in storage — next cycle scheduled."
+            return True, empty_msg
         space = cap - hauler.cargo_total_mass()
         if space <= 0:
             set_hauler_next_cycle(hauler)
@@ -319,9 +386,9 @@ def hauler_process_one(hauler):
                 space -= actual
         if not loaded:
             set_hauler_next_cycle(hauler)
-            return True, "Could not load ore — next cycle scheduled."
+            return True, load_fail_msg
         hauler.db.hauler_state = "transit_refinery"
-        parts = [f"{RESOURCE_CATALOG.get(k, {}).get('name', k)}: {v}t" for k, v in loaded.items()]
+        parts = [f"{catalog.get(k, {}).get('name', k)}: {v}t" for k, v in loaded.items()]
         return True, f"Loaded {', '.join(parts)}. En route to refinery."
 
     # ---- Transit to refinery ----
@@ -387,7 +454,9 @@ class HaulerEngine(Script):
 
     def at_repeat(self, **kwargs):
         now = _now()
-        haulers = search_tag("autonomous_hauler", category="mining")
+        haulers = list(search_tag("autonomous_hauler", category="mining")) + list(
+            search_tag("autonomous_hauler", category="flora")
+        )
         processed = 0
         errors = 0
         scanned = 0

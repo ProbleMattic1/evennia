@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
+import { Suspense, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { ExitGrid } from "@/components/exit-grid";
@@ -8,8 +9,10 @@ import { StoryPanel } from "@/components/story-panel";
 import { getBankState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
-export default function BankPage() {
-  const loader = useCallback(() => getBankState(), []);
+function BankPageInner() {
+  const searchParams = useSearchParams();
+  const venue = searchParams.get("venue")?.trim() || undefined;
+  const loader = useCallback(() => getBankState(venue), [venue]);
   const { data, error, loading } = useUiResource(loader);
 
   if (loading) {
@@ -56,7 +59,7 @@ export default function BankPage() {
           <>
             <CsPanel title="Treasury Activity">
               <p className="mt-1 text-sm text-zinc-400">
-                Every ledger movement through Alpha Prime ({data.treasuryAccount}): taxes, license fees, repair tax,
+                Every ledger movement through {data.bankName} ({data.treasuryAccount}): taxes, license fees, repair tax,
                 and disbursements. Positive Δ is a credit to the treasury; negative is a debit.
               </p>
               {data.treasuryTransactionLog.length > 0 ? (
@@ -194,5 +197,19 @@ export default function BankPage() {
         }
       />
     </CsPage>
+  );
+}
+
+export default function BankPage() {
+  return (
+    <Suspense
+      fallback={
+        <CsPage>
+          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading bank state…</p>
+        </CsPage>
+      }
+    >
+      <BankPageInner />
+    </Suspense>
   );
 }

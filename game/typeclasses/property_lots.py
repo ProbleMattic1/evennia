@@ -37,6 +37,9 @@ class PropertyLot(Object):
         self.db.lot_tier   = 1
         self.db.zone       = "residential"
         self.db.size_units = 1
+        loc = self.location
+        if loc and getattr(loc.db, "venue_id", None):
+            self.db.venue_id = loc.db.venue_id
         self.tags.add("property_lot", category="realty")
         self.locks.add("get:false();drop:false()")
         from typeclasses.property_lot_registry import register_listable_property_lot

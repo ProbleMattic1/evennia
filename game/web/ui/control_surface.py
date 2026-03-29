@@ -18,11 +18,17 @@ from django.views.decorators.http import require_GET
 from evennia import search_object
 
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
-from world.time import next_mining_delivery_boundary_iso
+from world.time import (
+    MINING_DELIVERY_PERIOD,
+    next_mining_delivery_boundary_iso,
+    to_iso,
+    utc_now,
+)
+
+from world.bootstrap_hub import HUB_ROOM_KEY as CORE_HUB_ROOM_KEY
+from world.venue_resolve import hub_for_object, processing_plant_room_for_object, treasury_bank_id_for_object, venue_id_for_object
 
 from .views import (
-    BANK_ROOM_KEY,
-    PROCESSING_PLANT_ROOM_KEY,
     _dashboard_inventory_item_for_obj,
     _dashboard_property_portfolio,
     _first_object,
@@ -116,94 +122,20 @@ def _serialize_ships(char):
 
 
 def _serialize_mines(char):
-    from typeclasses.mining import (
-        MODE_OUTPUT_MODIFIERS,
-        POWER_OUTPUT_MODIFIERS,
-        WEAR_OUTPUT_PENALTY,
-        _resource_rarity_tier,
-        _volume_tier,
-        get_commodity_bid,
-    )
+    from world.mining_site_metrics import site_to_dashboard_row
 
     mines = []
     mining_value_per_cycle = 0.0
     mining_total_stored = 0.0
 
     for site in char.db.owned_sites or []:
-        if not site or not getattr(site, "db", None):
+        packed = site_to_dashboard_row(site)
+        if not packed:
             continue
-        installed = [r for r in (site.db.rigs or []) if r]
-        operational = [r for r in installed if r.db.is_operational]
-        active_rig = min(operational, key=lambda r: r.db.wear) if operational else None
-
-        storage = site.db.linked_storage
-        deposit = site.db.deposit or {}
-        richness = float(deposit.get("richness", 0))
-        raw_comp = deposit.get("composition") or {}
-        comp = {str(k): float(v) for k, v in raw_comp.items()}
-
-        raw_inv = storage.db.inventory if storage else {}
-        inv = {str(k): float(v) for k, v in raw_inv.items()}
-        cap = float(storage.db.capacity_tons) if storage else 500.0
-        used = sum(inv.values()) if inv else 0
-
-        sloc = site.location
-        for k, tons in inv.items():
-            mining_total_stored += tons * get_commodity_bid(k, location=sloc)
-
-        base_tons = float(deposit.get("base_output_tons", 0))
-        estimated_value = 0.0
-        estimated_tons = 0.0
-
-        if site.is_active and active_rig:
-            rig_rating = float(active_rig.db.rig_rating)
-            wear_mod = 1.0 - (float(active_rig.db.wear) * WEAR_OUTPUT_PENALTY)
-            total = (
-                base_tons
-                * richness
-                * rig_rating
-                * MODE_OUTPUT_MODIFIERS[active_rig.db.mode]
-                * POWER_OUTPUT_MODIFIERS[active_rig.db.power_level]
-                * wear_mod
-            )
-            estimated_tons = total
-            for k, frac in raw_comp.items():
-                val = total * float(frac) * get_commodity_bid(k, location=sloc)
-                estimated_value += val
-                mining_value_per_cycle += val
-        else:
-            estimated_tons = base_tons * richness
-            for k, frac in raw_comp.items():
-                estimated_value += estimated_tons * float(frac) * get_commodity_bid(k, location=sloc)
-
-        volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-        rarity_tier, rarity_tier_cls = _resource_rarity_tier(raw_comp)
-
-        mines.append({
-            "id": site.id,
-            "key": site.key,
-            "location": sloc.key if sloc else None,
-            "active": site.is_active,
-            "richness": richness,
-            "volumeTier": volume_tier,
-            "volumeTierCls": volume_tier_cls,
-            "resourceRarityTier": rarity_tier,
-            "resourceRarityTierCls": rarity_tier_cls,
-            "baseOutputTons": base_tons,
-            "estimatedOutputTons": round(estimated_tons, 1),
-            "estimatedValuePerCycle": int(round(estimated_value)),
-            "composition": comp,
-            "nextCycleAt": site.db.next_cycle_at,
-            "rig": active_rig.key if active_rig else None,
-            "rigWear": int(active_rig.db.wear * 100) if active_rig else None,
-            "rigOperational": active_rig.db.is_operational if active_rig else False,
-            "storageUsed": round(used, 1),
-            "storageCapacity": cap,
-            "inventory": inv,
-            "licenseLevel": int(site.db.license_level),
-            "taxRate": float(site.db.tax_rate),
-            "hazardLevel": float(site.db.hazard_level),
-        })
+        row, cycle_cr, stored_cr = packed
+        mines.append(row)
+        mining_value_per_cycle += cycle_cr
+        mining_total_stored += stored_cr
 
     return mines, int(round(mining_value_per_cycle)), int(round(mining_total_stored))
 
@@ -219,7 +151,7 @@ def _personal_plant_ore_stored_value_cr(char):
     from typeclasses.haulers import get_plant_player_storage
     from typeclasses.mining import get_commodity_bid
 
-    room = _first_object(PROCESSING_PLANT_ROOM_KEY)
+    room = processing_plant_room_for_object(char)
     if not room or not char:
         return 0
     storage = get_plant_player_storage(room, char)
@@ -236,7 +168,7 @@ def _serialize_processing_summary(char):
     from typeclasses.mining import COMMODITY_ASK_OVER_BID
     from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE, REFINING_RECIPES
 
-    room = _first_object(PROCESSING_PLANT_ROOM_KEY)
+    room = processing_plant_room_for_object(char) if char else None
     if not room:
         return None
 
@@ -260,6 +192,8 @@ def _serialize_processing_summary(char):
 
     refinery_input_tons = 0.0
     refinery_output_value = 0
+    miner_queue_ore_tons = 0.0
+    miner_output_value_total = 0
     if refinery_obj:
         in_inv = refinery_obj.db.input_inventory or {}
         refinery_input_tons = round(sum(float(v) for v in in_inv.values()), 2)
@@ -267,6 +201,8 @@ def _serialize_processing_summary(char):
         for key, units in out_inv.items():
             recipe = REFINING_RECIPES.get(key, {})
             refinery_output_value += int(units * recipe.get("base_value_cr", 0))
+        miner_queue_ore_tons = refinery_obj.get_total_miner_ore_queued_tons()
+        miner_output_value_total = refinery_obj.get_total_miner_output_value()
 
     my_ore_queued = None
     my_refined_output = None
@@ -291,11 +227,14 @@ def _serialize_processing_summary(char):
         my_haulers = haulers
 
     return {
-        "plantName": PROCESSING_PLANT_ROOM_KEY,
+        "venueId": venue_id_for_object(char) if char else None,
+        "plantName": room.key,
         "rawStorageUsed": raw_used,
         "rawStorageCapacity": raw_cap,
         "refineryInputTons": refinery_input_tons,
         "refineryOutputValue": refinery_output_value,
+        "minerQueueOreTons": miner_queue_ore_tons,
+        "minerOutputValueTotal": miner_output_value_total,
         "processingFeeRate": PROCESSING_FEE_RATE,
         "rawSaleFeeRate": RAW_SALE_FEE_RATE,
         "rawAskPremiumRate": float(COMMODITY_ASK_OVER_BID) - 1.0,
@@ -307,20 +246,9 @@ def _serialize_processing_summary(char):
 
 
 def _serialize_market():
-    from typeclasses.mining import RESOURCE_CATALOG, get_commodity_ask, get_commodity_bid
+    from world.market_snapshot import serialize_resource_market
 
-    commodities = []
-    for rk, info in RESOURCE_CATALOG.items():
-        commodities.append({
-            "key": rk,
-            "name": info["name"],
-            "category": info["category"],
-            "basePriceCrPerTon": info["base_price_cr_per_ton"],
-            "sellPriceCrPerTon": get_commodity_bid(rk),
-            "buyPriceCrPerTon": get_commodity_ask(rk),
-            "desc": info["desc"],
-        })
-    return commodities
+    return serialize_resource_market()
 
 
 _KIOSK_HREF = {
@@ -337,10 +265,12 @@ _KIOSK_HREF = {
 
 
 def _serialize_nav(char, mines):
-    from world.bootstrap_hub import HUB_ROOM_KEY
-    from world.bootstrap_shops import SHOPS
+    from world.bootstrap_shops import all_item_shop_specs
+    from world.venues import all_venue_ids, get_venue
 
-    hub = _first_object(HUB_ROOM_KEY)
+    hub = hub_for_object(char) if char else _first_object(CORE_HUB_ROOM_KEY)
+    vid = venue_id_for_object(char) if char else "nanomega_core"
+    vqs = f"?venue={vid}"
     # Walkable exits for the player must come from their *current* room. The hub
     # room key is "NanoMegaPlex Promenade"; shops connect to it via a "promenade"
     # exit, but that exit lives only on the shop room — not on the hub object.
@@ -353,36 +283,60 @@ def _serialize_nav(char, mines):
 
     all_exits = _room_exits(room_for_exits) if room_for_exits else []
 
-    kiosks = []
+    kiosk_from_exits = []
     exits = []
     for ex in all_exits:
         kl = ex["key"].lower()
         if kl in _KIOSK_HREF:
             label, href = _KIOSK_HREF[kl]
-            kiosks.append({"key": ex["key"], "label": label, "href": href})
+            if href in ("/bank", "/processing", "/real-estate"):
+                href = f"{href}{vqs}"
+            kiosk_from_exits.append({"key": ex["key"], "label": label, "href": href})
         else:
             exits.append(ex)
 
     # Services should always expose core utility destinations, independent of
-    # current hub exit naming/mapping.
+    # current hub exit naming/mapping. Merge with exit-derived rows (prefer exit
+    # labels), then emit in a stable order so web-only links (e.g. Economy) appear.
     required_services = [
-        {"key": "bank", "label": "Bank", "href": "/bank"},
-        {"key": "processing", "label": "Processing Plant", "href": "/processing"},
-        {"key": "real-estate", "label": "Real Estate Agency", "href": "/real-estate"},
+        {"key": "bank", "label": "Bank", "href": f"/bank{vqs}"},
+        {"key": "real-estate", "label": "Real Estate Agency", "href": f"/real-estate{vqs}"},
+        {"key": "processing", "label": "Processing Plant", "href": f"/processing{vqs}"},
         {"key": "locator", "label": "Universal Locator", "href": "/locator"},
+        {"key": "economy", "label": "Economy", "href": "/economy"},
     ]
-    kiosk_hrefs = {k.get("href") for k in kiosks}
-    for service in required_services:
-        if service["href"] not in kiosk_hrefs:
-            kiosks.append(service)
+    by_href = {k["href"]: k for k in kiosk_from_exits}
+    for svc in required_services:
+        if svc["href"] not in by_href:
+            by_href[svc["href"]] = svc
+    required_hrefs = {s["href"] for s in required_services}
+    kiosks = [by_href[s["href"]] for s in required_services]
+    for k in kiosk_from_exits:
+        if k["href"] not in required_hrefs:
+            kiosks.append(k)
 
-    shops = [{"roomKey": s["room_key"], "label": s["vendor_name"]} for s in SHOPS]
-    shops.append({"roomKey": "Meridian Civil Shipyard", "label": "Shipyard"})
+    shops = [
+        {"roomKey": s["room_key"], "label": s["vendor_name"], "venueId": s["venue_id"]}
+        for s in all_item_shop_specs()
+    ]
+    for v in all_venue_ids():
+        sy = get_venue(v)["shipyard"]
+        shops.append(
+            {
+                "roomKey": sy["showroom_key"],
+                "label": sy["vendor_name"],
+                "venueId": v,
+            }
+        )
 
     claims_nav = []
     properties_nav = []
     if char:
-        from typeclasses.mining import _resource_rarity_tier, _volume_tier
+        from typeclasses.mining import (
+            _resource_rarity_tier,
+            _volume_tier,
+            estimated_site_value_per_cycle_cr,
+        )
 
         for obj in char.contents:
             if getattr(obj, "destination", None):
@@ -403,6 +357,7 @@ def _serialize_nav(char, mines):
                     claim_row["volumeTierCls"] = volume_tier_cls
                     claim_row["resourceRarityTier"] = rarity_tier
                     claim_row["resourceRarityTierCls"] = rarity_tier_cls
+                    claim_row["estimatedValuePerCycle"] = estimated_site_value_per_cycle_cr(site)
                 claims_nav.append(claim_row)
             if obj.tags.has("property_claim", category="realty"):
                 properties_nav.append({"label": obj.key, "href": f"/properties/{obj.id}"})
@@ -413,7 +368,8 @@ def _serialize_nav(char, mines):
     ]
 
     return {
-        "hubRoomKey": hub.key if hub else HUB_ROOM_KEY,
+        "venueId": vid,
+        "hubRoomKey": hub.key if hub else CORE_HUB_ROOM_KEY,
         "exits": exits,
         "kiosks": kiosks,
         "shops": shops,
@@ -460,11 +416,15 @@ def control_surface_state(request):
 
     econ = get_economy(create_missing=True)
     treasury_balance = None
-    bank_room = _first_object(BANK_ROOM_KEY)
-    if bank_room:
-        treasury_balance = econ.get_balance("treasury:alpha-prime")
+    tbid = treasury_bank_id_for_object(None)
+    treasury_balance = econ.get_balance(econ.get_treasury_account(tbid))
 
     market = _serialize_market()
+
+    clock_payload = {
+        "miningDeliveryPeriodSeconds": int(MINING_DELIVERY_PERIOD),
+        "serverTimeIso": to_iso(utc_now()) or "",
+    }
 
     base_sparse = {
         "schemaVersion": SCHEMA_VERSION,
@@ -489,6 +449,7 @@ def control_surface_state(request):
         "roomExits": [],
         "treasuryBalance": treasury_balance,
         "message": None,
+        **clock_payload,
     }
 
     if not request.user.is_authenticated:
@@ -516,6 +477,9 @@ def control_surface_state(request):
         })
 
     credits = econ.get_character_balance(char)
+
+    tbid = treasury_bank_id_for_object(char)
+    treasury_balance = econ.get_balance(econ.get_treasury_account(tbid))
 
     char.missions.sync_global_seeds()
     if char.location:
@@ -555,4 +519,5 @@ def control_surface_state(request):
         "roomExits": room_exits,
         "treasuryBalance": treasury_balance,
         "message": None,
+        **clock_payload,
     })

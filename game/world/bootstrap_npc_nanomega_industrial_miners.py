@@ -1,10 +1,7 @@
 """
-Bootstrap NPC-owned mining ops — NanoMegaPlex industrial subdeck.
+Bootstrap NPC-owned mining ops per venue industrial subdeck.
 
-Mirrors Ashfall industrial bootstrap: hub -> staging -> one room per pad.
-Five units × four pads; deposits Deep volume + Uncommon rarity tier.
-
-Idempotent: site tag npc_nanomega_industrial_supply (category world).
+Idempotent: site tag from venue industrial spec (category world).
 """
 
 import copy
@@ -15,46 +12,13 @@ from evennia.accounts.models import AccountDB
 
 from typeclasses.characters import ABILITY_KEYS, CHARACTER_TYPECLASS_PATH
 from typeclasses.packages import _deploy_components_at_site
-from world.bootstrap_hub import get_hub_room
 from world.bootstrap_mining import _get_or_create_exit
 from world.bootstrap_mining_packages import MINING_PACKAGES
 from world.npc_miner_registry import register_npc_miner_character_id
-
-STAGING_ROOM_KEY = "NanoMegaPlex Industrial Subdeck"
-STAGING_ROOM_DESC = (
-    "Below-deck contractor grid for multiplex build-out: leased pads, "
-    "ore hoppers, and dispatch uplinks to the central processing plant."
-)
-
-HUB_TO_STAGING_EXIT_KEY = "nanomega industrial"
-HUB_TO_STAGING_ALIASES = [
-    "plex industrial",
-    "nanomega mines",
-    "contractor subdeck",
-    "industrial subdeck",
-]
-
-STAGING_TO_HUB_EXIT_KEY = "promenade"
-STAGING_TO_HUB_ALIASES = ["back", "exit", "out", "plex", "hub"]
+from world.venue_resolve import hub_room_for_venue
+from world.venues import all_venue_ids, apply_venue_metadata, get_venue
 
 CELL_EXIT_PREFIX = "pad "
-
-# Deep: richness * base_output_tons >= 20 (_volume_tier).
-# Uncommon: weighted rarity avg in [0.6, 1.5) — here avg = 1.0 (_resource_rarity_tier).
-DEEP_UNCOMMON_DEPOSIT = {
-    "richness": 1.0,
-    "base_output_tons": 20.0,
-    "composition": {
-        "cobalt_ore": 1.0 / 3,
-        "tungsten_ore": 1.0 / 3,
-        "rare_earth_concentrate": 1.0 / 3,
-    },
-    "depletion_rate": 0.002,
-    "richness_floor": 0.12,
-}
-
-DEPLOY_TAG = "npc_nanomega_industrial_supply"
-LOG_PREFIX = "[npc-nanomega-industrial]"
 
 
 def _components_for_profile(deploy_profile: str) -> tuple[list, str]:
@@ -84,12 +48,12 @@ def _apply_flat_bases(char, base: int = 14):
             trait.mult = 1.0
 
 
-def _ensure_npc_character(account, key: str, desc: str):
+def _ensure_npc_character(account, key: str, desc: str, log_prefix: str):
     matches = search_object(key)
     if matches:
         char = matches[0]
         if not char.is_typeclass(CHARACTER_TYPECLASS_PATH, exact=False):
-            print(f"{LOG_PREFIX} {key!r} exists but is not a Character; skip.")
+            print(f"{log_prefix} {key!r} exists but is not a Character; skip.")
             return None
         if char not in account.characters:
             account.characters.add(char)
@@ -101,14 +65,14 @@ def _ensure_npc_character(account, key: str, desc: str):
 
     char, errs = account.create_character(key=key, typeclass=CHARACTER_TYPECLASS_PATH)
     if errs:
-        print(f"{LOG_PREFIX} create_character {key!r} failed: {errs}")
+        print(f"{log_prefix} create_character {key!r} failed: {errs}")
         return None
     char.db.is_npc = True
     char.db.rpg_pointbuy_done = True
     char.db.desc = desc
     _apply_flat_bases(char)
     register_npc_miner_character_id(char.id)
-    print(f"{LOG_PREFIX} Created NPC {key!r} (#{char.id}).")
+    print(f"{log_prefix} Created NPC {key!r} (#{char.id}).")
     return char
 
 
@@ -124,34 +88,34 @@ def _get_or_create_room(key: str, desc: str):
     return room
 
 
-def _ensure_staging_and_hub_link():
-    staging = _get_or_create_room(STAGING_ROOM_KEY, STAGING_ROOM_DESC)
-    hub = get_hub_room()
+def _ensure_staging_and_hub_link(venue_id: str, log_prefix: str):
+    ind = get_venue(venue_id)["industrial"]
+    staging = _get_or_create_room(ind["staging_room_key"], ind["staging_room_desc"])
+    apply_venue_metadata(staging, venue_id)
+    hub = hub_room_for_venue(venue_id)
     if hub:
         _get_or_create_exit(
-            HUB_TO_STAGING_EXIT_KEY,
-            HUB_TO_STAGING_ALIASES,
+            ind["hub_exit_key"],
+            ind["hub_exit_aliases"],
             hub,
             staging,
         )
         _get_or_create_exit(
-            STAGING_TO_HUB_EXIT_KEY,
-            STAGING_TO_HUB_ALIASES,
+            "promenade",
+            ["back", "exit", "out", "plex", "hub"],
             staging,
             hub,
         )
     else:
-        print(f"{LOG_PREFIX} WARNING: hub missing — no hub link to staging.")
+        print(f"{log_prefix} WARNING: hub missing — no hub link to staging.")
     return staging
 
 
-def _ensure_cell_room(staging, cell_id: str):
-    key = f"NanoMegaPlex Industrial Pad {cell_id}"
-    desc = (
-        f"NanoMegaPlex lease pad {cell_id}: contracted extraction feeding "
-        "multiplex construction and fab lines."
-    )
+def _ensure_cell_room(staging, cell_id: str, venue_id: str, ind: dict):
+    key = f"{ind['pad_room_prefix']} {cell_id}"
+    desc = ind["pad_desc_template"].format(cell=cell_id)
     cell = _get_or_create_room(key, desc)
+    apply_venue_metadata(cell, venue_id)
     ex_key = f"{CELL_EXIT_PREFIX}{cell_id.lower().replace(' ', '-')}"
     aliases = [
         cell_id.lower(),
@@ -160,7 +124,7 @@ def _ensure_cell_room(staging, cell_id: str):
     ]
     _get_or_create_exit(ex_key, aliases, staging, cell)
     _get_or_create_exit(
-        STAGING_TO_HUB_EXIT_KEY,
+        "promenade",
         ["grid", "subdeck", "staging", "back"],
         cell,
         staging,
@@ -190,80 +154,66 @@ def _pads_for_unit(unit_id: str):
     return [f"{unit_id}-{i}" for i in range(1, 5)]
 
 
-NPC_NANOMEGA_INDUSTRIAL_UNITS = [
-    {
-        "unit_id": "N1",
-        "npc_key": "NanoMegaPlex Mining Unit Foxtrot",
-        "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
+DEEP_UNCOMMON_DEPOSIT = {
+    "richness": 1.0,
+    "base_output_tons": 20.0,
+    "composition": {
+        "cobalt_ore": 1.0 / 3,
+        "tungsten_ore": 1.0 / 3,
+        "rare_earth_concentrate": 1.0 / 3,
     },
-    {
-        "unit_id": "N2",
-        "npc_key": "NanoMegaPlex Mining Unit Golf",
-        "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
-    },
-    {
-        "unit_id": "N3",
-        "npc_key": "NanoMegaPlex Mining Unit Hotel",
-        "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
-    },
-    {
-        "unit_id": "N4",
-        "npc_key": "NanoMegaPlex Mining Unit India",
-        "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
-    },
-    {
-        "unit_id": "N5",
-        "npc_key": "NanoMegaPlex Mining Unit Juliet",
-        "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
-    },
-]
+    "depletion_rate": 0.002,
+    "richness_floor": 0.12,
+}
 
 
-def bootstrap_npc_nanomega_industrial_miners():
+def bootstrap_industrial_miners_for_venue(venue_id: str):
+    vspec = get_venue(venue_id)
+    ind = vspec["industrial"]
+    deploy_tag = ind["deploy_tag"]
+    log_prefix = f"[industrial:{venue_id}]"
+
     account = _target_account()
     if not account:
-        print(f"{LOG_PREFIX} No admin/superuser account; skip.")
+        print(f"{log_prefix} No admin/superuser account; skip.")
         return
 
-    staging = _ensure_staging_and_hub_link()
+    staging = _ensure_staging_and_hub_link(venue_id, log_prefix)
 
-    for unit in NPC_NANOMEGA_INDUSTRIAL_UNITS:
-        npc = _ensure_npc_character(account, unit["npc_key"], unit["npc_desc"])
+    for unit in ind["units"]:
+        npc = _ensure_npc_character(account, unit["npc_key"], unit["npc_desc"], log_prefix)
         if not npc:
             continue
 
         for grid_cell in _pads_for_unit(unit["unit_id"]):
-            cell_room = _ensure_cell_room(staging, grid_cell)
-            site_key = f"NanoMegaPlex Pad {grid_cell} Deposit"
+            cell_room = _ensure_cell_room(staging, grid_cell, venue_id, ind)
+            site_key = ind["site_key_template"].format(cell=grid_cell)
 
             site = _ensure_site_in_room(cell_room, site_key, DEEP_UNCOMMON_DEPOSIT)
             site.db.hazard_level = 0.0
-            if site.tags.has(DEPLOY_TAG, category="world"):
-                print(
-                    f"{LOG_PREFIX} Already deployed: {site.key!r} in {cell_room.key!r}."
-                )
+            if site.tags.has(deploy_tag, category="world"):
+                print(f"{log_prefix} Already deployed: {site.key!r} in {cell_room.key!r}.")
                 continue
             if site.db.is_claimed and site.db.owner and site.db.owner != npc:
-                print(f"{LOG_PREFIX} Site {site.key!r} claimed by another owner; skip.")
+                print(f"{log_prefix} Site {site.key!r} claimed by another owner; skip.")
                 continue
 
             components, tier = _components_for_profile(unit["deploy_profile"])
 
             ok, msg = _deploy_components_at_site(npc, site, cell_room, components, tier)
             if ok:
-                site.tags.add(DEPLOY_TAG, category="world")
+                site.tags.add(deploy_tag, category="world")
                 print(
-                    f"{LOG_PREFIX} Deployed {unit['npc_key']!r} @ {cell_room.key!r}: "
+                    f"{log_prefix} Deployed {unit['npc_key']!r} @ {cell_room.key!r}: "
                     f"{msg.splitlines()[0]}"
                 )
             else:
-                print(
-                    f"{LOG_PREFIX} Deploy failed {unit['npc_key']!r} {grid_cell!r}: {msg}"
-                )
+                print(f"{log_prefix} Deploy fail {unit['npc_key']!r} {grid_cell!r}: {msg}")
 
-    print(f"{LOG_PREFIX} Bootstrap complete.")
+    print(f"{log_prefix} Bootstrap complete.")
+
+
+def bootstrap_npc_nanomega_industrial_miners():
+    """Cold-start entry: all venues with industrial specs."""
+    for venue_id in all_venue_ids():
+        bootstrap_industrial_miners_for_venue(venue_id)

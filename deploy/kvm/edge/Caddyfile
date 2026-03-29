@@ -1,0 +1,51 @@
+# Caddy automatically provisions and renews TLS via Let's Encrypt.
+# Replace {$DOMAIN} with your actual domain (set DOMAIN in .env or inline here).
+
+{$DOMAIN} {
+
+    # --- Next.js frontend (SSR) ---
+    # All traffic that isn't a game API or WebSocket path goes to the frontend.
+    handle {
+        reverse_proxy frontend:3000
+    }
+
+    # --- Evennia web API ---
+    # Evennia's HTTP API lives on port 4001. Adjust path prefix to match your URL layout.
+    handle /api/* {
+        reverse_proxy {$EVENNIA_HOST}:4001
+    }
+
+    # --- Evennia WebSocket (web client / real-time game) ---
+    # Evennia serves its websocket client on port 4002.
+    handle /webclient* {
+        reverse_proxy {$EVENNIA_HOST}:4002 {
+            header_up Upgrade {http.upgrade}
+            header_up Connection {http.connection}
+        }
+    }
+
+    # --- Evennia web pages (login, admin, static assets) ---
+    # Proxy anything under /accounts/, /admin/, and /media/ to Evennia.
+    handle /accounts/* {
+        reverse_proxy {$EVENNIA_HOST}:4001
+    }
+    handle /admin/* {
+        reverse_proxy {$EVENNIA_HOST}:4001
+    }
+    handle /media/* {
+        reverse_proxy {$EVENNIA_HOST}:4001
+    }
+    handle /static/* {
+        reverse_proxy {$EVENNIA_HOST}:4001
+    }
+
+    # Rate limiting (requires Caddy with the rate_limit plugin, or use a WAF in front)
+    # Uncomment if you're running the xcaddy build with rate_limit:
+    # rate_limit {remote.ip} 60r/m
+
+    encode gzip zstd
+    log {
+        output stdout
+        format json
+    }
+}

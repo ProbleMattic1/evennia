@@ -13,7 +13,7 @@ from evennia.scripts.scripts import DefaultScript
 
 
 DISCOVERY_INTERVAL_SECONDS = 900  # 15 minutes
-MAX_UNCLAIMED_SITES = 100
+MAX_UNCLAIMED_SITES_PER_VENUE = 50
 
 
 class SiteDiscoveryEngine(DefaultScript):
@@ -36,22 +36,30 @@ class SiteDiscoveryEngine(DefaultScript):
     def at_repeat(self):
         from evennia.utils import logger
         from typeclasses.claim_utils import generate_mining_site, get_unclaimed_sites
+        from world.venue_resolve import venue_id_for_object
+        from world.venues import all_venue_ids
 
         try:
-            unclaimed = get_unclaimed_sites()
-            if len(unclaimed) >= MAX_UNCLAIMED_SITES:
+            for venue_id in all_venue_ids():
+                unclaimed = [
+                    s
+                    for s in get_unclaimed_sites()
+                    if (venue_id_for_object(s.location) or "nanomega_core") == venue_id
+                ]
+                if len(unclaimed) >= MAX_UNCLAIMED_SITES_PER_VENUE:
+                    logger.log_info(
+                        f"[site_discovery] {venue_id} cap "
+                        f"({len(unclaimed)}/{MAX_UNCLAIMED_SITES_PER_VENUE}) — skip."
+                    )
+                    continue
+                site = generate_mining_site(venue_id=venue_id)
                 logger.log_info(
-                    f"[site_discovery] Cap reached ({len(unclaimed)}/{MAX_UNCLAIMED_SITES})"
-                    f" — skipping discovery this tick."
-                )
-            else:
-                site = generate_mining_site()
-                logger.log_info(
-                    f"[site_discovery] New site discovered: {site.key} "
-                    f"(unclaimed total: {len(unclaimed) + 1})"
+                    f"[site_discovery] [{venue_id}] New site: {site.key} "
+                    f"(unclaimed in venue: {len(unclaimed) + 1})"
                 )
                 try:
                     from typeclasses.system_alerts import enqueue_system_alert
+
                     enqueue_system_alert(
                         severity="info",
                         category="market",
@@ -62,6 +70,7 @@ class SiteDiscoveryEngine(DefaultScript):
                     )
                 except Exception:
                     pass
+                break
         except Exception as err:
             logger.log_err(f"[site_discovery] Error during discovery: {err}")
         finally:

@@ -1,66 +1,16 @@
 """
-World bootstrap for general catalog shops (tech, mining, supply, toy).
+World bootstrap for general catalog shops (tech, mining, supply, toy), per venue hub.
 
-Runs automatically from server/conf/at_server_cold_start (at_server_startstop.py)
-on every cold start. Idempotent.
-
-Optional manual run (same code path):
-    batchcode world.bootstrap_shops
-
-Each kiosk is a CatalogVendor with a unique vendor_id; catalog templates use
-tag (vendor_id, category="vendor").
+Each kiosk has a unique vendor_id; catalog templates carry tag (vendor_id, category="vendor")
+for every venue that sells that SKU.
 """
 
 from evennia import create_object, search_object
 
+from world.venue_resolve import hub_room_for_venue
+from world.venues import all_venue_ids, apply_venue_metadata, get_venue
 
-SHOPS = (
-    {
-        "room_key": "Aurnom Tech Depot",
-        "room_desc": "Shelves of consumer electronics, interface modules, and field repair kits glow under cool strip lights.",
-        "kiosk_key": "tech kiosk",
-        "kiosk_desc": "A sleek terminal lists certified gadgets and spare compute cores.",
-        "vendor_id": "tech-depot",
-        "vendor_name": "Tech Depot",
-        "vendor_account": "vendor:tech-depot",
-        "hub_exit": "tech",
-        "hub_aliases": ["techdepot", "electronics"],
-    },
-    {
-        "room_key": "Aurnom Mining Outfitters",
-        "room_desc": "Industrial racks hold extraction gear rated for vacuum and hard rock.",
-        "kiosk_key": "mining supply kiosk",
-        "kiosk_desc": "A rugged console catalogs drills, scanners, and crew-rated hazard wear.",
-        "vendor_id": "mining-outfitters",
-        "vendor_name": "Mining Outfitters",
-        "vendor_account": "vendor:mining-outfitters",
-        "hub_exit": "mining",
-        "hub_aliases": ["miners", "outfitters"],
-    },
-    {
-        "room_key": "Aurnom General Supply",
-        "room_desc": "A compact mercantile bay stacked with consumables and everyday ship-board necessities.",
-        "kiosk_key": "supply kiosk",
-        "kiosk_desc": "An inventory terminal tracks rations, medical basics, and utility tools.",
-        "vendor_id": "general-supply",
-        "vendor_name": "General Supply",
-        "vendor_account": "vendor:general-supply",
-        "hub_exit": "supply",
-        "hub_aliases": ["supplies", "general"],
-    },
-    {
-        "room_key": "Aurnom Toy Gallery",
-        "room_desc": "Colorful displays and low-grav novelty bins invite impulse buys.",
-        "kiosk_key": "toy kiosk",
-        "kiosk_desc": "A playful interface scrolls games, models, and soft goods.",
-        "vendor_id": "toy-gallery",
-        "vendor_name": "Toy Gallery",
-        "vendor_account": "vendor:toy-gallery",
-        "hub_exit": "toys",
-        "hub_aliases": ["toy", "gallery"],
-    },
-)
-
+# (template key, vendor_slug matching venues shops, desc, price, inventory bucket)
 CATALOG = (
     ("Tech Datapad", "tech-depot", "A slim personal datapad with standard productivity suites.", 450, "tool"),
     ("Tech Sensor Node", "tech-depot", "A compact environmental sensor package for hobbyists.", 890, "tool"),
@@ -71,6 +21,10 @@ CATALOG = (
     ("Toy Holo Chess", "toy-gallery", "Portable holographic chess set with classic variants.", 95, "novelty"),
     ("Toy Plush Bot", "toy-gallery", "A soft plush replica of a popular station robot.", 42, "novelty"),
     ("Toy Model Freighter", "toy-gallery", "Die-cast display model of a civilian freighter class.", 175, "novelty"),
+)
+
+_LEGACY_VENDOR_IDS = frozenset(
+    {"tech-depot", "mining-outfitters", "general-supply", "toy-gallery"}
 )
 
 
@@ -125,7 +79,7 @@ def _get_or_create_catalog_vendor(room, spec):
     return kiosk
 
 
-def _ensure_catalog_template(key, vendor_id, desc, price_cr, inventory_bucket_tag: str):
+def _ensure_catalog_template(key, vendor_slug, desc, price_cr, inventory_bucket_tag: str):
     found = search_object(key)
     if found:
         obj = found[0]
@@ -134,35 +88,57 @@ def _ensure_catalog_template(key, vendor_id, desc, price_cr, inventory_bucket_ta
     obj.db.desc = desc
     obj.db.economy = {"base_price_cr": int(price_cr)}
     obj.db.is_template = True
-    obj.tags.add(vendor_id, category="vendor")
+    for leg in _LEGACY_VENDOR_IDS:
+        if obj.tags.has(leg, category="vendor"):
+            obj.tags.remove(leg, category="vendor")
+    for venue_id in all_venue_ids():
+        vid = f"{venue_id}-{vendor_slug}"
+        obj.tags.add(vid, category="vendor")
     obj.tags.add(inventory_bucket_tag, category="inventory")
     obj.locks.add("get:false()")
     return obj
 
 
 def bootstrap_shops():
-    """Create four general shops and sample catalog items. Idempotent."""
-    from world.bootstrap_hub import get_hub_room
+    """Create catalog shops per venue and sample catalog items. Idempotent."""
+    for venue_id in all_venue_ids():
+        hub = hub_room_for_venue(venue_id)
+        for spec in get_venue(venue_id)["shops"]:
+            room = _get_or_create_room(spec["room_key"], desc=spec["room_desc"])
+            apply_venue_metadata(room, venue_id)
+            _get_or_create_catalog_vendor(room, spec)
+            if hub:
+                _get_or_create_exit(
+                    spec["hub_exit"],
+                    spec["hub_aliases"],
+                    hub,
+                    room,
+                )
+                _get_or_create_exit(
+                    "promenade",
+                    ["back", "exit", "out", "plex", "hub"],
+                    room,
+                    hub,
+                )
 
-    hub = get_hub_room()
+    for key, vendor_slug, desc, price, bucket in CATALOG:
+        _ensure_catalog_template(key, vendor_slug, desc, price, bucket)
 
-    for spec in SHOPS:
-        room = _get_or_create_room(spec["room_key"], desc=spec["room_desc"])
-        _get_or_create_catalog_vendor(room, spec)
-        if hub:
-            _get_or_create_exit(
-                spec["hub_exit"],
-                spec["hub_aliases"],
-                hub,
-                room,
-            )
-            _get_or_create_exit("promenade", ["back", "exit", "out", "plex", "hub"], room, hub)
-
-    for key, vendor_id, desc, price, bucket in CATALOG:
-        _ensure_catalog_template(key, vendor_id, desc, price, bucket)
-
-    print("[shops] Catalog vendors: tech-depot, mining-outfitters, general-supply, toy-gallery")
-    print("[shops] Rooms created or updated; hub exits wired if NanoMegaPlex Promenade (#2) exists.")
+    print("[shops] Catalog vendors per venue; templates tagged with venue-scoped vendor_ids.")
     print("[shops] Bootstrap complete.")
 
 
+# Control surface / legacy imports: flat list of {room_key, label} for all venues
+def all_item_shop_specs():
+    rows = []
+    for venue_id in all_venue_ids():
+        for spec in get_venue(venue_id)["shops"]:
+            rows.append(
+                {
+                    "venue_id": venue_id,
+                    "room_key": spec["room_key"],
+                    "vendor_name": spec["vendor_name"],
+                    "vendor_id": spec["vendor_id"],
+                }
+            )
+    return rows

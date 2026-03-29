@@ -316,7 +316,9 @@ class CmdFeedRefinery(Command):
       ... at <target>
 
     Transfers ore from a mining storage unit in the same room (or from the
-    vehicle you are aboard, if docked here) into the refinery's input bin.
+    vehicle you are aboard, if docked here) into the refinery. From your
+    assigned plant storage, ore goes into your attributed plant queue; from
+    other sources, into the refinery's shared input bin.
 
     Examples:
       feedrefinery iron 100
@@ -568,9 +570,9 @@ class CmdCollectRefined(Command):
     Your hauler delivers ore into your assigned storage at the plant; the plant
     moves it into your refining queue and produces attributed output. Use this
     command at the Processing Plant to cash out. Payout is funded from the planetary
-    treasury (transfers only): a 10%% processing fee is split between the plant vendor
-    and the treasury; the net is transferred to you. If the treasury cannot cover
-    the payout, collection is refused or your output is restored.
+    treasury (transfers only): a 10%% processing fee is retained by the treasury; the
+    net is transferred to you. If the treasury cannot cover the payout, collection is
+    refused or your output is restored.
     """
 
     key = "collectrefined"
@@ -603,7 +605,6 @@ class CmdCollectRefined(Command):
         owner_acct = econ.get_character_account(caller)
 
         econ.ensure_account(treasury_acct, opening_balance=int(econ.db.tax_pool or 0))
-        econ.ensure_account(plant_acct, opening_balance=0)
         econ.ensure_account(owner_acct, opening_balance=int(caller.db.credits or 0))
 
         if econ.get_balance(treasury_acct) < bd_pre["required_from_treasury"]:
@@ -634,12 +635,8 @@ class CmdCollectRefined(Command):
             lines.append(f"  {name:<30} {units:>8.2f} units   |y{val:>10,}|n cr")
         lines.append(f"  {'Gross value':<30}            |y{gross:>10,}|n cr")
         lines.append(
-            f"  {'Processing fee ({:.0%})'.format(PROCESSING_FEE_RATE):<30}"
+            f"  {'Processing fee ({:.0%}, retained by treasury)'.format(PROCESSING_FEE_RATE):<30}"
             f"            |r{fee:>10,}|n cr"
-        )
-        lines.append(
-            f"  {'  (plant / treasury fee)':<30}"
-            f"            |y{bd['plant_fee']:>5,}|n / |y{bd['treasury_fee']:>5,}|n cr"
         )
         lines.append(f"  {'Net from treasury':<30}            |g{bd['net']:>10,}|n cr")
 

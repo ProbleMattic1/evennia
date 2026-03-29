@@ -8,11 +8,6 @@ import random
 
 from evennia import create_object, search_object
 
-from typeclasses.characters import (
-    NANOMEGA_ADVERTISING_CHARACTER_KEY,
-    NANOMEGA_CONSTRUCTION_CHARACTER_KEY,
-    NANOMEGA_REALTY_CHARACTER_KEY,
-)
 from typeclasses.property_claims import (
     CLAIM_TITLE_PREFIX_BY_ZONE,
     CLAIM_TYPECLASS_BY_ZONE,
@@ -20,26 +15,30 @@ from typeclasses.property_claims import (
 from typeclasses.property_development import ensure_holding_for_claimed_lot
 from typeclasses.property_lot_registry import (
     get_listable_lots_from_registry,
+    infer_lot_venue_id,
     move_lot_to_claimed_archive,
     unregister_listable_property_lot,
 )
-
-
-def _first_object(key):
-    found = search_object(key)
-    return found[0] if found else None
+from world.venue_resolve import (
+    get_advertising_agent_for_venue,
+    get_construction_builder_for_venue,
+    get_realty_broker_for_venue,
+    realty_broker_key_for_venue,
+    treasury_bank_id_for_lot,
+    treasury_bank_id_for_object,
+)
 
 
 def get_realty_broker():
-    return _first_object(NANOMEGA_REALTY_CHARACTER_KEY)
+    return get_realty_broker_for_venue("nanomega_core")
 
 
 def get_construction_builder():
-    return _first_object(NANOMEGA_CONSTRUCTION_CHARACTER_KEY)
+    return get_construction_builder_for_venue("nanomega_core")
 
 
 def get_advertising_agent():
-    return _first_object(NANOMEGA_ADVERTISING_CHARACTER_KEY)
+    return get_advertising_agent_for_venue("nanomega_core")
 
 
 def lot_listing_price(lot):
@@ -58,7 +57,15 @@ def lot_is_market_listable(lot):
     return not getattr(lot.db, "is_claimed", False)
 
 
-def collect_primary_property_sale(buyer, price, broker, *, tx_type="primary_property_sale", memo=None):
+def collect_primary_property_sale(
+    buyer,
+    price,
+    broker,
+    *,
+    tx_type="primary_property_sale",
+    memo=None,
+    treasury_bank_id="alpha-prime",
+):
     from typeclasses.claim_market import outfitters_claims_tax_rate
     from typeclasses.economy import get_economy
 
@@ -69,11 +76,11 @@ def collect_primary_property_sale(buyer, price, broker, *, tx_type="primary_prop
     econ = get_economy(create_missing=True)
     pa   = econ.get_character_account(buyer)
     ba   = econ.get_character_account(broker)
-    ta   = econ.get_treasury_account("alpha-prime")
+    ta   = econ.get_treasury_account(treasury_bank_id)
 
     econ.ensure_account(pa, opening_balance=int(buyer.db.credits or 0))
     econ.ensure_account(ba, opening_balance=int(broker.db.credits or 0))
-    econ.ensure_account(ta, opening_balance=int(econ.db.tax_pool or 0))
+    econ.ensure_account(ta, opening_balance=int(econ.get_balance(ta) or 0))
 
     econ.withdraw(pa, int(price),    memo=memo or "Property deed purchase")
     econ.deposit(ba,  net_amount,    memo=f"Broker revenue — property ({broker.key})")
@@ -104,9 +111,10 @@ def collect_property_construction_payment(
     tx_type="property_construction",
     withdraw_memo="Property construction",
     record_memo=None,
+    treasury_bank_id=None,
 ):
     """
-    Same tax split as primary deed sales: net to builder, tax to alpha-prime treasury.
+    Same tax split as primary deed sales: net to builder, tax to venue treasury branch.
     """
     from typeclasses.claim_market import outfitters_claims_tax_rate
     from typeclasses.economy import get_economy
@@ -119,11 +127,12 @@ def collect_property_construction_payment(
     econ = get_economy(create_missing=True)
     pa = econ.get_character_account(buyer)
     ba = econ.get_character_account(builder)
-    ta = econ.get_treasury_account("alpha-prime")
+    tbid = treasury_bank_id or treasury_bank_id_for_object(builder)
+    ta = econ.get_treasury_account(tbid)
 
     econ.ensure_account(pa, opening_balance=int(buyer.db.credits or 0))
     econ.ensure_account(ba, opening_balance=int(builder.db.credits or 0))
-    econ.ensure_account(ta, opening_balance=int(econ.db.tax_pool or 0))
+    econ.ensure_account(ta, opening_balance=int(econ.get_balance(ta) or 0))
 
     econ.withdraw(pa, price, memo=withdraw_memo)
     econ.deposit(ba, net_amount, memo=f"Construction revenue ({builder.key})")
@@ -154,6 +163,7 @@ def collect_property_advertising_payment(
     tx_type="property_advertising",
     withdraw_memo="Property advertising",
     record_memo=None,
+    treasury_bank_id=None,
 ):
     from typeclasses.claim_market import outfitters_claims_tax_rate
     from typeclasses.economy import get_economy
@@ -166,11 +176,12 @@ def collect_property_advertising_payment(
     econ = get_economy(create_missing=True)
     pa = econ.get_character_account(buyer)
     aa = econ.get_character_account(agent)
-    ta = econ.get_treasury_account("alpha-prime")
+    tbid = treasury_bank_id or treasury_bank_id_for_object(agent)
+    ta = econ.get_treasury_account(tbid)
 
     econ.ensure_account(pa, opening_balance=int(buyer.db.credits or 0))
     econ.ensure_account(aa, opening_balance=int(agent.db.credits or 0))
-    econ.ensure_account(ta, opening_balance=int(econ.db.tax_pool or 0))
+    econ.ensure_account(ta, opening_balance=int(econ.get_balance(ta) or 0))
 
     econ.withdraw(pa, price, memo=withdraw_memo)
     econ.deposit(aa, net_amount, memo=f"Advertising revenue ({agent.key})")
@@ -193,7 +204,15 @@ def collect_property_advertising_payment(
     return net_amount, tax_amount
 
 
-def _refund_property_purchase(buyer, price, broker=None, net_amount=None, tax_amount=None):
+def _refund_property_purchase(
+    buyer,
+    price,
+    broker=None,
+    net_amount=None,
+    tax_amount=None,
+    *,
+    treasury_bank_id="alpha-prime",
+):
     from typeclasses.economy import get_economy
 
     econ = get_economy(create_missing=True)
@@ -210,7 +229,7 @@ def _refund_property_purchase(buyer, price, broker=None, net_amount=None, tax_am
         econ.sync_character_balance(broker)
 
     if tax_amount and int(tax_amount) > 0:
-        ta = econ.get_treasury_account("alpha-prime")
+        ta = econ.get_treasury_account(treasury_bank_id)
         try:
             econ.withdraw(ta, int(tax_amount), memo="Refund clawback tax (property)")
         except ValueError:
@@ -219,7 +238,13 @@ def _refund_property_purchase(buyer, price, broker=None, net_amount=None, tax_am
 
 
 def refund_property_construction_payment(
-    buyer, price, builder=None, net_amount=None, tax_amount=None
+    buyer,
+    price,
+    builder=None,
+    net_amount=None,
+    tax_amount=None,
+    *,
+    treasury_bank_id=None,
 ):
     from typeclasses.economy import get_economy
 
@@ -236,8 +261,11 @@ def refund_property_construction_payment(
             pass
         econ.sync_character_balance(builder)
 
+    tbid = treasury_bank_id or (
+        treasury_bank_id_for_object(builder) if builder is not None else "alpha-prime"
+    )
     if tax_amount and int(tax_amount) > 0:
-        ta = econ.get_treasury_account("alpha-prime")
+        ta = econ.get_treasury_account(tbid)
         try:
             econ.withdraw(ta, int(tax_amount), memo="Refund clawback tax (property construction)")
         except ValueError:
@@ -246,7 +274,13 @@ def refund_property_construction_payment(
 
 
 def refund_property_advertising_payment(
-    buyer, price, agent=None, net_amount=None, tax_amount=None
+    buyer,
+    price,
+    agent=None,
+    net_amount=None,
+    tax_amount=None,
+    *,
+    treasury_bank_id=None,
 ):
     from typeclasses.economy import get_economy
 
@@ -263,8 +297,11 @@ def refund_property_advertising_payment(
             pass
         econ.sync_character_balance(agent)
 
+    tbid = treasury_bank_id or (
+        treasury_bank_id_for_object(agent) if agent is not None else "alpha-prime"
+    )
     if tax_amount and int(tax_amount) > 0:
-        ta = econ.get_treasury_account("alpha-prime")
+        ta = econ.get_treasury_account(tbid)
         try:
             econ.withdraw(ta, int(tax_amount), memo="Refund clawback tax (property advertising)")
         except ValueError:
@@ -322,14 +359,19 @@ def purchase_property_deed(buyer, lot_key):
     if getattr(lot.db, "is_claimed", False):
         return False, "That lot was just claimed by someone else.", None
 
-    broker     = get_realty_broker()
+    vid = infer_lot_venue_id(lot)
+    broker = get_realty_broker_for_venue(vid)
     net_amount = tax_amount = None
 
+    tbid = treasury_bank_id_for_lot(lot)
     if broker:
         net_amount, tax_amount = collect_primary_property_sale(
-            buyer, price, broker,
+            buyer,
+            price,
+            broker,
             tx_type="property_deed_purchase",
             memo=f"{buyer.key} purchased property deed for {lot.key}",
+            treasury_bank_id=tbid,
         )
     else:
         acct = econ.get_character_account(buyer)
@@ -341,8 +383,14 @@ def purchase_property_deed(buyer, lot_key):
         econ.sync_character_balance(buyer)
 
     if getattr(lot.db, "is_claimed", False):
-        _refund_property_purchase(buyer, price, broker=broker,
-                                  net_amount=net_amount, tax_amount=tax_amount)
+        _refund_property_purchase(
+            buyer,
+            price,
+            broker=broker,
+            net_amount=net_amount,
+            tax_amount=tax_amount,
+            treasury_bank_id=tbid,
+        )
         return False, "That lot was claimed during checkout. Refunded.", None
 
     claim = create_property_claim_for_lot(lot, buyer)
@@ -355,12 +403,12 @@ def purchase_property_deed(buyer, lot_key):
     return True, msg, claim
 
 
-def purchase_random_property_deed_by_zone(buyer, zone):
+def purchase_random_property_deed_by_zone(buyer, zone, venue_id="nanomega_core"):
     """
     Prefer a random existing listable lot in ``zone``; if none, mint one like the
-    discovery engine (subject to global listable cap), then run the normal deed sale.
+    discovery engine (subject to per-venue listable cap), then run the normal deed sale.
     """
-    from typeclasses.property_exchange_limits import MAX_LISTABLE_PROPERTY_LOTS
+    from typeclasses.property_exchange_limits import MAX_LISTABLE_PROPERTY_LOTS_PER_VENUE
     from typeclasses.property_lot_generation import generate_market_property_lot
 
     z = (zone or "").strip().lower()
@@ -370,18 +418,18 @@ def purchase_random_property_deed_by_zone(buyer, zone):
 
     candidates = [
         lot
-        for lot in get_listable_lots_from_registry()
+        for lot in get_listable_lots_from_registry(venue_id)
         if lot_is_market_listable(lot) and (lot.db.zone or "residential").lower() == z
     ]
 
     if not candidates:
-        if len(get_listable_lots()) >= MAX_LISTABLE_PROPERTY_LOTS:
+        if len(get_listable_lots(venue_id)) >= MAX_LISTABLE_PROPERTY_LOTS_PER_VENUE:
             return (
                 False,
                 "The property exchange is at capacity; try again after parcels sell or the next restock.",
                 None,
             )
-        lot = generate_market_property_lot(z)
+        lot = generate_market_property_lot(z, venue_id=venue_id)
         return purchase_property_deed(buyer, lot.key)
 
     random.shuffle(candidates)
@@ -390,19 +438,19 @@ def purchase_random_property_deed_by_zone(buyer, zone):
         if success:
             return True, msg, claim
 
-    if len(get_listable_lots()) >= MAX_LISTABLE_PROPERTY_LOTS:
+    if len(get_listable_lots(venue_id)) >= MAX_LISTABLE_PROPERTY_LOTS_PER_VENUE:
         return (
             False,
             "No deeds could be sold right now and the exchange is at capacity.",
             None,
         )
 
-    lot = generate_market_property_lot(z)
+    lot = generate_market_property_lot(z, venue_id=venue_id)
     return purchase_property_deed(buyer, lot.key)
 
 
-def get_listable_lots():
-    return get_listable_lots_from_registry()
+def get_listable_lots(venue_id="nanomega_core"):
+    return get_listable_lots_from_registry(venue_id)
 
 
 def serialize_lot_row(lot):
@@ -410,6 +458,7 @@ def serialize_lot_row(lot):
 
     tier = int(lot.db.lot_tier or 1)
     zone = lot.db.zone or "residential"
+    vid = infer_lot_venue_id(lot)
     return {
         "lotKey":         lot.key,
         "lotId":          lot.id,
@@ -420,7 +469,8 @@ def serialize_lot_row(lot):
         "sizeUnits":      int(lot.db.size_units or 1),
         "listingPriceCr": lot_listing_price(lot),
         "purchasable":    True,
-        "sellerKey":      NANOMEGA_REALTY_CHARACTER_KEY,
+        "sellerKey":      realty_broker_key_for_venue(vid),
+        "venueId":        vid,
     }
 
 

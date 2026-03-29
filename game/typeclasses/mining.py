@@ -393,6 +393,45 @@ def _resource_rarity_tier(composition):
     return "Common", "zinc"
 
 
+def estimated_site_value_per_cycle_cr(site):
+    """
+    Estimated credits from one production cycle at local bid prices.
+    Matches claim detail and dashboard mine rows: applies rig / mode / power / wear
+    when the site is active with an operational rig; otherwise base_tons * richness.
+    """
+    if not site or not getattr(site, "db", None):
+        return 0
+    deposit = site.db.deposit or {}
+    richness = float(deposit.get("richness", 0) or 0)
+    base_tons = float(deposit.get("base_output_tons", 0) or 0)
+    raw_comp = deposit.get("composition") or {}
+    loc = site.location
+
+    installed = [r for r in (site.db.rigs or []) if r]
+    operational = [r for r in installed if r.db.is_operational]
+    active_rig = min(operational, key=lambda r: r.db.wear) if operational else None
+
+    total = 0.0
+    if site.is_active and active_rig:
+        rig_rating = float(active_rig.db.rig_rating)
+        wear_mod = 1.0 - (float(active_rig.db.wear) * WEAR_OUTPUT_PENALTY)
+        tons_out = (
+            base_tons
+            * richness
+            * rig_rating
+            * MODE_OUTPUT_MODIFIERS[active_rig.db.mode]
+            * POWER_OUTPUT_MODIFIERS[active_rig.db.power_level]
+            * wear_mod
+        )
+        for k, frac in raw_comp.items():
+            total += tons_out * float(frac) * get_commodity_bid(k, location=loc)
+    else:
+        tons_out = base_tons * richness
+        for k, frac in raw_comp.items():
+            total += tons_out * float(frac) * get_commodity_bid(k, location=loc)
+    return int(round(total))
+
+
 def _jitter(value, pct=0.15):
     """Return value ± pct (relative), rounded to 2dp."""
     delta = float(value) * pct

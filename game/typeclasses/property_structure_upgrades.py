@@ -6,10 +6,13 @@ from typeclasses.economy import get_economy
 from typeclasses.property_claim_market import (
     collect_property_advertising_payment,
     collect_property_construction_payment,
-    get_advertising_agent,
-    get_construction_builder,
     refund_property_advertising_payment,
     refund_property_construction_payment,
+)
+from world.venue_resolve import (
+    get_advertising_agent_for_venue,
+    get_construction_builder_for_venue,
+    infer_venue_id_from_holding,
 )
 from typeclasses.property_holdings import PROPERTY_HOLDING_CATEGORY
 from world.property_structure_upgrade_registry import (
@@ -59,8 +62,9 @@ def purchase_structure_upgrade(owner, holding, structure_dbid, upgrade_key):
         return False, f"You need {price:,} cr but only have {bal:,} cr."
 
     use_advertising = upgrade_routes_to_advertising(key)
-    agent = get_advertising_agent() if use_advertising else None
-    builder = get_construction_builder() if not use_advertising else None
+    vid = infer_venue_id_from_holding(holding)
+    agent = get_advertising_agent_for_venue(vid) if use_advertising else None
+    builder = get_construction_builder_for_venue(vid) if not use_advertising else None
 
     net_amount = tax_amount = None
     recipient = None

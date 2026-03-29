@@ -7,7 +7,7 @@ from evennia import create_object, search_object, search_tag
 from typeclasses.property_exchange_limits import PROPERTY_PARCEL_JACKPOT_CHANCE
 from typeclasses.property_lots import ZONE_LABELS
 
-EXCHANGE_ROOM_KEY = "NanoMegaPlex Real Estate Office"
+from world.venues import apply_venue_metadata, get_venue
 
 # Minimum tier for discovery-spawned exchange lots (1 = Starter … 3 = Prime).
 MIN_EXCHANGE_TIER = 2
@@ -54,7 +54,7 @@ def _random_tier_and_size():
     return tier, size
 
 
-def generate_market_property_lot(zone, *, roll_jackpot=True):
+def generate_market_property_lot(zone, *, roll_jackpot=True, venue_id="nanomega_core"):
     """
     Procedural exchange lot. If ``roll_jackpot`` is True, small chance to force a prime parcel.
     """
@@ -62,8 +62,11 @@ def generate_market_property_lot(zone, *, roll_jackpot=True):
     if zone not in ZONE_LABELS:
         zone = "residential"
 
-    found = search_object(EXCHANGE_ROOM_KEY)
+    office_key = get_venue(venue_id)["realty"]["office_key"]
+    found = search_object(office_key)
+    assert found, f"realty office {office_key!r} missing for venue {venue_id!r}"
     room = found[0]
+    apply_venue_metadata(room, venue_id)
 
     jackpot = roll_jackpot and (random.random() < PROPERTY_PARCEL_JACKPOT_CHANCE)
     if jackpot:
@@ -82,9 +85,10 @@ def generate_market_property_lot(zone, *, roll_jackpot=True):
     lot.db.lot_tier = tier
     lot.db.zone = zone
     lot.db.size_units = size_units
+    label = get_venue(venue_id).get("label") or venue_id
     lot.db.desc = (
         f"Exchange-listed {zone} parcel (Tier {tier}, {size_units} units). "
-        "Survey complete; title available through NanoMegaPlex Real Estate."
+        f"Survey complete; title available through {label} Real Estate."
     )
     if jackpot:
         lot.db.desc += " ★ Prime exchange listing — exceptional footprint. ★"

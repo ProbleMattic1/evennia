@@ -9,7 +9,7 @@ import os
 from evennia import search_object
 from evennia.accounts.models import AccountDB
 
-from world.bootstrap_hub import get_hub_room
+from world.venue_resolve import hub_room_for_venue
 from typeclasses.characters import (
     ABILITY_KEYS,
     CHARACTER_TYPECLASS_PATH,
@@ -109,7 +109,7 @@ def bootstrap_nanomega_construction():
             )
         return
 
-    hub = get_hub_room()
+    hub = hub_room_for_venue("nanomega_core")
     assert hub, "[nanomega-construction] hub missing"
     char, errs = account.create_character(
         key=NANOMEGA_CONSTRUCTION_CHARACTER_KEY,

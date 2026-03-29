@@ -13,3 +13,6 @@ postgres_data/
 
 # Exclude frontend/ - separate Next.js app, not part of Evennia package
 frontend/
+
+# Exclude deploy/ - KVM / multi-host layout notes only; not part of the Evennia runtime
+deploy/

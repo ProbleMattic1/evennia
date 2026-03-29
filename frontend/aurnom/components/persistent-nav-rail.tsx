@@ -3,7 +3,22 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import type { ControlSurfaceNav, CsCharacter } from "@/lib/control-surface-api";
+import type { ControlSurfaceNav, CsCharacter, NavKiosk } from "@/lib/control-surface-api";
+
+/** Web routes not guaranteed on older API payloads; append after server kiosks. */
+const WEB_ONLY_KIOSKS: NavKiosk[] = [{ key: "economy", label: "Economy", href: "/economy" }];
+
+function mergeNavKiosks(kiosks: NavKiosk[]): NavKiosk[] {
+  const seen = new Set(kiosks.map((k) => k.href));
+  const out = [...kiosks];
+  for (const k of WEB_ONLY_KIOSKS) {
+    if (!seen.has(k.href)) {
+      out.push(k);
+      seen.add(k.href);
+    }
+  }
+  return out;
+}
 import { clearWebActiveCharacter, setWebActiveCharacter } from "@/lib/control-surface-api";
 import { useControlSurface } from "@/components/control-surface-provider";
 
@@ -179,12 +194,13 @@ function PlayerPanel({
 }
 
 function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
+  const kiosks = mergeNavKiosks(nav.kiosks);
   return (
     <>
-      {nav.kiosks.length > 0 && (
+      {kiosks.length > 0 && (
         <Panel panelKey="services" title="Services">
-          {nav.kiosks.map((k) => (
-            <div key={k.key}>
+          {kiosks.map((k) => (
+            <div key={k.href}>
               <TinyLink href={k.href}>{k.label}</TinyLink>
             </div>
           ))}

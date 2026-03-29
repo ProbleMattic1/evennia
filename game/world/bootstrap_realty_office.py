@@ -1,18 +1,8 @@
 """
-Bootstrap the NanoMegaPlex Real Estate Office room, hub exits, and property-lot inventory.
+Bootstrap real estate offices, archives, and hub exits for each venue.
 
-Creates
--------
-- "NanoMegaPlex Real Estate Office" room
-- "Property Lots Archive" void room (claimed parcels moved here after sale)
-- Hub exit "real estate" (aliases: realty, estate, office, realtor) → office
-- Office exit "promenade" (aliases: back, exit, out, plex, hub) → hub
-- Property lots from LOT_CATALOGUE (idempotent — attrs updated each run; lots never deleted)
-- PropertyLotExchangeRegistry script + rebuild of listable IDs from tags
-- PropertyLotDiscoveryEngine periodic restock script
-- PropertyOperationRegistry + PropertyOperationsEngine (parcel income tick)
-- PropertyEventsEngine (hourly property event rolls)
-- Moves the NanoMegaPlex Real Estate NPC into the office (if they exist)
+Global engines (discovery, operations, events) are created once.
+Per-venue: office room, archive, exchange registry script, NPC placement.
 
 Safe to call on every cold start.
 """
@@ -21,7 +11,6 @@ from evennia import create_object, create_script, search_object, search_script
 
 from typeclasses.property_lot_discovery import PropertyLotDiscoveryEngine
 from typeclasses.property_lot_registry import (
-    CLAIMED_LOTS_ARCHIVE_ROOM_KEY,
     PropertyLotExchangeRegistry,
     rebuild_property_exchange_registry,
 )
@@ -29,34 +18,16 @@ from typeclasses.property_operation_registry import PropertyOperationRegistry
 from typeclasses.property_events_engine import PropertyEventsEngine
 from typeclasses.property_operations_engine import PropertyOperationsEngine
 
-REALTY_OFFICE_KEY  = "NanoMegaPlex Real Estate Office"
-REALTY_OFFICE_DESC = (
-    "A clean, well-lit suite branching off the NanoMegaPlex Promenade. "
-    "Holographic lot schematics rotate slowly behind a polished reception desk. "
-    "Standard and prime parcels rotate on the sovereign exchange, with fresh "
-    "survey listings as inventory turns. The NanoMegaPlex Real Estate agent "
-    "stands ready to assist."
-)
-
 PROPERTY_LOTS_ARCHIVE_DESC = (
     "Sovereign record storage for titled parcels. Not on the public promenade map."
 )
 
-# ---------------------------------------------------------------------------
-# Lot catalogue — optional fixed seed lots in the office (idempotent on lot_key).
-# Empty at cold start; PropertyLotDiscoveryEngine adds parcels over time.
-# Sold lots (is_claimed=True) are never recreated from catalogue; the row idles.
-# ---------------------------------------------------------------------------
 LOT_CATALOGUE = []
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
 def _get_or_create_room(key, desc=""):
     found = search_object(key)
-    room  = found[0] if found else create_object("typeclasses.rooms.Room", key=key)
+    room = found[0] if found else create_object("typeclasses.rooms.Room", key=key)
     if desc:
         room.db.desc = desc
     return room
@@ -76,16 +47,10 @@ def _get_or_create_exit(key, aliases, location, destination):
 
 
 def _ensure_lot(spec, office_room):
-    """
-    Create a PropertyLot if one with spec['lot_key'] does not yet exist in the office.
-    If it already exists, update mutable attributes (tier/zone/size_units) in case
-    the catalogue spec was edited after initial creation.
-    Returns (lot, created: bool).
-    """
     for obj in office_room.contents:
         if obj.key == spec["lot_key"] and obj.tags.has("property_lot", category="realty"):
-            obj.db.lot_tier   = spec["tier"]
-            obj.db.zone       = spec["zone"]
+            obj.db.lot_tier = spec["tier"]
+            obj.db.zone = spec["zone"]
             obj.db.size_units = spec["size_units"]
             return obj, False
 
@@ -95,8 +60,8 @@ def _ensure_lot(spec, office_room):
         location=office_room,
         home=office_room,
     )
-    lot.db.lot_tier   = spec["tier"]
-    lot.db.zone       = spec["zone"]
+    lot.db.lot_tier = spec["tier"]
+    lot.db.zone = spec["zone"]
     lot.db.size_units = spec["size_units"]
     s = spec["size_units"]
     lot.db.desc = (
@@ -107,11 +72,8 @@ def _ensure_lot(spec, office_room):
     return lot, True
 
 
-def _place_npc(office_room):
-    """Move the NanoMegaPlex Real Estate character into the office if they exist."""
-    from typeclasses.characters import NANOMEGA_REALTY_CHARACTER_KEY
-
-    found = search_object(NANOMEGA_REALTY_CHARACTER_KEY)
+def _place_npc(office_room, npc_key: str):
+    found = search_object(npc_key)
     if not found:
         return
     npc = found[0]
@@ -120,44 +82,55 @@ def _place_npc(office_room):
         print(f"[realty-office] Moved '{npc.key}' into '{office_room.key}'.")
 
 
-# ---------------------------------------------------------------------------
-# Public entry point
-# ---------------------------------------------------------------------------
-
 def bootstrap_realty_office():
-    """Idempotent — safe to call on every cold start."""
-    from world.bootstrap_hub import get_hub_room
+    from world.venue_resolve import hub_room_for_venue
+    from world.venues import all_venue_ids, apply_venue_metadata, get_venue
 
-    hub = get_hub_room()
-    if not hub:
-        print("[realty-office] Hub room not found; skipping.")
-        return
+    for venue_id in all_venue_ids():
+        vspec = get_venue(venue_id)
+        hub = hub_room_for_venue(venue_id)
+        if not hub:
+            print(f"[realty-office] Hub missing for {venue_id!r}; skip office.")
+            continue
 
-    office = _get_or_create_room(REALTY_OFFICE_KEY, desc=REALTY_OFFICE_DESC)
-    _get_or_create_room(CLAIMED_LOTS_ARCHIVE_ROOM_KEY, desc=PROPERTY_LOTS_ARCHIVE_DESC)
+        realty = vspec["realty"]
+        office = _get_or_create_room(realty["office_key"], desc=realty["office_desc"])
+        apply_venue_metadata(office, venue_id)
 
-    _get_or_create_exit(
-        "real estate",
-        ["realty", "estate", "office", "realtor"],
-        hub,
-        office,
-    )
-    _get_or_create_exit(
-        "promenade",
-        ["back", "exit", "out", "plex", "hub"],
-        office,
-        hub,
-    )
+        archive = _get_or_create_room(
+            realty["archive_room_key"],
+            desc=PROPERTY_LOTS_ARCHIVE_DESC,
+        )
+        apply_venue_metadata(archive, venue_id)
 
-    created = sum(1 for spec in LOT_CATALOGUE if _ensure_lot(spec, office)[1])
-    _place_npc(office)
+        _get_or_create_exit(
+            "real estate",
+            ["realty", "estate", "office", "realtor"],
+            hub,
+            office,
+        )
+        _get_or_create_exit(
+            "promenade",
+            ["back", "exit", "out", "plex", "hub"],
+            office,
+            hub,
+        )
 
-    reg = search_script("property_lot_exchange_registry")
-    if reg:
-        print(f"[realty-office] PropertyLotExchangeRegistry exists: {reg[0].key}")
-    else:
-        create_script(PropertyLotExchangeRegistry)
-        print("[realty-office] Created PropertyLotExchangeRegistry.")
+        created = sum(1 for spec in LOT_CATALOGUE if _ensure_lot(spec, office)[1])
+        npc_key = vspec["npcs"]["realty_key"]
+        _place_npc(office, npc_key)
+
+        reg_key = realty["exchange_registry_script_key"]
+        if search_script(reg_key):
+            print(f"[realty-office] Registry exists: {reg_key}")
+        else:
+            create_script(PropertyLotExchangeRegistry, key=reg_key)
+            print(f"[realty-office] Created PropertyLotExchangeRegistry: {reg_key}")
+
+        print(
+            f"[realty-office] Office '{realty['office_key']}' ({venue_id}): "
+            f"{created} new catalogue lots."
+        )
 
     rebuild_property_exchange_registry()
 
@@ -189,7 +162,4 @@ def bootstrap_realty_office():
         create_script(PropertyEventsEngine)
         print("[realty-office] Created PropertyEventsEngine.")
 
-    print(
-        f"[realty-office] Office ready: '{REALTY_OFFICE_KEY}'. "
-        f"{created} new lots created ({len(LOT_CATALOGUE)} total in catalogue)."
-    )
+    print("[realty-office] Bootstrap complete.")

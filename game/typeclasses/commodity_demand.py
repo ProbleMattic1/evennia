@@ -289,7 +289,7 @@ def get_commodity_demand_engine(create_missing=True):
 
 
 def seed_procurement_contracts_if_empty():
-    """Idempotent starter contracts for alpha-prime board."""
+    """Idempotent starter contracts per venue processing plant (when no contracts yet)."""
     eng = get_commodity_demand_engine(create_missing=True)
     if not eng:
         return
@@ -297,25 +297,30 @@ def seed_procurement_contracts_if_empty():
     contracts = state.get("contracts") or {}
     if contracts:
         return
-    plant = "Aurnom Ore Processing Plant"
-    eng.create_procurement_contract(
-        commodity_key="copper_ore",
-        quantity=50.0,
-        reward_cr=15000,
-        board_id="alpha-prime",
-        delivery_room_key=plant,
-    )
-    eng.create_procurement_contract(
-        commodity_key="iron_ore",
-        quantity=80.0,
-        reward_cr=12000,
-        board_id="alpha-prime",
-        delivery_room_key=plant,
-    )
-    eng.create_procurement_contract(
-        commodity_key="refined_copper",
-        quantity=5.0,
-        reward_cr=6000,
-        board_id="alpha-prime",
-        delivery_room_key=plant,
-    )
+    from world.venues import all_venue_ids, get_venue
+
+    for venue_id in all_venue_ids():
+        vspec = get_venue(venue_id)
+        plant = vspec["processing"]["plant_room_key"]
+        board_id = vspec["bank"]["bank_id"]
+        eng.create_procurement_contract(
+            commodity_key="copper_ore",
+            quantity=50.0,
+            reward_cr=15000,
+            board_id=board_id,
+            delivery_room_key=plant,
+        )
+        eng.create_procurement_contract(
+            commodity_key="iron_ore",
+            quantity=80.0,
+            reward_cr=12000,
+            board_id=board_id,
+            delivery_room_key=plant,
+        )
+        eng.create_procurement_contract(
+            commodity_key="refined_copper",
+            quantity=5.0,
+            reward_cr=6000,
+            board_id=board_id,
+            delivery_room_key=plant,
+        )

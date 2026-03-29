@@ -1,13 +1,14 @@
 """
-Player-listed mining claim deeds (inventory resale).
+Player-listed mining claim deeds (inventory resale), per venue hub escrow.
 
 Script db.listings = [{"claim_id": int, "seller_id": int, "price": int}, ...]
-Listed claims sit in the hub "Claim Listings" escrow object.
 """
 
-from evennia import search_object, search_script
+from evennia import create_script, search_object, search_script
 
 from typeclasses.scripts import Script
+from world.venue_resolve import hub_room_for_venue
+from world.venues import all_venue_ids
 
 
 class ClaimListingsScript(Script):
@@ -16,27 +17,49 @@ class ClaimListingsScript(Script):
             self.db.listings = []
 
 
-def _get_script():
-    found = search_script("claim_listings")
-    return found[0] if found else None
+def claim_listings_script_key(venue_id: str) -> str:
+    if venue_id == "nanomega_core":
+        return "claim_listings"
+    return f"claim_listings__{venue_id}"
 
 
-def _get_container():
-    from world.bootstrap_hub import get_hub_room
+def get_claim_listings_script(venue_id: str, create_missing=False):
+    key = claim_listings_script_key(venue_id)
+    found = search_script(key)
+    if found:
+        return found[0]
+    if create_missing:
+        return create_script(ClaimListingsScript, key=key)
+    return None
 
-    hub = get_hub_room()
+
+def _container_for_venue(venue_id: str):
+    hub = hub_room_for_venue(venue_id)
     if not hub:
         return None
     for obj in hub.contents:
-        if obj.key == "Claim Listings" and getattr(obj.db, "is_claim_listings_container", False):
+        if getattr(obj.db, "is_claim_listings_container", False):
             return obj
     return None
 
 
+def _venue_id_for_claim_container(claim):
+    container = claim.location if claim else None
+    if not container:
+        return None
+    hub = container.location
+    if not hub:
+        return None
+    return getattr(hub.db, "venue_id", None)
+
+
 def claim_is_publicly_listed(claim):
     """True if claim is in escrow and has an active listing entry."""
-    script = _get_script()
-    container = _get_container()
+    vid = _venue_id_for_claim_container(claim)
+    if not vid:
+        return False
+    script = get_claim_listings_script(vid, create_missing=False)
+    container = _container_for_venue(vid)
     if not script or not container or claim.location != container:
         return False
     return any(
@@ -49,6 +72,8 @@ def list_claim_for_sale(seller, claim_id, price):
     List a MiningClaim from seller's inventory. Moves claim to escrow container.
     Returns (success: bool, message: str).
     """
+    from world.venue_resolve import venue_id_for_object
+
     try:
         cid = int(claim_id)
     except (TypeError, ValueError):
@@ -77,8 +102,9 @@ def list_claim_for_sale(seller, claim_id, price):
     if getattr(site.db, "is_claimed", False):
         return False, "That site is already developed; you cannot list this deed."
 
-    script = _get_script()
-    container = _get_container()
+    vid = venue_id_for_object(seller) or "nanomega_core"
+    script = get_claim_listings_script(vid, create_missing=True)
+    container = _container_for_venue(vid)
     if not script or not container:
         return False, "Claim listings are not available."
 
@@ -93,14 +119,11 @@ def list_claim_for_sale(seller, claim_id, price):
     return True, f"{claim.key} listed for {price:,} cr."
 
 
-def get_claim_listings_rows():
-    """
-    Rows merged into claims-market JSON.
-    """
+def _rows_for_venue(venue_id: str):
     from typeclasses.mining import _resource_rarity_tier, _volume_tier
 
-    script = _get_script()
-    container = _get_container()
+    script = get_claim_listings_script(venue_id, create_missing=False)
+    container = _container_for_venue(venue_id)
     if not script or not container:
         return []
 
@@ -168,10 +191,23 @@ def get_claim_listings_rows():
             "playerListing": True,
             "listingKind": "deed",
             "sellerKey": seller_key,
+            "venueId": venue_id,
         })
 
     script.db.listings = valid
     return result
+
+
+def get_claim_listings_rows(venue_id=None):
+    """
+    Rows merged into claims-market JSON. If venue_id is None, merge all venues.
+    """
+    if venue_id:
+        return _rows_for_venue(venue_id)
+    merged = []
+    for vid in all_venue_ids():
+        merged.extend(_rows_for_venue(vid))
+    return merged
 
 
 def buy_listed_claim(buyer, claim_id):
@@ -183,8 +219,23 @@ def buy_listed_claim(buyer, claim_id):
     except (TypeError, ValueError):
         return False, "Invalid claim id."
 
-    script = _get_script()
-    container = _get_container()
+    script = None
+    container = None
+    vid_found = None
+    for vid in all_venue_ids():
+        s = get_claim_listings_script(vid, create_missing=False)
+        c = _container_for_venue(vid)
+        if not s or not c:
+            continue
+        for obj in c.contents:
+            if obj.id == cid and obj.tags.has("mining_claim", category="mining"):
+                script = s
+                container = c
+                vid_found = vid
+                break
+        if script:
+            break
+
     if not script or not container:
         return False, "Claim listings are not available."
 

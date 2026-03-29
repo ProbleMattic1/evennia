@@ -17,8 +17,8 @@ Economy integration:
     Refined products have a base_value_cr (per unit) stored in the recipe.
     The collectproduct command in commands/refining.py sells via grant_character_credits
     (base value only in Pass 3; Pass 4 can add market modifiers).
-    CmdCollectRefined and NPC auto-collect pay miners from treasury:transfer only; a share
-    of the processing fee goes to the plant vendor account, the rest stays with treasury.
+    CmdCollectRefined and NPC auto-collect pay miners from treasury:transfer only; the
+    processing fee is retained by the treasury (no separate plant vendor payout).
 
 Transport integration:
     Vehicle cargo can be transferred to db.input_inventory via CmdFeedRefinery
@@ -35,12 +35,11 @@ from typeclasses.mining import RESOURCE_CATALOG
 # processed output.  Applied to gross refined value at collect time.
 PROCESSING_FEE_RATE = 0.10  # 10 %
 
-# Vendor ledger for the global Processing Plant (receives treasury transfers only).
+# Legacy vendor ledger key (no longer credited on refined collect; fee stays with treasury).
 PROCESSING_PLANT_VENDOR_ACCOUNT = "vendor:processing-plant"
 
-# Fraction of the *processing fee* that stays with treasury (not remitted to plant vendor).
-# Remainder of the fee is paid from treasury → plant vendor.
-PROCESSING_FEE_TREASURY_SHARE = 0.5
+# 1.0 = entire processing fee retained by treasury; miner receives gross minus fee only.
+PROCESSING_FEE_TREASURY_SHARE = 1.0
 
 # When the Processing Plant buys raw from a miner (e.g. sell commands from storage), 2% hassle fee on bid gross.
 RAW_SALE_FEE_RATE = 0.02  # 2 %
@@ -58,7 +57,8 @@ def split_raw_sale_payout(gross_cr, fee_rate=None):
 def split_processing_fee_plant_treasury(fee_cr: int, treasury_share: float | None = None) -> tuple[int, int]:
     """
     Split integer processing fee into (plant_fee, treasury_fee) with exact conservation.
-    treasury_fee is the portion retained by treasury (not transferred to plant).
+    With PROCESSING_FEE_TREASURY_SHARE = 1.0, plant_fee is always 0.
+    treasury_fee is the portion retained by treasury (not paid out to the miner).
     """
     fee_cr = max(0, int(fee_cr))
     if fee_cr <= 0:
@@ -87,7 +87,8 @@ def compute_refined_collection_amounts(gross_cr: int, fee_rate: float) -> tuple[
 
 def refined_payout_breakdown(gross_cr: int, fee_rate: float, fee_treasury_share: float | None = None) -> dict:
     """
-    Full settlement breakdown for treasury-funded plant payout.
+    Full settlement breakdown for treasury-funded refined collection.
+    Miner receives net; processing fee is retained by treasury (plant_fee 0).
     required_from_treasury must be available on treasury before collect_miner_output.
     """
     gross, fee, net = compute_refined_collection_amounts(gross_cr, fee_rate)
@@ -130,6 +131,7 @@ def execute_refined_payout_from_treasury(
 ) -> None:
     """
     Transfer only — no minting. Treasury must already have been checked >= net + plant_fee.
+    With default fee split, plant_fee is 0 (only the miner is paid from treasury).
     treasury_fee is informational only (not moved).
     """
     _ = gross, fee, treasury_fee
@@ -278,6 +280,7 @@ class Refinery(ObjectParent, DefaultObject):
     db.input_inventory   {resource_key: float tons}  raw ore in
     db.output_inventory  {product_key: float units}  refined goods out
     db.owner             character ref (or None for public/station facility)
+    db.auto_ingest_assigned_silo  bool  if True, RefineryEngine empties plant silos into miner_ore_queue
 
     Players feed raw ore (from storage or vehicle cargo) into input_inventory,
     then call process_recipe() to convert it.  Output accumulates in
@@ -293,6 +296,8 @@ class Refinery(ObjectParent, DefaultObject):
         # keyed by str(character.id).
         self.db.miner_ore_queue = {}   # {owner_id: {resource_key: tons}}
         self.db.miner_output = {}      # {owner_id: {product_key: units}}
+        # If True, RefineryEngine pulls assigned plant silo ore into miner_ore_queue each tick.
+        self.db.auto_ingest_assigned_silo = False
         self.tags.add("refinery", category="mining")
         self.locks.add("get:false()")
 
@@ -308,6 +313,21 @@ class Refinery(ObjectParent, DefaultObject):
         inv = self.db.input_inventory or {}
         inv[resource_key] = round(float(inv.get(resource_key, 0.0)) + tons, 2)
         self.db.input_inventory = inv
+        return tons
+
+    def enqueue_miner_ore(self, owner_id, resource_key, tons):
+        """Add ore to this refinery's attributed miner queue for owner_id. Returns tons added."""
+        if resource_key not in RESOURCE_CATALOG:
+            return 0.0
+        tons = round(float(tons), 2)
+        if tons <= 0:
+            return 0.0
+        oid = str(owner_id)
+        queues = dict(self.db.miner_ore_queue or {})
+        acc = dict(queues.get(oid, {}))
+        acc[resource_key] = round(float(acc.get(resource_key, 0)) + tons, 2)
+        queues[oid] = acc
+        self.db.miner_ore_queue = queues
         return tons
 
     def process_recipe(self, recipe_key, batches=1):
@@ -409,6 +429,21 @@ class Refinery(ObjectParent, DefaultObject):
         for key, units in self.get_miner_output(owner_id).items():
             recipe = REFINING_RECIPES.get(key, {})
             total += int(units * recipe.get("base_value_cr", 0))
+        return total
+
+    def get_total_miner_ore_queued_tons(self):
+        """Total tons in all per-owner miner_ore_queue entries (attributed plant input)."""
+        total = 0.0
+        for ore_inv in (self.db.miner_ore_queue or {}).values():
+            if isinstance(ore_inv, dict):
+                total += sum(float(v) for v in ore_inv.values())
+        return round(total, 2)
+
+    def get_total_miner_output_value(self):
+        """Gross credit value of all attributed miner_output at base recipe prices."""
+        total = 0
+        for owner_id in (self.db.miner_output or {}):
+            total += self.get_miner_output_value(owner_id)
         return total
 
     def collect_miner_output(self, owner_id, fee_rate=0.0):
@@ -569,8 +604,8 @@ def _ingest_plant_player_storages_into_queues(refinery, room):
 
 def _auto_collect_registered_npc_miner_outputs(refinery):
     """
-    Ledger-only settlement for registry NPCs: treasury funds net + plant fee share;
-    transfers only (no mint). Same rules as collectrefined. Account key player:{id}.
+    Ledger-only settlement for registry NPCs: treasury pays net to player:{id};
+    processing fee retained by treasury. Same rules as collectrefined.
     """
     from evennia.utils import logger
 
@@ -602,7 +637,6 @@ def _auto_collect_registered_npc_miner_outputs(refinery):
     treasury_acct = econ.get_treasury_account("alpha-prime")
     plant_acct = PROCESSING_PLANT_VENDOR_ACCOUNT
     econ.ensure_account(treasury_acct, opening_balance=int(econ.db.tax_pool or 0))
-    econ.ensure_account(plant_acct, opening_balance=0)
 
     for owner_id_str in candidates:
         gross_pre = refinery.get_miner_output_value(int(owner_id_str))
@@ -657,8 +691,7 @@ def _auto_collect_registered_npc_miner_outputs(refinery):
 
         logger.log_info(
             f"[RefineryEngine] NPC auto-collect owner {owner_id_str} at {refinery.key}: "
-            f"net {bd['net']} cr from treasury (gross {gross}, fee {fee}: "
-            f"plant_fee {bd['plant_fee']}, treasury_fee {bd['treasury_fee']})"
+            f"net {bd['net']} cr from treasury (gross {gross}, processing fee {fee} retained)"
         )
 
 
@@ -672,7 +705,8 @@ def _process_refinery(refinery):
     if not room:
         return
 
-    _ingest_plant_player_storages_into_queues(refinery, room)
+    if getattr(refinery.db, "auto_ingest_assigned_silo", False):
+        _ingest_plant_player_storages_into_queues(refinery, room)
 
     # Drain Ore Receiving Bay (MiningStorage) into shared input_inventory — not player silos
     for obj in room.contents:
@@ -720,7 +754,8 @@ class RefineryEngine(_Script):
 
     Every tick (30 min):
       1. Finds all Refinery objects.
-      2. Ingests owner-tagged destination silos (players and NPCs) into per-owner miner queues.
+      2. If refinery.db.auto_ingest_assigned_silo is True, ingests owner-tagged destination
+         silos (players and NPCs) into per-owner miner queues.
       3. Drains legacy Ore Receiving Bay (non–player-silo MiningStorage) into pooled input.
       4. Runs REFINING_RECIPES on pooled input, then processes miner queues to miner_output.
       5. Auto-collects miner_output for ids in NpcMinerRegistryScript via treasury transfers

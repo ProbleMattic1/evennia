@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
@@ -167,8 +168,10 @@ function ProcurementBoardPanel() {
   );
 }
 
-export default function ProcessingPage() {
-  const loader = useCallback(() => getProcessingState(), []);
+function ProcessingPageInner() {
+  const searchParams = useSearchParams();
+  const venue = searchParams.get("venue")?.trim() || undefined;
+  const loader = useCallback(() => getProcessingState(venue), [venue]);
   const { data, error, loading } = useUiResource(loader);
 
   if (loading) {
@@ -231,14 +234,27 @@ export default function ProcessingPage() {
             <CsPanel title="Shared Refinery">
               <div className="mt-1 space-y-0.5">
                 <StatRow
-                  label="Input queue"
+                  label="Shared pool input"
                   value={`${data.refineryInputTons.toLocaleString(undefined, { maximumFractionDigits: 1 })} t`}
                 />
                 <StatRow
-                  label="Output value"
+                  label="Shared pool output value"
                   value={
                     <>
                       {data.refineryOutputValue.toLocaleString()}{" "}
+                      <span className="text-amber-700 dark:text-amber-400">cr</span>
+                    </>
+                  }
+                />
+                <StatRow
+                  label="Attributed ore queue (all miners)"
+                  value={`${data.minerQueueOreTons.toLocaleString(undefined, { maximumFractionDigits: 1 })} t`}
+                />
+                <StatRow
+                  label="Attributed output value (gross)"
+                  value={
+                    <>
+                      {data.minerOutputValueTotal.toLocaleString()}{" "}
                       <span className="text-amber-700 dark:text-amber-400">cr</span>
                     </>
                   }
@@ -256,5 +272,19 @@ export default function ProcessingPage() {
         }
       />
     </CsPage>
+  );
+}
+
+export default function ProcessingPage() {
+  return (
+    <Suspense
+      fallback={
+        <CsPage>
+          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading processing plant…</p>
+        </CsPage>
+      }
+    >
+      <ProcessingPageInner />
+    </Suspense>
   );
 }

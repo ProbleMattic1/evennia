@@ -1,0 +1,30 @@
+# Multi-stage production build for the Next.js frontend.
+# Build context must be the monorepo root so CI can pass the full path.
+#
+# CI command (run from repo root):
+#   docker build -f deploy/kvm/edge/Dockerfile.frontend -t yourregistry/aurnom-web:tag .
+
+# --- Stage 1: dependencies ---
+FROM node:20-bookworm-slim AS deps
+WORKDIR /app
+COPY frontend/aurnom/package.json frontend/aurnom/package-lock.json* ./
+RUN npm ci --omit=dev
+
+# --- Stage 2: build ---
+FROM node:20-bookworm-slim AS builder
+WORKDIR /app
+COPY frontend/aurnom/ .
+COPY --from=deps /app/node_modules ./node_modules
+RUN npm run build
+
+# --- Stage 3: runtime ---
+FROM node:20-bookworm-slim AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+EXPOSE 3000
+CMD ["node", "server.js"]

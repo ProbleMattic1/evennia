@@ -61,19 +61,18 @@ def bootstrap_haulers():
     get_npc_miner_registry()
     print("[haulers] NpcMinerRegistryScript ready.")
 
-    # Ore Receiving Bay at the processing plant
-    refinery_rooms = search_object("Aurnom Ore Processing Plant")
-    if refinery_rooms:
-        storage = _get_or_create_refinery_receiving_storage(refinery_rooms[0])
-        print(f"[haulers] Refinery receiving storage: '{storage.key}' ({storage.db.capacity_tons:,.0f}t) ready.")
-    else:
-        print("[haulers] WARNING: 'Aurnom Ore Processing Plant' room not found; receiving storage skipped.")
+    from world.venues import all_venue_ids, get_venue
 
-    # Plant treasury account — collects processing fees from miners
-    from typeclasses.economy import get_economy
-    econ = get_economy(create_missing=True)
-    plant_acct = "vendor:processing-plant"
-    econ.ensure_account(plant_acct, opening_balance=0)
-    print(f"[haulers] Plant treasury account '{plant_acct}' ready.")
+    for venue_id in all_venue_ids():
+        plant_key = get_venue(venue_id)["processing"]["plant_room_key"]
+        refinery_rooms = search_object(plant_key)
+        if refinery_rooms:
+            storage = _get_or_create_refinery_receiving_storage(refinery_rooms[0])
+            print(
+                f"[haulers] [{venue_id}] Refinery receiving storage: '{storage.key}' "
+                f"({storage.db.capacity_tons:,.0f}t) ready."
+            )
+        else:
+            print(f"[haulers] WARNING: {plant_key!r} not found; receiving storage skipped.")
 
     print("[haulers] Bootstrap complete.")

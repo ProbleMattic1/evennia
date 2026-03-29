@@ -10,11 +10,13 @@ from __future__ import annotations
 from collections import defaultdict
 
 from django.core.cache import cache
+from django.db.models import Count
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 from evennia.objects.models import ObjectDB
 
+from typeclasses.characters import CHARACTER_TYPECLASS_PATH
 from world.bootstrap_hub import HUB_ROOM_KEY
 
 from .room_nav_utils import should_show_mining_exit_dict
@@ -109,6 +111,32 @@ def invalidate_world_graph_cache() -> None:
     cache.delete(CACHE_KEY)
 
 
+def _pc_room_counts_qs(*, online_only: bool = False):
+    """
+    Player-capable characters in a room, excluding NPCs (db.is_npc).
+    online_only: restrict to characters with an active session (db_sessid set).
+    """
+    npc_ids = ObjectDB.objects.get_objs_with_attr_value(
+        "is_npc",
+        True,
+        typeclasses=[CHARACTER_TYPECLASS_PATH],
+    ).values_list("id", flat=True)
+
+    qs = ObjectDB.objects.filter(
+        db_typeclass_path=CHARACTER_TYPECLASS_PATH,
+        db_location_id__isnull=False,
+    ).exclude(id__in=npc_ids)
+
+    if online_only:
+        qs = qs.filter(db_sessid__isnull=False).exclude(db_sessid="")
+
+    return qs.values("db_location_id").annotate(c=Count("id"))
+
+
+def _player_count_by_room_id(*, online_only: bool = False) -> dict[int, int]:
+    return {row["db_location_id"]: row["c"] for row in _pc_room_counts_qs(online_only=online_only)}
+
+
 def _bfs_reachable(from_id: int, edges: list[dict]) -> set[int]:
     by_from: dict[int, list[int]] = defaultdict(list)
     for e in edges:
@@ -130,6 +158,10 @@ def build_world_graph_payload(*, char) -> dict:
     rooms = list(skel["rooms"])
     edges_all = list(skel["edgesAll"])
 
+    counts = _player_count_by_room_id(online_only=False)
+    for r in rooms:
+        r["playerCount"] = int(counts.get(r["id"], 0))
+
     edges = [e for e in edges_all if _edge_visible_for_char(e, char)]
 
     current_room_key = None
@@ -149,7 +181,7 @@ def build_world_graph_payload(*, char) -> dict:
             )
 
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "generatedAt": timezone.now().isoformat(),
         "rooms": rooms,
         "edges": edges,

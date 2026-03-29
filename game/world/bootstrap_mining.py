@@ -7,7 +7,7 @@ Creates
 -------
 1. MiningEngine global script (if missing).
 2. SiteDiscoveryEngine periodic script (generates unclaimed sites over time).
-3. Refinery room(s) accessible from the hub.
+3. Refinery room(s) per venue, wired from each venue hub.
 
 Mining sites are NOT pre-seeded.  They are created dynamically:
   - On package purchase (via claim_utils.generate_mining_site)
@@ -16,34 +16,8 @@ Mining sites are NOT pre-seeded.  They are created dynamically:
 
 from evennia import create_object, create_script, search_object, search_script
 
-
-# ---------------------------------------------------------------------------
-# Site definitions — intentionally empty.
-# Sites are generated dynamically by SiteDiscoveryEngine and on purchase.
-# ---------------------------------------------------------------------------
-
 MINING_SITES = []
 
-
-REFINERY_ROOMS = [
-    {
-        "room_key": "Aurnom Ore Processing Plant",
-        "room_desc": (
-            "Heavy industrial equipment lines the floor of this processing bay. "
-            "Conveyor systems, smelting units, and cutting bays handle everything "
-            "from iron ore to gem-grade kimberlite.  The air smells of flux and heat."
-        ),
-        "refinery_key": "Ore Processing Unit",
-        "refinery_desc": "A multi-stage processing platform handling ore smelting and gem cutting.",
-        "hub_exit": "processing plant",
-        "hub_aliases": ["processing", "refinery", "plant", "smelt"],
-    },
-]
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _get_or_create_room(key, desc=""):
     found = search_object(key)
@@ -69,34 +43,34 @@ def _get_or_create_exit(key, aliases, location, destination):
     )
 
 
-
-def _get_or_create_refinery(room, spec):
+def _get_or_create_refinery(room, refinery_key, refinery_desc):
     """Find or create the Refinery object in room."""
     for obj in room.contents:
-        if obj.tags.has("refinery", category="mining") and obj.key == spec["refinery_key"]:
+        if obj.tags.has("refinery", category="mining") and obj.key == refinery_key:
             return obj
     ref = create_object(
         "typeclasses.refining.Refinery",
-        key=spec["refinery_key"],
+        key=refinery_key,
         location=room,
         home=room,
     )
-    ref.db.desc = spec["refinery_desc"]
+    ref.db.desc = refinery_desc
     return ref
 
 
-
-# ---------------------------------------------------------------------------
-# Main bootstrap
-# ---------------------------------------------------------------------------
-
 def bootstrap_mining():
     """
-    Ensure the MiningEngine and SiteDiscoveryEngine exist; set up refinery rooms.
-    Mining sites are generated dynamically — none are pre-seeded.
+    Ensure the MiningEngine and SiteDiscoveryEngine exist; set up refinery rooms per venue.
     Idempotent — safe to call on every cold start.
     """
-    # -- Mining engine --
+    from typeclasses.claim_listings import ClaimListingsScript, claim_listings_script_key
+    from typeclasses.package_listings import PackageListingsScript
+    from typeclasses.packages import package_listings_script_key
+    from typeclasses.property_deed_listings import PropertyDeedListingsScript
+    from typeclasses.property_deed_market import property_deed_listings_script_key
+    from typeclasses.site_discovery import SiteDiscoveryEngine
+    from world.venues import all_venue_ids, apply_venue_metadata, get_venue
+
     found = search_script("mining_engine")
     if found:
         engine = found[0]
@@ -110,93 +84,101 @@ def bootstrap_mining():
         engine = create_script("typeclasses.mining.MiningEngine")
         print(f"[mining] Created engine: {engine.key}")
 
-    # -- Package listings script + container --
-    pkg_list = search_script("package_listings")
-    if pkg_list:
-        print(f"[mining] Package listings script already exists: {pkg_list[0].key}")
-    else:
-        from typeclasses.package_listings import PackageListingsScript
-        create_script(PackageListingsScript, key="package_listings")
-        print("[mining] Created package_listings script.")
-
     prop_list = search_script("property_listings")
     if prop_list:
         print(f"[mining] Property listings script already exists: {prop_list[0].key}")
     else:
         from typeclasses.property_listings import PropertyListingsScript
+
         create_script(PropertyListingsScript, key="property_listings")
         print("[mining] Created property_listings script.")
 
-    claim_list = search_script("claim_listings")
-    if claim_list:
-        print(f"[mining] Claim listings script already exists: {claim_list[0].key}")
-    else:
-        from typeclasses.claim_listings import ClaimListingsScript
-        create_script(ClaimListingsScript, key="claim_listings")
-        print("[mining] Created claim_listings script.")
+    for venue_id in all_venue_ids():
+        vspec = get_venue(venue_id)
+        hub = search_object(vspec["hub_key"])
+        hub = hub[0] if hub else None
+        if hub:
+            apply_venue_metadata(hub, venue_id)
 
-    # -- Hub for listings container (get_hub_room already imported above) --
+        pk = package_listings_script_key(venue_id)
+        if search_script(pk):
+            print(f"[mining] Package listings script exists: {pk}")
+        else:
+            create_script(PackageListingsScript, key=pk)
+            print(f"[mining] Created package listings script: {pk}")
 
-    from world.bootstrap_hub import get_hub_room
-    hub_for_listings = get_hub_room()
-    if hub_for_listings:
-        container = None
-        for obj in hub_for_listings.contents:
-            if obj.key == "Package Listings" and getattr(obj.db, "is_listings_container", False):
-                container = obj
-                break
-        if not container:
-            container = create_object("typeclasses.objects.Object", key="Package Listings", location=hub_for_listings, home=hub_for_listings)
-            container.db.desc = "A board where mining packages are listed for sale."
-            container.db.is_listings_container = True
-            container.locks.add("get:false();drop:false()")
-            print("[mining] Created Package Listings container in hub.")
+        ck = claim_listings_script_key(venue_id)
+        if search_script(ck):
+            print(f"[mining] Claim listings script exists: {ck}")
+        else:
+            create_script(ClaimListingsScript, key=ck)
+            print(f"[mining] Created claim listings script: {ck}")
 
-        ccontainer = None
-        for obj in hub_for_listings.contents:
-            if obj.key == "Claim Listings" and getattr(obj.db, "is_claim_listings_container", False):
-                ccontainer = obj
-                break
-        if not ccontainer:
-            ccontainer = create_object(
-                "typeclasses.objects.Object",
-                key="Claim Listings",
-                location=hub_for_listings,
-                home=hub_for_listings,
+        dk = property_deed_listings_script_key(venue_id)
+        if search_script(dk):
+            print(f"[mining] Property deed listings script exists: {dk}")
+        else:
+            create_script(PropertyDeedListingsScript, key=dk)
+            print(f"[mining] Created property deed listings script: {dk}")
+
+        if hub:
+            pkg_key = "Package Listings" if venue_id == "nanomega_core" else "Frontier Package Listings"
+            container = None
+            for obj in hub.contents:
+                if getattr(obj.db, "is_listings_container", False):
+                    container = obj
+                    break
+            if not container:
+                container = create_object(
+                    "typeclasses.objects.Object",
+                    key=pkg_key,
+                    location=hub,
+                    home=hub,
+                )
+                container.db.desc = "A board where mining packages are listed for sale."
+                container.db.is_listings_container = True
+                container.locks.add("get:false();drop:false()")
+                print(f"[mining] Created {pkg_key!r} container in {hub.key!r}.")
+
+            claim_key = "Claim Listings" if venue_id == "nanomega_core" else "Frontier Claim Listings"
+            ccontainer = None
+            for obj in hub.contents:
+                if getattr(obj.db, "is_claim_listings_container", False):
+                    ccontainer = obj
+                    break
+            if not ccontainer:
+                ccontainer = create_object(
+                    "typeclasses.objects.Object",
+                    key=claim_key,
+                    location=hub,
+                    home=hub,
+                )
+                ccontainer.db.desc = "Escrow for mining claim deeds listed for sale."
+                ccontainer.db.is_claim_listings_container = True
+                ccontainer.locks.add("get:false();drop:false()")
+                print(f"[mining] Created {claim_key!r} container in {hub.key!r}.")
+
+            deed_key = (
+                "Property Deed Listings"
+                if venue_id == "nanomega_core"
+                else "Frontier Property Deed Listings"
             )
-            ccontainer.db.desc = "Escrow for mining claim deeds listed for sale."
-            ccontainer.db.is_claim_listings_container = True
-            ccontainer.locks.add("get:false();drop:false()")
-            print("[mining] Created Claim Listings container in hub.")
-
-        dcontainer = None
-        for obj in hub_for_listings.contents:
-            if obj.key == "Property Deed Listings" and getattr(obj.db, "is_property_deed_listings_container", False):
-                dcontainer = obj
-                break
-        if not dcontainer:
-            dcontainer = create_object(
-                "typeclasses.objects.Object",
-                key="Property Deed Listings",
-                location=hub_for_listings,
-                home=hub_for_listings,
-            )
-            dcontainer.db.desc = "Escrow for property parcel deeds listed by players."
-            dcontainer.db.is_property_deed_listings_container = True
-            dcontainer.locks.add("get:false();drop:false()")
-            print("[mining] Created Property Deed Listings container in hub.")
-
-    deed_list = search_script("property_deed_listings")
-    if deed_list:
-        print(f"[mining] Property deed listings script already exists: {deed_list[0].key}")
-    else:
-        from typeclasses.property_deed_listings import PropertyDeedListingsScript
-
-        create_script(PropertyDeedListingsScript, key="property_deed_listings")
-        print("[mining] Created property_deed_listings script.")
-
-    # -- Site discovery engine --
-    from typeclasses.site_discovery import SiteDiscoveryEngine
+            dcontainer = None
+            for obj in hub.contents:
+                if getattr(obj.db, "is_property_deed_listings_container", False):
+                    dcontainer = obj
+                    break
+            if not dcontainer:
+                dcontainer = create_object(
+                    "typeclasses.objects.Object",
+                    key=deed_key,
+                    location=hub,
+                    home=hub,
+                )
+                dcontainer.db.desc = "Escrow for property parcel deeds listed by players."
+                dcontainer.db.is_property_deed_listings_container = True
+                dcontainer.locks.add("get:false();drop:false()")
+                print(f"[mining] Created {deed_key!r} container in {hub.key!r}.")
 
     disc = search_script("site_discovery_engine")
     if disc:
@@ -205,18 +187,17 @@ def bootstrap_mining():
         create_script(SiteDiscoveryEngine)
         print("[mining] Created SiteDiscoveryEngine.")
 
-    # -- Hub --
-    from world.bootstrap_hub import get_hub_room
+    for venue_id in all_venue_ids():
+        vspec = get_venue(venue_id)
+        proc = vspec["processing"]
+        room = _get_or_create_room(proc["plant_room_key"], desc=proc["plant_room_desc"])
+        apply_venue_metadata(room, venue_id)
+        ref = _get_or_create_refinery(room, proc["refinery_key"], proc["refinery_desc"])
 
-    hub = get_hub_room()
-
-    # -- Refinery rooms --
-    for spec in REFINERY_ROOMS:
-        room = _get_or_create_room(spec["room_key"], desc=spec["room_desc"])
-        ref = _get_or_create_refinery(room, spec)
-
+        hub = search_object(vspec["hub_key"])
+        hub = hub[0] if hub else None
         if hub:
-            _get_or_create_exit(spec["hub_exit"], spec["hub_aliases"], hub, room)
+            _get_or_create_exit(proc["hub_exit"], proc["hub_aliases"], hub, room)
             _get_or_create_exit(
                 "promenade",
                 ["back", "exit", "out", "plex", "hub"],
@@ -224,6 +205,6 @@ def bootstrap_mining():
                 hub,
             )
 
-        print(f"[mining] Refinery '{ref.key}' in '{spec['room_key']}' ready.")
+        print(f"[mining] Refinery '{ref.key}' in '{proc['plant_room_key']}' ({venue_id}) ready.")
 
     print("[mining] Bootstrap complete.")

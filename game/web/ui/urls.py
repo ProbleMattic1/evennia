@@ -4,11 +4,13 @@ from django.views.generic import RedirectView
 from . import views
 from . import world_graph
 from .control_surface import control_surface_state
+from .economy_world import economy_world_state
 
 urlpatterns = [
     path("active-character", views.web_set_active_character, name="ui-active-character"),
     path("active-character/clear", views.web_clear_active_character, name="ui-active-character-clear"),
     path("control-surface", control_surface_state, name="ui-control-surface"),
+    path("economy-world", economy_world_state, name="ui-economy-world"),
     path("play", views.play_state, name="ui-play"),
     path("play/travel", views.play_travel, name="ui-play-travel"),
     path("play/interact", views.play_interact, name="ui-play-interact"),

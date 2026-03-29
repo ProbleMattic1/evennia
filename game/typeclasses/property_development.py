@@ -98,9 +98,10 @@ def purchase_extra_structure_slot(holding, owner):
     from typeclasses.economy import get_economy
     from typeclasses.property_claim_market import (
         collect_property_construction_payment,
-        get_construction_builder,
         refund_property_construction_payment,
     )
+    from typeclasses.property_lot_registry import infer_lot_venue_id
+    from world.venue_resolve import get_construction_builder_for_venue
 
     price = next_extra_structure_slot_price_cr(holding)
     econ = get_economy(create_missing=True)
@@ -110,7 +111,9 @@ def purchase_extra_structure_slot(holding, owner):
     if bal < price:
         return False, f"You need {price:,} cr but only have {bal:,} cr."
 
-    builder = get_construction_builder()
+    lot = getattr(holding.db, "lot_ref", None)
+    vid = infer_lot_venue_id(lot) if lot else "nanomega_core"
+    builder = get_construction_builder_for_venue(vid)
     net_amount = tax_amount = None
     if builder:
         net_amount, tax_amount = collect_property_construction_payment(

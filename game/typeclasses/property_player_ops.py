@@ -7,8 +7,11 @@ CamelCase serializer for UI (property detail / start-operation response).
 
 from typeclasses.property_claim_market import (
     collect_property_construction_payment,
-    get_construction_builder,
     refund_property_construction_payment,
+)
+from world.venue_resolve import (
+    get_construction_builder_for_venue,
+    infer_venue_id_from_holding,
 )
 from typeclasses.property_development import (
     install_structure,
@@ -102,7 +105,7 @@ def purchase_and_install_structure(owner, holding, blueprint_id):
     if balance < price:
         return False, f"You need {price:,} cr but only have {balance:,} cr.", None
 
-    builder = get_construction_builder()
+    builder = get_construction_builder_for_venue(infer_venue_id_from_holding(holding))
     net_amount = tax_amount = None
     if builder:
         net_amount, tax_amount = collect_property_construction_payment(
@@ -184,7 +187,7 @@ def retool_property_operation_for_owner(owner, holding, new_kind):
     if not ok:
         return False, msg
 
-    builder = get_construction_builder()
+    builder = get_construction_builder_for_venue(infer_venue_id_from_holding(holding))
     if builder:
         collect_property_construction_payment(
             owner,
@@ -228,7 +231,7 @@ def resolve_property_incident_for_owner(owner, holding, event_id: str):
                 balance = econ.get_character_balance(owner)
                 if balance < cost:
                     return False, f"You need {cost:,} cr to resolve this incident but only have {balance:,} cr."
-                builder = get_construction_builder()
+                builder = get_construction_builder_for_venue(infer_venue_id_from_holding(holding))
                 if builder:
                     collect_property_construction_payment(
                         owner,

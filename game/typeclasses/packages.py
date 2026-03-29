@@ -206,8 +206,9 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         set_hauler_next_cycle,
     )
 
-    refinery_rooms = search_object("Aurnom Ore Processing Plant")
-    refinery_room = refinery_rooms[0] if refinery_rooms else None
+    from world.venue_resolve import processing_plant_room_for_object
+
+    refinery_room = processing_plant_room_for_object(site_room)
     if not refinery_room:
         return False, "No processing plant found. Contact an administrator."
 
@@ -273,8 +274,9 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
         set_hauler_next_cycle,
     )
 
-    refinery_rooms = search_object("Aurnom Ore Processing Plant")
-    refinery_room = refinery_rooms[0] if refinery_rooms else None
+    from world.venue_resolve import processing_plant_room_for_object
+
+    refinery_room = processing_plant_room_for_object(site_room)
     if not refinery_room:
         return False, "No processing plant found. Contact an administrator."
 
@@ -561,22 +563,34 @@ def undeploy_mine_to_package(buyer, site):
     ), meta
 
 
-def _get_package_listings_script():
-    """Return the package listings script, or None if not found."""
-    from evennia import search_script
-    found = search_script("package_listings")
-    return found[0] if found else None
+def package_listings_script_key(venue_id: str) -> str:
+    if venue_id == "nanomega_core":
+        return "package_listings"
+    return f"package_listings__{venue_id}"
 
 
-def _get_listings_container():
-    """Return the container object for listed packages, or None."""
-    from evennia import search_object
-    from world.bootstrap_hub import get_hub_room
-    hub = get_hub_room()
+def _get_package_listings_script(venue_id: str, create_missing=False):
+    from evennia import create_script, search_script
+
+    from typeclasses.package_listings import PackageListingsScript
+
+    key = package_listings_script_key(venue_id)
+    found = search_script(key)
+    if found:
+        return found[0]
+    if create_missing:
+        return create_script(PackageListingsScript, key=key)
+    return None
+
+
+def _package_listings_container_for_venue(venue_id: str):
+    from world.venue_resolve import hub_room_for_venue
+
+    hub = hub_room_for_venue(venue_id)
     if not hub:
         return None
     for obj in hub.contents:
-        if obj.key == "Package Listings" and getattr(obj.db, "is_listings_container", False):
+        if getattr(obj.db, "is_listings_container", False):
             return obj
     return None
 
@@ -605,11 +619,14 @@ def list_package_for_sale(seller, package_id, price):
     if not package:
         return False, "You do not have that mining package in your inventory."
 
-    script = _get_package_listings_script()
+    from world.venue_resolve import venue_id_for_object
+
+    vid = venue_id_for_object(seller) or "nanomega_core"
+    script = _get_package_listings_script(vid, create_missing=True)
     if not script:
         return False, "Package market is not available."
 
-    container = _get_listings_container()
+    container = _package_listings_container_for_venue(vid)
     if not container:
         return False, "Package market is not available."
 
@@ -624,18 +641,14 @@ def list_package_for_sale(seller, package_id, price):
     return True, f"{package.key} listed for {price:,} cr."
 
 
-def get_package_listings():
-    """
-    Return list of active package listings.
-    Each entry: {package_id, key, estimated_value, price, seller_key}
-    """
-    script = _get_package_listings_script()
+def _package_listings_rows_for_venue(venue_id: str):
+    script = _get_package_listings_script(venue_id, create_missing=False)
     if not script:
         return []
 
     result = []
     listings = script.db.listings or []
-    container = _get_listings_container()
+    container = _package_listings_container_for_venue(venue_id)
     if not container:
         return []
 
@@ -664,9 +677,26 @@ def get_package_listings():
             "estimatedValue": int(getattr(package.db, "estimated_value", 0) or 0),
             "price": int(price),
             "sellerKey": seller_key,
+            "venueId": venue_id,
         })
     script.db.listings = valid
     return result
+
+
+def get_package_listings(venue_id=None):
+    """
+    Return list of active package listings.
+    Each entry: {packageId, key, estimatedValue, price, sellerKey, venueId?}
+    If venue_id is None, merge all venues.
+    """
+    from world.venues import all_venue_ids
+
+    if venue_id:
+        return _package_listings_rows_for_venue(venue_id)
+    merged = []
+    for vid in all_venue_ids():
+        merged.extend(_package_listings_rows_for_venue(vid))
+    return merged
 
 
 def buy_listed_package(buyer, package_id):
@@ -681,12 +711,24 @@ def buy_listed_package(buyer, package_id):
     except (TypeError, ValueError):
         return False, "Invalid package id."
 
-    script = _get_package_listings_script()
-    if not script:
-        return False, "Package market is not available."
+    from world.venues import all_venue_ids
 
-    container = _get_listings_container()
-    if not container:
+    script = None
+    container = None
+    for vid in all_venue_ids():
+        s = _get_package_listings_script(vid, create_missing=False)
+        c = _package_listings_container_for_venue(vid)
+        if not s or not c:
+            continue
+        for obj in c.contents:
+            if obj.id == pid and obj.tags.has("mining_package", category="mining"):
+                script = s
+                container = c
+                break
+        if script:
+            break
+
+    if not script or not container:
         return False, "Package market is not available."
 
     listings = script.db.listings or []

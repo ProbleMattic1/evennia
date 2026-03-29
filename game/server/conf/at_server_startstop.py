@@ -54,6 +54,14 @@ def at_server_start():
                 engine.restart()
                 print("[startup] MiningEngine interval patched to 60s and restarted.")
 
+        flora_eng = search_script("flora_engine")
+        if flora_eng:
+            fe = flora_eng[0]
+            if fe.interval != 60:
+                fe.interval = 60
+                fe.restart()
+                print("[startup] FloraEngine interval patched to 60s and restarted.")
+
         from world.time import HAULER_ENGINE_INTERVAL_SEC
 
         hauler_scripts = search_script("hauler_engine")
@@ -182,14 +190,21 @@ def at_server_cold_start():
     from world.bootstrap_haulers import bootstrap_haulers
     from world.bootstrap_hub import bootstrap_hub
     from world.bootstrap_marcus_killstar import bootstrap_marcus_killstar
+    from world.bootstrap_marcus_flora import bootstrap_marcus_flora
     from world.bootstrap_marcus_mines import bootstrap_marcus_mines
-    from world.bootstrap_nanomega_advertising import bootstrap_nanomega_advertising
+    from world.bootstrap_frontier_npcs import bootstrap_frontier_service_npcs
+    from world.bootstrap_nanomega_advertising import (
+        bootstrap_frontier_advertising_wiring,
+        bootstrap_nanomega_advertising,
+    )
     from world.bootstrap_nanomega_construction import bootstrap_nanomega_construction
     from world.bootstrap_nanomega_realty import bootstrap_nanomega_realty
     from world.bootstrap_realty_office import bootstrap_realty_office
+    from world.bootstrap_venue_controllers import bootstrap_venue_controllers
     from world.bootstrap_mining import bootstrap_mining
     from world.bootstrap_mining_claim_sale import bootstrap_mining_claim_sale
     from world.bootstrap_mining_packages import bootstrap_mining_packages
+    from world.bootstrap_flora import bootstrap_flora_engine
     from world.bootstrap_npc_industrial_miners import bootstrap_npc_industrial_miners
     from world.bootstrap_npc_nanomega_industrial_miners import (
         bootstrap_npc_nanomega_industrial_miners,
@@ -228,6 +243,11 @@ def at_server_cold_start():
         "NanoMegaPlex Advertising Agent (agency room; credits on create)",
         bootstrap_nanomega_advertising,
     )
+    _run(
+        "Frontier service NPCs (realty, construction, advertising)",
+        bootstrap_frontier_service_npcs,
+    )
+    _run("Frontier advertising agency wiring + agent placement", bootstrap_frontier_advertising_wiring)
     _run("NanoMegaPlex Real Estate Office room and base lots", bootstrap_realty_office)
     _run("vehicle catalog CSV import", bootstrap_vehicle_catalog)
     _run("shipyard rooms + stock templates", bootstrap_shipyard)
@@ -235,8 +255,10 @@ def at_server_cold_start():
     _run("parcel mission NPCs", bootstrap_parcel_mission_npcs)
     _run("mining engine + sample sites + Ashfall Basin", bootstrap_mining)
     _run("hauler engine + refinery engine + receiving bay", bootstrap_haulers)
+    _run("flora harvest engine", bootstrap_flora_engine)
     _run("mining sale packages (Starter Pack, Pro Pack)", bootstrap_mining_packages)
     _run("Marcus Killstar mining pads", bootstrap_marcus_mines)
+    _run("Marcus Killstar flora stands", bootstrap_marcus_flora)
     _run("NPC industrial miners (plant supply)", bootstrap_npc_industrial_miners)
     _run(
         "NanoMegaPlex NPC industrial miners (plant supply)",
@@ -248,6 +270,7 @@ def at_server_cold_start():
     _run("mission templates (JSON)", load_mission_templates)
     _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
     _run("ambient world engine", bootstrap_world_ambient)
+    _run("venue controller scripts", bootstrap_venue_controllers)
 
 
 def at_server_cold_stop():

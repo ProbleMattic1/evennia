@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { ClaimsMarketPanel } from "@/components/claims-market-panel";
 import { PropertyDeedResaleBrowse } from "@/components/property-deed-resale-browse";
@@ -20,8 +21,6 @@ import {
   exchangePanelToolbarTitleClass,
 } from "@/lib/exchange-panel-classes";
 import { useUiResource } from "@/lib/use-ui-resource";
-
-const REALTY_OFFICE_ROOM = "NanoMegaPlex Real Estate Office";
 
 const TIER_COLOR: Record<number, string> = {
   1: "text-zinc-500 dark:text-cyan-500/80",
@@ -98,8 +97,10 @@ function LotCard({
   );
 }
 
-export default function RealEstatePage() {
-  const loader = useCallback(() => getRealEstateState(), []);
+function RealEstatePageInner() {
+  const searchParams = useSearchParams();
+  const venue = searchParams.get("venue")?.trim() || undefined;
+  const loader = useCallback(() => getRealEstateState(venue), [venue]);
   const { data, error, loading, reload } = useUiResource(loader);
   const [buyingLot, setBuyingLot]       = useState<string | null>(null);
   const [randomZoneBusy, setRandomZoneBusy] = useState<PropertyZone | null>(null);
@@ -144,7 +145,10 @@ export default function RealEstatePage() {
     setRandomZoneBusy(zone);
     setFeedback(null);
     try {
-      const res = await purchaseRandomPropertyDeed({ zone });
+      const res = await purchaseRandomPropertyDeed({
+        zone,
+        venueId: venue ?? data?.venueId,
+      });
       setFeedback({
         ok: res.ok,
         message: res.message ?? (res.ok ? "Purchase complete." : "Purchase failed."),
@@ -179,7 +183,7 @@ export default function RealEstatePage() {
     <CsPage>
       <CsHeader
         title={data.brokerName}
-        subtitle={REALTY_OFFICE_ROOM}
+        subtitle={data.officeRoomKey ?? "Real Estate office"}
         actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
       <CsColumns
@@ -266,5 +270,19 @@ export default function RealEstatePage() {
         }
       />
     </CsPage>
+  );
+}
+
+export default function RealEstatePage() {
+  return (
+    <Suspense
+      fallback={
+        <CsPage>
+          <p className="text-sm text-zinc-500 dark:text-cyan-500/80">Loading real estate office…</p>
+        </CsPage>
+      }
+    >
+      <RealEstatePageInner />
+    </Suspense>
   );
 }

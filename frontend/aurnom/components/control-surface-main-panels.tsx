@@ -531,10 +531,16 @@ function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims
   return (
     <Panel panelKey="claims" title={`Claims (${claims.length})`}>
       {claims.map((c) => (
-        <div key={c.href} className="flex items-center gap-1">
+        <div key={c.href} className="flex flex-wrap items-center gap-1">
           <TinyLink href={c.href}>{c.label}</TinyLink>
           {c.volumeTier ? <Badge label={c.volumeTier} cls={c.volumeTierCls} /> : null}
           {c.resourceRarityTier ? <Badge label={c.resourceRarityTier} cls={c.resourceRarityTierCls} /> : null}
+          <span
+            className="inline-block rounded bg-zinc-700/60 px-1 text-[9px] font-bold uppercase tabular-nums text-zinc-400"
+            title="Est. value per production cycle (local bids)"
+          >
+            {c.estimatedValuePerCycle != null ? `${c.estimatedValuePerCycle.toLocaleString()} cr/c` : "—"}
+          </span>
         </div>
       ))}
     </Panel>

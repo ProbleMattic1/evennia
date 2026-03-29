@@ -35,14 +35,25 @@ def _is_items_catalog_vendor(obj):
     if not obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False):
         return False
     return getattr(obj.db, "catalog_mode", None) != "ships"
-BANK_ROOM_KEY = "Alpha Prime Central Reserve"
-SHIPYARD_ROOM_KEY = "Meridian Civil Shipyard"
-PROCESSING_PLANT_ROOM_KEY = "Aurnom Ore Processing Plant"
-
 
 def _first_object(key):
     found = search_object(key)
     return found[0] if found else None
+
+
+def _resolve_web_venue_id(request, character=None):
+    """Query ?venue= → character location → nanomega_core."""
+    from world.venue_resolve import venue_id_for_object
+    from world.venues import VENUES
+
+    q = (request.GET.get("venue") or "").strip()
+    if q in VENUES:
+        return q
+    if character:
+        vid = venue_id_for_object(character)
+        if vid in VENUES:
+            return vid
+    return "nanomega_core"
 
 
 def _ensure_character_in_default_room(char):
@@ -1549,16 +1560,15 @@ NAV_KIOSKS = {
 # Hub exits that must not appear as kiosks or generic promenade shops (claims market lives on /real-estate).
 _SKIP_HUB_EXIT_KEYS = frozenset({"claims market"})
 
-SHIPYARD_SHOP_ENTRY = {"roomKey": SHIPYARD_ROOM_KEY, "label": "Shipyard"}
-
-
 @require_GET
 def nav_state(request):
     """
     Hub exits plus catalog shop rooms (including shipyard) plus kiosks (bank).
     Mining site exits are hidden unless the user owns the site.
     """
-    from world.bootstrap_shops import SHOPS
+    from world.bootstrap_hub import HUB_ROOM_KEY
+    from world.bootstrap_shops import all_item_shop_specs
+    from world.venues import all_venue_ids, get_venue
 
     hub = _first_object(HUB_ROOM_KEY)
     if not hub:
@@ -1594,8 +1604,13 @@ def nav_state(request):
             else:
                 exits.append(ex)
 
-    shops = [{"roomKey": entry["room_key"], "label": entry["vendor_name"]} for entry in SHOPS]
-    shops.append(SHIPYARD_SHOP_ENTRY)
+    shops = [
+        {"roomKey": entry["room_key"], "label": entry["vendor_name"], "venueId": entry["venue_id"]}
+        for entry in all_item_shop_specs()
+    ]
+    for v in all_venue_ids():
+        sy = get_venue(v)["shipyard"]
+        shops.append({"roomKey": sy["showroom_key"], "label": sy["vendor_name"], "venueId": v})
 
     claims_nav = []
     properties_nav = []
@@ -1639,15 +1654,23 @@ def _json_safe_ledger_extra(extra):
 @require_GET
 def bank_state(request):
     from typeclasses.economy import get_economy
+    from world.venues import get_venue
 
     econ = get_economy(create_missing=True)
-    room = _first_object(BANK_ROOM_KEY)
+    char = None
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
+    venue_id = _resolve_web_venue_id(request, char)
+    vspec = get_venue(venue_id)
+    bspec = vspec["bank"]
+    room = _first_object(bspec["reserve_room_key"])
 
     if not room:
-        raise Http404(f"Room '{BANK_ROOM_KEY}' was not found.")
+        raise Http404(f"Room '{bspec['reserve_room_key']}' was not found.")
 
-    treasury_balance = econ.get_balance("treasury:alpha-prime")
-    treasury_acct = econ.get_treasury_account("alpha-prime")
+    bank_id = bspec["bank_id"]
+    treasury_balance = econ.get_balance(econ.get_treasury_account(bank_id))
+    treasury_acct = econ.get_treasury_account(bank_id)
 
     raw = list(econ.db.transactions or [])
     treasury_log = []
@@ -1677,14 +1700,16 @@ def bank_state(request):
             }
         )
 
+    bank_display = bspec["bank_object_key"]
     payload = {
-        "bankName": "Alpha Prime",
+        "venueId": venue_id,
+        "bankName": bank_display,
         "roomName": room.key,
         "roomDescription": room.db.desc or "",
         "treasuryBalance": treasury_balance,
         "treasuryAccount": treasury_acct,
         "storyLines": [
-            {"id": "bank-title", "text": "Alpha Prime", "kind": "title"},
+            {"id": "bank-title", "text": bank_display, "kind": "title"},
             {
                 "id": "bank-desc",
                 "text": room.db.desc or "No description available.",
@@ -1746,19 +1771,27 @@ def real_estate_state(request):
     from evennia import search_script
 
     from typeclasses.property_claim_market import get_listable_lots, serialize_lot_row
-    from typeclasses.characters import NANOMEGA_REALTY_CHARACTER_KEY
+    from world.venue_resolve import get_realty_broker_for_venue, realty_broker_key_for_venue
+    from world.venues import get_venue
 
-    broker      = _first_object(NANOMEGA_REALTY_CHARACTER_KEY)
-    broker_name = broker.key if broker else "NanoMegaPlex Real Estate"
+    char = None
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
+    venue_id = _resolve_web_venue_id(request, char)
+    vspec = get_venue(venue_id)
 
-    lot_rows = [serialize_lot_row(lot) for lot in get_listable_lots()]
+    broker = get_realty_broker_for_venue(venue_id)
+    broker_name = broker.key if broker else realty_broker_key_for_venue(venue_id)
 
+    lot_rows = [serialize_lot_row(lot) for lot in get_listable_lots(venue_id)]
+
+    label = vspec.get("label") or venue_id
     story_lines = [
         {"id": "re-title", "text": broker_name, "kind": "title"},
         {
             "id":   "re-desc",
             "text": (
-                "Welcome to NanoMegaPlex Real Estate. "
+                f"Welcome to {label} Real Estate. "
                 "The exchange periodically lists new parcels when inventory runs low. "
                 "Purchase a deed here; owned properties appear under Properties in the nav."
             ),
@@ -1774,6 +1807,8 @@ def real_estate_state(request):
             next_property_discovery_at = eta.isoformat()
 
     return JsonResponse({
+        "venueId": venue_id,
+        "officeRoomKey": vspec["realty"]["office_key"],
         "brokerName": broker_name,
         "storyLines": story_lines,
         "lots": lot_rows,
@@ -1832,8 +1867,13 @@ def real_estate_purchase_random(request):
         return JsonResponse({"ok": False, "message": "Missing zone."}, status=400)
 
     from typeclasses.property_claim_market import purchase_random_property_deed_by_zone
+    from world.venues import VENUES
 
-    success, msg, claim = purchase_random_property_deed_by_zone(buyer, zone)
+    venue_id = str(body.get("venueId") or body.get("venue_id") or "").strip()
+    if venue_id not in VENUES:
+        venue_id = _resolve_web_venue_id(request, buyer)
+
+    success, msg, claim = purchase_random_property_deed_by_zone(buyer, zone, venue_id=venue_id)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
@@ -1850,10 +1890,16 @@ def real_estate_purchase_random(request):
 def processing_state(request):
     from typeclasses.mining import COMMODITY_ASK_OVER_BID
     from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE, REFINING_RECIPES
+    from world.venues import get_venue
 
-    room = _first_object(PROCESSING_PLANT_ROOM_KEY)
+    char = None
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
+    venue_id = _resolve_web_venue_id(request, char)
+    plant_key = get_venue(venue_id)["processing"]["plant_room_key"]
+    room = _first_object(plant_key)
     if not room:
-        raise Http404(f"Room '{PROCESSING_PLANT_ROOM_KEY}' was not found.")
+        raise Http404(f"Room '{plant_key}' was not found.")
 
     # Locate Ore Receiving Bay and Refinery in the room
     receiving_bay = None
@@ -1876,6 +1922,8 @@ def processing_state(request):
 
     refinery_input_tons = 0.0
     refinery_output_value = 0
+    miner_queue_ore_tons = 0.0
+    miner_output_value_total = 0
     if refinery_obj:
         in_inv = refinery_obj.db.input_inventory or {}
         refinery_input_tons = round(sum(float(v) for v in in_inv.values()), 2)
@@ -1883,6 +1931,8 @@ def processing_state(request):
         for key, units in out_inv.items():
             recipe = REFINING_RECIPES.get(key, {})
             refinery_output_value += int(units * recipe.get("base_value_cr", 0))
+        miner_queue_ore_tons = refinery_obj.get_total_miner_ore_queued_tons()
+        miner_output_value_total = refinery_obj.get_total_miner_output_value()
 
     # Per-miner data for authenticated user
     my_ore_queued = None
@@ -1920,15 +1970,18 @@ def processing_state(request):
         {
             "id": "plant-refinery",
             "text": (
-                f"Shared refinery input: {refinery_input_tons:.1f} t  |  "
-                f"Output value: {refinery_output_value:,} cr"
+                f"Shared pool input: {refinery_input_tons:.1f} t  |  "
+                f"Shared output: {refinery_output_value:,} cr  |  "
+                f"Attributed queue: {miner_queue_ore_tons:.1f} t  |  "
+                f"Attributed output: {miner_output_value_total:,} cr"
             ),
             "kind": "system",
         },
     ]
 
     return JsonResponse({
-        "plantName": "Aurnom Ore Processing Plant",
+        "venueId": venue_id,
+        "plantName": room.key,
         "roomName": room.key,
         "roomDescription": room.db.desc or "",
         "storyLines": story_lines,
@@ -1937,6 +1990,8 @@ def processing_state(request):
         "rawStorageCapacity": raw_cap,
         "refineryInputTons": refinery_input_tons,
         "refineryOutputValue": refinery_output_value,
+        "minerQueueOreTons": miner_queue_ore_tons,
+        "minerOutputValueTotal": miner_output_value_total,
         "processingFeeRate": PROCESSING_FEE_RATE,
         "rawSaleFeeRate": RAW_SALE_FEE_RATE,
         "rawAskPremiumRate": float(COMMODITY_ASK_OVER_BID) - 1.0,
@@ -2048,8 +2103,9 @@ def _personal_plant_ore_stored_value_cr(char):
     """
     from typeclasses.haulers import get_plant_player_storage
     from typeclasses.mining import get_commodity_bid
+    from world.venue_resolve import processing_plant_room_for_object
 
-    room = _first_object(PROCESSING_PLANT_ROOM_KEY)
+    room = processing_plant_room_for_object(char)
     if not room or not char:
         return 0
     storage = get_plant_player_storage(room, char)
@@ -2072,9 +2128,17 @@ def dashboard_state(request):
 
     econ = get_economy(create_missing=True)
     treasury_balance = None
-    bank_room = _first_object(BANK_ROOM_KEY)
-    if bank_room:
-        treasury_balance = econ.get_balance("treasury:alpha-prime")
+    from world.venue_resolve import treasury_bank_id_for_object
+    from world.venues import get_venue
+
+    char_for_treasury = None
+    if request.user.is_authenticated:
+        char_for_treasury, _ = _resolve_character_for_web(request.user)
+    if char_for_treasury:
+        tbid = treasury_bank_id_for_object(char_for_treasury)
+        treasury_balance = econ.get_balance(econ.get_treasury_account(tbid))
+    else:
+        treasury_balance = econ.get_balance(econ.get_treasury_account(get_venue("nanomega_core")["bank"]["bank_id"]))
 
     base = {
         "treasuryBalance": treasury_balance,

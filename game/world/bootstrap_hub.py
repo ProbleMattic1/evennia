@@ -42,4 +42,7 @@ def bootstrap_hub():
     room = found[0]
     room.key = HUB_ROOM_KEY
     room.db.desc = HUB_ROOM_DESC
+    from world.venues import apply_venue_metadata
+
+    apply_venue_metadata(room, "nanomega_core")
     print(f"[hub] Hub ready: {HUB_ROOM_KEY} (#{room.id})")
