@@ -237,6 +237,54 @@ VENUES: dict = {
             "site_key_template": "NanoMegaPlex Pad {cell} Deposit",
             "deploy_tag": "npc_nanomega_industrial_supply",
             "units": _NANOMEGA_INDUSTRIAL_UNITS,
+            "resource_bio": {
+                "colony_label": "NanoMegaPlex Resource Colony",
+                "flora_staging_room_key": "NanoMegaPlex Resource Colony Flora Annex",
+                "flora_staging_room_desc": (
+                    "Contractor flora annex for the NanoMegaPlex Resource Colony: "
+                    "leased stands, bulk bins, and dispatch to core processing."
+                ),
+                "flora_hub_exit_key": "nanomega resource colony flora",
+                "flora_hub_exit_aliases": [
+                    "plex resource flora",
+                    "nanomega colony flora",
+                    "resource colony flora",
+                ],
+                "fauna_staging_room_key": "NanoMegaPlex Resource Colony Fauna Annex",
+                "fauna_staging_room_desc": (
+                    "Contractor fauna annex for the NanoMegaPlex Resource Colony: "
+                    "leased ranges, containment, and dispatch to core processing."
+                ),
+                "fauna_hub_exit_key": "nanomega resource colony fauna",
+                "fauna_hub_exit_aliases": [
+                    "plex resource fauna",
+                    "nanomega colony fauna",
+                    "resource colony fauna",
+                ],
+                "flora_pad_prefix": "NanoMegaPlex Resource Colony Flora Pad",
+                "fauna_pad_prefix": "NanoMegaPlex Resource Colony Fauna Pad",
+                "flora_cell_desc_template": (
+                    "NanoMegaPlex Resource Colony flora stand {cell}: harvest and haul routing "
+                    "to the processing plant."
+                ),
+                "fauna_cell_desc_template": (
+                    "NanoMegaPlex Resource Colony fauna range {cell}: harvest and haul routing "
+                    "to the processing plant."
+                ),
+                "flora_site_suffix": "Stand",
+                "fauna_site_suffix": "Range",
+                "flora_deploy_tag": "npc_nanomega_resource_colony_flora",
+                "fauna_deploy_tag": "npc_nanomega_resource_colony_fauna",
+                "flora_plant_keys": (
+                    "Aurnom Flora Processing Plant",
+                    "Aurnom Ore Processing Plant",
+                ),
+                "fauna_plant_keys": (
+                    "Aurnom Fauna Processing Plant",
+                    "Aurnom Flora Processing Plant",
+                    "Aurnom Ore Processing Plant",
+                ),
+            },
         },
         "npcs": {
             "realty_key": NANOMEGA_REALTY_CHARACTER_KEY,
@@ -324,6 +372,47 @@ VENUES: dict = {
             "site_key_template": "Frontier Pad {cell} Deposit",
             "deploy_tag": "npc_frontier_industrial_supply",
             "units": _FRONTIER_INDUSTRIAL_UNITS,
+            "resource_bio": {
+                "colony_label": "Frontier Resource Colony",
+                "flora_staging_room_key": "Frontier Resource Colony Flora Annex",
+                "flora_staging_room_desc": (
+                    "Contractor flora annex for the Frontier Resource Colony: "
+                    "leased stands and dispatch uplinks to the frontier plant."
+                ),
+                "flora_hub_exit_key": "frontier resource colony flora",
+                "flora_hub_exit_aliases": [
+                    "outpost resource flora",
+                    "frontier colony flora",
+                    "resource colony flora",
+                ],
+                "fauna_staging_room_key": "Frontier Resource Colony Fauna Annex",
+                "fauna_staging_room_desc": (
+                    "Contractor fauna annex for the Frontier Resource Colony: "
+                    "leased ranges and dispatch uplinks to the frontier plant."
+                ),
+                "fauna_hub_exit_key": "frontier resource colony fauna",
+                "fauna_hub_exit_aliases": [
+                    "outpost resource fauna",
+                    "frontier colony fauna",
+                    "resource colony fauna",
+                ],
+                "flora_pad_prefix": "Frontier Resource Colony Flora Pad",
+                "fauna_pad_prefix": "Frontier Resource Colony Fauna Pad",
+                "flora_cell_desc_template": (
+                    "Frontier Resource Colony flora stand {cell}: harvest and haul routing "
+                    "to the processing plant."
+                ),
+                "fauna_cell_desc_template": (
+                    "Frontier Resource Colony fauna range {cell}: harvest and haul routing "
+                    "to the processing plant."
+                ),
+                "flora_site_suffix": "Stand",
+                "fauna_site_suffix": "Range",
+                "flora_deploy_tag": "npc_frontier_resource_colony_flora",
+                "fauna_deploy_tag": "npc_frontier_resource_colony_fauna",
+                "flora_plant_keys": ("Frontier Ore Processing Plant",),
+                "fauna_plant_keys": ("Frontier Ore Processing Plant",),
+            },
         },
         "npcs": {
             "realty_key": FRONTIER_REALTY_CHARACTER_KEY,

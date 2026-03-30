@@ -29,13 +29,19 @@ class PropertyClaim(Object):
         sync_property_title_from_deed_location(self)
 
     def at_pre_give(self, giver, getter, **kwargs):
-        from typeclasses.characters import CHARACTER_TYPECLASS_PATH
+        from typeclasses.characters import (
+            CHARACTER_TYPECLASS_PATH,
+            NANOMEGA_REALTY_CHARACTER_KEY,
+        )
         from typeclasses.property_transfer_fee import (
             PROPERTY_DEED_TRANSFER_FEE_CR,
             charge_property_deed_give_fee,
         )
 
         if getter.is_typeclass(CHARACTER_TYPECLASS_PATH, exact=False):
+            # The NanoMegaPlex Real Estate broker issues charter grants at no fee.
+            if giver.key == NANOMEGA_REALTY_CHARACTER_KEY:
+                return super().at_pre_give(giver, getter, **kwargs)
             if not charge_property_deed_give_fee(giver, PROPERTY_DEED_TRANSFER_FEE_CR):
                 giver.msg(
                     f"You need {PROPERTY_DEED_TRANSFER_FEE_CR:,} cr to transfer this deed to another character."

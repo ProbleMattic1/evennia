@@ -721,3 +721,7 @@ class CmdCollectRefined(Command):
         lines.append(f"\n|gReceived |y{bd['net']:,}|g cr from treasury.|n")
         lines.append(f"Balance: |y{caller.db.credits:,}|n cr.")
         caller.msg("\n".join(lines))
+
+        from world.station_services.contracts import try_complete_contract
+
+        try_complete_contract(caller, "refine_collect")

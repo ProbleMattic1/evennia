@@ -1,5 +1,4 @@
 import json
-from collections import defaultdict
 from urllib.parse import quote
 
 from django.http import Http404, JsonResponse
@@ -13,6 +12,7 @@ from world.bootstrap_frontier import get_player_start_room
 from world.bootstrap_hub import HUB_ROOM_KEY
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
 from world.time import next_mining_delivery_boundary_iso
+from world.nav_exit import nav_fields_for_exit
 from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
@@ -238,14 +238,22 @@ def _room_exits(room):
     exits = []
     for obj in room.contents:
         if getattr(obj, "destination", None):
+            sk, slabel, sord, rord = nav_fields_for_exit(obj)
             exits.append(
                 {
                     "key": obj.key,
                     "label": obj.key.title(),
                     "command": obj.key,
                     "destination": obj.destination.key if obj.destination else None,
+                    "section": slabel,
+                    "sectionKey": sk,
+                    "sectionOrder": sord,
+                    "order": rord,
                 }
             )
+    exits.sort(
+        key=lambda e: (e["sectionOrder"], e["section"], e["order"], e["label"].lower()),
+    )
     return exits
 
 
@@ -1504,6 +1512,24 @@ def play_interact(request):
         },
     )
 
+    if char.location and (
+        outcome.room_echo_template or outcome.room_echo_fallback
+    ):
+        from world.station_services.presence_msg import (
+            npc_in_room_by_key,
+            room_echo_web_action,
+            station_room_echo,
+        )
+
+        loc = char.location
+        tpl = outcome.room_echo_template
+        npc_key = outcome.room_echo_npc_key or outcome.speaker_key
+        npc = npc_in_room_by_key(loc, npc_key) if (tpl and npc_key) else None
+        if tpl and npc:
+            station_room_echo(loc, npc, char, tpl)
+        elif outcome.room_echo_fallback:
+            room_echo_web_action(loc, char, outcome.room_echo_fallback)
+
     try:
         char.missions.sync_global_seeds()
         char.missions.sync_interaction(outcome.interaction_key)
@@ -1943,7 +1969,13 @@ def processing_state(request):
             haulers = []
             for entry in (char.db.owned_vehicles or []):
                 h = entry if hasattr(entry, "key") else None
-                if h and h.tags.has("autonomous_hauler", category="mining"):
+                if not h:
+                    continue
+                if (
+                    h.tags.has("autonomous_hauler", category="mining")
+                    or h.tags.has("autonomous_hauler", category="flora")
+                    or h.tags.has("autonomous_hauler", category="fauna")
+                ):
                     haulers.append({
                         "id": h.id,
                         "key": h.key,
@@ -2047,10 +2079,24 @@ def _dashboard_property_portfolio(char):
     """
     from typeclasses.property_claim_market import lot_listing_price
     from typeclasses.property_claims import get_property_claim_kind
+    from typeclasses.property_lot_registry import infer_lot_venue_id
     from world.property_structure_upgrade_registry import (
         holding_has_any_structure_upgrade_offer,
         holding_has_parcel_buildout,
     )
+
+    def _realty_agent_slug(claim, lot):
+        vid = getattr(claim.db, "purchase_venue_id", None)
+        if not vid and lot is not None:
+            vid = infer_lot_venue_id(lot)
+        if not vid:
+            return None
+        v = str(vid)
+        if v == "frontier_outpost":
+            return "frontier"
+        if v == "nanomega_core":
+            return "nano"
+        return None
 
     rows = []
     ref_total = 0
@@ -2082,6 +2128,7 @@ def _dashboard_property_portfolio(char):
                 "referenceListPriceCr": ref_cr,
                 "structureUpgradesAvailable": structure_upgrades_available,
                 "hasBuiltOnParcel": has_built_on_parcel,
+                "realtyAgent": _realty_agent_slug(obj, lot),
             }
         )
     rows.sort(key=lambda r: r["claimKey"])
@@ -2208,8 +2255,7 @@ def dashboard_state(request):
 
     inventory = serialize_inventory_by_bucket(char, _dashboard_inventory_item_for_obj)
 
-    autonomous_by_key = defaultdict(list)
-    ships_other = []
+    ships = []
     for entry in char.db.owned_vehicles or []:
         if hasattr(entry, "key"):
             obj = entry
@@ -2225,44 +2271,24 @@ def dashboard_state(request):
             pilot_key = getattr(pilot, "key", str(pilot))
         summary = obj.get_vehicle_summary() if hasattr(obj, "get_vehicle_summary") else obj.key
         is_autonomous = (
-            hasattr(obj, "tags") and obj.tags.has("autonomous_hauler", category="mining")
-        )
-        row = {
-            "id": obj.id,
-            "key": obj.key,
-            "location": loc,
-            "pilot": pilot_key,
-            "state": getattr(obj.db, "state", None),
-            "summary": summary,
-            "is_autonomous": is_autonomous,
-        }
-        if is_autonomous:
-            autonomous_by_key[obj.key].append(row)
-        else:
-            ships_other.append(row)
-
-    ships = []
-    for ship_key in sorted(autonomous_by_key.keys()):
-        rows = autonomous_by_key[ship_key]
-        if len(rows) == 1:
-            ships.append(rows[0])
-        else:
-            ships.append(
-                {
-                    "id": rows[0]["id"],
-                    "key": ship_key,
-                    "location": None,
-                    "pilot": rows[0]["pilot"],
-                    "state": rows[0]["state"],
-                    "summary": rows[0]["summary"],
-                    "is_autonomous": True,
-                    "count": len(rows),
-                    "stacked": True,
-                    "ids": [r["id"] for r in rows],
-                    "locations": [r["location"] for r in rows],
-                }
+            hasattr(obj, "tags")
+            and (
+                obj.tags.has("autonomous_hauler", category="mining")
+                or obj.tags.has("autonomous_hauler", category="flora")
+                or obj.tags.has("autonomous_hauler", category="fauna")
             )
-    ships.extend(ships_other)
+        )
+        ships.append(
+            {
+                "id": obj.id,
+                "key": obj.key,
+                "location": loc,
+                "pilot": pilot_key,
+                "state": getattr(obj.db, "state", None),
+                "summary": summary,
+                "is_autonomous": is_autonomous,
+            }
+        )
 
     from world.mining_site_metrics import owned_production_sites_for_dashboard
 

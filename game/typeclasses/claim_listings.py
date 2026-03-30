@@ -116,6 +116,9 @@ def list_claim_for_sale(seller, claim_id, price):
     claim.move_to(container)
     listings.append({"claim_id": cid, "seller_id": seller.id, "price": price})
     script.db.listings = listings
+    from world.station_services.contracts import try_complete_contract
+
+    try_complete_contract(seller, "list_claim", venue_id=vid)
     return True, f"{claim.key} listed for {price:,} cr."
 
 

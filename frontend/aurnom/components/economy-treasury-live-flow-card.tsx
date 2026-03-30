@@ -1,0 +1,156 @@
+"use client";
+
+import { useReducedMotion } from "motion/react";
+
+import type { ControlSurfaceState } from "@/lib/control-surface-api";
+import {
+  miningCycleProgress,
+  miningPeriodSeconds,
+  treasuryMiningSlotElapsedSec,
+} from "@/lib/economy-dashboard-derive";
+import { EconomyStatCard } from "@/components/economy-stat-card";
+import { useOdometerInt } from "@/lib/use-odometer-value";
+import { useServerAnchoredTimeMs } from "@/lib/use-server-anchored-time";
+
+const HINT =
+  "This UTC mining slot: settlement gross (ore/refined face value), fees retained by treasury, net paid to miners (= gross − fees). " +
+  "Totals jump when a settlement occurs; control-surface poll refreshes them. " +
+  "Avg cr/s = amount so far ÷ elapsed time in slot (falls during quiet periods).";
+
+function formatBoundaryShort(iso: string | undefined) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString(undefined, {
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatOutflowCr(n: number) {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  return `−${v.toLocaleString("en-US")} cr`;
+}
+
+function formatPositiveCr(n: number) {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  return `${v.toLocaleString("en-US")} cr`;
+}
+
+function formatOutflowRate(crPerSec: number) {
+  if (!Number.isFinite(crPerSec) || crPerSec <= 0) return "−0 cr/s";
+  if (crPerSec >= 1) return `−${crPerSec.toFixed(2)} cr/s`;
+  return `−${(crPerSec * 100).toFixed(1)} ¢/s`;
+}
+
+function formatPositiveRate(crPerSec: number) {
+  if (!Number.isFinite(crPerSec) || crPerSec <= 0) return "0 cr/s";
+  if (crPerSec >= 1) return `${crPerSec.toFixed(2)} cr/s`;
+  return `${(crPerSec * 100).toFixed(1)} ¢/s`;
+}
+
+function SlotRing({ progress }: { progress: number }) {
+  const pct = Math.round(progress * 100);
+  return (
+    <div
+      className="relative size-20 shrink-0 rounded-full border border-red-900/50"
+      style={{
+        background: `conic-gradient(rgb(248 113 113) ${pct}%, rgb(39 39 42) 0)`,
+      }}
+      role="progressbar"
+      aria-valuenow={pct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label="Mining slot elapsed"
+    >
+      <div className="absolute inset-1.5 flex items-center justify-center rounded-full bg-zinc-950 text-[9px] text-red-300">
+        {pct}%
+      </div>
+    </div>
+  );
+}
+
+export function EconomyTreasuryLiveFlowCard({ data }: { data: ControlSurfaceState }) {
+  const reduceMotion = useReducedMotion();
+  const nowMs = useServerAnchoredTimeMs(data.serverTimeIso);
+  const period = miningPeriodSeconds(data);
+  const progress = miningCycleProgress(nowMs, data.miningNextCycleAt, period);
+  const nextShort = formatBoundaryShort(data.miningNextCycleAt);
+
+  const net = data.minerSettlementThisSlotNetCr ?? 0;
+  const gross = data.minerSettlementThisSlotGrossCr ?? 0;
+  const fees = data.minerSettlementThisSlotFeesCr ?? 0;
+
+  const netOdoRaw = useOdometerInt(net, 40);
+  const grossOdoRaw = useOdometerInt(gross, 40);
+  const feesOdoRaw = useOdometerInt(fees, 40);
+  const displayNet = reduceMotion ? net : netOdoRaw;
+  const displayGross = reduceMotion ? gross : grossOdoRaw;
+  const displayFees = reduceMotion ? fees : feesOdoRaw;
+
+  const elapsedSec = treasuryMiningSlotElapsedSec(data, nowMs);
+  const impliedNetPerSec = net / elapsedSec;
+  const impliedGrossPerSec = gross / elapsedSec;
+  const impliedFeesPerSec = fees / elapsedSec;
+  const derivedNet = Math.max(0, gross - fees);
+
+  return (
+    <EconomyStatCard
+      title="Treasury cash flow (this slot)"
+      hintTitle={HINT}
+      headerRight={
+        nextShort ? (
+          <span className="text-[9px] tabular-nums text-ui-soft" title="Mining grid boundary">
+            ends {nextShort}
+          </span>
+        ) : null
+      }
+    >
+      <div className="flex items-start gap-3">
+        <SlotRing progress={progress} />
+        <div className="min-w-0 flex-1">
+          <p className="text-[8px] uppercase tracking-wide text-ui-soft">Net to miners (gross − fees)</p>
+          <p
+            className="mt-0.5 truncate font-mono text-base font-semibold tabular-nums text-red-600 dark:text-red-400"
+            title="Treasury outflow this slot"
+          >
+            {formatOutflowCr(displayNet)}
+          </p>
+          <p className="mt-2 text-[9px] leading-relaxed text-ui-soft">
+            <span className="text-cyan-600/90 dark:text-cyan-400/90">Ore / settlement gross</span>{" "}
+            <span className="font-mono tabular-nums text-cyan-600 dark:text-cyan-400">
+              {formatPositiveCr(displayGross)}
+            </span>
+            <br />
+            <span className="text-red-600 dark:text-red-400">Fees retained</span>{" "}
+            <span className="font-mono tabular-nums text-red-600 dark:text-red-400">
+              {formatOutflowCr(displayFees)}
+            </span>
+          </p>
+          <p className="mt-1.5 text-[8px] text-ui-muted">
+            Check: gross − fees = {formatPositiveCr(derivedNet)}
+            {derivedNet !== net ? (
+              <span className="text-amber-600 dark:text-amber-500"> · ledger net {formatPositiveCr(net)}</span>
+            ) : null}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 border-t border-cyan-950/60 pt-2">
+        <p className="text-[8px] uppercase tracking-wider text-ui-muted">Avg rate this slot (live clock)</p>
+        <p className="mt-0.5 break-words font-mono text-[0.5625rem] font-semibold leading-tight tracking-tight tabular-nums sm:text-[0.625rem]">
+          <span className="text-red-600 dark:text-red-400">Net out {formatOutflowRate(impliedNetPerSec)}</span>
+          <span className="text-ui-soft"> · Gross {formatPositiveRate(impliedGrossPerSec)}</span>
+          <span className="text-red-500/80 dark:text-red-400/80">
+            {" "}
+            · Fees {formatPositiveRate(impliedFeesPerSec)} (retained)
+          </span>
+        </p>
+        <p className="mt-1 text-[8px] text-ui-muted">
+          Elapsed {Math.floor(elapsedSec / 60)}m {Math.floor(elapsedSec % 60)}s · updates on poll + clock
+        </p>
+      </div>
+    </EconomyStatCard>
+  );
+}

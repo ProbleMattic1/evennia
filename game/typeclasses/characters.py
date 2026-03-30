@@ -121,6 +121,21 @@ PARCEL_COMMUTER_ABILITY_BASES = {
     "cha": 12,
 }
 
+LISTINGS_BROKER_CHARACTER_KEY = "Listings Broker Lyra"
+HAUL_DISPATCHER_CHARACTER_KEY = "Haul Dispatcher Niko"
+REFINERY_ANALYST_CHARACTER_KEY = "Refinery Analyst Oren"
+CLAIMS_AGENT_CHARACTER_KEY = "Claims Agent Mina"
+CONTRACT_CLERK_CHARACTER_KEY = "Contract Clerk Vale"
+
+STATION_SERVICE_NPC_ABILITY_BASES = {
+    "str": 10,
+    "dex": 12,
+    "con": 12,
+    "int": 15,
+    "wis": 14,
+    "cha": 13,
+}
+
 GENERAL_SUPPLY_CLERK_CHARACTER_KEY = "Vesta Kline"
 
 GENERAL_SUPPLY_CLERK_ABILITY_BASES = {
@@ -149,6 +164,11 @@ def character_key_skips_pointbuy(character_key):
         FRONTIER_PROMENADE_GUIDE_CHARACTER_KEY,
         PARCEL_COMMUTER_CHARACTER_KEY,
         GENERAL_SUPPLY_CLERK_CHARACTER_KEY,
+        LISTINGS_BROKER_CHARACTER_KEY,
+        HAUL_DISPATCHER_CHARACTER_KEY,
+        REFINERY_ANALYST_CHARACTER_KEY,
+        CLAIMS_AGENT_CHARACTER_KEY,
+        CONTRACT_CLERK_CHARACTER_KEY,
     )
 
 
@@ -182,6 +202,14 @@ def ability_bases_for_character_key(character_key, *, rpg_pointbuy_done):
         return PARCEL_COMMUTER_ABILITY_BASES
     if character_key == GENERAL_SUPPLY_CLERK_CHARACTER_KEY:
         return GENERAL_SUPPLY_CLERK_ABILITY_BASES
+    if character_key in (
+        LISTINGS_BROKER_CHARACTER_KEY,
+        HAUL_DISPATCHER_CHARACTER_KEY,
+        REFINERY_ANALYST_CHARACTER_KEY,
+        CLAIMS_AGENT_CHARACTER_KEY,
+        CONTRACT_CLERK_CHARACTER_KEY,
+    ):
+        return STATION_SERVICE_NPC_ABILITY_BASES
     if rpg_pointbuy_done is False:
         return {k: 8 for k in ABILITY_KEYS}
     return DEFAULT_ABILITY_BASES

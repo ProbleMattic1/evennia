@@ -14,11 +14,10 @@ import copy
 from evennia import create_object, search_object
 
 from typeclasses.characters import CHARACTER_TYPECLASS_PATH, MARCUS_CHARACTER_KEY
-from typeclasses.flora import FLORA_RESOURCE_CATALOG, FloraHarvester, FloraSite, FloraStorage
-from typeclasses.haulers import set_hauler_next_cycle
-from typeclasses.vehicles import Hauler
+from typeclasses.flora import FLORA_RESOURCE_CATALOG, FloraSite
 from world.bootstrap_hub import get_hub_room
 from world.bootstrap_mining import _get_or_create_exit
+from world.npc_bio_colony_deploy import deploy_flora_colony_site, resolve_plant_room
 
 LOG_PREFIX = "[marcus-flora]"
 DEPLOY_TAG = "marcus_killstar_flora_supply"
@@ -46,6 +45,8 @@ MARCUS_FLORA_DEPOSIT_BASE = {
 }
 
 # Mining Pro–scale gear (tonnage/capacity), flora typeclasses + flora-tagged hauler.
+MARCUS_FLORA_PLANT_KEYS = ("Aurnom Flora Processing Plant", "Aurnom Ore Processing Plant")
+
 MARCUS_FLORA_COMPONENTS = [
     {
         "type": "harvester",
@@ -81,110 +82,6 @@ def _marcus_flora_deposit():
     d = dict(MARCUS_FLORA_DEPOSIT_BASE)
     d["composition"] = _composition_all_flora_resources()
     return d
-
-
-def _resolve_flora_hauler_destination_room():
-    for room_key in ("Aurnom Flora Processing Plant", "Aurnom Ore Processing Plant"):
-        hits = search_object(room_key)
-        if hits:
-            return hits[0]
-    return None
-
-
-def _deploy_flora_components_at_site(owner, site, site_room, components):
-    """
-    Claim site, spawn FloraHarvester + FloraStorage + Hauler (autonomous_hauler category flora only).
-    Mirrors packages._deploy_components_at_site routing semantics for Marcus-scale gear.
-    """
-    from typeclasses.haulers import HAULER_ENGINE_INTERVAL
-    from world.time import FLORA_HAULER_PICKUP_OFFSET_SEC
-
-    refinery_room = _resolve_flora_hauler_destination_room()
-    if not refinery_room:
-        return False, "No processing plant room found (flora or ore)."
-
-    harvester = storage = hauler = None
-    for comp in components:
-        ct = comp.get("type")
-        if ct == "harvester":
-            harvester = create_object(
-                FloraHarvester,
-                key=comp["key"],
-                location=site_room,
-                home=site_room,
-            )
-            harvester.db.desc = comp.get("desc", "")
-            harvester.db.rig_rating = float(comp.get("rig_rating", 1.0))
-            harvester.db.owner = owner
-            harvester.locks.add("get:false()")
-        elif ct == "storage":
-            storage = create_object(
-                FloraStorage,
-                key=comp["key"],
-                location=site_room,
-                home=site_room,
-            )
-            storage.db.desc = comp.get("desc", "")
-            storage.db.capacity_tons = float(comp.get("capacity_tons", 500.0))
-            storage.db.owner = owner
-        elif ct == "hauler":
-            hauler = create_object(
-                Hauler,
-                key=comp["key"],
-                location=site_room,
-                home=site_room,
-            )
-            hauler.db.desc = comp.get("desc", "Autonomous flora hauler.")
-            hauler.db.is_template = False
-            hauler.db.owner = owner
-            hauler.db.allowed_boarders = [owner]
-            hauler.db.state = "docked"
-            hauler.db.cargo = {}
-            hauler.db.cargo_capacity_tons = float(comp.get("cargo_capacity_tons", 50.0))
-            hauler.db.hauler_owner = owner
-            hauler.db.hauler_mine_room = None
-            hauler.db.hauler_refinery_room = None
-            hauler.db.hauler_state = "idle"
-            hauler.db.hauler_upgrades = {}
-            hauler.db.hauler_base_cycle_hours = float(comp.get("cycle_hours", 4.0))
-            hauler.tags.add("autonomous_hauler", category="flora")
-            hauler.locks.add("get:false()")
-
-    if not harvester or not storage or not hauler:
-        return False, "Flora package is missing harvester, storage, or hauler."
-
-    site.db.is_claimed = True
-    site.db.owner = owner
-    owned = owner.db.owned_sites or []
-    if site not in owned:
-        owned.append(site)
-    owner.db.owned_sites = owned
-
-    harvester.install(site, owner=owner)
-    site.db.linked_storage = storage
-    storage.db.site = site
-    storage.db.owner = owner
-
-    site.schedule_next_cycle()
-
-    hauler.db.hauler_mine_room = site_room
-    hauler.db.hauler_refinery_room = refinery_room
-    hauler.db.hauler_state = "at_mine"
-    set_hauler_next_cycle(hauler)
-
-    vehicles = owner.db.owned_vehicles or []
-    if hauler not in vehicles:
-        vehicles.append(hauler)
-    owner.db.owned_vehicles = vehicles
-
-    return True, (
-        f"Flora operation deployed at {site.key}.\n"
-        f"  Site: {site_room.key}\n"
-        f"  Harvester: {harvester.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Harvest delivery: UTC 1h grid  Hauler pickup: {FLORA_HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit; "
-        f"autonomous dispatch every {HAULER_ENGINE_INTERVAL // 60}m.\n"
-        f"  Destination: {refinery_room.key}."
-    )
 
 
 def _get_or_create_room(key: str, desc: str):
@@ -288,7 +185,7 @@ def bootstrap_marcus_flora():
         print(f"{LOG_PREFIX} FLORA_RESOURCE_CATALOG empty; skip.")
         return
 
-    if not _resolve_flora_hauler_destination_room():
+    if not resolve_plant_room(MARCUS_FLORA_PLANT_KEYS):
         print(f"{LOG_PREFIX} No processing plant room; skip.")
         return
 
@@ -310,7 +207,7 @@ def bootstrap_marcus_flora():
             print(f"{LOG_PREFIX} Site {site.key!r} claimed by another owner; skip.")
             continue
 
-        ok, msg = _deploy_flora_components_at_site(char, site, cell_room, components)
+        ok, msg = deploy_flora_colony_site(char, site, cell_room, components, MARCUS_FLORA_PLANT_KEYS)
         if ok:
             site.tags.add(DEPLOY_TAG, category="world")
             _retune_harvesters_on_site(site)

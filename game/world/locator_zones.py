@@ -1,8 +1,8 @@
 """
 Locator district ids for the Universal Locator (web UI).
 
-Single source of truth: world.venues.VENUES. Non-venue pockets (Ashfall, Killstar)
-use key patterns only where bootstrap does not set venue_id.
+Single source of truth: world.venues.VENUES. Non-venue pockets (Industrial Resource
+Colony grid, Killstar) use key patterns only where bootstrap does not set venue_id.
 """
 
 from __future__ import annotations
@@ -30,8 +30,16 @@ def locator_zone_for_room(room, *, has_mining_site: bool) -> str:
 
     if k == "Frontier Transit Shell":
         return "arrival"
+    if k == "Industrial Resource Colony Grid" or k.startswith("Industrial Resource Colony Pad "):
+        return "industrial-colony"
     if k == "Ashfall Industrial Grid" or k.startswith("Ashfall Industrial Pad "):
-        return "ashfall-industrial"
+        return "industrial-colony"
+    if (
+        k in ("Industrial Resource Colony Flora Annex", "Industrial Resource Colony Fauna Annex")
+        or k.startswith("Industrial Resource Colony Flora Pad ")
+        or k.startswith("Industrial Resource Colony Fauna Pad ")
+    ):
+        return "industrial-colony"
     if k == "Marcus Killstar Mining Annex" or k.startswith("Marcus Killstar Pad "):
         return "killstar-annex"
 
@@ -63,6 +71,14 @@ def _zone_from_venue_room(vid: str, k: str) -> str | None:
     if k == v["advertising"]["room_key"]:
         return "nanomega-agency"
     ind = v["industrial"]
+    rc = ind.get("resource_bio")
+    if rc:
+        if k in (rc["flora_staging_room_key"], rc["fauna_staging_room_key"]):
+            return "plex-industrial"
+        fp = str(rc["flora_pad_prefix"])
+        fap = str(rc["fauna_pad_prefix"])
+        if k.startswith(fp + " ") or k.startswith(fap + " "):
+            return "plex-industrial"
     if k == ind["staging_room_key"]:
         return "plex-industrial"
     prefix = str(ind["pad_room_prefix"])

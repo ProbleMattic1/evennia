@@ -125,6 +125,47 @@ function cr(n: number | null | undefined) {
   return `${n.toLocaleString()} cr`;
 }
 
+/** Sum `estimatedValuePerCycle` where present (matches per-row yield display). */
+function resourcesCreditsRollup(items: DashboardMine[]): { sum: number; counted: number } | null {
+  let sum = 0;
+  let counted = 0;
+  for (const m of items) {
+    const v = m.estimatedValuePerCycle;
+    if (typeof v === "number" && !Number.isNaN(v)) {
+      sum += v;
+      counted += 1;
+    }
+  }
+  if (counted === 0) return null;
+  return { sum, counted };
+}
+
+function ResourcesCreditsRollupLabel({
+  items,
+  className = "",
+}: {
+  items: DashboardMine[];
+  className?: string;
+}) {
+  const rollup = resourcesCreditsRollup(items);
+  if (!rollup) return null;
+  const complete = rollup.counted === items.length;
+  return (
+    <span
+      className={`shrink-0 font-mono text-[9px] font-normal normal-case tracking-normal text-zinc-400 ${className}`}
+      title={
+        complete
+          ? "Credits per cycle (sum of site yields)"
+          : `Credits per cycle from ${rollup.counted} of ${items.length} sites (others omit yield)`
+      }
+    >
+      {cr(rollup.sum)}
+      <span className="text-ui-soft"> /cyc</span>
+      {!complete ? <span className="text-ui-muted"> *</span> : null}
+    </span>
+  );
+}
+
 function inventoryBucket(inv: CsInventory, id: string) {
   return inv.byBucket[id] ?? [];
 }
@@ -353,17 +394,19 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
   );
 }
 
-const RESOURCE_SITE_KIND_ORDER = ["mining_site", "flora_site"] as const;
+const RESOURCE_SITE_KIND_ORDER = ["mining_site", "flora_site", "fauna_site"] as const;
 
 function resourceSiteKindKey(m: DashboardMine): string {
   if (m.kind && String(m.kind).length > 0) return String(m.kind);
   if (m.siteKind === "flora") return "flora_site";
+  if (m.siteKind === "fauna") return "fauna_site";
   return "mining_site";
 }
 
 function resourceCategoryTitle(kindKey: string): string {
   if (kindKey === "mining_site") return "Mines";
   if (kindKey === "flora_site") return "Flora harvesters";
+  if (kindKey === "fauna_site") return "Fauna harvesters";
   return kindKey
     .split("_")
     .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
@@ -372,6 +415,7 @@ function resourceCategoryTitle(kindKey: string): string {
 
 function visitProductionSiteLabel(m: DashboardMine): string {
   if (m.kind === "flora_site" || m.siteKind === "flora") return "Visit stand →";
+  if (m.kind === "fauna_site" || m.siteKind === "fauna") return "Visit range →";
   return "Visit mine →";
 }
 
@@ -499,6 +543,7 @@ function ResourcesCategoryGroup({
           </span>
         ) : null}
         <span className="min-w-0 flex-1 truncate">{title}</span>
+        <ResourcesCreditsRollupLabel items={items} />
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -572,6 +617,7 @@ function ResourcesPanel({
           </span>
         ) : null}
         <span className="min-w-0 flex-1 truncate">{title}</span>
+        <ResourcesCreditsRollupLabel items={resources} className="text-[10px] text-cyan-200/90" />
         {nextAt ? (
           <span className="shrink-0 font-mono text-[10px] font-normal normal-case tracking-normal text-cyan-300">
             <Countdown targetIso={nextAt} prefix="next:" onExpired={onReload} />
@@ -617,6 +663,32 @@ function propertyKindTitle(kind: (typeof PROPERTY_KIND_ORDER)[number]): string {
   return "Residential";
 }
 
+function PropertyRealtyAgentMark({ agent }: { agent: DashboardProperty["realtyAgent"] }) {
+  if (agent === "nano") {
+    return (
+      <span
+        className="inline-flex h-4 shrink-0 items-center justify-center rounded border border-cyan-600/55 bg-cyan-950/90 px-[3px] text-[9px] font-bold leading-none text-cyan-200"
+        title="NanoMegaPlex Real Estate"
+        aria-label="Purchased from NanoMegaPlex Real Estate"
+      >
+        N
+      </span>
+    );
+  }
+  if (agent === "frontier") {
+    return (
+      <span
+        className="inline-flex h-4 shrink-0 items-center justify-center rounded border border-amber-600/55 bg-amber-950/85 px-[3px] text-[9px] font-bold leading-none text-amber-200"
+        title="Frontier Real Estate"
+        aria-label="Purchased from Frontier Real Estate"
+      >
+        F
+      </span>
+    );
+  }
+  return null;
+}
+
 function PropertiesKindGroup({
   kind,
   items,
@@ -644,7 +716,10 @@ function PropertiesKindGroup({
         <div className="space-y-0 pt-0.5">
           {items.map((p) => (
             <Row key={p.claimId}>
-              <span className="flex-1 truncate text-zinc-300">{p.claimKey}</span>
+              <div className="flex min-w-0 flex-1 items-center gap-1">
+                <PropertyRealtyAgentMark agent={p.realtyAgent} />
+                <span className="min-w-0 flex-1 truncate text-zinc-300">{p.claimKey}</span>
+              </div>
               <span className="text-[10px] text-ui-muted">
                 {p.zone} T{p.tier}
               </span>

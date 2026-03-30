@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { groupExits } from "@/components/exit-grid";
 import { GameLogPanel } from "@/components/game-log-panel";
 import type {
   ExitButton,
@@ -45,6 +46,14 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
     () => active.filter((m) => m.currentObjective?.kind === "choice").length,
     [active],
   );
+
+  const filteredRoomDestinations = useMemo(
+    () =>
+      roomExits.filter((e): e is ExitButton & { destination: string } => Boolean(e.destination)),
+    [roomExits],
+  );
+
+  const destinationGroups = useMemo(() => groupExits(filteredRoomDestinations), [filteredRoomDestinations]);
 
   const storageKey = "aurnom:dashboard-panel:missions";
   const availableStorageKey = "aurnom:dashboard-panel:missions:available";
@@ -362,10 +371,10 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                 </button>
               </div>
               {exitsOpen ? (
-                <div className="mt-0.5 flex flex-wrap gap-1">
-                  {roomExits
-                    .filter((e): e is ExitButton & { destination: string } => Boolean(e.destination))
-                    .map((ex) => {
+                destinationGroups.length <= 1 &&
+                (destinationGroups[0]?.title === "Destinations" || !destinationGroups[0]) ? (
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {filteredRoomDestinations.map((ex) => {
                       const k = `exit:${ex.destination}`;
                       return (
                         <TinyButton
@@ -377,7 +386,32 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                         </TinyButton>
                       );
                     })}
-                </div>
+                  </div>
+                ) : (
+                  <div className="mt-0.5 flex flex-col gap-2">
+                    {destinationGroups.map(({ title, items }) => (
+                      <div key={title}>
+                        <div className="mb-0.5 text-[10px] uppercase tracking-wide text-ui-muted">
+                          {title}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {items.map((ex) => {
+                            const k = `exit:${ex.destination}`;
+                            return (
+                              <TinyButton
+                                key={`${ex.key}-${ex.destination}`}
+                                onClick={() => handleExitTravel(ex.destination!)}
+                                disabled={busyKey === k}
+                              >
+                                {busyKey === k ? "Moving…" : ex.label}
+                              </TinyButton>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
               ) : null}
             </div>
           ) : null}

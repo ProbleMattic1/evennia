@@ -30,6 +30,15 @@ class InteractionLine:
     dialogue: str
     interaction_key: str
     speaker_key: str | None = None
+    room_echo_template: str | None = None
+    """If set, others in char.location see this (Evennia mapping: {player}, {npc})."""
+    room_echo_npc_key: str | None = None
+    """Resolve NPC in room; if missing, optional fallback is used."""
+    room_echo_fallback: str | None = None
+    """
+    If no NPC with room_echo_npc_key in room, msg_contents this instead (still exclude player).
+    Use {player} in the string if desired.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +47,7 @@ class InteractionLine:
 
 _GUIDE_REPLIES = {
     "property": "Try the Sovereign property exchange — the broker in the realty office lives for paperwork.",
-    "mining": "Ashfall Basin keeps the independents busy. Mining Outfitters sells the boring but vital bits.",
+    "mining": "The Industrial Basin keeps the independents busy. Mining Outfitters sells the boring but vital bits.",
     "security": "Station Security has a desk in the transit hub — ask for Patrol Sergeant Nwosu.",
     "transit": "The shuttle concourse is one level up. Timetable boards update every thirty seconds.",
 }
@@ -196,6 +205,9 @@ def handle_contract_board(char, payload=None):
             f"Contract accepted: deliver {row['quantity']}t {row['commodity_key']} to {row['delivery_room_key']}.",
             "contractboard:accept",
             None,
+            room_echo_template="{player} commits to a procurement run at the board.",
+            room_echo_npc_key=None,
+            room_echo_fallback="|w[Procurement]|n {player} acknowledges a contract on the board.",
         )
 
     if action == "complete":
@@ -212,6 +224,9 @@ def handle_contract_board(char, payload=None):
             f"Contract completed. Paid {row['reward_cr']:,} cr for {row['commodity_key']}.",
             "contractboard:complete",
             None,
+            room_echo_template="{player} closes out a delivery at the procurement board.",
+            room_echo_npc_key=None,
+            room_echo_fallback="|w[Procurement]|n {player} clears a contract on the board.",
         )
 
     raise InteractionError("Unsupported procurement-board action.")

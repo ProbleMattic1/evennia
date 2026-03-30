@@ -62,6 +62,14 @@ def at_server_start():
                 fe.restart()
                 print("[startup] FloraEngine interval patched to 60s and restarted.")
 
+        fauna_eng = search_script("fauna_engine")
+        if fauna_eng:
+            fae = fauna_eng[0]
+            if fae.interval != 60:
+                fae.interval = 60
+                fae.restart()
+                print("[startup] FaunaEngine interval patched to 60s and restarted.")
+
         from world.time import HAULER_ENGINE_INTERVAL_SEC
 
         hauler_scripts = search_script("hauler_engine")
@@ -190,6 +198,7 @@ def at_server_cold_start():
     from world.bootstrap_haulers import bootstrap_haulers
     from world.bootstrap_hub import bootstrap_hub
     from world.bootstrap_marcus_killstar import bootstrap_marcus_killstar
+    from world.bootstrap_marcus_fauna import bootstrap_marcus_fauna
     from world.bootstrap_marcus_flora import bootstrap_marcus_flora
     from world.bootstrap_marcus_mines import bootstrap_marcus_mines
     from world.bootstrap_frontier_npcs import bootstrap_frontier_service_npcs
@@ -204,11 +213,13 @@ def at_server_cold_start():
     from world.bootstrap_mining import bootstrap_mining
     from world.bootstrap_mining_claim_sale import bootstrap_mining_claim_sale
     from world.bootstrap_mining_packages import bootstrap_mining_packages
+    from world.bootstrap_fauna import bootstrap_fauna_engine
     from world.bootstrap_flora import bootstrap_flora_engine
     from world.bootstrap_npc_industrial_miners import bootstrap_npc_industrial_miners
     from world.bootstrap_npc_nanomega_industrial_miners import (
         bootstrap_npc_nanomega_industrial_miners,
     )
+    from world.bootstrap_npc_resource_colony_bio import bootstrap_npc_resource_colony_bio
     from world.bootstrap_processors import bootstrap_processors
     from world.bootstrap_shipyard import bootstrap_shipyard
     from world.bootstrap_shops import bootstrap_shops
@@ -219,6 +230,7 @@ def at_server_cold_start():
         bootstrap_promenade_guide,
         bootstrap_promenade_room_ambience,
     )
+    from world.bootstrap_station_services import bootstrap_station_services
     from world.mission_loader import load_mission_templates
     from typeclasses.mission_seeds import get_mission_seeds_script
     from typeclasses.system_alerts import get_system_alerts_script
@@ -228,6 +240,7 @@ def at_server_cold_start():
     _run("frontier ↔ hub exits", bootstrap_frontier_hub_links)
     _run("promenade guide NPC", bootstrap_promenade_guide)
     _run("promenade room ambience", bootstrap_promenade_room_ambience)
+    _run("station service NPCs and contracts", bootstrap_station_services)
     _run("global economy script", bootstrap_economy)
     _run("character ability baselines (STR–CHA)", bootstrap_character_abilities)
     _run("Marcus Killstar (account link; credits on create only)", bootstrap_marcus_killstar)
@@ -249,20 +262,28 @@ def at_server_cold_start():
     )
     _run("Frontier advertising agency wiring + agent placement", bootstrap_frontier_advertising_wiring)
     _run("NanoMegaPlex Real Estate Office room and base lots", bootstrap_realty_office)
+    from world.bootstrap_nmp_charter import bootstrap_nmp_charter
+    _run("NanoMegaPlex charter (broker-held flagship parcels)", bootstrap_nmp_charter)
     _run("vehicle catalog CSV import", bootstrap_vehicle_catalog)
     _run("shipyard rooms + stock templates", bootstrap_shipyard)
     _run("general catalog shops (tech, mining, supply, toy)", bootstrap_shops)
     _run("parcel mission NPCs", bootstrap_parcel_mission_npcs)
-    _run("mining engine + sample sites + Ashfall Basin", bootstrap_mining)
+    _run("mining engine + sample sites + Industrial Basin", bootstrap_mining)
     _run("hauler engine + refinery engine + receiving bay", bootstrap_haulers)
     _run("flora harvest engine", bootstrap_flora_engine)
+    _run("fauna harvest engine", bootstrap_fauna_engine)
     _run("mining sale packages (Starter Pack, Pro Pack)", bootstrap_mining_packages)
     _run("Marcus Killstar mining pads", bootstrap_marcus_mines)
     _run("Marcus Killstar flora stands", bootstrap_marcus_flora)
+    _run("Marcus Killstar fauna ranges", bootstrap_marcus_fauna)
     _run("NPC industrial miners (plant supply)", bootstrap_npc_industrial_miners)
     _run(
         "NanoMegaPlex NPC industrial miners (plant supply)",
         bootstrap_npc_nanomega_industrial_miners,
+    )
+    _run(
+        "Resource colony flora/fauna (venues + industrial grid)",
+        bootstrap_npc_resource_colony_bio,
     )
     _run("random mining claim deed at Mining Outfitters", bootstrap_mining_claim_sale)
     _run("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)

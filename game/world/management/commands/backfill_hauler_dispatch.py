@@ -8,8 +8,10 @@ class Command(BaseCommand):
     help = "Rebuild HaulerDispatchRow from all autonomous haulers (run after adding the table)."
 
     def handle(self, *args, **options):
-        haulers = list(search_tag("autonomous_hauler", category="mining")) + list(
-            search_tag("autonomous_hauler", category="flora")
+        haulers = (
+            list(search_tag("autonomous_hauler", category="mining"))
+            + list(search_tag("autonomous_hauler", category="flora"))
+            + list(search_tag("autonomous_hauler", category="fauna"))
         )
         n = 0
         for h in haulers:

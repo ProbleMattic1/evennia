@@ -638,6 +638,9 @@ def list_package_for_sale(seller, package_id, price):
     package.move_to(container)
     listings.append({"package_id": pid, "seller_id": seller.id, "price": price})
     script.db.listings = listings
+    from world.station_services.contracts import try_complete_contract
+
+    try_complete_contract(seller, "list_package", venue_id=vid)
     return True, f"{package.key} listed for {price:,} cr."
 
 
@@ -677,6 +680,7 @@ def _package_listings_rows_for_venue(venue_id: str):
             "estimatedValue": int(getattr(package.db, "estimated_value", 0) or 0),
             "price": int(price),
             "sellerKey": seller_key,
+            "sellerId": int(seller_id) if seller_id else 0,
             "venueId": venue_id,
         })
     script.db.listings = valid

@@ -270,17 +270,24 @@ class EconomyEngine(Script):
     def get_treasury_account(self, bank_id="alpha-prime"):
         return f"treasury:{bank_id}"
 
-    def record_miner_treasury_payout(self, amount: int) -> None:
+    def record_miner_treasury_payout(
+        self, amount: int, *, gross: int = 0, fee: int = 0
+    ) -> None:
         """
         Track credits paid from treasury to a player for miner settlement
         (plant raw purchase, refined collect). Bucketed by epoch-aligned
         ``MINING_DELIVERY_PERIOD`` slots (same grid as mining delivery UI).
+
+        ``amount`` is net paid to the miner. Optional ``gross`` / ``fee`` track
+        settlement face value and retained fees for web totals (gross − fee ≈ net).
         """
         from world.time import MINING_DELIVERY_PERIOD, floor_period, utc_now, to_iso
 
         amount = int(amount or 0)
         if amount <= 0:
             return
+        gross = max(0, int(gross or 0))
+        fee = max(0, int(fee or 0))
         slot_iso = to_iso(floor_period(utc_now(), MINING_DELIVERY_PERIOD)) or ""
         cur_slot = getattr(self.db, "miner_payout_current_slot_start_iso", None) or ""
         if cur_slot != slot_iso:
@@ -289,18 +296,59 @@ class EconomyEngine(Script):
             )
             self.db.miner_payout_this_slot_cr = 0
             self.db.miner_payout_current_slot_start_iso = slot_iso
+            self.db.miner_settlement_gross_last_cycle_cr = int(
+                getattr(self.db, "miner_settlement_gross_this_slot_cr", 0) or 0
+            )
+            self.db.miner_settlement_fees_last_cycle_cr = int(
+                getattr(self.db, "miner_settlement_fees_this_slot_cr", 0) or 0
+            )
+            self.db.miner_settlement_gross_this_slot_cr = 0
+            self.db.miner_settlement_fees_this_slot_cr = 0
         self.db.miner_payout_this_slot_cr = int(
             getattr(self.db, "miner_payout_this_slot_cr", 0) or 0
         ) + amount
         self.db.miner_payout_total_cr = int(
             getattr(self.db, "miner_payout_total_cr", 0) or 0
         ) + amount
+        self.db.miner_settlement_gross_this_slot_cr = int(
+            getattr(self.db, "miner_settlement_gross_this_slot_cr", 0) or 0
+        ) + gross
+        self.db.miner_settlement_fees_this_slot_cr = int(
+            getattr(self.db, "miner_settlement_fees_this_slot_cr", 0) or 0
+        ) + fee
+        self.db.miner_settlement_gross_total_cr = int(
+            getattr(self.db, "miner_settlement_gross_total_cr", 0) or 0
+        ) + gross
+        self.db.miner_settlement_fees_total_cr = int(
+            getattr(self.db, "miner_settlement_fees_total_cr", 0) or 0
+        ) + fee
 
     def get_miner_payout_totals_for_web(self) -> tuple[int, int]:
         """(credits in last *completed* mining slot, all-time treasury miner payouts)."""
         last = int(getattr(self.db, "miner_payout_last_cycle_cr", 0) or 0)
         total = int(getattr(self.db, "miner_payout_total_cr", 0) or 0)
         return last, total
+
+    def get_miner_settlement_value_totals_for_web(self) -> tuple[int, int, int, int]:
+        """
+        (last_slot_gross, last_slot_fees, all_time_gross, all_time_fees) in cr.
+        Last-slot values are for the previous completed mining UTC slot.
+        """
+        lg = int(getattr(self.db, "miner_settlement_gross_last_cycle_cr", 0) or 0)
+        lf = int(getattr(self.db, "miner_settlement_fees_last_cycle_cr", 0) or 0)
+        tg = int(getattr(self.db, "miner_settlement_gross_total_cr", 0) or 0)
+        tf = int(getattr(self.db, "miner_settlement_fees_total_cr", 0) or 0)
+        return lg, lf, tg, tf
+
+    def get_miner_settlement_this_slot_for_web(self) -> tuple[int, int, int]:
+        """
+        (net_to_miners, gross_face_value, fees_retained) for the in-progress
+        mining UTC slot — updates as settlements occur; same grid as web clock.
+        """
+        net = int(getattr(self.db, "miner_payout_this_slot_cr", 0) or 0)
+        g = int(getattr(self.db, "miner_settlement_gross_this_slot_cr", 0) or 0)
+        f = int(getattr(self.db, "miner_settlement_fees_this_slot_cr", 0) or 0)
+        return net, g, f
 
     # -----------------------------
     # Price extraction helpers

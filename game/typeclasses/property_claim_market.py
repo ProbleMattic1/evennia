@@ -328,6 +328,7 @@ def create_property_claim_for_lot(lot, owner):
     claim.db.lot_ref  = lot
     claim.db.lot_key  = lot.key
     claim.db.lot_tier = int(lot.db.lot_tier or 1)
+    claim.db.purchase_venue_id = infer_lot_venue_id(lot)
     claim.db.desc     = (
         f"Deed for {lot.zone_label} property at {lot.key} (Tier {lot.db.lot_tier})."
     )
@@ -401,6 +402,53 @@ def purchase_property_deed(buyer, lot_key):
     move_lot_to_claimed_archive(lot)
     msg = f"Purchased {claim.key} for {price:,} cr."
     return True, msg, claim
+
+
+def _find_existing_claim_for_lot(lot):
+    """Return any PropertyClaim whose lot_ref points at ``lot``, or None."""
+    from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+
+    candidates = lot.db.owner
+    if candidates and hasattr(candidates, "contents"):
+        for obj in candidates.contents:
+            if (
+                obj.tags.has(PROPERTY_CLAIM_TAG, category=PROPERTY_CLAIM_CATEGORY)
+                and getattr(obj.db, "lot_ref", None) == lot
+            ):
+                return obj
+    return None
+
+
+def grant_primary_property_deed(lot, grantee):
+    """
+    Claim ``lot`` on behalf of ``grantee`` without any credit exchange.
+
+    Designed for broker-held charter inventory: the lot is created, the deed
+    is minted on the grantee, the holding is ensured, and the lot is removed
+    from the primary exchange registry — all in one atomic step.
+
+    Idempotent: if the lot is already claimed by ``grantee`` (and a deed already
+    exists in their inventory), returns success without creating duplicates.
+
+    Returns (success: bool, message: str, claim_or_none).
+    """
+    if not lot or not lot.tags.has("property_lot", category="realty"):
+        return False, "Invalid property lot.", None
+
+    if getattr(lot.db, "is_claimed", False):
+        if lot.db.owner == grantee:
+            claim = _find_existing_claim_for_lot(lot)
+            if claim:
+                return True, f"{claim.key} already granted to {grantee.key}.", claim
+        return False, f"Lot '{lot.key}' is already claimed by someone else.", None
+
+    claim = create_property_claim_for_lot(lot, grantee)
+    lot.db.is_claimed = True
+    lot.db.owner = grantee
+    ensure_holding_for_claimed_lot(lot, grantee)
+    unregister_listable_property_lot(lot)
+    move_lot_to_claimed_archive(lot)
+    return True, f"Granted {claim.key} to {grantee.key}.", claim
 
 
 def purchase_random_property_deed_by_zone(buyer, zone, venue_id="nanomega_core"):

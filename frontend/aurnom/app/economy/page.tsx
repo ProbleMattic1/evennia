@@ -4,6 +4,8 @@ import Link from "next/link";
 
 import { EconomyMiningAccrualCard } from "@/components/economy-mining-accrual-card";
 import { EconomyMinerPayoutHero } from "@/components/economy-miner-payout-hero";
+import { EconomyNetRevenueTickerCard } from "@/components/economy-net-revenue-ticker-card";
+import { EconomyTreasuryLiveFlowCard } from "@/components/economy-treasury-live-flow-card";
 import { useControlSurface } from "@/components/control-surface-provider";
 
 export default function EconomyPage() {
@@ -47,16 +49,22 @@ export default function EconomyPage() {
         </header>
 
         <section
-          className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          className="grid grid-cols-1 gap-2 sm:grid-cols-2"
           aria-label="Economy metrics"
         >
+          <EconomyMiningAccrualCard data={data} />
+          <EconomyNetRevenueTickerCard data={data} />
+          <EconomyTreasuryLiveFlowCard data={data} />
           <EconomyMinerPayoutHero
             lastCycleCr={data.minerPayoutLastCycleCr}
             totalCr={data.minerPayoutTotalCr}
+            lastCycleGrossCr={data.minerSettlementLastCycleGrossCr}
+            lastCycleFeesCr={data.minerSettlementLastCycleFeesCr}
+            totalGrossCr={data.minerSettlementTotalGrossCr}
+            totalFeesCr={data.minerSettlementTotalFeesCr}
             miningNextCycleAt={data.miningNextCycleAt}
             miningDeliveryPeriodSeconds={data.miningDeliveryPeriodSeconds}
           />
-          <EconomyMiningAccrualCard data={data} />
         </section>
       </div>
     </main>

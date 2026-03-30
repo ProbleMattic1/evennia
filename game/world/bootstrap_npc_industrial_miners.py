@@ -1,7 +1,7 @@
 """
-Bootstrap NPC-owned mining ops — Ashfall industrial grid.
+Bootstrap NPC-owned mining ops — Industrial Resource Colony contractor grid.
 
-Topology: Hub -> Ashfall Industrial Grid (staging) -> one room per pad.
+Topology: Hub -> Industrial Resource Colony Grid (staging) -> one room per pad.
 Each NPC unit owns 4 pads (4 sites, 4 rigs, 4 storages, 4 haulers).
 Deposits tuned for Deep volume + Rare resource tier (mining.py helpers).
 
@@ -19,16 +19,17 @@ from typeclasses.packages import _deploy_components_at_site
 from world.bootstrap_hub import get_hub_room
 from world.bootstrap_mining import _get_or_create_exit
 from world.bootstrap_mining_packages import MINING_PACKAGES
+from world.industrial_colony_constants import NPC_INDUSTRIAL_UNITS
 from world.npc_miner_registry import register_npc_miner_character_id
 
-STAGING_ROOM_KEY = "Ashfall Industrial Grid"
+STAGING_ROOM_KEY = "Industrial Resource Colony Grid"
 STAGING_ROOM_DESC = (
-    "A service deck for contracted extraction pads: pressure doors, "
+    "A service deck for the Industrial Resource Colony: pressure doors, "
     "pad telemetry, and hauler dispatch to the coreward plant."
 )
 
-HUB_TO_STAGING_EXIT_KEY = "ashfall industrial"
-HUB_TO_STAGING_ALIASES = ["ashfall grid", "industrial grid", "contract pads", "pads"]
+HUB_TO_STAGING_EXIT_KEY = "industrial resource colony"
+HUB_TO_STAGING_ALIASES = ["industrial grid", "resource colony", "contract pads", "pads"]
 
 STAGING_TO_HUB_EXIT_KEY = "promenade"
 STAGING_TO_HUB_ALIASES = ["back", "exit", "out", "plex", "hub"]
@@ -138,9 +139,9 @@ def _ensure_staging_and_hub_link():
 
 
 def _ensure_cell_room(staging, cell_id: str):
-    key = f"Ashfall Industrial Pad {cell_id}"
+    key = f"Industrial Resource Colony Pad {cell_id}"
     desc = (
-        f"Leased pad {cell_id}: drill mast, ore hopper, and a dedicated "
+        f"Industrial Resource Colony pad {cell_id}: drill mast, ore hopper, and a dedicated "
         "haul lane to the processing plant."
     )
     cell = _get_or_create_room(key, desc)
@@ -170,7 +171,7 @@ def _ensure_site_in_room(room, site_key: str, deposit: dict):
         location=room,
         home=room,
     )
-    site.db.desc = "Industrial lease; Deep/Rare tier feedstock for the processing plant."
+    site.db.desc = "Industrial Resource Colony lease; Deep/Rare tier feedstock for the processing plant."
     site.db.deposit = dict(deposit)
     site.db.hazard_level = 0.0
     return site
@@ -179,41 +180,6 @@ def _ensure_site_in_room(room, site_key: str, deposit: dict):
 def _pads_for_unit(unit_id: str):
     """Four pad cell ids per NPC unit (expand by changing range or list)."""
     return [f"{unit_id}-{i}" for i in range(1, 5)]
-
-
-# Each entry: one NPC, four pads. Add units by extending this list.
-NPC_INDUSTRIAL_UNITS = [
-    {
-        "unit_id": "A1",
-        "npc_key": "Industrial Mining Unit Alpha",
-        "npc_desc": "Automated lease operator; ore is contracted to the plant.",
-        "deploy_profile": "mining_starter",
-    },
-    {
-        "unit_id": "A2",
-        "npc_key": "Industrial Mining Unit Bravo",
-        "npc_desc": "Automated lease operator; ore is contracted to the plant.",
-        "deploy_profile": "mining_starter",
-    },
-    {
-        "unit_id": "A3",
-        "npc_key": "Industrial Mining Unit Charlie",
-        "npc_desc": "Automated lease operator; ore is contracted to the plant.",
-        "deploy_profile": "mining_starter",
-    },
-    {
-        "unit_id": "A4",
-        "npc_key": "Industrial Mining Unit Delta",
-        "npc_desc": "Automated lease operator; ore is contracted to the plant.",
-        "deploy_profile": "mining_starter",
-    },
-    {
-        "unit_id": "A5",
-        "npc_key": "Industrial Mining Unit Echo",
-        "npc_desc": "Automated lease operator; ore is contracted to the plant.",
-        "deploy_profile": "mining_starter",
-    },
-]
 
 
 def bootstrap_npc_industrial_miners():
@@ -231,7 +197,7 @@ def bootstrap_npc_industrial_miners():
 
         for grid_cell in _pads_for_unit(unit["unit_id"]):
             cell_room = _ensure_cell_room(staging, grid_cell)
-            site_key = f"Ashfall Pad {grid_cell} Deposit"
+            site_key = f"Industrial Resource Colony Pad {grid_cell} Deposit"
 
             site = _ensure_site_in_room(cell_room, site_key, DEEP_RARE_DEPOSIT)
             site.db.hazard_level = 0.0

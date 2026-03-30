@@ -11,8 +11,9 @@ Flora: hourly FLORA_DELIVERY_PERIOD grid; pickup at last_flora_deposit_at +
 FLORA_HAULER_PICKUP_OFFSET_SEC (fixed 15 min), or next_cycle_at + same offset; grid step
 FLORA_DELIVERY_PERIOD.
 
-arm_hauler_pickup_after_mining_deposit / arm_hauler_pickup_after_flora_deposit arm haulers
-tagged autonomous_hauler in category mining / flora respectively.
+arm_hauler_pickup_after_mining_deposit / arm_hauler_pickup_after_flora_deposit /
+arm_hauler_pickup_after_fauna_deposit arm haulers tagged autonomous_hauler in category
+mining / flora / fauna respectively.
 
 At the processing plant, haulers unload into the shared Ore Receiving Bay; the treasury
 pays the hauler owner (plant raw purchase). Assigned plant silos are fed only via
@@ -108,7 +109,7 @@ def effective_capacity(hauler):
 def effective_cycle_seconds(hauler):
     """
     Nominal "tier" interval in seconds (legacy Mk I/II/III hours field).
-    Actual pickup times follow deposit + offset and the production grid (mining vs flora);
+    Actual pickup times follow deposit + offset and the production grid (mining vs flora/fauna);
     this field is tier display / legacy upgrades only.
     """
     base_hours = float(hauler.db.hauler_base_cycle_hours or HAULER_CYCLE_BASE_HOURS)
@@ -130,9 +131,12 @@ def stagger_window_seconds(hauler):
 def _hauler_grid_params(hauler):
     """
     Return (site, delivery_period_sec, pickup_offset_sec, last_deposit_attr_name).
-    Flora haulers: autonomous_hauler tag category flora. Mining: category mining.
+    Flora/fauna haulers: autonomous_hauler tag category flora or fauna. Mining: mining.
     """
     mine_room = resolve_room(hauler.db.hauler_mine_room)
+    if hauler.tags.has("autonomous_hauler", category="fauna"):
+        site = get_fauna_site_in_room(mine_room)
+        return site, FLORA_DELIVERY_PERIOD, FLORA_HAULER_PICKUP_OFFSET_SEC, "last_fauna_deposit_at"
     if hauler.tags.has("autonomous_hauler", category="flora"):
         site = get_flora_site_in_room(mine_room)
         return site, FLORA_DELIVERY_PERIOD, FLORA_HAULER_PICKUP_OFFSET_SEC, "last_flora_deposit_at"
@@ -216,6 +220,21 @@ def arm_hauler_pickup_after_flora_deposit(site):
         return
     for obj in room.contents:
         if not obj.tags.has("autonomous_hauler", category="flora"):
+            continue
+        if obj.db.hauler_owner != owner:
+            continue
+        if resolve_room(obj.db.hauler_mine_room) != room:
+            continue
+        set_hauler_next_cycle(obj)
+
+
+def arm_hauler_pickup_after_fauna_deposit(site):
+    room = site.location
+    owner = site.db.owner
+    if not room or not owner:
+        return
+    for obj in room.contents:
+        if not obj.tags.has("autonomous_hauler", category="fauna"):
             continue
         if obj.db.hauler_owner != owner:
             continue
@@ -344,11 +363,29 @@ def get_flora_site_in_room(room):
     return None
 
 
+def get_fauna_site_in_room(room):
+    if not room:
+        return None
+    for obj in room.contents:
+        if obj.tags.has("fauna_site", category="fauna"):
+            return obj
+    return None
+
+
+def _hauler_raw_pipeline(hauler):
+    if hauler.tags.has("autonomous_hauler", category="fauna"):
+        return "fauna"
+    if hauler.tags.has("autonomous_hauler", category="flora"):
+        return "flora"
+    return "mining"
+
+
 def hauler_process_one(hauler):
     """
     Run one step of the hauler's route. Returns (did_work, message).
     State: at_mine -> loading -> transit_refinery -> unloading -> transit_mine
     """
+    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG
     from typeclasses.flora import FLORA_RESOURCE_CATALOG
     from typeclasses.mining import RESOURCE_CATALOG
 
@@ -374,17 +411,27 @@ def hauler_process_one(hauler):
     if cap <= 0:
         return False, "Hauler has no cargo capacity."
 
-    is_flora_hauler = hauler.tags.has("autonomous_hauler", category="flora")
-    catalog = FLORA_RESOURCE_CATALOG if is_flora_hauler else RESOURCE_CATALOG
-    site_label = "flora site" if is_flora_hauler else "mining site"
+    pipeline = _hauler_raw_pipeline(hauler)
+    catalogs = {
+        "mining": RESOURCE_CATALOG,
+        "flora": FLORA_RESOURCE_CATALOG,
+        "fauna": FAUNA_RESOURCE_CATALOG,
+    }
+    catalog = catalogs[pipeline]
+    site_labels = {
+        "mining": "mining site",
+        "flora": "flora site",
+        "fauna": "fauna site",
+    }
+    site_label = site_labels[pipeline]
     empty_msg = (
         "No harvest in storage — next cycle scheduled."
-        if is_flora_hauler
+        if pipeline in ("flora", "fauna")
         else "No ore in storage — next cycle scheduled."
     )
     load_fail_msg = (
         "Could not load harvest — next cycle scheduled."
-        if is_flora_hauler
+        if pipeline in ("flora", "fauna")
         else "Could not load ore — next cycle scheduled."
     )
 
@@ -393,7 +440,12 @@ def hauler_process_one(hauler):
         if loc != mine_room:
             hauler.move_to(mine_room, quiet=True, move_hooks=False)
             loc = mine_room
-        site = get_flora_site_in_room(loc) if is_flora_hauler else get_site_in_room(loc)
+        if pipeline == "fauna":
+            site = get_fauna_site_in_room(loc)
+        elif pipeline == "flora":
+            site = get_flora_site_in_room(loc)
+        else:
+            site = get_site_in_room(loc)
         if not site or site.db.owner != owner:
             return False, f"No owned {site_label} at mine location."
         storage = site.db.linked_storage
@@ -483,7 +535,7 @@ def hauler_process_one(hauler):
                 owner,
                 refinery_room,
                 delivered,
-                is_flora_hauler=is_flora_hauler,
+                raw_pipeline=pipeline,
                 memo=f"Plant raw intake ({hauler.key})",
             )
         except ValueError:
@@ -554,6 +606,7 @@ class HaulerEngine(Script):
                 if not (
                     hauler.tags.has("autonomous_hauler", category="mining")
                     or hauler.tags.has("autonomous_hauler", category="flora")
+                    or hauler.tags.has("autonomous_hauler", category="fauna")
                 ):
                     delete_hauler_dispatch_row(hid)
                     continue

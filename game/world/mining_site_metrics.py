@@ -1,8 +1,8 @@
 """
 Shared production-site estimates for web dashboards and world telemetry.
 
-Supports MiningSite and FloraSite (shared char.db.owned_sites control surface).
-Cycle / stored CR use get_commodity_bid vs get_flora_commodity_bid by site kind.
+Supports MiningSite, FloraSite, and FaunaSite (shared char.db.owned_sites control surface).
+Cycle / stored CR use get_commodity_bid, get_flora_commodity_bid, or get_fauna_commodity_bid by site kind.
 """
 
 from __future__ import annotations
@@ -13,17 +13,55 @@ from world.time import FLORA_DELIVERY_PERIOD, MINING_DELIVERY_PERIOD
 
 RESOURCE_KIND_MINING = "mining_site"
 RESOURCE_KIND_FLORA = "flora_site"
+RESOURCE_KIND_FAUNA = "fauna_site"
+
+
+def _rarity_for_resource_key(key: str) -> str:
+    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG
+    from typeclasses.flora import FLORA_RESOURCE_CATALOG
+    from typeclasses.mining import RESOURCE_CATALOG
+
+    if key in RESOURCE_CATALOG:
+        return RESOURCE_CATALOG[key].get("rarity", "common")
+    if key in FLORA_RESOURCE_CATALOG:
+        return FLORA_RESOURCE_CATALOG[key].get("rarity", "common")
+    if key in FAUNA_RESOURCE_CATALOG:
+        return FAUNA_RESOURCE_CATALOG[key].get("rarity", "common")
+    return "common"
+
+
+def _resource_rarity_tier_multi_catalog(composition):
+    from typeclasses.mining import RARITY_SCORES
+
+    if not composition:
+        return "Common", "zinc"
+    total_frac = 0.0
+    weighted_score = 0.0
+    for key, frac in composition.items():
+        rarity = _rarity_for_resource_key(str(key))
+        score = RARITY_SCORES.get(rarity, 0)
+        f = float(frac)
+        weighted_score += f * score
+        total_frac += f
+    if total_frac <= 0:
+        return "Common", "zinc"
+    avg = weighted_score / total_frac
+    if avg >= 1.5:
+        return "Rare", "violet"
+    if avg >= 0.6:
+        return "Uncommon", "amber"
+    return "Common", "zinc"
 
 
 def site_to_dashboard_row(site) -> tuple[dict[str, Any], int, int] | None:
     """
     Returns (row, cycle_value_cr, stored_value_cr) or None if unusable.
-    Supports MiningSite and FloraSite (shared owned_sites dashboard).
+    Supports MiningSite, FloraSite, and FaunaSite (shared owned_sites dashboard).
     """
+    from typeclasses.fauna import get_fauna_commodity_bid
     from typeclasses.flora import get_flora_commodity_bid
     from typeclasses.mining import (
         WEAR_OUTPUT_PENALTY,
-        _resource_rarity_tier,
         _volume_tier,
         get_commodity_bid,
         rig_output_modifiers,
@@ -32,9 +70,12 @@ def site_to_dashboard_row(site) -> tuple[dict[str, Any], int, int] | None:
     if not site or not getattr(site, "db", None):
         return None
 
+    is_fauna = bool(getattr(site.db, "is_fauna_site", False))
     is_flora = bool(getattr(site.db, "is_flora_site", False))
 
     def raw_bid(resource_key: str, sloc) -> int:
+        if is_fauna:
+            return get_fauna_commodity_bid(resource_key, location=sloc)
         if is_flora:
             return get_flora_commodity_bid(resource_key, location=sloc)
         return get_commodity_bid(resource_key, location=sloc)
@@ -102,20 +143,32 @@ def site_to_dashboard_row(site) -> tuple[dict[str, Any], int, int] | None:
             estimated_value += estimated_tons * float(frac) * raw_bid(k, sloc)
 
     volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-    rarity_tier, rarity_tier_cls = _resource_rarity_tier(raw_comp)
+    rarity_tier, rarity_tier_cls = _resource_rarity_tier_multi_catalog(raw_comp)
 
     lic = site.db.license_level
     tax = site.db.tax_rate
     haz = site.db.hazard_level
 
-    delivery_period = int(FLORA_DELIVERY_PERIOD if is_flora else MINING_DELIVERY_PERIOD)
+    delivery_period = int(
+        FLORA_DELIVERY_PERIOD if (is_flora or is_fauna) else MINING_DELIVERY_PERIOD
+    )
     accrual_cr = int(round(cycle_value_cr))
+
+    if is_fauna:
+        kind = RESOURCE_KIND_FAUNA
+        site_kind = "fauna"
+    elif is_flora:
+        kind = RESOURCE_KIND_FLORA
+        site_kind = "flora"
+    else:
+        kind = RESOURCE_KIND_MINING
+        site_kind = "mining"
 
     row = {
         "id": site.id,
         "key": site.key,
-        "kind": RESOURCE_KIND_FLORA if is_flora else RESOURCE_KIND_MINING,
-        "siteKind": "flora" if is_flora else "mining",
+        "kind": kind,
+        "siteKind": site_kind,
         "location": sloc.key if sloc else None,
         "active": site.is_active,
         "richness": richness,

@@ -78,6 +78,9 @@ def list_property_deed_for_sale(seller, claim_id, price):
     listings.append({"claim_id": cid, "seller_id": seller.id, "price": price})
     script.db.listings = listings
     sync_property_title_from_deed_location(claim)
+    from world.station_services.contracts import try_complete_contract
+
+    try_complete_contract(seller, "list_property_deed", venue_id=vid)
     return True, f"{claim.key} listed for {price:,} cr."
 
 

@@ -25,20 +25,34 @@ const FRONTIER_PROMENADE_KEY = "Frontier Promenade";
 
 const NANOMASS_CENTER = { x: 0, y: 0 };
 const FRONTIER_MASS_CENTER = { x: 1100, y: 0 };
-/** Contractor / industrial grids (plex + Ashfall NPC pads), separate from promenade masses */
+/** Contractor / industrial grids (plex + Industrial Resource Colony), separate from promenade masses */
 const INDUSTRIAL_MASS_CENTER = { x: 550, y: 520 };
 
 function isIndustrialMassRoom(r: WorldGraphRoom): boolean {
   const z = r.locatorZone;
-  if (z === "plex-industrial" || z === "ashfall-industrial") return true;
+  if (z === "plex-industrial" || z === "industrial-colony") return true;
   const k = r.key;
   return (
+    k === "Industrial Resource Colony Grid" ||
+    k.startsWith("Industrial Resource Colony Pad ") ||
+    k === "Industrial Resource Colony Flora Annex" ||
+    k === "Industrial Resource Colony Fauna Annex" ||
+    k.startsWith("Industrial Resource Colony Flora Pad ") ||
+    k.startsWith("Industrial Resource Colony Fauna Pad ") ||
     k === "Ashfall Industrial Grid" ||
     k.startsWith("Ashfall Industrial Pad ") ||
     k === "NanoMegaPlex Industrial Subdeck" ||
     k.startsWith("NanoMegaPlex Industrial Pad ") ||
+    k === "NanoMegaPlex Resource Colony Flora Annex" ||
+    k === "NanoMegaPlex Resource Colony Fauna Annex" ||
+    k.startsWith("NanoMegaPlex Resource Colony Flora Pad ") ||
+    k.startsWith("NanoMegaPlex Resource Colony Fauna Pad ") ||
     k === "Frontier Industrial Subdeck" ||
-    k.startsWith("Frontier Industrial Pad ")
+    k.startsWith("Frontier Industrial Pad ") ||
+    k === "Frontier Resource Colony Flora Annex" ||
+    k === "Frontier Resource Colony Fauna Annex" ||
+    k.startsWith("Frontier Resource Colony Flora Pad ") ||
+    k.startsWith("Frontier Resource Colony Fauna Pad ")
   );
 }
 
@@ -322,7 +336,8 @@ export function LocatorGraphView({
           <Panel position="top-left" className="m-2 max-w-[280px] text-[10px] text-ui-muted">
             Three clusters: <span className="text-cyan-400">NanoMegaPlex</span> (coreward),{" "}
             <span className="text-violet-400">Frontier</span> (rim), and{" "}
-            <span className="text-amber-400">industrial mines</span> (plex + Ashfall contractor grids). The dashed{" "}
+            <span className="text-amber-400">industrial mines</span> (plex + Industrial Resource Colony contractor grids).
+            The dashed{" "}
             <span className="text-violet-300">violet</span> line links the two promenades only (not travel). Click{" "}
             <span className="text-cyan-400">Go</span> for cyan exits. Hub mining routes stay off the cyan graph unless
             Full topology is on.

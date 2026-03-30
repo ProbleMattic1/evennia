@@ -21,6 +21,12 @@ class Exit(ObjectParent, DefaultExit):
     See mygame/typeclasses/objects.py for a list of
     properties and methods available on all Objects child classes like this.
 
+    Optional db attributes for web nav (set in bootstrap or in-game):
+      - db.nav_section: str — canonical key from world.nav_exit.SECTION_LABELS keys
+      - db.nav_order: int — sort within section (default 0)
+
+    Or tag the exit: tags.add("killstar", category="nav_section") for a tag-driven section.
+
     """
 
     pass

@@ -4,10 +4,10 @@ Refining system — Pass 3.
 Components
 ----------
 REFINING_RECIPES   dict of output_key -> recipe definition
-Refinery           Object typeclass; accepts raw ore and flora, produces refined materials
+Refinery           Object typeclass; accepts raw ore, flora, and fauna, produces refined materials
 
 A Refinery has two inventory dicts:
-    db.input_inventory   {resource_key: float tons}  — raw ore or flora fed in
+    db.input_inventory   {resource_key: float tons}  — raw ore, flora, or fauna fed in
     db.output_inventory  {product_key: float units}  — refined products ready
 
 Workers (or commands) call refinery.process_recipe(recipe_key, batches) to
@@ -46,19 +46,27 @@ RAW_SALE_FEE_RATE = 0.02  # 2 %
 
 
 def is_plant_raw_resource_key(resource_key: str) -> bool:
-    """True if key is mineable ore or flora raw accepted at the global plant."""
+    """True if key is mineable ore, flora, or fauna raw accepted at the global plant."""
+    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG
     from typeclasses.flora import FLORA_RESOURCE_CATALOG
 
-    return resource_key in RESOURCE_CATALOG or resource_key in FLORA_RESOURCE_CATALOG
+    return (
+        resource_key in RESOURCE_CATALOG
+        or resource_key in FLORA_RESOURCE_CATALOG
+        or resource_key in FAUNA_RESOURCE_CATALOG
+    )
 
 
 def plant_raw_resource_display_name(resource_key: str) -> str:
+    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG
     from typeclasses.flora import FLORA_RESOURCE_CATALOG
 
     if resource_key in RESOURCE_CATALOG:
         return RESOURCE_CATALOG[resource_key].get("name", resource_key)
     if resource_key in FLORA_RESOURCE_CATALOG:
         return FLORA_RESOURCE_CATALOG[resource_key].get("name", resource_key)
+    if resource_key in FAUNA_RESOURCE_CATALOG:
+        return FAUNA_RESOURCE_CATALOG[resource_key].get("name", resource_key)
     return resource_key
 
 
@@ -76,14 +84,16 @@ def settle_plant_raw_purchase_from_treasury(
     plant_room,
     delivered: dict,
     *,
-    is_flora_hauler: bool,
+    raw_pipeline: str = "mining",
     memo: str = "Plant raw intake",
 ) -> int:
     """
     Treasury buys ``delivered`` {resource_key: tons} at plant bid; seller gets net after RAW_SALE_FEE.
+    ``raw_pipeline`` is ``mining``, ``flora``, or ``fauna`` (hauler / intake kind).
     Returns total net credits paid. Raises ValueError if treasury balance < total net.
     """
     from typeclasses.economy import get_economy
+    from typeclasses.fauna import get_fauna_commodity_bid
     from typeclasses.flora import get_flora_commodity_bid
     from typeclasses.mining import get_commodity_bid
     from world.venue_resolve import treasury_bank_id_for_object
@@ -108,7 +118,9 @@ def settle_plant_raw_purchase_from_treasury(
             continue
         if not is_plant_raw_resource_key(str(resource_key)):
             continue
-        if is_flora_hauler:
+        if raw_pipeline == "fauna":
+            bid = int(get_fauna_commodity_bid(str(resource_key), location=plant_room))
+        elif raw_pipeline == "flora":
             bid = int(get_flora_commodity_bid(str(resource_key), location=plant_room))
         else:
             bid = int(get_commodity_bid(str(resource_key), location=plant_room))
@@ -134,10 +146,13 @@ def settle_plant_raw_purchase_from_treasury(
             f"treasury {treasury_acct} short: need {total_net}, have {econ.get_balance(treasury_acct)}"
         )
 
+    total_gross = sum(int(b.get("gross") or 0) for b in breakdown)
+    total_fee = sum(int(b.get("fee") or 0) for b in breakdown)
+
     econ.transfer(treasury_acct, miner_acct, total_net, memo=memo)
     owner.db.credits = econ.get_balance(miner_acct)
     econ.db.tax_pool = econ.get_balance(treasury_acct)
-    econ.record_miner_treasury_payout(total_net)
+    econ.record_miner_treasury_payout(total_net, gross=total_gross, fee=total_fee)
 
     econ.record_transaction(
         tx_type="plant_raw_intake",
@@ -249,7 +264,7 @@ def execute_refined_payout_from_treasury(
         )
     econ.db.tax_pool = econ.get_balance(treasury_account)
     if net > 0:
-        econ.record_miner_treasury_payout(net)
+        econ.record_miner_treasury_payout(net, gross=gross, fee=fee)
 
 
 # ---------------------------------------------------------------------------
@@ -484,6 +499,127 @@ REFINING_RECIPES = {
         "output_units": 1,
         "base_value_cr": 18700,
         "category": "refined_flora",
+    },
+    # Fauna (5 t raw → 1 unit; base_value ≈ 1.1 × FAUNA_RESOURCE_CATALOG base_price_cr_per_ton × 5)
+    "refined_pelagic_protein_slurry": {
+        "name": "Refined Pelagic Protein Slurry",
+        "desc": "Stabilised protein feedstock from fauna harvest.",
+        "inputs": {"pelagic_protein_slurry": 5.0},
+        "output_units": 1,
+        "base_value_cr": 286,
+        "category": "refined_fauna",
+    },
+    "refined_chitin_microflake_lot": {
+        "name": "Refined Chitin Microflake Lot",
+        "desc": "Processed chitin for coatings and binders.",
+        "inputs": {"chitin_microflake_lot": 5.0},
+        "output_units": 1,
+        "base_value_cr": 374,
+        "category": "refined_fauna",
+    },
+    "refined_collagen_fibril_mass": {
+        "name": "Refined Collagen Fibril Mass",
+        "desc": "Purified collagen for gel and tissue lines.",
+        "inputs": {"collagen_fibril_mass": 5.0},
+        "output_units": 1,
+        "base_value_cr": 407,
+        "category": "refined_fauna",
+    },
+    "refined_keratin_fiber_bale": {
+        "name": "Refined Keratin Fiber Bale",
+        "desc": "Textile-grade keratin fibre stock.",
+        "inputs": {"keratin_fiber_bale": 5.0},
+        "output_units": 1,
+        "base_value_cr": 391,
+        "category": "refined_fauna",
+    },
+    "refined_hemolymph_serum_batch": {
+        "name": "Refined Hemolymph Serum Batch",
+        "desc": "Concentrated hemolymph fraction for biochemistry.",
+        "inputs": {"hemolymph_serum_batch": 5.0},
+        "output_units": 1,
+        "base_value_cr": 484,
+        "category": "refined_fauna",
+    },
+    "refined_exotic_enzyme_gland_paste": {
+        "name": "Refined Exotic Enzyme Paste",
+        "desc": "Catalysis-grade enzyme preparation.",
+        "inputs": {"exotic_enzyme_gland_paste": 5.0},
+        "output_units": 1,
+        "base_value_cr": 2420,
+        "category": "refined_fauna",
+    },
+    "refined_neural_lipid_extract": {
+        "name": "Refined Neural Lipid Extract",
+        "desc": "Pharma-grade neural lipid precursor.",
+        "inputs": {"neural_lipid_extract": 5.0},
+        "output_units": 1,
+        "base_value_cr": 3080,
+        "category": "refined_fauna",
+    },
+    "refined_symbiotic_microfauna_culture": {
+        "name": "Refined Symbiotic Microfauna Culture",
+        "desc": "Standardised culture for probiotics and remediation.",
+        "inputs": {"symbiotic_microfauna_culture": 5.0},
+        "output_units": 1,
+        "base_value_cr": 3410,
+        "category": "refined_fauna",
+    },
+    "refined_xenofauna_myo_bundle": {
+        "name": "Refined Xenofauna Myo Bundle",
+        "desc": "Purified exotic muscle protein feed.",
+        "inputs": {"xenofauna_myo_bundle": 5.0},
+        "output_units": 1,
+        "base_value_cr": 3850,
+        "category": "refined_fauna",
+    },
+    "refined_crystalline_venom_precipitate": {
+        "name": "Refined Crystalline Venom Precipitate",
+        "desc": "Research-grade venom solids.",
+        "inputs": {"crystalline_venom_precipitate": 5.0},
+        "output_units": 1,
+        "base_value_cr": 11275,
+        "category": "refined_fauna",
+    },
+    "refined_deep_benthic_silicate_gel": {
+        "name": "Refined Deep Benthic Silicate Gel",
+        "desc": "Industrial silicate matrix from abyssal fauna.",
+        "inputs": {"deep_benthic_silicate_gel": 5.0},
+        "output_units": 1,
+        "base_value_cr": 578,
+        "category": "refined_fauna",
+    },
+    "refined_arthropod_powder_aggregate": {
+        "name": "Refined Arthropod Powder Aggregate",
+        "desc": "Protein-filtered arthropod stock.",
+        "inputs": {"arthropod_powder_aggregate": 5.0},
+        "output_units": 1,
+        "base_value_cr": 2723,
+        "category": "refined_fauna",
+    },
+    "refined_elastic_tendon_sheath_lot": {
+        "name": "Refined Elastic Tendon Sheath Lot",
+        "desc": "Cable-grade elastic sheath bundles.",
+        "inputs": {"elastic_tendon_sheath_lot": 5.0},
+        "output_units": 1,
+        "base_value_cr": 649,
+        "category": "refined_fauna",
+    },
+    "refined_bioluminescent_scale_flake": {
+        "name": "Refined Bioluminescent Scale Flake",
+        "desc": "Stabilised photoprotein scale culture.",
+        "inputs": {"bioluminescent_scale_flake": 5.0},
+        "output_units": 1,
+        "base_value_cr": 15125,
+        "category": "refined_fauna",
+    },
+    "refined_heritage_genotype_embryo_lot": {
+        "name": "Refined Heritage Genotype Embryo Lot",
+        "desc": "Vault-grade certified fauna embryos.",
+        "inputs": {"heritage_genotype_embryo_lot": 5.0},
+        "output_units": 1,
+        "base_value_cr": 18150,
+        "category": "refined_fauna",
     },
 }
 

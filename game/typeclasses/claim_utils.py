@@ -36,7 +36,7 @@ COMPOSITION_TEMPLATES = [
 ]
 
 SITE_NAME_PREFIXES = [
-    "Ashfall", "Vektor", "Keldrath", "Obsidian", "Dustwind", "Ironveil",
+    "Industrial", "Vektor", "Keldrath", "Obsidian", "Dustwind", "Ironveil",
     "Cinderhollow", "Stonereach", "Grimcrest", "Frostbreak", "Dawnpeak",
     "Redscale", "Embervault", "Crystalfen", "Shadowmere", "Stormrift",
 ]

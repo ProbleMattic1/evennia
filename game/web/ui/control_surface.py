@@ -11,7 +11,6 @@ rows use ``world.mining_site_metrics.owned_production_sites_for_dashboard``.
 """
 
 import json
-from collections import defaultdict
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
@@ -71,9 +70,7 @@ def _serialize_inventory(char):
 
 
 def _serialize_ships(char):
-    autonomous_by_key = defaultdict(list)
-    ships_other = []
-
+    ships = []
     for entry in char.db.owned_vehicles or []:
         if hasattr(entry, "key"):
             obj = entry
@@ -88,41 +85,22 @@ def _serialize_ships(char):
         if pilot is not None:
             pilot_key = getattr(pilot, "key", str(pilot))
         summary = obj.get_vehicle_summary() if hasattr(obj, "get_vehicle_summary") else obj.key
-        is_autonomous = obj.tags.has("autonomous_hauler", category="mining")
-        row = {
-            "id": obj.id,
-            "key": obj.key,
-            "location": loc,
-            "pilot": pilot_key,
-            "state": getattr(obj.db, "state", None),
-            "summary": summary,
-            "is_autonomous": is_autonomous,
-        }
-        if is_autonomous:
-            autonomous_by_key[obj.key].append(row)
-        else:
-            ships_other.append(row)
-
-    ships = []
-    for ship_key in sorted(autonomous_by_key.keys()):
-        rows_g = autonomous_by_key[ship_key]
-        if len(rows_g) == 1:
-            ships.append(rows_g[0])
-        else:
-            ships.append({
-                "id": rows_g[0]["id"],
-                "key": ship_key,
-                "location": None,
-                "pilot": rows_g[0]["pilot"],
-                "state": rows_g[0]["state"],
-                "summary": rows_g[0]["summary"],
-                "is_autonomous": True,
-                "count": len(rows_g),
-                "stacked": True,
-                "ids": [r["id"] for r in rows_g],
-                "locations": [r["location"] for r in rows_g],
-            })
-    ships.extend(ships_other)
+        is_autonomous = (
+            obj.tags.has("autonomous_hauler", category="mining")
+            or obj.tags.has("autonomous_hauler", category="flora")
+            or obj.tags.has("autonomous_hauler", category="fauna")
+        )
+        ships.append(
+            {
+                "id": obj.id,
+                "key": obj.key,
+                "location": loc,
+                "pilot": pilot_key,
+                "state": getattr(obj.db, "state", None),
+                "summary": summary,
+                "is_autonomous": is_autonomous,
+            }
+        )
     return ships
 
 
@@ -207,7 +185,13 @@ def _serialize_processing_summary(char):
         haulers = []
         for entry in (char.db.owned_vehicles or []):
             h = entry if hasattr(entry, "key") else None
-            if h and h.tags.has("autonomous_hauler", category="mining"):
+            if not h:
+                continue
+            if (
+                h.tags.has("autonomous_hauler", category="mining")
+                or h.tags.has("autonomous_hauler", category="flora")
+                or h.tags.has("autonomous_hauler", category="fauna")
+            ):
                 haulers.append({
                     "id": h.id,
                     "key": h.key,
@@ -416,6 +400,17 @@ def control_surface_state(request):
     tbid = treasury_bank_id_for_object(None)
     treasury_balance = econ.get_balance(econ.get_treasury_account(tbid))
     miner_payout_last_cr, miner_payout_total_cr = econ.get_miner_payout_totals_for_web()
+    (
+        miner_settlement_last_gross,
+        miner_settlement_last_fees,
+        miner_settlement_total_gross,
+        miner_settlement_total_fees,
+    ) = econ.get_miner_settlement_value_totals_for_web()
+    (
+        miner_settlement_this_net,
+        miner_settlement_this_gross,
+        miner_settlement_this_fees,
+    ) = econ.get_miner_settlement_this_slot_for_web()
 
     market = _serialize_market()
 
@@ -440,6 +435,7 @@ def control_surface_state(request):
         "mines": [],
         "miningAccrualValuePerCycle": 0,
         "floraAccrualValuePerCycle": 0,
+        "faunaAccrualValuePerCycle": 0,
         "productionEstimatedValuePerCycle": 0,
         "productionTotalStoredValue": 0,
         "miningEstimatedValuePerCycle": 0,
@@ -458,6 +454,13 @@ def control_surface_state(request):
         "message": None,
         "minerPayoutLastCycleCr": miner_payout_last_cr,
         "minerPayoutTotalCr": miner_payout_total_cr,
+        "minerSettlementLastCycleGrossCr": miner_settlement_last_gross,
+        "minerSettlementLastCycleFeesCr": miner_settlement_last_fees,
+        "minerSettlementTotalGrossCr": miner_settlement_total_gross,
+        "minerSettlementTotalFeesCr": miner_settlement_total_fees,
+        "minerSettlementThisSlotNetCr": miner_settlement_this_net,
+        "minerSettlementThisSlotGrossCr": miner_settlement_this_gross,
+        "minerSettlementThisSlotFeesCr": miner_settlement_this_fees,
         **clock_payload,
     }
 
@@ -502,12 +505,17 @@ def control_surface_state(request):
     mining_accrual_cycle = sum(
         int(r.get("accrualValuePerCycle") or 0)
         for r in resources
-        if r.get("siteKind") != "flora"
+        if r.get("siteKind") not in ("flora", "fauna")
     )
     flora_accrual_cycle = sum(
         int(r.get("accrualValuePerCycle") or 0)
         for r in resources
         if r.get("siteKind") == "flora"
+    )
+    fauna_accrual_cycle = sum(
+        int(r.get("accrualValuePerCycle") or 0)
+        for r in resources
+        if r.get("siteKind") == "fauna"
     )
     mining_personal_stored = _personal_plant_ore_stored_value_cr(char)
     properties, property_ref_total = _dashboard_property_portfolio(char)
@@ -526,6 +534,7 @@ def control_surface_state(request):
         "mines": resources,
         "miningAccrualValuePerCycle": mining_accrual_cycle,
         "floraAccrualValuePerCycle": flora_accrual_cycle,
+        "faunaAccrualValuePerCycle": fauna_accrual_cycle,
         "productionEstimatedValuePerCycle": mining_value_per_cycle,
         "productionTotalStoredValue": mining_total_stored,
         "miningEstimatedValuePerCycle": mining_value_per_cycle,
@@ -544,5 +553,12 @@ def control_surface_state(request):
         "message": None,
         "minerPayoutLastCycleCr": miner_payout_last_cr,
         "minerPayoutTotalCr": miner_payout_total_cr,
+        "minerSettlementLastCycleGrossCr": miner_settlement_last_gross,
+        "minerSettlementLastCycleFeesCr": miner_settlement_last_fees,
+        "minerSettlementTotalGrossCr": miner_settlement_total_gross,
+        "minerSettlementTotalFeesCr": miner_settlement_total_fees,
+        "minerSettlementThisSlotNetCr": miner_settlement_this_net,
+        "minerSettlementThisSlotGrossCr": miner_settlement_this_gross,
+        "minerSettlementThisSlotFeesCr": miner_settlement_this_fees,
         **clock_payload,
     })

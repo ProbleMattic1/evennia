@@ -2,8 +2,14 @@
 
 import { EconomyStatCard } from "@/components/economy-stat-card";
 
-function formatCredits(n: number) {
-  const v = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+/** Treasury outflow: minus sign + credits (magnitude only in arg). */
+function formatTreasuryOutflowCr(n: number | undefined) {
+  const v = Number.isFinite(n) ? Math.max(0, Math.floor(Number(n))) : 0;
+  return `−${v.toLocaleString("en-US")} cr`;
+}
+
+function formatPositiveCr(n: number | undefined) {
+  const v = Number.isFinite(n) ? Math.max(0, Math.floor(Number(n))) : 0;
   return `${v.toLocaleString("en-US")} cr`;
 }
 
@@ -29,27 +35,43 @@ function slotHint(periodSec: number | undefined) {
 }
 
 const HINT_PREFIX =
-  "Treasury → players for plant ore intake and refined pickup. “Last slot” = credits paid in the ";
+  "Treasury outflow to players (plant raw purchase, refined collect). “Last slot” = previous completed UTC mining slot. " +
+  "Gross = face value at settlement; fees retained by treasury; net = paid to miners. ";
+
+const OUTFLOW_CLS =
+  "truncate text-sm font-semibold tabular-nums text-red-600 dark:text-red-400";
 
 export function EconomyMinerPayoutHero({
   lastCycleCr,
   totalCr,
+  lastCycleGrossCr,
+  lastCycleFeesCr,
+  totalGrossCr,
+  totalFeesCr,
   miningNextCycleAt,
   miningDeliveryPeriodSeconds,
 }: {
   lastCycleCr: number | undefined;
   totalCr: number | undefined;
+  lastCycleGrossCr?: number;
+  lastCycleFeesCr?: number;
+  totalGrossCr?: number;
+  totalFeesCr?: number;
   miningNextCycleAt?: string;
   miningDeliveryPeriodSeconds?: number;
 }) {
   const last = lastCycleCr ?? 0;
   const total = totalCr ?? 0;
+  const lg = lastCycleGrossCr ?? 0;
+  const lf = lastCycleFeesCr ?? 0;
+  const tg = totalGrossCr ?? 0;
+  const tf = totalFeesCr ?? 0;
   const nextShort = formatBoundaryShort(miningNextCycleAt);
 
   return (
     <EconomyStatCard
-      title="Miner payouts"
-      hintTitle={`${HINT_PREFIX}${slotHint(miningDeliveryPeriodSeconds)}; “Total” = all-time.`}
+      title="Treasury miner settlements"
+      hintTitle={`${HINT_PREFIX}${slotHint(miningDeliveryPeriodSeconds)} “Total” = all-time.`}
       headerRight={
         nextShort ? (
           <span className="text-[9px] tabular-nums text-ui-soft" title="Current slot ends">
@@ -60,12 +82,28 @@ export function EconomyMinerPayoutHero({
     >
       <div className="grid grid-cols-2 gap-x-3 divide-x divide-cyan-900/35">
         <div className="min-w-0 pr-3">
-          <p className="text-[8px] uppercase tracking-wide text-ui-soft">Last slot</p>
-          <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-cyan-400">{formatCredits(last)}</p>
+          <p className="text-[8px] uppercase tracking-wide text-ui-soft">Last slot (net out)</p>
+          <p className={`mt-0.5 ${OUTFLOW_CLS}`} title="Credits left treasury (net to miners)">
+            {formatTreasuryOutflowCr(last)}
+          </p>
+          <p className="mt-2 text-[9px] leading-snug text-ui-soft">
+            <span className="text-zinc-400">Settlement gross</span> {formatPositiveCr(lg)}
+            <br />
+            <span className="text-red-600 dark:text-red-400">Fees retained</span>{" "}
+            <span className="tabular-nums text-red-600 dark:text-red-400">{formatTreasuryOutflowCr(lf)}</span>
+          </p>
         </div>
         <div className="min-w-0 pl-3">
-          <p className="text-[8px] uppercase tracking-wide text-ui-soft">Total</p>
-          <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-cyan-400">{formatCredits(total)}</p>
+          <p className="text-[8px] uppercase tracking-wide text-ui-soft">All-time (net out)</p>
+          <p className={`mt-0.5 ${OUTFLOW_CLS}`} title="All-time credits left treasury (net to miners)">
+            {formatTreasuryOutflowCr(total)}
+          </p>
+          <p className="mt-2 text-[9px] leading-snug text-ui-soft">
+            <span className="text-zinc-400">Settlement gross</span> {formatPositiveCr(tg)}
+            <br />
+            <span className="text-red-600 dark:text-red-400">Fees retained</span>{" "}
+            <span className="tabular-nums text-red-600 dark:text-red-400">{formatTreasuryOutflowCr(tf)}</span>
+          </p>
         </div>
       </div>
     </EconomyStatCard>

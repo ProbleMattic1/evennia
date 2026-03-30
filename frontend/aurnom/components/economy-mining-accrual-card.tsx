@@ -5,12 +5,11 @@ import { useReducedMotion } from "motion/react";
 import type { ControlSurfaceState } from "@/lib/control-surface-api";
 import {
   estimatedPipelineTotalCr,
+  faunaPortfolioAccruedCr,
   floraPortfolioAccruedCr,
   miningCycleProgress,
   miningPeriodSeconds,
   miningPortfolioAccruedCr,
-  plantOrePoolsDisplay,
-  portfolioStoredOreTonsBreakdown,
 } from "@/lib/economy-dashboard-derive";
 import { EconomyStatCard } from "@/components/economy-stat-card";
 import { useOdometerInt } from "@/lib/use-odometer-value";
@@ -19,10 +18,6 @@ import { useServerAnchoredTimeMs } from "@/lib/use-server-anchored-time";
 const ACCRUAL_HINT =
   "Linear estimate within the current UTC delivery slot from server rates and bids. " +
   "Not wallet credits; real ticks can differ (hazards, wear, storage, bid moves).";
-
-const ORE_TONS_HINT =
-  "Site tons = sum of storageUsed on your owned production sites (mining vs flora). " +
-  "Plant lines are separate pools from the server: receiving bay, refinery input, queues.";
 
 function formatBoundaryShort(iso: string | undefined) {
   if (!iso) return null;
@@ -45,8 +40,7 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
   const pipelineOdo = reduceMotion ? pipelineTarget : pipelineOdoRaw;
   const miningAccrued = miningPortfolioAccruedCr(data, nowMs);
   const floraAccrued = floraPortfolioAccruedCr(data, nowMs);
-  const ore = portfolioStoredOreTonsBreakdown(data);
-  const plant = plantOrePoolsDisplay(data);
+  const faunaAccrued = faunaPortfolioAccruedCr(data, nowMs);
 
   return (
     <>
@@ -55,40 +49,29 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
         {(data.productionTotalStoredValue ?? data.miningTotalStoredValue)?.toLocaleString() ?? 0} cr · plant silo{" "}
         {data.miningPersonalStoredValue?.toLocaleString() ?? 0} cr
       </p>
-      <p className="mt-2 text-[9px] text-ui-soft">
-        Est. this slot (accrual): mining {miningAccrued.toLocaleString()} cr
-        {floraAccrued > 0 ? <> · flora {floraAccrued.toLocaleString()} cr</> : null}
-      </p>
-      <p className="mt-1 font-mono text-[11px] tabular-nums text-cyan-200/90">
-        Pipeline (stored + accrual est.): {pipelineOdo.toLocaleString()} cr
-      </p>
-      <div className="mt-3 border-t border-cyan-950/60 pt-2" title={ORE_TONS_HINT}>
-        <p className="text-[8px] uppercase tracking-wider text-ui-muted">Ore mass (sites)</p>
-        <p className="mt-0.5 font-mono text-[11px] tabular-nums text-zinc-200">
-          {ore.totalTons.toFixed(1)} t total
-          <span className="font-normal text-ui-soft">
-            {" "}
-            · mining {ore.miningSiteTons.toFixed(1)} · flora {ore.floraSiteTons.toFixed(1)}
-          </span>
+      <div className="mt-2">
+        <p className="text-[8px] uppercase tracking-wide text-ui-soft">Est. this slot (accrual)</p>
+        <p
+          className="mt-0.5 break-words font-mono text-[0.5625rem] font-semibold leading-tight tracking-tight text-cyan-400 sm:text-[0.625rem]"
+          title="Linear accrual estimate by stream this slot"
+        >
+          mining {miningAccrued.toLocaleString()} cr
+          {floraAccrued > 0 ? <> · flora {floraAccrued.toLocaleString()} cr</> : null}
+          {faunaAccrued > 0 ? <> · fauna {faunaAccrued.toLocaleString()} cr</> : null}
         </p>
-        {plant ? (
-          <>
-            <p className="mt-2 text-[8px] uppercase tracking-wider text-ui-muted">
-              Plant — raw path ({plant.plantName})
-            </p>
-            <p className="mt-0.5 text-[9px] text-ui-soft">
-              Receiving bay {plant.rawBayTons.toFixed(1)} t
-              {plant.myOreQueuedTons != null ? (
-                <> · My queue {plant.myOreQueuedTons.toFixed(1)} t</>
-              ) : (
-                <> · My queue —</>
-              )}
-              <> · Miner queue {plant.minerQueueOreTons.toFixed(1)} t</>
-            </p>
-            <p className="mt-2 text-[8px] uppercase tracking-wider text-ui-muted">Plant — refinery</p>
-            <p className="mt-0.5 text-[9px] text-ui-soft">Input inventory {plant.refineryInputTons.toFixed(1)} t</p>
-          </>
-        ) : null}
+      </div>
+      <div className="mt-3">
+        <p className="text-[8px] uppercase tracking-wide text-ui-soft">Pipeline (stored + accrual est.)</p>
+        <div
+          className={`pipeline-matrix-frame mt-1 px-2 py-2 sm:px-2.5 sm:py-2.5 ${reduceMotion ? "" : "pipeline-matrix-frame--motion"}`}
+        >
+          <p
+            className="pipeline-matrix-readout relative z-[2] break-all font-mono text-[2.25rem] font-semibold leading-[1.05] tracking-tight tabular-nums sm:text-[2.5rem]"
+            title="Stored bid value plus accrual estimate"
+          >
+            {pipelineOdo.toLocaleString()} cr
+          </p>
+        </div>
       </div>
     </>
   );
