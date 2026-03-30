@@ -1,0 +1,23 @@
+[
+  {
+    "id": "weekly.hauler_throughput",
+    "cadence": "weekly",
+    "title": "Industrial Week",
+    "summary": "Complete at least 5 hauler runs across 2 or more distinct extraction zones this week.",
+    "predicateKey": "extraction.hauler_throughput",
+    "predicateParams": {"min_cycles": 5, "min_zones": 2},
+    "rewards": {},
+    "requiresTelemetry": ["hauler_throughput_by_window"],
+    "enabled": true
+  },
+  {
+    "id": "weekly.pipeline_specialist_mining",
+    "cadence": "weekly",
+    "title": "Mining Specialist",
+    "summary": "Own and operate at least one active mining site this week.",
+    "predicateKey": "extraction.pipeline_specialist",
+    "predicateParams": {"pipeline": "mining"},
+    "rewards": {},
+    "enabled": true
+  }
+]

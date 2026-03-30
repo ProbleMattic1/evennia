@@ -18,7 +18,12 @@ import {
 import { useEffect, useMemo } from "react";
 
 import { HUB_ROOM_KEY } from "@/lib/locator-zones";
-import type { WorldGraphEdge, WorldGraphRoom, WorldGraphState } from "@/lib/ui-api";
+import type {
+  LocatorParcelRow,
+  WorldGraphEdge,
+  WorldGraphRoom,
+  WorldGraphState,
+} from "@/lib/ui-api";
 
 /** Matches `game/world/bootstrap_frontier.py` */
 const FRONTIER_PROMENADE_KEY = "Frontier Promenade";
@@ -30,7 +35,7 @@ const INDUSTRIAL_MASS_CENTER = { x: 550, y: 520 };
 
 function isIndustrialMassRoom(r: WorldGraphRoom): boolean {
   const z = r.locatorZone;
-  if (z === "plex-industrial" || z === "industrial-colony") return true;
+  if (z === "plex-industrial" || z === "industrial-colony" || z === "killstar-annex") return true;
   const k = r.key;
   return (
     k === "Industrial Resource Colony Grid" ||
@@ -52,7 +57,13 @@ function isIndustrialMassRoom(r: WorldGraphRoom): boolean {
     k === "Frontier Resource Colony Flora Annex" ||
     k === "Frontier Resource Colony Fauna Annex" ||
     k.startsWith("Frontier Resource Colony Flora Pad ") ||
-    k.startsWith("Frontier Resource Colony Fauna Pad ")
+    k.startsWith("Frontier Resource Colony Fauna Pad ") ||
+    k === "Marcus Killstar Mining Annex" ||
+    k === "Marcus Killstar Flora Annex" ||
+    k === "Marcus Killstar Fauna Annex" ||
+    k.startsWith("Marcus Killstar Pad ") ||
+    k.startsWith("Marcus Killstar Flora Pad ") ||
+    k.startsWith("Marcus Killstar Fauna Pad ")
   );
 }
 
@@ -183,6 +194,38 @@ function buildFlowEdges(
   return out;
 }
 
+function buildParcelAnchorEdges(
+  parcels: LocatorParcelRow[] | undefined,
+  schemaVersion: number,
+  visibleRoomIds: Set<number>,
+  reduceMotion: boolean,
+): Edge[] {
+  if ((schemaVersion ?? 0) < 4 || !parcels?.length) return [];
+  const out: Edge[] = [];
+  for (const p of parcels) {
+    if (p.interiorRoomId == null) continue;
+    if (!visibleRoomIds.has(p.anchorRoomId) || !visibleRoomIds.has(p.interiorRoomId)) continue;
+    out.push({
+      id: `parcel-anchor-${p.holdingId}-${p.interiorRoomId}`,
+      source: String(p.anchorRoomId),
+      target: String(p.interiorRoomId),
+      selectable: false,
+      focusable: false,
+      interactionWidth: 0,
+      animated: !reduceMotion,
+      style: {
+        stroke: "#c4b5fd",
+        strokeWidth: 1.5,
+        strokeDasharray: "6 4",
+        opacity: 0.88,
+      },
+      markerEnd: { type: MarkerType.ArrowClosed, color: "#c4b5fd", width: 14, height: 14 },
+      zIndex: 0,
+    });
+  }
+  return out;
+}
+
 function massConnectorEdge(rooms: WorldGraphRoom[]): Edge | null {
   let nanoId: string | undefined;
   let frontierId: string | undefined;
@@ -296,9 +339,25 @@ export function LocatorGraphView({
     const visibleRooms = q
       ? data.rooms.filter((r) => r.key.toLowerCase().includes(q))
       : data.rooms;
+    const visibleRoomIds = new Set(visibleRooms.map((r) => r.id));
+    const parcelEdges = buildParcelAnchorEdges(
+      data.locatorParcels,
+      data.schemaVersion,
+      visibleRoomIds,
+      reduceMotion,
+    );
     const spine = massConnectorEdge(visibleRooms);
-    return spine ? [spine, ...base] : base;
-  }, [data.rooms, data.edges, data.edgesAll, schematic, reduceMotion, filter]);
+    return [...parcelEdges, ...(spine ? [spine] : []), ...base];
+  }, [
+    data.rooms,
+    data.edges,
+    data.edgesAll,
+    data.locatorParcels,
+    data.schemaVersion,
+    schematic,
+    reduceMotion,
+    filter,
+  ]);
 
   return (
     <div className="h-[min(60vh,640px)] w-full min-h-[320px] rounded border border-cyan-900/40 bg-zinc-950">
@@ -338,9 +397,10 @@ export function LocatorGraphView({
             <span className="text-violet-400">Frontier</span> (rim), and{" "}
             <span className="text-amber-400">industrial mines</span> (plex + Industrial Resource Colony contractor grids).
             The dashed{" "}
-            <span className="text-violet-300">violet</span> line links the two promenades only (not travel). Click{" "}
-            <span className="text-cyan-400">Go</span> for cyan exits. Hub mining routes stay off the cyan graph unless
-            Full topology is on.
+            <span className="text-violet-300">violet</span> spine links the two promenades only (not travel); short
+            dashed <span className="text-violet-300">violet</span> arrows tie each opened parcel shell to its venue hub
+            (title anchor, not an extra exit). Click <span className="text-cyan-400">Go</span> for cyan exits. Hub mining
+            routes stay off the cyan graph unless Full topology is on.
           </Panel>
         </ReactFlow>
       </ReactFlowProvider>

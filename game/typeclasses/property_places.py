@@ -6,6 +6,8 @@ Authority stays on PropertyLot + PropertyHolding; rooms are lazy-created surface
 
 from evennia import create_object, search_object
 
+from typeclasses.property_lot_registry import infer_lot_venue_id
+
 
 def open_property_shell(holding):
     """
@@ -31,6 +33,12 @@ def resolve_property_root_room(holding):
         if found:
             room = found[0]
             if hasattr(room, "contents") and getattr(room.db, "holding_ref", None) == holding:
+                lot = getattr(holding.db, "lot_ref", None)
+                if lot:
+                    vid = infer_lot_venue_id(lot)
+                    if not getattr(room.db, "venue_id", None):
+                        room.db.venue_id = vid
+                    room.tags.add(f"locator_venue:{vid}", category="locator")
                 return room
         st["root_room_id"] = None
         holding.db.place_state = st
@@ -49,8 +57,19 @@ def resolve_property_root_room(holding):
     room.tags.add("property_place", category="realty")
     room.tags.add(f"holding_{holding.id}", category="property_place")
     room.db.holding_ref = holding
+    lot = getattr(holding.db, "lot_ref", None)
+    if lot:
+        vid = infer_lot_venue_id(lot)
+        room.db.venue_id = vid
+        room.tags.add(f"locator_venue:{vid}", category="locator")
     st["root_room_id"] = room.id
     holding.db.place_state = st
+    try:
+        from web.ui.world_graph import invalidate_world_graph_cache
+
+        invalidate_world_graph_cache()
+    except Exception:
+        pass
     return room
 
 

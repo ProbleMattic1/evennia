@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { groupExits } from "@/components/exit-grid";
 import { GameLogPanel } from "@/components/game-log-panel";
+import { PanelExpandButton } from "@/components/panel-expand-button";
 import type {
   ExitButton,
   MissionActive,
@@ -194,17 +195,25 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
 
   return (
     <section className="mb-1">
-      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
-        <span>{`Missions (${active.length} active / ${opportunities.length} avail)`}</span>
-        <span className="ml-2 text-[9px] text-ui-muted">{`decisions pending: ${decisionsPending}`}</span>
-        <button
-          type="button"
-          onClick={toggleOpen}
-          aria-label={`${open ? "Collapse" : "Expand"} Missions`}
-          className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
-        >
-          {open ? "▴" : "▸"}
-        </button>
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest">
+        <span className="min-w-0 truncate text-cyan-300">Missions</span>
+        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
+          <span className="font-mono text-[9px] font-normal">
+            <span className="text-zinc-500">(</span>
+            <span className="text-cyan-400">{active.length}</span>
+            <span className="text-zinc-500"> active / </span>
+            <span className="text-amber-400">{opportunities.length}</span>
+            <span className="text-zinc-500"> avail)</span>
+            <span className="text-zinc-600"> · </span>
+            <span className="text-zinc-500">decisions pending: </span>
+            <span className={decisionsPending > 0 ? "text-amber-400" : "text-cyan-400"}>{decisionsPending}</span>
+          </span>
+          <PanelExpandButton
+            open={open}
+            onClick={toggleOpen}
+            aria-label={`${open ? "Collapse" : "Expand"} Missions`}
+          />
+        </div>
       </div>
 
       {open ? (
@@ -298,14 +307,12 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
               <div>
                 <div className="flex items-center text-[10px] uppercase text-ui-muted">
                   <span>Available</span>
-                  <button
-                    type="button"
+                  <PanelExpandButton
+                    open={availableOpen}
                     onClick={toggleAvailableOpen}
                     aria-label={`${availableOpen ? "Collapse" : "Expand"} Available missions`}
-                    className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
-                  >
-                    {availableOpen ? "▴" : "▸"}
-                  </button>
+                    className="ml-auto shrink-0"
+                  />
                 </div>
                 {availableOpen ? (
                   <div className="mt-0.5 max-h-[min(280px,45vh)] min-h-[48px] space-y-0.5 overflow-y-auto overflow-x-hidden border border-cyan-900/40 bg-zinc-950/80 p-1.5 pr-2 [scrollbar-gutter:stable]">
@@ -361,14 +368,12 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
             <div className="mt-1.5">
               <div className="mb-0.5 flex items-center text-[10px] uppercase tracking-wide text-ui-muted">
                 <span>Destinations</span>
-                <button
-                  type="button"
+                <PanelExpandButton
+                  open={exitsOpen}
                   onClick={toggleExitsOpen}
                   aria-label={`${exitsOpen ? "Collapse" : "Expand"} Destinations`}
-                  className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
-                >
-                  {exitsOpen ? "▴" : "▸"}
-                </button>
+                  className="ml-auto shrink-0"
+                />
               </div>
               {exitsOpen ? (
                 destinationGroups.length <= 1 &&

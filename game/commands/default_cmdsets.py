@@ -68,6 +68,9 @@ from commands.property_place import CmdOpenProperty, CmdVisitProperty
 from commands.npc_parcel_mission import CmdAskParcelClerk, CmdAskParcelCommuter
 from commands.npc_promenade import CmdAskGuide
 from commands.station_npc import CmdStation
+from commands.challenge_claim import CmdChallengeClaim
+from commands.challenges import CmdChallengeInfo, CmdGrantChallenge, CmdReloadChallenges
+from commands.progression import CmdGrantXP
 from commands.reload_ambient import CmdReloadAmbient
 from commands.reload_missions import CmdReloadMissions
 from commands.shop import CmdBuy, CmdShop
@@ -160,6 +163,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdMissions())
         self.add(CmdMissionAccept())
         self.add(CmdMissionChoose())
+        self.add(CmdChallengeClaim())
+        self.add(CmdGrantXP())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
@@ -171,6 +176,9 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
         self.add(CmdCharCreate())
         self.add(CmdReloadAmbient())
         self.add(CmdReloadMissions())
+        self.add(CmdReloadChallenges())
+        self.add(CmdChallengeInfo())
+        self.add(CmdGrantChallenge())
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "quarter.economy_modifier_shift",
+    "cadence": "quarter",
+    "title": "Market Event Witness",
+    "summary": "Participate in the economy while a global modifier event is active (modifier shifted ≥ 5% from baseline).",
+    "predicateKey": "economy_long.economy_modifier_shift",
+    "predicateParams": {"min_delta": 0.05},
+    "rewards": {},
+    "enabled": true
+  },
+  {
+    "id": "quarter.deed_buy_hold_sell",
+    "cadence": "quarter",
+    "title": "Property Flipper",
+    "summary": "Buy a deed, hold it for at least 1 day, then list or sell it this quarter.",
+    "predicateKey": "economy_long.deed_buy_hold_sell",
+    "predicateParams": {"min_hold_days": 1},
+    "rewards": {},
+    "enabled": true
+  },
+  {
+    "id": "quarter.multi_holding_managers",
+    "cadence": "quarter",
+    "title": "Management Portfolio",
+    "summary": "Be a named manager on at least 2 distinct property holdings this quarter.",
+    "predicateKey": "property.multi_holding_managers",
+    "predicateParams": {"min_holdings": 2},
+    "rewards": {},
+    "enabled": true
+  }
+]

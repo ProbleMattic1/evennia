@@ -96,6 +96,18 @@ class CatalogVendor(ObjectParent, DefaultObject):
         self.db.credits = econ.get_balance(vendor_account)
         econ.db.tax_pool = econ.get_balance(treasury_account)
 
+        try:
+            from world.challenges.challenge_signals import emit
+            emit(caller, "vendor_sale", {
+                "vendor_id": str(self.db.vendor_id or ""),
+                "price": price,
+                "tax_amount": tax_amount,
+            })
+            if tax_amount > 0:
+                emit(caller, "treasury_credit", {"amount": tax_amount})
+        except Exception:
+            pass
+
         return vendor_amount, tax_amount
 
     def _exits_for_api(self):

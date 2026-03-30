@@ -139,5 +139,7 @@ urlpatterns = [
     path("missions/accept", views.missions_accept, name="ui-missions-accept"),
     path("missions/choose", views.missions_choose, name="ui-missions-choose"),
     path("missions/decline", views.missions_decline, name="ui-missions-decline"),
+    path("challenges", views.challenges_state, name="ui-challenges"),
+    path("challenges/claim", views.challenges_claim, name="ui-challenges-claim"),
     path("debug/msg-buffer", views.debug_msg_buffer, name="ui-debug-msg-buffer"),
 ]

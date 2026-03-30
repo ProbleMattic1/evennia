@@ -1,0 +1,33 @@
+[
+  {
+    "id": "daily.property_operation_touch",
+    "cadence": "daily",
+    "title": "Landlord's Hours",
+    "summary": "Interact with a property operation today — start, inspect, or manage income.",
+    "predicateKey": "property.property_operation_touch",
+    "predicateParams": {},
+    "rewards": {},
+    "requiresTelemetry": ["property_ops_today"],
+    "enabled": true
+  },
+  {
+    "id": "daily.visit_parcel_shell",
+    "cadence": "daily",
+    "title": "Home Visit",
+    "summary": "Travel inside your property parcel interior today.",
+    "predicateKey": "property.visit_parcel_shell",
+    "predicateParams": {"require_owner": true},
+    "rewards": {},
+    "enabled": true
+  },
+  {
+    "id": "daily.deed_on_person",
+    "cadence": "daily",
+    "title": "Deed in Hand",
+    "summary": "Keep at least one property deed in your inventory.",
+    "predicateKey": "property.deed_on_person",
+    "predicateParams": {},
+    "rewards": {},
+    "enabled": true
+  }
+]

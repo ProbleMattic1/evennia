@@ -12,11 +12,14 @@ import time
 
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
-from evennia.utils import lazy_property
+from evennia.utils import lazy_property, logger
 from evennia.utils.text2html import parse_html
 from evennia.utils.utils import make_iter
 
 from typeclasses.missions import MissionHandler
+from world.challenges.challenge_handler import ChallengeHandler
+from world.progression import LevelUpEvent, add_xp as rules_add_xp, snapshot as progression_snapshot
+from world.progression_rewards import apply_level_up_rewards
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
 from .objects import ObjectParent
@@ -243,6 +246,10 @@ class Character(ObjectParent, DefaultCharacter):
     def missions(self):
         return MissionHandler(self)
 
+    @lazy_property
+    def challenges(self):
+        return ChallengeHandler(self)
+
     def record_web_stream_text(self, text, meta):
         """
         Append one outbound line to web_msg_buffer. ``text`` matches ``msg`` (str or tuple).
@@ -327,6 +334,8 @@ class Character(ObjectParent, DefaultCharacter):
             self.db.rpg_pointbuy_done = True
         else:
             self.db.rpg_pointbuy_done = False
+        self.db.rpg_level = 1
+        self.db.rpg_xp_into_level = 0
         self.ensure_default_rpg_traits()
 
     def ensure_default_rpg_traits(self):
@@ -357,6 +366,27 @@ class Character(ObjectParent, DefaultCharacter):
                 min=0,
                 max=None,
             )
+        if getattr(self.db, "rpg_level", None) is None:
+            self.db.rpg_level = 1
+        if getattr(self.db, "rpg_xp_into_level", None) is None:
+            self.db.rpg_xp_into_level = 0
+
+    def grant_xp(self, amount: int, *, reason: str = ""):
+        """Add XP; may level up. Use this from combat, quests, staff tools, etc."""
+
+        def _on_level_up(ch, ev: LevelUpEvent):
+            apply_level_up_rewards(ch, ev)
+            ch.msg(f"|yYou reached level {ev.new_level}!|n")
+
+        result = rules_add_xp(self, amount, on_level_up=_on_level_up)
+        if amount > 0:
+            logger.log_info(
+                f"[progression] {self.key} (id={self.id}) gained {amount} XP"
+                f"{(' ' + reason) if reason else ''}."
+            )
+            suffix = f" ({reason})" if reason else ""
+            self.msg(f"You gain {amount} XP{suffix}.")
+        return result
 
     def at_pre_puppet(self, account, session=None, **kwargs):
         if not account.check_permstring("Developer"):
@@ -404,11 +434,39 @@ class Character(ObjectParent, DefaultCharacter):
         if self.vitals.get("hp"):
             vitals["hp"] = gauge_payload(self.vitals.hp)
 
+        prog = progression_snapshot(self)
         return {
             "abilities": abilities,
             "vitals": vitals,
             "armorClass": self.armor_class(),
+            "level": prog["level"],
+            "xpIntoLevel": prog["xp_into_level"],
+            "xpToNext": prog["xp_to_next"],
         }
+
+    def at_post_move(self, source_location, move_type="move", **kwargs):
+        super().at_post_move(source_location, move_type=move_type, **kwargs)
+        dest = self.location
+        if not dest:
+            return
+        try:
+            from world.challenges.challenge_signals import emit
+            from world.locator_zones import locator_zone_for_room
+            has_mine = dest.tags.has("mining_site", category="mining")
+            zone_id = locator_zone_for_room(dest, has_mining_site=has_mine)
+            venue_id = getattr(dest.db, "venue_id", None) or None
+            emit(self, "room_enter", {
+                "room_id": dest.id,
+                "zone_id": zone_id,
+                "venue_id": venue_id,
+            })
+        except Exception:
+            pass
+        # Mirror mission room sync here to consolidate the pipeline
+        try:
+            self.missions.sync_room(dest)
+        except Exception:
+            pass
 
     def at_post_puppet(self, **kwargs):
         super().at_post_puppet(**kwargs)
@@ -418,3 +476,10 @@ class Character(ObjectParent, DefaultCharacter):
         econ = get_economy(create_missing=False)
         if econ:
             econ.sync_character_balance(self)
+            # Daily balance snapshot for challenge predicates
+            try:
+                from world.challenges.challenge_signals import emit
+                balance = econ.get_character_balance(self)
+                emit(self, "balance_snapshot", {"balance": balance})
+            except Exception:
+                pass

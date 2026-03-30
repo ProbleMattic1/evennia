@@ -246,6 +246,9 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
 
     hauler.db.hauler_mine_room = site_room
     hauler.db.hauler_refinery_room = refinery_room
+    hdr = getattr(buyer.db, "haul_destination_room", None)
+    if hdr:
+        hauler.db.hauler_destination_room = hdr
     hauler.db.hauler_state = "at_mine"
     set_hauler_next_cycle(hauler)
 
@@ -254,6 +257,18 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         owned_vehicles.append(hauler)
     buyer.db.owned_vehicles = owned_vehicles
 
+    if getattr(buyer.db, "haul_delivers_to_local_raw_storage", False) and getattr(
+        buyer.db, "haul_destination_room", None
+    ):
+        dest_note = (
+            f"  Autonomous hauls deliver to your local raw reserve "
+            f"at {buyer.db.haul_destination_room.key} (no plant payout on unload).\n"
+        )
+    else:
+        dest_note = (
+            f"  Ore will flow to the Ore Receiving Bay at {refinery_room.key} (paid on delivery).\n"
+        )
+
     return True, (
         f"Mining operation deployed at {site.key}.\n"
         f"  Site: {site_room.key}\n"
@@ -261,7 +276,7 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         f"  Mining delivery: UTC 30m grid  Hauler pickup: scheduled {HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit; "
         f"autonomous dispatch every {HAULER_ENGINE_INTERVAL // 60}m (usually within one interval after that). "
         f"Idle waits on mine next_cycle + same pickup offset.\n"
-        f"  Ore will flow to the Ore Receiving Bay at {refinery_room.key} (paid on delivery).\n"
+        f"{dest_note}"
         f"  Use |wfeedrefinery|n when you want refining; |wcollectrefined|n at the plant for attributed output."
     )
 
@@ -310,6 +325,9 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
     hauler.db.allowed_boarders = [buyer]
     hauler.db.hauler_mine_room = site_room
     hauler.db.hauler_refinery_room = refinery_room
+    hdr = getattr(buyer.db, "haul_destination_room", None)
+    if hdr:
+        hauler.db.hauler_destination_room = hdr
     hauler.db.hauler_state = "at_mine"
     set_hauler_next_cycle(hauler)
 
@@ -318,13 +336,23 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
         owned_vehicles.append(hauler)
     buyer.db.owned_vehicles = owned_vehicles
 
+    if getattr(buyer.db, "haul_delivers_to_local_raw_storage", False) and getattr(
+        buyer.db, "haul_destination_room", None
+    ):
+        dest_note = (
+            f"  Autonomous hauls deliver to your local raw reserve "
+            f"at {buyer.db.haul_destination_room.key} (no plant payout on unload)."
+        )
+    else:
+        dest_note = f"  Ore will flow to the Ore Receiving Bay at {refinery_room.key} (paid on delivery)."
+
     return True, (
         f"Mining operation reactivated at {site.key}.\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
         f"  Mining delivery: UTC 30m grid  Hauler pickup: scheduled {HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit; "
         f"autonomous dispatch every {HAULER_ENGINE_INTERVAL // 60}m (usually within one interval after that). "
         f"Idle waits on mine next_cycle + same pickup offset.\n"
-        f"  Ore will flow to the Ore Receiving Bay at {refinery_room.key} (paid on delivery)."
+        f"{dest_note}"
     )
 
 

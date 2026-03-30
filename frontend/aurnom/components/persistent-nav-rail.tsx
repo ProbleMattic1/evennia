@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { groupExits } from "@/components/exit-grid";
+import { PanelExpandButton } from "@/components/panel-expand-button";
 import type { ControlSurfaceNav, CsCharacter, NavKiosk } from "@/lib/control-surface-api";
+import { playTravel, type ExitButton } from "@/lib/ui-api";
 
 /** Web routes not guaranteed on older API payloads; append after server kiosks. */
 const WEB_ONLY_KIOSKS: NavKiosk[] = [{ key: "economy", label: "Economy", href: "/economy" }];
@@ -54,16 +58,14 @@ function Panel({
 
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
-        <span>{title}</span>
-        <button
-          type="button"
+      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest">
+        <span className="text-cyan-300">{title}</span>
+        <PanelExpandButton
+          open={open}
           onClick={() => setOpen((v) => !v)}
           aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
-          className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
-        >
-          {open ? "▴" : "▸"}
-        </button>
+          className="ml-auto shrink-0"
+        />
       </div>
       {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div> : null}
     </section>
@@ -143,14 +145,14 @@ function PlayerPanel({
   morality,
   miningValuePerCycle,
   miningStoredValue,
-  miningPersonalStoredValue,
+  miningLocalRawStoredValue,
   propertyRefValue,
 }: {
   char: CsCharacter;
   morality: Morality;
   miningValuePerCycle: number;
   miningStoredValue: number;
-  miningPersonalStoredValue: number;
+  miningLocalRawStoredValue: number;
   propertyRefValue: number;
 }) {
   const hp = char.vitals?.hp;
@@ -162,10 +164,18 @@ function PlayerPanel({
         <span className="font-bold text-zinc-100">{char.key}</span>
       </Row>
       <Kv k="room" v={char.room ?? "—"} />
+      <Kv
+        k="level"
+        v={
+          char.level != null && char.xpToNext != null
+            ? `Lv ${char.level} · XP ${char.xpIntoLevel ?? 0} / ${char.xpToNext}`
+            : "—"
+        }
+      />
       <Kv k="credits" v={cr(char.credits)} />
       <Kv k="mine yld/cycle" v={cr(miningValuePerCycle)} />
       <Kv k="mine storage" v={cr(miningStoredValue)} />
-      <Kv k="local storage" v={cr(miningPersonalStoredValue)} />
+      <Kv k="local storage" v={cr(miningLocalRawStoredValue)} />
       <Kv k="prop val" v={cr(propertyRefValue)} />
       {hp && <Kv k="hp" v={`${hp.current} / ${hp.max ?? "?"} · AC ${char.armorClass}`} />}
       <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
@@ -193,8 +203,68 @@ function PlayerPanel({
   );
 }
 
-function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
+function NavDestinationRow({
+  exit,
+  busyKey,
+  onTravel,
+}: {
+  exit: ExitButton & { destination: string };
+  busyKey: string | null;
+  onTravel: (destination: string) => void;
+}) {
+  const k = `exit:${exit.destination}`;
+  return (
+    <button
+      type="button"
+      onClick={() => onTravel(exit.destination)}
+      disabled={busyKey === k}
+      className="block w-full truncate rounded border border-cyan-800/60 px-1 py-0.5 text-left text-[10px] text-cyan-400 hover:bg-cyan-900/40 disabled:opacity-40"
+    >
+      {busyKey === k ? "Moving…" : exit.label}
+    </button>
+  );
+}
+
+function NavPanel({
+  nav,
+  roomExits,
+  onTravelComplete,
+}: {
+  nav: ControlSurfaceNav;
+  roomExits: ExitButton[];
+  onTravelComplete: () => void;
+}) {
+  const router = useRouter();
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const travelLock = useRef(false);
   const kiosks = mergeNavKiosks(nav.kiosks);
+
+  const filteredDestinations = useMemo(
+    () => roomExits.filter((e): e is ExitButton & { destination: string } => Boolean(e.destination)),
+    [roomExits],
+  );
+
+  const destinationGroups = useMemo(() => groupExits(filteredDestinations), [filteredDestinations]);
+
+  const handleExitTravel = useCallback(
+    async (destination: string) => {
+      if (travelLock.current) return;
+      travelLock.current = true;
+      const k = `exit:${destination}`;
+      setBusyKey(k);
+      try {
+        await playTravel({ destination });
+        router.push("/");
+        router.refresh();
+        onTravelComplete();
+      } finally {
+        travelLock.current = false;
+        setBusyKey(null);
+      }
+    },
+    [onTravelComplete, router],
+  );
+
   return (
     <>
       {kiosks.length > 0 && (
@@ -215,13 +285,34 @@ function NavPanel({ nav }: { nav: ControlSurfaceNav }) {
           ))}
         </Panel>
       )}
-      {nav.exits.length > 0 && (
+      {filteredDestinations.length > 0 && (
         <Panel panelKey="hub-exits" title="Destinations">
-          {nav.exits.map((e) => (
-            <div key={e.key} className="text-ui-muted">
-              {e.label}
+          {destinationGroups.length <= 1 &&
+          (destinationGroups[0]?.title === "Destinations" || !destinationGroups[0]) ? (
+            <div className="space-y-0.5">
+              {filteredDestinations.map((ex) => (
+                <NavDestinationRow key={`${ex.key}-${ex.destination}`} exit={ex} busyKey={busyKey} onTravel={handleExitTravel} />
+              ))}
             </div>
-          ))}
+          ) : (
+            <div className="space-y-1.5">
+              {destinationGroups.map(({ title, items }) => (
+                <div key={title}>
+                  <div className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-ui-muted">{title}</div>
+                  <div className="space-y-0.5">
+                    {items.map((ex) => (
+                      <NavDestinationRow
+                        key={`${ex.key}-${ex.destination}`}
+                        exit={ex as ExitButton & { destination: string }}
+                        busyKey={busyKey}
+                        onTravel={handleExitTravel}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Panel>
       )}
     </>
@@ -282,7 +373,7 @@ export function PersistentNavRail() {
             morality={data.missions?.morality ?? { good: 0, evil: 0, lawful: 0, chaotic: 0 }}
             miningValuePerCycle={data.productionEstimatedValuePerCycle ?? data.miningEstimatedValuePerCycle ?? 0}
             miningStoredValue={data.productionTotalStoredValue ?? data.miningTotalStoredValue ?? 0}
-            miningPersonalStoredValue={data.miningPersonalStoredValue ?? 0}
+            miningLocalRawStoredValue={data.miningLocalRawStoredValue ?? 0}
             propertyRefValue={data.propertyReferenceListValueTotalCr ?? 0}
           />
         </>
@@ -350,6 +441,8 @@ export function PersistentNavRail() {
             mines: [],
           }
         }
+        roomExits={data?.roomExits ?? []}
+        onTravelComplete={reload}
       />
     </aside>
   );

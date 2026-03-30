@@ -1,0 +1,35 @@
+[
+  {
+    "id": "year.title_odyssey_venues",
+    "cadence": "year",
+    "title": "Venue Odyssey",
+    "summary": "Visit at least one room in every configured venue across the world this year.",
+    "predicateKey": "navigation.title_odyssey_venues",
+    "predicateParams": {},
+    "rewards": {},
+    "requiresTelemetry": ["venues_ever"],
+    "enabled": true
+  },
+  {
+    "id": "year.title_odyssey_locator_zones",
+    "cadence": "year",
+    "title": "Zone Cartographer",
+    "summary": "Set foot in every known locator zone at least once this year.",
+    "predicateKey": "navigation.title_odyssey_locator_zones",
+    "predicateParams": {},
+    "rewards": {},
+    "requiresTelemetry": ["locator_zones_ever"],
+    "enabled": true
+  },
+  {
+    "id": "monthly.locator_cartography",
+    "cadence": "monthly",
+    "title": "New Ground",
+    "summary": "Discover at least 5 rooms you have never visited before this month.",
+    "predicateKey": "navigation.cartography",
+    "predicateParams": {"min_rooms": 5},
+    "rewards": {},
+    "requiresTelemetry": ["rooms_ever"],
+    "enabled": true
+  }
+]

@@ -107,6 +107,7 @@ class CmdAssignHauler(Command):
         site.schedule_next_cycle()
         hauler.db.hauler_mine_room = mine_room
         hauler.db.hauler_refinery_room = refinery_room
+        hauler.db.hauler_destination_room = None
         hauler.db.hauler_state = "at_mine"
         hauler.move_to(mine_room, quiet=True)
         set_hauler_next_cycle(hauler)
@@ -220,7 +221,8 @@ class CmdHaulerStatus(Command):
             loc = h.location.key if h.location else "?"
             state = h.db.hauler_state or "idle"
             mine = resolve_room(h.db.hauler_mine_room)
-            ref = resolve_room(h.db.hauler_refinery_room)
+            dest_ref = getattr(h.db, "hauler_destination_room", None) or h.db.hauler_refinery_room
+            ref = resolve_room(dest_ref)
             route = f"{mine.key if mine else '?'} -> {ref.key if ref else '?'}" if (mine or ref) else "unassigned"
             cap = effective_capacity(h)
             next_str = format_next_hauler_run_utc(h)
@@ -229,10 +231,16 @@ class CmdHaulerStatus(Command):
             lines.append(f"  |w{h.key}|n")
             lines.append(f"    Location: {loc}  State: {state}")
             lines.append(f"    Route: {route}")
+            if getattr(caller.db, "haul_delivers_to_local_raw_storage", False) and getattr(
+                h.db, "hauler_destination_room", None
+            ):
+                del_note = "Delivery: local raw reserve (no plant payout on unload)"
+            else:
+                del_note = "Delivery: Ore Receiving Bay at plant (paid on unload)"
             lines.append(
                 f"    Capacity: {cap}t  Schedule: mine-linked (+{HAULER_PICKUP_OFFSET_SEC // 60}m after deposits); "
                 f"dispatch every {HAULER_ENGINE_INTERVAL // 60}m  Next: {next_str}  "
-                f"Delivery: Ore Receiving Bay at plant (paid on unload)  Upgrades: {up_str}"
+                f"{del_note}  Upgrades: {up_str}"
             )
         caller.msg("\n".join(lines))
 
@@ -297,6 +305,7 @@ class CmdReleaseHauler(Command):
         hauler.db.hauler_owner = None
         hauler.db.hauler_mine_room = None
         hauler.db.hauler_refinery_room = None
+        hauler.db.hauler_destination_room = None
         hauler.db.hauler_state = "idle"
 
         delete_hauler_dispatch_row(hauler)

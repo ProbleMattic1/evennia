@@ -26,6 +26,9 @@ from typeclasses.characters import (
 CHARACTER_TYPECLASS = "typeclasses.characters.Character"
 MARCUS_CREDITS = 1_000_000_000_000
 
+# Killstar autonomous haulers deliver to local raw reserve in this room (not the ore plant).
+MARCUS_LOCAL_RAW_WAREHOUSE_ROOM_KEY = "Marcus Killstar Mining Annex"
+
 
 def _marcus_reset_credits_requested():
     return os.environ.get("MARCUS_RESET_CREDITS", "").strip().lower() in ("1", "true", "yes")
@@ -67,6 +70,47 @@ def _apply_marcus_credits(char):
     econ.set_balance(acct, MARCUS_CREDITS)
 
 
+def ensure_marcus_local_raw_destination(char):
+    """
+    Idempotent: local raw MiningStorage in Marcus Killstar Mining Annex, haul_destination_room,
+    sync autonomous hauler db.hauler_destination_room for this owner.
+    No-op if char is missing or haul_delivers_to_local_raw_storage is False, or annex not spawned yet.
+    """
+    if not char or not getattr(char.db, "haul_delivers_to_local_raw_storage", False):
+        return
+    from typeclasses.haulers import ensure_local_raw_storage, set_hauler_next_cycle
+
+    hits = search_object(MARCUS_LOCAL_RAW_WAREHOUSE_ROOM_KEY)
+    room = None
+    for o in hits:
+        if hasattr(o, "contents"):
+            room = o
+            break
+    if not room:
+        return
+
+    st = ensure_local_raw_storage(room, char)
+    char.db.local_raw_storage = st
+    char.db.haul_destination_room = room
+
+    for v in char.db.owned_vehicles or []:
+        if not getattr(v.db, "is_vehicle", False):
+            continue
+        if not (
+            v.tags.has("autonomous_hauler", category="mining")
+            or v.tags.has("autonomous_hauler", category="flora")
+            or v.tags.has("autonomous_hauler", category="fauna")
+        ):
+            continue
+        if getattr(v.db, "hauler_owner", None) != char:
+            continue
+        v.db.hauler_destination_room = room
+        try:
+            set_hauler_next_cycle(v)
+        except Exception:
+            pass
+
+
 def bootstrap_marcus_killstar():
     account = _admin_account()
     if not account:
@@ -89,6 +133,7 @@ def bootstrap_marcus_killstar():
         account.db._last_puppet = char
         char.db.rpg_pointbuy_done = True
         char.db.mining_owner_uses_npc_production = True
+        char.db.haul_delivers_to_local_raw_storage = True
         if _marcus_reset_stats_requested():
             _apply_marcus_ability_scores(char)
             print(f"[marcus] Re-applied ability scores for {MARCUS_CHARACTER_KEY}.")
@@ -113,6 +158,7 @@ def bootstrap_marcus_killstar():
     _apply_marcus_ability_scores(char)
     char.db.rpg_pointbuy_done = True
     char.db.mining_owner_uses_npc_production = True
+    char.db.haul_delivers_to_local_raw_storage = True
     _apply_marcus_credits(char)
     account.db._last_puppet = char
     print(

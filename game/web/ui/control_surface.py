@@ -134,6 +134,93 @@ def _personal_plant_ore_stored_value_cr(char):
     return int(round(total))
 
 
+def _local_raw_stored_value_cr(char):
+    """Bid-valued raw (ore / flora / fauna) in db.local_raw_storage (Killstar local reserve)."""
+    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG, get_fauna_commodity_bid
+    from typeclasses.flora import FLORA_RESOURCE_CATALOG, get_flora_commodity_bid
+    from typeclasses.mining import RESOURCE_CATALOG, get_commodity_bid
+
+    st = getattr(char.db, "local_raw_storage", None) if char else None
+    if not st or not getattr(st, "db", None):
+        return 0
+    sloc = st.location
+    total = 0.0
+    for k, tons in (st.db.inventory or {}).items():
+        kr = str(k)
+        if kr in RESOURCE_CATALOG:
+            bid = int(get_commodity_bid(kr, location=sloc))
+        elif kr in FLORA_RESOURCE_CATALOG:
+            bid = int(get_flora_commodity_bid(kr, location=sloc))
+        elif kr in FAUNA_RESOURCE_CATALOG:
+            bid = int(get_fauna_commodity_bid(kr, location=sloc))
+        else:
+            bid = 0
+        total += float(tons) * bid
+    return int(round(total))
+
+
+def _empty_personal_storage_payload():
+    return {"mine": {}, "flora": {}, "fauna": {}}
+
+
+def _serialize_personal_storage(char):
+    """
+    Raw tons in (1) plant-assigned silo for this character in their processing
+    plant room and (2) character-linked local_raw_storage, merged and split by
+    mining / flora / fauna catalogs.
+
+    Same discovery paths as _personal_plant_ore_stored_value_cr and
+    _local_raw_stored_value_cr — bounded to one plant room + two inventories.
+    """
+    from collections import defaultdict
+
+    from typeclasses.haulers import get_plant_player_storage
+    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG
+    from typeclasses.flora import FLORA_RESOURCE_CATALOG
+    from typeclasses.mining import RESOURCE_CATALOG
+
+    mine = defaultdict(float)
+    flora = defaultdict(float)
+    fauna = defaultdict(float)
+
+    def absorb(inv):
+        if not inv:
+            return
+        for k, tons in inv.items():
+            try:
+                t = float(tons)
+            except (TypeError, ValueError):
+                continue
+            if t <= 0:
+                continue
+            kr = str(k)
+            if kr in RESOURCE_CATALOG:
+                mine[kr] += t
+            elif kr in FLORA_RESOURCE_CATALOG:
+                flora[kr] += t
+            elif kr in FAUNA_RESOURCE_CATALOG:
+                fauna[kr] += t
+
+    room = processing_plant_room_for_object(char)
+    if room and char:
+        silo = get_plant_player_storage(room, char)
+        if silo:
+            absorb(getattr(silo.db, "inventory", None) or {})
+
+    st = getattr(char.db, "local_raw_storage", None) if char else None
+    if st is not None and getattr(st, "db", None) is not None:
+        absorb(getattr(st.db, "inventory", None) or {})
+
+    def finalize(d):
+        return {k: round(float(d[k]), 2) for k in sorted(d.keys())}
+
+    return {
+        "mine": finalize(mine),
+        "flora": finalize(flora),
+        "fauna": finalize(fauna),
+    }
+
+
 def _serialize_processing_summary(char):
     from typeclasses.haulers import get_plant_ore_receiving_bay
     from typeclasses.mining import COMMODITY_ASK_OVER_BID
@@ -195,7 +282,11 @@ def _serialize_processing_summary(char):
                 haulers.append({
                     "id": h.id,
                     "key": h.key,
-                    "deliveryMode": "ore_receiving_bay",
+                    "deliveryMode": (
+                        "local_raw_reserve"
+                        if getattr(char.db, "haul_delivers_to_local_raw_storage", False)
+                        else "ore_receiving_bay"
+                    ),
                 })
         my_haulers = haulers
 
@@ -333,7 +424,11 @@ def _serialize_nav(char, resources):
                     claim_row["estimatedValuePerCycle"] = estimated_site_value_per_cycle_cr(site)
                 claims_nav.append(claim_row)
             if obj.tags.has("property_claim", category="realty"):
-                properties_nav.append({"label": obj.key, "href": f"/properties/{obj.id}"})
+                from typeclasses.property_claims import strip_property_claim_key_prefix
+
+                properties_nav.append(
+                    {"label": strip_property_claim_key_prefix(obj.key), "href": f"/properties/{obj.id}"}
+                )
 
     resources_nav = [
         {
@@ -441,6 +536,8 @@ def control_surface_state(request):
         "miningEstimatedValuePerCycle": 0,
         "miningTotalStoredValue": 0,
         "miningPersonalStoredValue": 0,
+        "miningLocalRawStoredValue": 0,
+        "personalStorage": _empty_personal_storage_payload(),
         "properties": [],
         "propertyReferenceListValueTotalCr": 0,
         "processing": None,
@@ -498,6 +595,10 @@ def control_surface_state(request):
         char.missions.sync_room(char.location)
     missions = char.missions.serialize_for_web()
 
+    char.challenges.sync_all_windows()
+    char.challenges.evaluate_window()
+    challenges = char.challenges.serialize_for_web()
+
     character_block = _serialize_character_block(char, credits)
     inventory = _serialize_inventory(char)
     ships = _serialize_ships(char)
@@ -518,6 +619,8 @@ def control_surface_state(request):
         if r.get("siteKind") == "fauna"
     )
     mining_personal_stored = _personal_plant_ore_stored_value_cr(char)
+    mining_local_raw_stored = _local_raw_stored_value_cr(char)
+    personal_storage = _serialize_personal_storage(char)
     properties, property_ref_total = _dashboard_property_portfolio(char)
     processing = _serialize_processing_summary(char)
     nav = _serialize_nav(char, resources)
@@ -540,6 +643,8 @@ def control_surface_state(request):
         "miningEstimatedValuePerCycle": mining_value_per_cycle,
         "miningTotalStoredValue": mining_total_stored,
         "miningPersonalStoredValue": mining_personal_stored,
+        "miningLocalRawStoredValue": mining_local_raw_stored,
+        "personalStorage": personal_storage,
         "properties": properties,
         "propertyReferenceListValueTotalCr": property_ref_total,
         "processing": processing,
@@ -547,6 +652,7 @@ def control_surface_state(request):
         "alerts": alerts,
         "groupedAlerts": grouped_alerts,
         "missions": missions,
+        "challenges": challenges,
         "nav": nav,
         "roomExits": room_exits,
         "treasuryBalance": treasury_balance,

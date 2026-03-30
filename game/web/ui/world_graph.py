@@ -2,7 +2,10 @@
 Read-only world topology for the Universal Locator Map (rooms + exits).
 
 Uses ObjectDB so procedural rooms (mining discovery, etc.) appear without a
-static map. Cached briefly; invalidated when new mining sites are generated.
+static map. Cached briefly; invalidated when new mining sites are generated
+or parcel interior rooms are first created (see typeclasses.property_places).
+
+Includes locatorParcels (schemaVersion >= 4): hub-anchored titled parcels for UI.
 """
 
 from __future__ import annotations
@@ -17,12 +20,13 @@ from django.views.decorators.http import require_GET
 from evennia.objects.models import ObjectDB
 
 from typeclasses.characters import CHARACTER_TYPECLASS_PATH
+from world.locator_parcel_payload import build_locator_parcel_rows
 from world.locator_zones import all_venue_hub_keys, locator_zone_for_room
 from world.venues import VENUES
 
 from .room_nav_utils import should_show_mining_exit_dict
 
-CACHE_KEY = "ui:world_graph:v2"
+CACHE_KEY = "ui:world_graph:v4"
 CACHE_TTL = 45
 
 ROOM_TYPECLASS_SUBSTRING = "typeclasses.rooms.Room"
@@ -188,7 +192,7 @@ def build_world_graph_payload(*, char) -> dict:
     venue_catalog = [{"id": vid, "label": str(spec["label"])} for vid, spec in VENUES.items()]
 
     return {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "generatedAt": timezone.now().isoformat(),
         "venueCatalog": venue_catalog,
         "rooms": rooms,
@@ -197,6 +201,7 @@ def build_world_graph_payload(*, char) -> dict:
         "currentRoomKey": current_room_key,
         "reachableRoomIds": reachable_ids,
         "adjacentRoomKeys": adjacent_room_keys,
+        "locatorParcels": build_locator_parcel_rows(),
     }
 
 

@@ -9,6 +9,7 @@ Universal wall-clock time for the game server.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 
 UTC = timezone.utc
@@ -140,3 +141,66 @@ def slot_index_in_utc_day(dt: datetime, period_seconds: int) -> int:
     sod = start_of_utc_day(dt)
     elapsed = int((utc_timestamp(dt) - utc_timestamp(sod)))
     return elapsed // period_seconds
+
+
+# ---------------------------------------------------------------------------
+# Cadence-challenge window keys — one canonical ISO string per window bucket.
+# Stable across server restarts; epoch-aligned or calendar-aligned as noted.
+# ---------------------------------------------------------------------------
+
+def daily_window_key(dt: datetime | None = None) -> str:
+    """UTC calendar date as YYYY-MM-DD — the canonical daily window key."""
+    d = utc_calendar_date(dt or utc_now())
+    return d.isoformat()
+
+
+def weekly_window_key(dt: datetime | None = None) -> str:
+    """ISO year + ISO week number as YYYY-Www (Monday-based ISO 8601 week)."""
+    d = utc_calendar_date(dt or utc_now())
+    iso = d.isocalendar()
+    return f"{iso[0]:04d}-W{iso[1]:02d}"
+
+
+def monthly_window_key(dt: datetime | None = None) -> str:
+    """UTC calendar year-month as YYYY-MM."""
+    d = utc_calendar_date(dt or utc_now())
+    return f"{d.year:04d}-{d.month:02d}"
+
+
+def quarterly_window_key(dt: datetime | None = None) -> str:
+    """UTC calendar quarter as YYYY-QN (1-based)."""
+    d = utc_calendar_date(dt or utc_now())
+    q = (d.month - 1) // 3 + 1
+    return f"{d.year:04d}-Q{q}"
+
+
+def half_year_window_key(dt: datetime | None = None) -> str:
+    """UTC calendar half-year as YYYY-H1 or YYYY-H2."""
+    d = utc_calendar_date(dt or utc_now())
+    h = 1 if d.month <= 6 else 2
+    return f"{d.year:04d}-H{h}"
+
+
+def yearly_window_key(dt: datetime | None = None) -> str:
+    """UTC calendar year as YYYY."""
+    d = utc_calendar_date(dt or utc_now())
+    return f"{d.year:04d}"
+
+
+CADENCE_WINDOW_FUNCS: dict[str, "Callable[[datetime | None], str]"] = {
+    "daily": daily_window_key,
+    "weekly": weekly_window_key,
+    "monthly": monthly_window_key,
+    "quarter": quarterly_window_key,
+    "half_year": half_year_window_key,
+    "year": yearly_window_key,
+}
+
+VALID_CADENCES = frozenset(CADENCE_WINDOW_FUNCS.keys())
+
+
+def window_key_for_cadence(cadence: str, dt: datetime | None = None) -> str:
+    fn = CADENCE_WINDOW_FUNCS.get(cadence)
+    if fn is None:
+        raise ValueError(f"Unknown cadence {cadence!r}; valid: {sorted(VALID_CADENCES)}")
+    return fn(dt)

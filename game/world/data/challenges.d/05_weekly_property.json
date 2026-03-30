@@ -1,0 +1,33 @@
+[
+  {
+    "id": "weekly.deed_market_action",
+    "cadence": "weekly",
+    "title": "Deed Dealer",
+    "summary": "Buy, list, or sell a property deed on the market this week.",
+    "predicateKey": "property.deed_market_action",
+    "predicateParams": {"min_actions": 1},
+    "rewards": {},
+    "requiresTelemetry": ["deed_actions_by_window"],
+    "enabled": true
+  },
+  {
+    "id": "weekly.primary_deed_purchase",
+    "cadence": "weekly",
+    "title": "New Parcel",
+    "summary": "Purchase a new deed from the primary Real Estate market this week.",
+    "predicateKey": "property.primary_deed_purchase",
+    "predicateParams": {},
+    "rewards": {},
+    "enabled": true
+  },
+  {
+    "id": "weekly.access_control_change",
+    "cadence": "weekly",
+    "title": "Building a Team",
+    "summary": "Assign at least one manager or tenant to a holding this week.",
+    "predicateKey": "property.access_control_change",
+    "predicateParams": {},
+    "rewards": {},
+    "enabled": true
+  }
+]

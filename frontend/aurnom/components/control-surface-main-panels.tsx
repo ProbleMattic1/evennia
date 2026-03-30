@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Countdown } from "@/components/countdown";
+import { ChallengesPanel } from "@/components/challenges-panel";
+import { PanelExpandButton } from "@/components/panel-expand-button";
 import { DashboardMissionsPanel } from "@/components/dashboard-missions-panel";
-import type { ControlSurfaceState, CsInventory } from "@/lib/control-surface-api";
+import type { ControlSurfaceState, CsInventory, PersonalStorageBuckets } from "@/lib/control-surface-api";
 import type {
   DashboardAlert,
   DashboardGroupedAlerts,
@@ -16,7 +18,14 @@ import type {
 } from "@/lib/ui-api";
 import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
-import { dashboardAckAlert, dashboardAckAllAlerts, mineDeploy, mineRepairRig } from "@/lib/ui-api";
+import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
+import {
+  claimChallengeReward,
+  dashboardAckAlert,
+  dashboardAckAllAlerts,
+  mineDeploy,
+  mineRepairRig,
+} from "@/lib/ui-api";
 
 function Panel({
   panelKey,
@@ -36,18 +45,15 @@ function Panel({
 
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
-        <span className="min-w-0 truncate">{title}</span>
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest">
+        <span className="min-w-0 truncate text-cyan-300">{title}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1 normal-case tracking-normal">
           {headerActions}
-          <button
-            type="button"
+          <PanelExpandButton
+            open={open}
             onClick={() => setOpen((v) => !v)}
             aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
-            className="px-1 text-cyan-400 hover:text-cyan-300"
-          >
-            {open ? "▴" : "▸"}
-          </button>
+          />
         </div>
       </div>
       {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div> : null}
@@ -190,6 +196,19 @@ function formatClaimOptionLabel(c: {
 /** Not listed in Inventory panel; Mine Operations still reads these buckets from the same payload. */
 const INVENTORY_PANEL_HIDDEN_BUCKETS = new Set(["mining_claim", "property_deed"]);
 
+function formatAlertAge(iso: string, nowMs: number): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "—";
+  const sec = Math.max(0, Math.floor((nowMs - t) / 1000));
+  if (sec < 45) return "now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 48) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
+}
+
 function AlertsPanel({
   grouped,
   onAck,
@@ -201,8 +220,16 @@ function AlertsPanel({
   onAckAll: () => void;
   busy?: boolean;
 }) {
+  const [, setAgeTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setAgeTick((n) => n + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const all = [...grouped.critical, ...grouped.warning, ...grouped.info];
   if (all.length === 0) return null;
+
+  const nowMs = Date.now();
 
   const sevColor = (s: string) => {
     if (s === "critical") return "text-red-400";
@@ -227,6 +254,12 @@ function AlertsPanel({
               {a.severity[0].toUpperCase()}
             </span>
             <span className="min-w-0 flex-1 text-zinc-300">{a.title}</span>
+            <span
+              className="shrink-0 tabular-nums text-[9px] text-zinc-500"
+              title={a.createdAt ? new Date(a.createdAt).toLocaleString() : undefined}
+            >
+              {formatAlertAge(a.createdAt ?? "", nowMs)}
+            </span>
             <TinyButton onClick={() => onAck(a.id)}>×</TinyButton>
           </Row>
         ))}
@@ -457,14 +490,12 @@ function MineDashboardRow({
                 <TinyLink href={`/play?room=${encodeURIComponent(m.location)}`}>{visitProductionSiteLabel(m)}</TinyLink>
               </span>
             ) : null}
-            <button
-              type="button"
+            <PanelExpandButton
+              open={open}
               onClick={() => setOpen((v) => !v)}
               aria-label={`${open ? "Collapse" : "Expand"} ${m.key}`}
-              className="shrink-0 px-1 text-cyan-400 hover:text-cyan-300"
-            >
-              {open ? "▴" : "▸"}
-            </button>
+              className="shrink-0"
+            />
           </div>
           {m.volumeTier ? (
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
@@ -532,7 +563,7 @@ function ResourcesCategoryGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest text-cyan-300">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest">
         {!open ? (
           <span
             className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
@@ -542,16 +573,14 @@ function ResourcesCategoryGroup({
             ●
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-cyan-300">{title}</span>
         <ResourcesCreditsRollupLabel items={items} />
-        <button
-          type="button"
+        <PanelExpandButton
+          open={open}
           onClick={() => setOpen((v) => !v)}
           aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
-          className="shrink-0 px-1 text-cyan-400 hover:text-cyan-300"
-        >
-          {open ? "▴" : "▸"}
-        </button>
+          className="shrink-0"
+        />
       </div>
       {open ? (
         <div className="pt-0.5">
@@ -606,7 +635,7 @@ function ResourcesPanel({
 
   return (
     <section className="mb-1">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest">
         {!open ? (
           <span
             className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
@@ -616,21 +645,19 @@ function ResourcesPanel({
             ●
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-cyan-300">{title}</span>
         <ResourcesCreditsRollupLabel items={resources} className="text-[10px] text-cyan-200/90" />
         {nextAt ? (
           <span className="shrink-0 font-mono text-[10px] font-normal normal-case tracking-normal text-cyan-300">
             <Countdown targetIso={nextAt} prefix="next:" onExpired={onReload} />
           </span>
         ) : null}
-        <button
-          type="button"
+        <PanelExpandButton
+          open={open}
           onClick={() => setOpen((v) => !v)}
           aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
-          className="shrink-0 px-1 text-cyan-400 hover:text-cyan-300"
-        >
-          {open ? "▴" : "▸"}
-        </button>
+          className="shrink-0"
+        />
       </div>
       {open ? (
         <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
@@ -701,16 +728,14 @@ function PropertiesKindGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest text-cyan-300">
-        <span className="min-w-0 flex-1 truncate">{title}</span>
-        <button
-          type="button"
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest">
+        <span className="min-w-0 flex-1 truncate text-cyan-300">{title}</span>
+        <PanelExpandButton
+          open={open}
           onClick={() => setOpen((v) => !v)}
           aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
-          className="shrink-0 px-1 text-cyan-400 hover:text-cyan-300"
-        >
-          {open ? "▴" : "▸"}
-        </button>
+          className="shrink-0"
+        />
       </div>
       {open ? (
         <div className="space-y-0 pt-0.5">
@@ -750,6 +775,85 @@ function PropertiesKindGroup({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function PersonalStorageKindGroup({
+  panelSlug,
+  title,
+  weights,
+  resourceNames,
+}: {
+  panelSlug: string;
+  title: string;
+  weights: Record<string, number>;
+  resourceNames: ReturnType<typeof useResourceNameLookup>;
+}) {
+  const entries = Object.entries(weights).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) return null;
+
+  const header = `${title} (${entries.length})`;
+  const [open, setOpen] = useDashboardPanelOpen(`personal-storage:${panelSlug}`, true);
+
+  return (
+    <div className="mb-1 last:mb-0">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest">
+        <span className="min-w-0 flex-1 truncate text-cyan-300">{header}</span>
+        <PanelExpandButton
+          open={open}
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${header}`}
+          className="shrink-0"
+        />
+      </div>
+      {open ? (
+        <div className="space-y-0 pt-0.5">
+          {entries.map(([key, tons]) => (
+            <Row key={key}>
+              <span className="min-w-0 flex-1 truncate text-zinc-300">
+                {displayResourceName(key, resourceNames)}
+              </span>
+              <span className="shrink-0 font-mono tabular-nums text-zinc-200">
+                {Number(tons).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                <span className="text-ui-muted"> t</span>
+              </span>
+            </Row>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PersonalStoragePanel({ buckets }: { buckets: PersonalStorageBuckets }) {
+  const resourceNames = useResourceNameLookup();
+  const n =
+    Object.keys(buckets.mine).length +
+    Object.keys(buckets.flora).length +
+    Object.keys(buckets.fauna).length;
+  if (n === 0) return null;
+
+  return (
+    <Panel panelKey="personal-storage" title={`Personal storage (${n})`}>
+      <PersonalStorageKindGroup
+        panelSlug="mine"
+        title="Mined resources"
+        weights={buckets.mine}
+        resourceNames={resourceNames}
+      />
+      <PersonalStorageKindGroup
+        panelSlug="flora"
+        title="Flora"
+        weights={buckets.flora}
+        resourceNames={resourceNames}
+      />
+      <PersonalStorageKindGroup
+        panelSlug="fauna"
+        title="Fauna"
+        weights={buckets.fauna}
+        resourceNames={resourceNames}
+      />
+    </Panel>
   );
 }
 
@@ -828,6 +932,11 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
     [run],
   );
   const repairRigCb = useCallback((siteId: number) => run(() => mineRepairRig({ siteId })), [run]);
+  const claimChallengeCb = useCallback(
+    (challengeId: string, windowKey: string) =>
+      run(() => claimChallengeReward({ challengeId, windowKey })),
+    [run],
+  );
 
   return (
     <div className="dark min-h-svh bg-zinc-950 font-mono text-[11px] text-zinc-300">
@@ -841,6 +950,15 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       ) : null}
       <div className="grid min-h-svh grid-cols-2">
         <div className="min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
+          {data.challenges ? (
+            <div className="mb-2">
+              <ChallengesPanel
+                challenges={data.challenges}
+                onClaimChallenge={claimChallengeCb}
+                claimBusy={busy}
+              />
+            </div>
+          ) : null}
           {data.missions ? (
             <DashboardMissionsPanel missions={data.missions} roomExits={data.roomExits} onChanged={onReload} />
           ) : null}
@@ -859,6 +977,9 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           ) : null}
           {busy ? <div className="mb-1 text-[10px] text-ui-muted">Working...</div> : null}
           <InventoryPanel inventory={data.inventory} />
+          <PersonalStoragePanel
+            buckets={data.personalStorage ?? { mine: {}, flora: {}, fauna: {} }}
+          />
           <ShipsPanel ships={data.ships} />
           <PropertiesPanel properties={data.properties} />
           <ClaimsNavPanel claims={data.nav.claims} />

@@ -14,6 +14,7 @@ import copy
 from evennia import create_object, search_object
 
 from typeclasses.characters import CHARACTER_TYPECLASS_PATH, MARCUS_CHARACTER_KEY
+from world.bootstrap_marcus_killstar import ensure_marcus_local_raw_destination
 from typeclasses.flora import FLORA_RESOURCE_CATALOG, FloraSite
 from world.bootstrap_hub import get_hub_room
 from world.bootstrap_mining import _get_or_create_exit
@@ -191,6 +192,7 @@ def bootstrap_marcus_flora():
 
     components = copy.deepcopy(MARCUS_FLORA_COMPONENTS)
     staging = _ensure_staging_and_hub_link()
+    ensure_marcus_local_raw_destination(char)
 
     for grid_cell in _pad_ids():
         cell_room = _ensure_cell_room(staging, grid_cell)
@@ -215,4 +217,5 @@ def bootstrap_marcus_flora():
         else:
             print(f"{LOG_PREFIX} Deploy failed {grid_cell!r}: {msg}")
 
+    ensure_marcus_local_raw_destination(char)
     print(f"{LOG_PREFIX} Bootstrap complete.")

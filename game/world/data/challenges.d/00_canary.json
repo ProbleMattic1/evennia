@@ -1,0 +1,32 @@
+[
+  {
+    "id": "daily.canary_zone_visit",
+    "cadence": "daily",
+    "title": "Canary: Zone Visit",
+    "summary": "[DEV] Visit at least one distinct locator zone today. Used to verify telemetry plumbing.",
+    "predicateKey": "navigation.locator_zone_bingo",
+    "predicateParams": {"min_zones": 1},
+    "rewards": {"challengePoints": 5, "credits": 0, "grantOn": "claim"},
+    "enabled": true
+  },
+  {
+    "id": "daily.canary_vendor_purchase",
+    "cadence": "daily",
+    "title": "Canary: Buy Something",
+    "summary": "[DEV] Make at least one vendor purchase today. Verifies economy hook.",
+    "predicateKey": "economy.vendor_purchase",
+    "predicateParams": {"min_purchases": 1},
+    "rewards": {"challengePoints": 5, "credits": 0, "grantOn": "claim"},
+    "enabled": true
+  },
+  {
+    "id": "weekly.canary_treasury",
+    "cadence": "weekly",
+    "title": "Canary: Treasury Touch",
+    "summary": "[DEV] Trigger at least one treasury credit this week. Verifies treasury hook.",
+    "predicateKey": "economy.treasury_touch",
+    "predicateParams": {"min_touches": 1},
+    "rewards": {"challengePoints": 10, "credits": 0, "grantOn": "claim"},
+    "enabled": true
+  }
+]

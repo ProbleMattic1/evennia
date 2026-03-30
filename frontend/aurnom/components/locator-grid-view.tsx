@@ -28,6 +28,9 @@ type CellProps = TreemapNode &
     roomId?: number;
     playerCount?: number;
     hasMiningSite?: boolean;
+    parcelSummary?: boolean;
+    parcelTier?: number;
+    parcelZone?: string;
   };
 
 function LocatorTreemapCell(props: CellProps) {
@@ -50,6 +53,9 @@ function LocatorTreemapCell(props: CellProps) {
     roomId,
     playerCount = 0,
     hasMiningSite = false,
+    parcelSummary = false,
+    parcelTier,
+    parcelZone,
   } = props;
 
   const isLeaf = !children || children.length === 0;
@@ -91,15 +97,32 @@ function LocatorTreemapCell(props: CellProps) {
 
   const rk = roomKey ?? "";
   const rid = roomId ?? -1;
-  const here = rk && data.currentRoomKey === rk;
-  const canStep = rk ? (adjacentKeys?.has(rk) ?? false) : false;
-  const reachable = reachableIds ? reachableIds.has(rid) : true;
-  const fill = here ? "rgba(69, 26, 3, 0.75)" : districtHeatFill(maxPlayerCount, playerCount);
-  const stroke = here ? "rgb(245, 158, 11)" : canStep ? "rgba(6, 182, 212, 0.55)" : "rgba(63, 63, 70, 0.9)";
+  const here = !parcelSummary && rk && data.currentRoomKey === rk;
+  const canStep = !parcelSummary && rk ? (adjacentKeys?.has(rk) ?? false) : false;
+  const reachable = parcelSummary ? true : reachableIds ? reachableIds.has(rid) : true;
+  const fill = here
+    ? "rgba(69, 26, 3, 0.75)"
+    : parcelSummary
+      ? "rgba(76, 29, 149, 0.32)"
+      : districtHeatFill(maxPlayerCount, playerCount);
+  const stroke = parcelSummary
+    ? "rgba(167, 139, 250, 0.55)"
+    : here
+      ? "rgb(245, 158, 11)"
+      : canStep
+        ? "rgba(6, 182, 212, 0.55)"
+        : "rgba(63, 63, 70, 0.9)";
   const strokeW = here ? 2 : 1;
-  const label = `${rk || name}, ${playerCount} player${playerCount === 1 ? "" : "s"} here`;
+  const tierNote =
+    parcelSummary && (parcelTier != null || parcelZone)
+      ? ` — ${parcelZone ?? "parcel"}${parcelTier != null ? ` · tier ${parcelTier}` : ""}`
+      : "";
+  const label = parcelSummary
+    ? `${name}${tierNote} (anchored to promenade)`
+    : `${rk || name}, ${playerCount} player${playerCount === 1 ? "" : "s"} here`;
 
   const onLeafClick = () => {
+    if (parcelSummary) return;
     if (canStep && !here && rk) onTravelTo(rk);
   };
 
@@ -132,8 +155,8 @@ function LocatorTreemapCell(props: CellProps) {
         data-recharts-item-index={props.tooltipIndex}
         aria-label={label}
         onClick={onLeafClick}
-        onMouseEnter={() => rk && onPrefetchRoom(rk)}
-        style={{ cursor: canStep && !here ? "pointer" : "default" }}
+        onMouseEnter={() => !parcelSummary && rk && onPrefetchRoom(rk)}
+        style={{ cursor: !parcelSummary && canStep && !here ? "pointer" : "default" }}
       />
       {width > 36 && height > 28 ? (
         <foreignObject x={x} y={y} width={width} height={height} pointerEvents="none">
@@ -155,6 +178,9 @@ function LocatorTreemapCell(props: CellProps) {
                   {hasMiningSite ? (
                     <span className="rounded bg-amber-950/80 px-1 text-[7px] text-amber-400">Mine</span>
                   ) : null}
+                  {parcelSummary ? (
+                    <span className="rounded bg-violet-950/80 px-1 text-[7px] text-violet-300">Parcel</span>
+                  ) : null}
                   {canStep && !here ? (
                     <span className="rounded bg-cyan-900/50 px-1 text-[7px] text-cyan-300">Adj</span>
                   ) : null}
@@ -168,7 +194,11 @@ function LocatorTreemapCell(props: CellProps) {
               </div>
               {showBody ? (
                 <div className="mt-auto shrink-0">
-                  {canStep && !here ? (
+                  {parcelSummary ? (
+                    <span className="text-[7px] leading-tight text-violet-200/90">
+                      Hub-anchored titled parcel{rk ? " · shell on map" : ""}
+                    </span>
+                  ) : canStep && !here ? (
                     <button
                       type="button"
                       disabled={travelBusy}
@@ -219,10 +249,15 @@ export function LocatorGridView({
 }: LocatorGridViewProps) {
   const { treemapData, maxPlayerCount, empty } = useMemo(
     () => {
-      const b = buildStationTreemapData(data.rooms, filter, data.venueCatalog ?? []);
+      const b = buildStationTreemapData(
+        data.rooms,
+        filter,
+        data.venueCatalog ?? [],
+        data.locatorParcels,
+      );
       return { treemapData: b.data, maxPlayerCount: b.maxPlayerCount, empty: b.empty };
     },
-    [data.rooms, data.venueCatalog, filter],
+    [data.rooms, data.venueCatalog, data.locatorParcels, filter],
   );
 
   const renderContent = useCallback(
@@ -254,8 +289,9 @@ export function LocatorGridView({
       <p className="mb-2 text-[10px] text-ui-muted">
         Station <span className="text-ui-muted">treemap</span>: rectangle area ≈ relative scale (hub &amp; concourses
         vs industrial pads &amp; claims). Each <span className="text-cyan-400">venue</span> from the server gets its own
-        block for promenade-adjacent rooms; industrial pads split by venue where needed (e.g. plex vs frontier). Color
-        ≈ player density. <span className="text-cyan-400">Travel</span> when adjacent.
+        block for promenade-adjacent rooms; industrial pads split by venue where needed (e.g. plex vs frontier).{" "}
+        <span className="text-violet-300">Titled parcels</span> (per venue) anchor to the hub; color ≈ player density
+        in parcel shells. <span className="text-cyan-400">Travel</span> when adjacent (room leaves only).
       </p>
       {empty ? (
         <div className="flex min-h-[280px] items-center justify-center text-[11px] text-ui-muted">

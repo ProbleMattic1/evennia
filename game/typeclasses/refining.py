@@ -153,6 +153,12 @@ def settle_plant_raw_purchase_from_treasury(
     owner.db.credits = econ.get_balance(miner_acct)
     econ.db.tax_pool = econ.get_balance(treasury_acct)
     econ.record_miner_treasury_payout(total_net, gross=total_gross, fee=total_fee)
+    try:
+        from world.challenges.challenge_signals import emit as _c_emit
+        _c_emit(owner, "miner_payout", {"amount": total_net, "pipeline": raw_pipeline})
+        _c_emit(owner, "mine_deposit" if raw_pipeline == "mining" else f"{raw_pipeline}_deposit", {})
+    except Exception:
+        pass
 
     econ.record_transaction(
         tx_type="plant_raw_intake",
@@ -239,6 +245,7 @@ def execute_refined_payout_from_treasury(
     treasury_fee: int,
     memo_miner: str,
     memo_plant: str,
+    owner=None,
 ) -> None:
     """
     Transfer only — no minting. Treasury must already have been checked >= net + plant_fee.
@@ -265,6 +272,12 @@ def execute_refined_payout_from_treasury(
     econ.db.tax_pool = econ.get_balance(treasury_account)
     if net > 0:
         econ.record_miner_treasury_payout(net, gross=gross, fee=fee)
+        if owner is not None:
+            try:
+                from world.challenges.challenge_signals import emit as _c_emit
+                _c_emit(owner, "miner_payout", {"amount": net, "pipeline": "mining"})
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------

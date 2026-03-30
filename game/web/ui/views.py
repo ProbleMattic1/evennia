@@ -1,6 +1,7 @@
 import json
 from urllib.parse import quote
 
+from django.core.cache import cache
 from django.http import Http404, JsonResponse
 from django.test import RequestFactory
 from django.views.decorators.csrf import csrf_exempt
@@ -619,7 +620,7 @@ def property_claim_detail_state(request):
     from evennia import search_object
 
     from typeclasses.property_claim_market import serialize_property_lot_detail
-    from typeclasses.property_claims import get_property_claim_kind
+    from typeclasses.property_claims import get_property_claim_kind, strip_property_claim_key_prefix
     from typeclasses.property_player_ops import serialize_property_holding_for_web
 
     raw = request.GET.get("claimId")
@@ -669,7 +670,7 @@ def property_claim_detail_state(request):
             "ok": True,
             "claim": {
                 "id": claim.id,
-                "key": claim.key,
+                "key": strip_property_claim_key_prefix(claim.key),
                 "description": desc,
                 "lotKey": getattr(claim.db, "lot_key", None) or "",
                 "lotTier": int(getattr(claim.db, "lot_tier", None) or 1),
@@ -1645,7 +1646,11 @@ def nav_state(request):
             if obj.tags.has("mining_claim", category="mining"):
                 claims_nav.append({"label": obj.key, "href": f"/claims/{obj.id}"})
             if obj.tags.has("property_claim", category="realty"):
-                properties_nav.append({"label": obj.key, "href": f"/properties/{obj.id}"})
+                from typeclasses.property_claims import strip_property_claim_key_prefix
+
+                properties_nav.append(
+                    {"label": strip_property_claim_key_prefix(obj.key), "href": f"/properties/{obj.id}"}
+                )
 
     return JsonResponse(
         {
@@ -1889,6 +1894,7 @@ def real_estate_purchase_random(request):
         return JsonResponse({"ok": False, "message": "Missing zone."}, status=400)
 
     from typeclasses.property_claim_market import purchase_random_property_deed_by_zone
+    from typeclasses.property_claims import strip_property_claim_key_prefix
     from world.venues import VENUES
 
     venue_id = str(body.get("venueId") or body.get("venue_id") or "").strip()
@@ -1904,7 +1910,7 @@ def real_estate_purchase_random(request):
 
     payload = {"ok": True, "message": msg, "dashboard": dash_data}
     if claim:
-        payload["claim"] = {"id": claim.id, "key": claim.key}
+        payload["claim"] = {"id": claim.id, "key": strip_property_claim_key_prefix(claim.key)}
     return JsonResponse(payload)
 
 
@@ -2078,7 +2084,7 @@ def _dashboard_property_portfolio(char):
     sovereign list-price formula as the realty office when db.lot_ref resolves.
     """
     from typeclasses.property_claim_market import lot_listing_price
-    from typeclasses.property_claims import get_property_claim_kind
+    from typeclasses.property_claims import get_property_claim_kind, strip_property_claim_key_prefix
     from typeclasses.property_lot_registry import infer_lot_venue_id
     from world.property_structure_upgrade_registry import (
         holding_has_any_structure_upgrade_offer,
@@ -2121,7 +2127,7 @@ def _dashboard_property_portfolio(char):
         rows.append(
             {
                 "claimId": obj.id,
-                "claimKey": obj.key,
+                "claimKey": strip_property_claim_key_prefix(obj.key),
                 "lotKey": obj.db.lot_key or "",
                 "tier": int(obj.db.lot_tier or 1),
                 "zone": get_property_claim_kind(obj),
@@ -2154,6 +2160,31 @@ def _personal_plant_ore_stored_value_cr(char):
     total = 0.0
     for k, tons in (storage.db.inventory or {}).items():
         total += float(tons) * get_commodity_bid(str(k), location=sloc)
+    return int(round(total))
+
+
+def _local_raw_stored_value_cr(char):
+    """Same as control_surface._local_raw_stored_value_cr; avoid import cycles."""
+    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG, get_fauna_commodity_bid
+    from typeclasses.flora import FLORA_RESOURCE_CATALOG, get_flora_commodity_bid
+    from typeclasses.mining import RESOURCE_CATALOG, get_commodity_bid
+
+    st = getattr(char.db, "local_raw_storage", None) if char else None
+    if not st or not getattr(st, "db", None):
+        return 0
+    sloc = st.location
+    total = 0.0
+    for k, tons in (st.db.inventory or {}).items():
+        kr = str(k)
+        if kr in RESOURCE_CATALOG:
+            bid = int(get_commodity_bid(kr, location=sloc))
+        elif kr in FLORA_RESOURCE_CATALOG:
+            bid = int(get_flora_commodity_bid(kr, location=sloc))
+        elif kr in FAUNA_RESOURCE_CATALOG:
+            bid = int(get_fauna_commodity_bid(kr, location=sloc))
+        else:
+            bid = 0
+        total += float(tons) * bid
     return int(round(total))
 
 
@@ -2206,6 +2237,7 @@ def dashboard_state(request):
                 "miningEstimatedValuePerCycle": 0,
                 "miningTotalStoredValue": 0,
                 "miningPersonalStoredValue": 0,
+                "miningLocalRawStoredValue": 0,
                 "message": None,
                 "alerts": [],
                 "groupedAlerts": empty_alerts,
@@ -2239,6 +2271,7 @@ def dashboard_state(request):
                 "miningEstimatedValuePerCycle": 0,
                 "miningTotalStoredValue": 0,
                 "miningPersonalStoredValue": 0,
+                "miningLocalRawStoredValue": 0,
                 "message": msg,
                 "alerts": alerts,
                 "groupedAlerts": grouped_alerts,
@@ -2250,6 +2283,10 @@ def dashboard_state(request):
     if char.location:
         char.missions.sync_room(char.location)
     missions = char.missions.serialize_for_web()
+
+    char.challenges.sync_all_windows()
+    char.challenges.evaluate_window()
+    challenges_web = char.challenges.serialize_for_web()
 
     credits = econ.get_character_balance(char)
 
@@ -2296,6 +2333,7 @@ def dashboard_state(request):
 
     properties, property_ref_total_cr = _dashboard_property_portfolio(char)
     mining_personal_stored = _personal_plant_ore_stored_value_cr(char)
+    mining_local_raw_stored = _local_raw_stored_value_cr(char)
 
     room_key = char.location.key if char.location else None
     rpg = char.get_rpg_dashboard_snapshot()
@@ -2314,10 +2352,12 @@ def dashboard_state(request):
             "miningEstimatedValuePerCycle": int(round(mining_value_per_cycle)),
             "miningTotalStoredValue": int(round(mining_total_stored)),
             "miningPersonalStoredValue": mining_personal_stored,
+            "miningLocalRawStoredValue": mining_local_raw_stored,
             "message": None,
             "alerts": alerts,
             "groupedAlerts": grouped_alerts,
             "missions": missions,
+            "challenges": challenges_web,
         }
     )
 
@@ -3556,4 +3596,74 @@ def debug_msg_buffer(request):
         "character": char_info,
         "web_msg_buffer_len": buf_len,
         "web_msg_seq": buf_seq,
+    })
+
+
+def challenges_state(request):
+    """
+    GET /ui/challenges — return character's full challenge state.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+    char, err = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse({"ok": False, "message": err or "Character unavailable."}, status=400)
+    char.challenges.sync_all_windows()
+    char.challenges.evaluate_window()
+    return JsonResponse({"ok": True, "challenges": char.challenges.serialize_for_web()})
+
+
+@csrf_exempt
+@require_POST
+def challenges_claim(request):
+    """
+    POST /ui/challenges/claim — claim rewards for a completed challenge (body: challengeId, windowKey).
+    Amounts are taken only from the server template, never from the client.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."},
+            status=401,
+        )
+
+    if not cache.add(f"challenge_claim:{request.user.id}", 1, timeout=2):
+        return JsonResponse(
+            {"ok": False, "code": "RATE_LIMIT", "message": "Too many requests; try again shortly."},
+            status=429,
+        )
+
+    body = _json_body(request)
+    challenge_id = str(body.get("challengeId") or "").strip()
+    window_key = str(body.get("windowKey") or "").strip()
+    if not challenge_id or not window_key:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing challengeId or windowKey."},
+            status=400,
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        ok, result_msg = char.challenges.mark_claimed(challenge_id, window_key)
+    except Exception as exc:
+        return JsonResponse(
+            {"ok": False, "code": "CHALLENGE_CLAIM_FAILED", "message": f"Could not claim challenge: {exc}"},
+            status=500,
+        )
+
+    if not ok:
+        return JsonResponse(
+            {"ok": False, "code": "CHALLENGE_CLAIM_REJECTED", "message": result_msg or "Challenge claim rejected."},
+            status=400,
+        )
+
+    return JsonResponse({
+        "ok": True,
+        "message": result_msg,
+        "challenges": char.challenges.serialize_for_web(),
     })

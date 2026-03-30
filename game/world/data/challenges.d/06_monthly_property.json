@@ -1,0 +1,52 @@
+[
+  {
+    "id": "monthly.portfolio_two_zones",
+    "cadence": "monthly",
+    "title": "Diversified Portfolio",
+    "summary": "Own property holdings in at least two distinct zones this month.",
+    "predicateKey": "property.portfolio_two_zones",
+    "predicateParams": {"min_zones": 2},
+    "rewards": {},
+    "enabled": true
+  },
+  {
+    "id": "monthly.two_operation_kinds",
+    "cadence": "monthly",
+    "title": "Mixed Income",
+    "summary": "Run two different operation types across your holdings this month.",
+    "predicateKey": "property.two_operation_kinds",
+    "predicateParams": {"min_kinds": 2},
+    "rewards": {},
+    "enabled": true
+  },
+  {
+    "id": "monthly.development_not_idle",
+    "cadence": "monthly",
+    "title": "Active Development",
+    "summary": "Have at least one holding move beyond idle development state.",
+    "predicateKey": "property.development_not_idle",
+    "predicateParams": {},
+    "rewards": {},
+    "enabled": true
+  },
+  {
+    "id": "monthly.operation_level",
+    "cadence": "monthly",
+    "title": "Leveled Up",
+    "summary": "Reach operation level 1 or higher on a holding.",
+    "predicateKey": "property.operation_level",
+    "predicateParams": {"min_level": 1},
+    "rewards": {},
+    "enabled": true
+  },
+  {
+    "id": "monthly.tax_contribution",
+    "cadence": "monthly",
+    "title": "Civic Duty",
+    "summary": "Contribute at least 100 cr to the treasury through taxes this month.",
+    "predicateKey": "economy.tax_contribution",
+    "predicateParams": {"min_tax": 100},
+    "rewards": {},
+    "enabled": true
+  }
+]

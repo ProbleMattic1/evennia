@@ -77,6 +77,11 @@ def start_property_operation_for_owner(owner, holding, *, kind_explicit: str | N
         return False, err
 
     start_operation(holding, kind=kind)
+    try:
+        from world.challenges.challenge_signals import emit
+        emit(owner, "property_operation_started", {"holding_id": holding.id, "kind": kind})
+    except Exception:
+        pass
     return True, f"Started {kind} income for your {normalized_zone(holding)} parcel."
 
 

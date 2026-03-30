@@ -10,6 +10,7 @@ from .objects import Object
 
 PROPERTY_HOLDING_TAG = "property_holding"
 PROPERTY_HOLDING_CATEGORY = "realty"
+PROPERTY_HOLDING_TYPECLASS_PATH = "typeclasses.property_holdings.PropertyHolding"
 
 
 class PropertyHolding(Object):

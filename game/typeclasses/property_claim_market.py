@@ -8,10 +8,7 @@ import random
 
 from evennia import create_object, search_object
 
-from typeclasses.property_claims import (
-    CLAIM_TITLE_PREFIX_BY_ZONE,
-    CLAIM_TYPECLASS_BY_ZONE,
-)
+from typeclasses.property_claims import CLAIM_TYPECLASS_BY_ZONE, strip_property_claim_key_prefix
 from typeclasses.property_development import ensure_holding_for_claimed_lot
 from typeclasses.property_lot_registry import (
     get_listable_lots_from_registry,
@@ -316,15 +313,14 @@ def create_property_claim_for_lot(lot, owner):
         zone = "residential"
         tc_path = CLAIM_TYPECLASS_BY_ZONE["residential"]
 
-    prefix = CLAIM_TITLE_PREFIX_BY_ZONE.get(zone, "Property claim")
-    stem   = f"{prefix}: {lot.key}"
+    stem = str(lot.key)
     claim = create_object(
         tc_path,
         key=stem,
         location=owner,
         home=owner,
     )
-    claim.key         = f"{stem} #{claim.id}"
+    claim.key = f"{stem} #{claim.id}"
     claim.db.lot_ref  = lot
     claim.db.lot_key  = lot.key
     claim.db.lot_tier = int(lot.db.lot_tier or 1)
@@ -400,7 +396,14 @@ def purchase_property_deed(buyer, lot_key):
     ensure_holding_for_claimed_lot(lot, buyer)
     unregister_listable_property_lot(lot)
     move_lot_to_claimed_archive(lot)
-    msg = f"Purchased {claim.key} for {price:,} cr."
+    try:
+        from world.challenges.challenge_signals import emit as _c_emit
+        _c_emit(buyer, "deed_purchased", {"lot_key": lot.key, "price": price})
+        if tax_amount:
+            _c_emit(buyer, "treasury_credit", {"amount": tax_amount})
+    except Exception:
+        pass
+    msg = f"Purchased {strip_property_claim_key_prefix(claim.key)} for {price:,} cr."
     return True, msg, claim
 
 
@@ -439,7 +442,7 @@ def grant_primary_property_deed(lot, grantee):
         if lot.db.owner == grantee:
             claim = _find_existing_claim_for_lot(lot)
             if claim:
-                return True, f"{claim.key} already granted to {grantee.key}.", claim
+                return True, f"{strip_property_claim_key_prefix(claim.key)} already granted to {grantee.key}.", claim
         return False, f"Lot '{lot.key}' is already claimed by someone else.", None
 
     claim = create_property_claim_for_lot(lot, grantee)
@@ -448,7 +451,7 @@ def grant_primary_property_deed(lot, grantee):
     ensure_holding_for_claimed_lot(lot, grantee)
     unregister_listable_property_lot(lot)
     move_lot_to_claimed_archive(lot)
-    return True, f"Granted {claim.key} to {grantee.key}.", claim
+    return True, f"Granted {strip_property_claim_key_prefix(claim.key)} to {grantee.key}.", claim
 
 
 def purchase_random_property_deed_by_zone(buyer, zone, venue_id="nanomega_core"):

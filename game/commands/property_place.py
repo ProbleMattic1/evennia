@@ -73,6 +73,11 @@ class CmdVisitProperty(Command):
             return
         caller.move_to(room, quiet=True)
         caller.msg(f"You step onto |w{room.key}|n.")
+        try:
+            from world.challenges.challenge_signals import emit
+            emit(caller, "parcel_visited", {"holding_id": holding.id})
+        except Exception:
+            pass
 
 
 class CmdOpenProperty(Command):

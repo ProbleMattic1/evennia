@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { ActionGrid } from "@/components/action-grid";
 import { MissionBoard } from "@/components/mission-board";
+import { PanelExpandButton } from "@/components/panel-expand-button";
 import { useControlSurface } from "@/components/control-surface-provider";
 import type { MineRigRow, MineSiteDetails, MissionsState, PlayAction } from "@/lib/ui-api";
 import {
@@ -72,7 +73,7 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** Same expand/collapse control as dashboard `Panel` (session-backed ▴/▸). */
+/** Same expand/collapse control as dashboard `Panel` (`PanelExpandButton`). */
 function MineDetailSectionCard({
   panelKey,
   title,
@@ -87,16 +88,14 @@ function MineDetailSectionCard({
   const [open, setOpen] = useDashboardPanelOpen(panelKey, true);
   return (
     <section className="mb-1">
-      <div className="flex min-w-0 items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-cyan-300">
-        <span className={`min-w-0 truncate ${uppercaseTitle ? "uppercase" : "normal-case"}`}>{title}</span>
-        <button
-          type="button"
+      <div className="flex min-w-0 items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold tracking-widest">
+        <span className={`min-w-0 truncate text-cyan-300 ${uppercaseTitle ? "uppercase" : "normal-case"}`}>{title}</span>
+        <PanelExpandButton
+          open={open}
           onClick={() => setOpen((v) => !v)}
           aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
-          className="ml-auto px-1 text-cyan-400 hover:text-cyan-300"
-        >
-          {open ? "▴" : "▸"}
-        </button>
+          className="ml-auto shrink-0"
+        />
       </div>
       {open ? (
         <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">

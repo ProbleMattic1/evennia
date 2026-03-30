@@ -13,6 +13,7 @@ import copy
 from evennia import create_object, search_object
 
 from typeclasses.characters import CHARACTER_TYPECLASS_PATH, MARCUS_CHARACTER_KEY
+from world.bootstrap_marcus_killstar import ensure_marcus_local_raw_destination
 from typeclasses.mining import RESOURCE_CATALOG
 from typeclasses.packages import _deploy_components_at_site
 from world.bootstrap_hub import get_hub_room
@@ -178,6 +179,7 @@ def bootstrap_marcus_mines():
         return
 
     staging = _ensure_staging_and_hub_link()
+    ensure_marcus_local_raw_destination(char)
 
     for grid_cell in _pad_ids():
         cell_room = _ensure_cell_room(staging, grid_cell)
@@ -202,4 +204,5 @@ def bootstrap_marcus_mines():
         else:
             print(f"{LOG_PREFIX} Deploy failed {grid_cell!r}: {msg}")
 
+    ensure_marcus_local_raw_destination(char)
     print(f"{LOG_PREFIX} Bootstrap complete.")

@@ -1,8 +1,11 @@
 """
 Locator district ids for the Universal Locator (web UI).
 
-Single source of truth: world.venues.VENUES. Non-venue pockets (Industrial Resource
-Colony grid, Killstar) use key patterns only where bootstrap does not set venue_id.
+Single source of truth: world.venues.VENUES (hubs, banks, plants, shops, industrial
+resource_bio, etc.). Key-pattern fallbacks cover rooms that often omit venue_id
+(Industrial Resource Colony / Ashfall contractor grid, Marcus Killstar mining and
+flora/fauna stacks — see bootstrap_marcus_*.py, bootstrap_npc_industrial_miners.py),
+plus Low Meridian Orbit (bootstrap_vehicle_demo.py).
 """
 
 from __future__ import annotations
@@ -40,8 +43,20 @@ def locator_zone_for_room(room, *, has_mining_site: bool) -> str:
         or k.startswith("Industrial Resource Colony Fauna Pad ")
     ):
         return "industrial-colony"
-    if k == "Marcus Killstar Mining Annex" or k.startswith("Marcus Killstar Pad "):
+    # Marcus Killstar stack (mining + flora/fauna annexes; rooms often omit venue_id)
+    # Keys from bootstrap_marcus_mines.py, bootstrap_marcus_flora.py, bootstrap_marcus_fauna.py
+    if (
+        k == "Marcus Killstar Mining Annex"
+        or k in ("Marcus Killstar Flora Annex", "Marcus Killstar Fauna Annex")
+        or k.startswith("Marcus Killstar Pad ")
+        or k.startswith("Marcus Killstar Flora Pad ")
+        or k.startswith("Marcus Killstar Fauna Pad ")
+    ):
         return "killstar-annex"
+
+    # bootstrap_vehicle_demo.py — orbital sandbox linked to Meridian hangar flow
+    if k == "Low Meridian Orbit":
+        return "meridian-shipping"
 
     if has_mining_site:
         return "field-extraction"
@@ -73,6 +88,10 @@ def _zone_from_venue_room(vid: str, k: str) -> str | None:
     ind = v["industrial"]
     rc = ind.get("resource_bio")
     if rc:
+        flora_plants = rc.get("flora_plant_keys") or ()
+        fauna_plants = rc.get("fauna_plant_keys") or ()
+        if k in tuple(flora_plants) + tuple(fauna_plants):
+            return "core-services"
         if k in (rc["flora_staging_room_key"], rc["fauna_staging_room_key"]):
             return "plex-industrial"
         fp = str(rc["flora_pad_prefix"])

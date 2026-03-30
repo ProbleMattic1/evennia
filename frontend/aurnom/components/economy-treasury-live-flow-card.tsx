@@ -3,11 +3,7 @@
 import { useReducedMotion } from "motion/react";
 
 import type { ControlSurfaceState } from "@/lib/control-surface-api";
-import {
-  miningCycleProgress,
-  miningPeriodSeconds,
-  treasuryMiningSlotElapsedSec,
-} from "@/lib/economy-dashboard-derive";
+import { treasuryMiningSlotElapsedSec } from "@/lib/economy-dashboard-derive";
 import { EconomyStatCard } from "@/components/economy-stat-card";
 import { useOdometerInt } from "@/lib/use-odometer-value";
 import { useServerAnchoredTimeMs } from "@/lib/use-server-anchored-time";
@@ -51,32 +47,9 @@ function formatPositiveRate(crPerSec: number) {
   return `${(crPerSec * 100).toFixed(1)} ¢/s`;
 }
 
-function SlotRing({ progress }: { progress: number }) {
-  const pct = Math.round(progress * 100);
-  return (
-    <div
-      className="relative size-20 shrink-0 rounded-full border border-red-900/50"
-      style={{
-        background: `conic-gradient(rgb(248 113 113) ${pct}%, rgb(39 39 42) 0)`,
-      }}
-      role="progressbar"
-      aria-valuenow={pct}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label="Mining slot elapsed"
-    >
-      <div className="absolute inset-1.5 flex items-center justify-center rounded-full bg-zinc-950 text-[9px] text-red-300">
-        {pct}%
-      </div>
-    </div>
-  );
-}
-
 export function EconomyTreasuryLiveFlowCard({ data }: { data: ControlSurfaceState }) {
   const reduceMotion = useReducedMotion();
   const nowMs = useServerAnchoredTimeMs(data.serverTimeIso);
-  const period = miningPeriodSeconds(data);
-  const progress = miningCycleProgress(nowMs, data.miningNextCycleAt, period);
   const nextShort = formatBoundaryShort(data.miningNextCycleAt);
 
   const net = data.minerSettlementThisSlotNetCr ?? 0;
@@ -108,34 +81,32 @@ export function EconomyTreasuryLiveFlowCard({ data }: { data: ControlSurfaceStat
         ) : null
       }
     >
-      <div className="flex items-start gap-3">
-        <SlotRing progress={progress} />
-        <div className="min-w-0 flex-1">
-          <p className="text-[8px] uppercase tracking-wide text-ui-soft">Net to miners (gross − fees)</p>
-          <p
-            className="mt-0.5 truncate font-mono text-base font-semibold tabular-nums text-red-600 dark:text-red-400"
-            title="Treasury outflow this slot"
-          >
-            {formatOutflowCr(displayNet)}
-          </p>
-          <p className="mt-2 text-[9px] leading-relaxed text-ui-soft">
-            <span className="text-cyan-600/90 dark:text-cyan-400/90">Ore / settlement gross</span>{" "}
-            <span className="font-mono tabular-nums text-cyan-600 dark:text-cyan-400">
-              {formatPositiveCr(displayGross)}
-            </span>
-            <br />
-            <span className="text-red-600 dark:text-red-400">Fees retained</span>{" "}
-            <span className="font-mono tabular-nums text-red-600 dark:text-red-400">
-              {formatOutflowCr(displayFees)}
-            </span>
-          </p>
-          <p className="mt-1.5 text-[8px] text-ui-muted">
+      <div className="min-w-0">
+        <p className="text-[8px] uppercase tracking-wide text-ui-soft">Net to miners (gross − fees)</p>
+        <p
+          className="mt-0.5 truncate font-mono text-base font-semibold tabular-nums text-red-600 dark:text-red-400"
+          title="Treasury outflow this slot"
+        >
+          {formatOutflowCr(displayNet)}
+        </p>
+        <p className="mt-2 text-[9px] leading-relaxed text-ui-soft">
+          <span className="text-cyan-600/90 dark:text-cyan-400/90">Ore / settlement gross</span>{" "}
+          <span className="font-mono tabular-nums text-cyan-600 dark:text-cyan-400">
+            {formatPositiveCr(displayGross)}
+          </span>
+          <span className="text-ui-muted"> · </span>
+          <span className="text-red-600 dark:text-red-400">Fees retained</span>{" "}
+          <span className="font-mono tabular-nums text-red-600 dark:text-red-400">
+            {formatOutflowCr(displayFees)}
+          </span>
+          <span className="text-ui-muted"> · </span>
+          <span className="text-ui-muted">
             Check: gross − fees = {formatPositiveCr(derivedNet)}
             {derivedNet !== net ? (
               <span className="text-amber-600 dark:text-amber-500"> · ledger net {formatPositiveCr(net)}</span>
             ) : null}
-          </p>
-        </div>
+          </span>
+        </p>
       </div>
       <div className="mt-3 border-t border-cyan-950/60 pt-2">
         <p className="text-[8px] uppercase tracking-wider text-ui-muted">Avg rate this slot (live clock)</p>

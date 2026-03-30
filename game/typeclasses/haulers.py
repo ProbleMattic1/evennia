@@ -15,9 +15,11 @@ arm_hauler_pickup_after_mining_deposit / arm_hauler_pickup_after_flora_deposit /
 arm_hauler_pickup_after_fauna_deposit arm haulers tagged autonomous_hauler in category
 mining / flora / fauna respectively.
 
-At the processing plant, haulers unload into the shared Ore Receiving Bay; the treasury
-pays the hauler owner (plant raw purchase). Assigned plant silos are fed only via
-feedprocessor / feedrefinery silo paths, not by autonomous hauler unload.
+At the processing plant, haulers normally unload into the shared Ore Receiving Bay; the treasury
+pays the hauler owner (plant raw purchase). Owners with db.haul_delivers_to_local_raw_storage
+instead unload into local raw reserve (tag local_raw_ore_storage) in db.haul_destination_room;
+no treasury payout on that move. Assigned plant silos are fed via feedprocessor / feedrefinery
+silo paths, not by the default autonomous hauler unload.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -57,6 +59,9 @@ HAULER_PICKUP_OFFSET_SEC = MINING_DELIVERY_PERIOD // 2
 # not mixed into pooled plant input until then.
 PLANT_PLAYER_STORAGE_TAG = "plant_player_ore_storage"
 PLANT_PLAYER_STORAGE_CATEGORY = "mining"
+
+LOCAL_RAW_STORAGE_TAG = "local_raw_ore_storage"
+LOCAL_RAW_STORAGE_CATEGORY = "mining"
 
 
 def _now():
@@ -292,6 +297,42 @@ def get_plant_player_storage(room, owner):
     return None
 
 
+def get_local_raw_storage(room, owner):
+    if not room or not owner:
+        return None
+    for obj in room.contents:
+        if not obj.tags.has(LOCAL_RAW_STORAGE_TAG, category=LOCAL_RAW_STORAGE_CATEGORY):
+            continue
+        if getattr(obj.db, "owner", None) == owner:
+            return obj
+    return None
+
+
+def ensure_local_raw_storage(room, owner, *, capacity_tons=500_000.0):
+    """Marcus-style local raw reserve: one MiningStorage per owner in the given room."""
+    from evennia import create_object
+
+    from typeclasses.mining import MiningStorage
+
+    existing = get_local_raw_storage(room, owner)
+    if existing:
+        return existing
+    st = create_object(
+        MiningStorage,
+        key=f"{owner.key} Local Raw Reserve",
+        location=room,
+        home=room,
+    )
+    st.db.owner = owner
+    st.db.site = None
+    st.db.capacity_tons = float(capacity_tons)
+    st.db.inventory = st.db.inventory or {}
+    st.tags.add(LOCAL_RAW_STORAGE_TAG, category=LOCAL_RAW_STORAGE_CATEGORY)
+    st.tags.add("mining_storage", category="mining")
+    st.locks.add("get:false()")
+    return st
+
+
 def get_or_create_plant_player_storage(room, owner):
     """Create a tagged MiningStorage for this owner in room on first haul delivery."""
     from evennia import create_object
@@ -319,7 +360,8 @@ def get_or_create_plant_player_storage(room, owner):
 def get_player_destination_storage(room, owner):
     """
     Player-assigned plant silo in this room (e.g. feedprocessor / feedrefinery silo path).
-    Autonomous haulers unload to Ore Receiving Bay, not this storage.
+    Default autonomous haulers unload to Ore Receiving Bay; owners with
+    haul_delivers_to_local_raw_storage use local raw reserve instead.
     Prefers tagged plant silo; else any mining_storage with same owner; else creates silo.
     """
     if not room or not owner:
@@ -391,14 +433,14 @@ def hauler_process_one(hauler):
 
     owner = hauler.db.hauler_owner
     mine_ref = hauler.db.hauler_mine_room
-    refinery_ref = hauler.db.hauler_refinery_room
+    dest_ref = getattr(hauler.db, "hauler_destination_room", None) or hauler.db.hauler_refinery_room
     state = (hauler.db.hauler_state or "at_mine").strip().lower()
 
     mine_room = resolve_room(mine_ref)
-    refinery_room = resolve_room(refinery_ref)
+    dest_room = resolve_room(dest_ref)
 
-    if not mine_room or not refinery_room:
-        return False, "Hauler route invalid (mine or refinery room not found)."
+    if not mine_room or not dest_room:
+        return False, "Hauler route invalid (mine or destination room not found)."
 
     if not owner:
         return False, "Hauler has no owner."
@@ -479,26 +521,67 @@ def hauler_process_one(hauler):
             return True, load_fail_msg
         hauler.db.hauler_state = "transit_refinery"
         parts = [f"{catalog.get(k, {}).get('name', k)}: {v}t" for k, v in loaded.items()]
-        return True, f"Loaded {', '.join(parts)}. En route to refinery."
+        return True, f"Loaded {', '.join(parts)}. En route to {dest_room.key}."
 
-    # ---- Transit to refinery ----
+    # ---- Transit to destination ----
     if state == "transit_refinery":
-        hauler.move_to(refinery_room, quiet=True, move_hooks=False)
+        hauler.move_to(dest_room, quiet=True, move_hooks=False)
         hauler.db.hauler_state = "unloading"
-        return True, f"Arrived at {refinery_room.key}. Unloading."
+        return True, f"Arrived at {dest_room.key}. Unloading."
 
-    # ---- At destination: Ore Receiving Bay + treasury purchase from hauler owner ----
+    # ---- At destination: local raw reserve OR Ore Receiving Bay + treasury ------------
     if state == "unloading":
-        if loc != refinery_room:
-            hauler.move_to(refinery_room, quiet=True, move_hooks=False)
-            loc = refinery_room
+        if loc != dest_room:
+            hauler.move_to(dest_room, quiet=True, move_hooks=False)
+            loc = dest_room
         cargo = hauler.db.cargo or {}
         if not cargo:
             hauler.db.hauler_state = "transit_mine"
             set_hauler_next_cycle(hauler)
             return True, "Cargo empty — returning to mine."
 
-        bay = get_plant_ore_receiving_bay(refinery_room)
+        use_local = bool(getattr(owner.db, "haul_delivers_to_local_raw_storage", False))
+        if use_local:
+            target = ensure_local_raw_storage(dest_room, owner)
+            cap_tgt = float(getattr(target.db, "capacity_tons", 0) or 0)
+            delivered = {}
+            for key, tons in list(cargo.items()):
+                t = float(tons)
+                if t <= 0:
+                    continue
+                space = max(0.0, cap_tgt - target.total_mass())
+                add = round(min(t, space), 2)
+                if add <= 0:
+                    continue
+                removed = hauler.unload_cargo(key, add)
+                if removed <= 0:
+                    continue
+                inv = target.db.inventory or {}
+                inv[key] = round(float(inv.get(key, 0)) + removed, 2)
+                target.db.inventory = inv
+                delivered[key] = round(float(delivered.get(key, 0)) + removed, 2)
+
+            if not delivered:
+                hauler.db.hauler_state = "transit_mine"
+                set_hauler_next_cycle(hauler)
+                return True, "Local raw reserve full — could not unload. Returning to mine."
+
+            hauler.db.hauler_state = "transit_mine"
+            set_hauler_next_cycle(hauler)
+            owner.db.local_raw_storage = target
+            try:
+                from world.challenges.challenge_signals import emit as _c_emit
+                from world.locator_zones import locator_zone_for_room
+
+                mine_zone = locator_zone_for_room(mine_room, has_mining_site=True)
+                _c_emit(owner, "hauler_tick", {"mine_zone": mine_zone, "pipeline": pipeline})
+            except Exception:
+                pass
+            return True, (
+                f"Unloaded to {target.key} ({sum(delivered.values()):.1f} t). Returning to mine."
+            )
+
+        bay = get_plant_ore_receiving_bay(dest_room)
         if not bay:
             hauler.db.hauler_state = "transit_mine"
             set_hauler_next_cycle(hauler)
@@ -533,7 +616,7 @@ def hauler_process_one(hauler):
         try:
             total_net = settle_plant_raw_purchase_from_treasury(
                 owner,
-                refinery_room,
+                dest_room,
                 delivered,
                 raw_pipeline=pipeline,
                 memo=f"Plant raw intake ({hauler.key})",
@@ -548,6 +631,13 @@ def hauler_process_one(hauler):
 
         hauler.db.hauler_state = "transit_mine"
         set_hauler_next_cycle(hauler)
+        try:
+            from world.challenges.challenge_signals import emit as _c_emit
+            from world.locator_zones import locator_zone_for_room
+            mine_zone = locator_zone_for_room(mine_room, has_mining_site=True)
+            _c_emit(owner, "hauler_tick", {"mine_zone": mine_zone, "pipeline": pipeline})
+        except Exception:
+            pass
         return True, (
             f"Unloaded at {bay.key} ({sum(delivered.values()):.1f} t); "
             f"paid {owner.key} {total_net:,} cr net. Returning to mine."

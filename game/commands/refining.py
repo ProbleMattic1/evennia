@@ -710,6 +710,7 @@ class CmdCollectRefined(Command):
                 treasury_fee=bd["treasury_fee"],
                 memo_miner=f"Refined output collection at {ref.key}",
                 memo_plant=f"Plant fee share from {caller.key} at {ref.key}",
+                owner=caller,
             )
         except Exception:
             restore_miner_output_for_payout(ref, str(caller.id), products)

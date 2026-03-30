@@ -1,0 +1,59 @@
+[
+  {
+    "id": "daily.locator_zone_bingo",
+    "cadence": "daily",
+    "title": "Zone Hopper",
+    "summary": "Visit at least 3 distinct locator zones today.",
+    "predicateKey": "navigation.locator_zone_bingo",
+    "predicateParams": {"min_zones": 3},
+    "rewards": {},
+    "requiresTelemetry": ["zones_today"],
+    "enabled": true
+  },
+  {
+    "id": "daily.arrival_zone_visit",
+    "cadence": "daily",
+    "title": "Through the Gate",
+    "summary": "Pass through an arrival zone today.",
+    "predicateKey": "navigation.arrival_zone_visit",
+    "predicateParams": {},
+    "rewards": {},
+    "requiresTelemetry": ["zones_today"],
+    "enabled": true
+  },
+  {
+    "id": "daily.venue_tour",
+    "cadence": "daily",
+    "title": "Grand Tour",
+    "summary": "Visit a hub, a service area, and a retail shop in the same day.",
+    "predicateKey": "navigation.venue_tour",
+    "predicateParams": {
+      "require_zones": ["core-hub", "core-services", "core-retail"]
+    },
+    "rewards": {},
+    "requiresTelemetry": ["zones_today"],
+    "enabled": true
+  },
+  {
+    "id": "daily.monday_inventory",
+    "cadence": "daily",
+    "title": "Monday: Take Stock",
+    "summary": "Monday theme — ensure you have at least one item in your inventory.",
+    "predicateKey": "navigation.monday_inventory",
+    "predicateParams": {"min_items": 1},
+    "rewards": {},
+    "weekdayOnly": 0,
+    "enabled": true
+  },
+  {
+    "id": "daily.thursday_social",
+    "cadence": "daily",
+    "title": "Thursday: Make a Deal",
+    "summary": "Thursday theme — complete a deed market action or trade interaction.",
+    "predicateKey": "navigation.thursday_social",
+    "predicateParams": {},
+    "rewards": {},
+    "weekdayOnly": 3,
+    "enabled": true
+  }
+]

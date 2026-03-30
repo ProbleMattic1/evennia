@@ -5,7 +5,11 @@ Secondary market for property claim deeds (list / browse / buy), per venue hub e
 from evennia import create_script, search_object, search_script
 
 from typeclasses.economy import get_economy
-from typeclasses.property_claims import PROPERTY_CLAIM_CATEGORY, PROPERTY_CLAIM_TAG
+from typeclasses.property_claims import (
+    PROPERTY_CLAIM_CATEGORY,
+    PROPERTY_CLAIM_TAG,
+    strip_property_claim_key_prefix,
+)
 from typeclasses.property_deed_listings import PropertyDeedListingsScript
 from typeclasses.property_title_sync import sync_property_title_from_deed_location
 from world.venue_resolve import hub_room_for_venue, venue_id_for_object
@@ -81,7 +85,12 @@ def list_property_deed_for_sale(seller, claim_id, price):
     from world.station_services.contracts import try_complete_contract
 
     try_complete_contract(seller, "list_property_deed", venue_id=vid)
-    return True, f"{claim.key} listed for {price:,} cr."
+    try:
+        from world.challenges.challenge_signals import emit as _c_emit
+        _c_emit(seller, "deed_listed", {"claim_id": cid, "price": price})
+    except Exception:
+        pass
+    return True, f"{strip_property_claim_key_prefix(claim.key)} listed for {price:,} cr."
 
 
 def _deed_listings_for_venue(venue_id: str):
@@ -117,7 +126,7 @@ def _deed_listings_for_venue(venue_id: str):
         result.append(
             {
                 "claimId": cid,
-                "key": claim.key,
+                "key": strip_property_claim_key_prefix(claim.key),
                 "lotKey": getattr(claim.db, "lot_key", None) or "",
                 "kind": get_property_claim_kind(claim),
                 "price": int(price),
@@ -218,4 +227,10 @@ def buy_listed_property_deed(buyer, claim_id):
     claim.move_to(buyer)
     script.db.listings = [e for e in listings if e.get("claim_id") != cid]
     sync_property_title_from_deed_location(claim)
-    return True, f"You bought {claim.key} for {price:,} cr."
+    try:
+        from world.challenges.challenge_signals import emit as _c_emit
+        _c_emit(buyer, "deed_purchased", {"claim_id": cid, "price": price})
+        _c_emit(seller, "deed_sold", {"claim_id": cid, "price": price})
+    except Exception:
+        pass
+    return True, f"You bought {strip_property_claim_key_prefix(claim.key)} for {price:,} cr."

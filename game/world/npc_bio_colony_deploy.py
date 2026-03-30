@@ -101,6 +101,9 @@ def deploy_flora_colony_site(owner, site, site_room, components: list, plant_roo
 
     hauler.db.hauler_mine_room = site_room
     hauler.db.hauler_refinery_room = refinery_room
+    hdr = getattr(owner.db, "haul_destination_room", None)
+    if hdr:
+        hauler.db.hauler_destination_room = hdr
     hauler.db.hauler_state = "at_mine"
     set_hauler_next_cycle(hauler)
 
@@ -196,6 +199,9 @@ def deploy_fauna_colony_site(owner, site, site_room, components: list, plant_roo
 
     hauler.db.hauler_mine_room = site_room
     hauler.db.hauler_refinery_room = refinery_room
+    hdr = getattr(owner.db, "haul_destination_room", None)
+    if hdr:
+        hauler.db.hauler_destination_room = hdr
     hauler.db.hauler_state = "at_mine"
     set_hauler_next_cycle(hauler)
 

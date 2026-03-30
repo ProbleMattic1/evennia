@@ -86,11 +86,23 @@ CLAIM_TYPECLASS_BY_ZONE = {
     "industrial":  "typeclasses.property_claims.IndustrialPropertyClaim",
 }
 
-CLAIM_TITLE_PREFIX_BY_ZONE = {
-    "residential": "Residential claim",
-    "commercial":  "Commercial claim",
-    "industrial":  "Industrial claim",
-}
+# Legacy deed keys were "Commercial claim: <lot> #id" etc.; strip for display and new keys omit these.
+_PROPERTY_CLAIM_KEY_PREFIXES = (
+    "Commercial claim: ",
+    "Industrial claim: ",
+    "Residential claim: ",
+    "Property claim: ",
+)
+
+
+def strip_property_claim_key_prefix(key: str | None) -> str:
+    """Return deed title without legacy zone prefix (zone is shown separately in the UI)."""
+    if not key:
+        return ""
+    for p in _PROPERTY_CLAIM_KEY_PREFIXES:
+        if key.startswith(p):
+            return key[len(p) :]
+    return str(key)
 
 
 def get_property_claim_kind(obj):
