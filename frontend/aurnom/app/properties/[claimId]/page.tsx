@@ -431,25 +431,25 @@ export default function PropertyClaimDetailPage() {
             <dl className="mt-2 grid gap-1 text-sm">
               <div className="flex justify-between gap-2">
                 <dt className="text-ui-muted">Kind</dt>
-                <dd className="font-mono text-zinc-800 dark:text-zinc-200">
+                <dd className="font-mono text-zinc-800 dark:text-foreground">
                   {KIND_LABEL[claim.kind] ?? claim.kind}
                 </dd>
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-ui-muted">Parcel</dt>
-                <dd className="font-mono text-zinc-800 dark:text-zinc-200">{claim.lotKey || "—"}</dd>
+                <dd className="font-mono text-zinc-800 dark:text-foreground">{claim.lotKey || "—"}</dd>
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-ui-muted">Tier (on deed)</dt>
-                <dd className="font-mono text-zinc-800 dark:text-zinc-200">{claim.lotTier}</dd>
+                <dd className="font-mono text-zinc-800 dark:text-foreground">{claim.lotTier}</dd>
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-ui-muted">Object ID</dt>
-                <dd className="font-mono text-zinc-800 dark:text-zinc-200">#{claim.id}</dd>
+                <dd className="font-mono text-zinc-800 dark:text-foreground">#{claim.id}</dd>
               </div>
             </dl>
             {holding ? (
-              <p className="mt-3 border-t border-cyan-900/40 pt-2 text-[11px] text-ui-muted">
+              <p className="mt-3 border-t border-cyan-900/40 pt-2 text-xs text-ui-muted">
                 In-game <span className="font-mono">give</span> to another character charges{" "}
                 <span className="font-mono tabular-nums">
                   {holding.deedTransferFeeCr.toLocaleString()} cr
@@ -471,57 +471,57 @@ export default function PropertyClaimDetailPage() {
               <dl className="mt-2 grid gap-1 text-sm">
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Lot</dt>
-                  <dd className="font-mono text-zinc-800 dark:text-zinc-200">{lot.lotKey}</dd>
+                  <dd className="font-mono text-zinc-800 dark:text-foreground">{lot.lotKey}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Zone</dt>
-                  <dd className="text-zinc-800 dark:text-zinc-200">{lot.zoneLabel}</dd>
+                  <dd className="text-zinc-800 dark:text-foreground">{lot.zoneLabel}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Tier</dt>
-                  <dd className="font-mono text-zinc-800 dark:text-zinc-200">
+                  <dd className="font-mono text-zinc-800 dark:text-foreground">
                     {lot.tierLabel} ({lot.tier})
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Size (units)</dt>
-                  <dd className="font-mono text-zinc-800 dark:text-zinc-200">{lot.sizeUnits}</dd>
+                  <dd className="font-mono text-zinc-800 dark:text-foreground">{lot.sizeUnits}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Claimed</dt>
-                  <dd className="font-mono text-zinc-800 dark:text-zinc-200">
+                  <dd className="font-mono text-zinc-800 dark:text-foreground">
                     {lot.isClaimed ? "Yes" : "No"}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Recorded owner</dt>
-                  <dd className="font-mono text-right text-[12px] text-zinc-800 dark:text-zinc-200">
+                  <dd className="font-mono text-right text-xs text-zinc-800 dark:text-foreground">
                     {lot.ownerKey ?? "—"}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Sovereign list price (reference)</dt>
-                  <dd className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
+                  <dd className="font-mono tabular-nums text-zinc-800 dark:text-foreground">
                     {lot.referenceListPriceCr.toLocaleString()} cr
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">On primary market</dt>
-                  <dd className="font-mono text-zinc-800 dark:text-zinc-200">
+                  <dd className="font-mono text-zinc-800 dark:text-foreground">
                     {lot.purchasable ? "Yes" : "No"}
                   </dd>
                 </div>
                 {lot.roomKey && (
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Room</dt>
-                    <dd className="font-mono text-right text-[12px] text-zinc-800 dark:text-zinc-200">
+                    <dd className="font-mono text-right text-xs text-zinc-800 dark:text-foreground">
                       {lot.roomKey}
                     </dd>
                   </div>
                 )}
               </dl>
               {lot.description && (
-                <p className="mt-3 border-t border-zinc-100 pt-3 text-[12px] text-ui-muted dark:border-cyan-900/40">
+                <p className="mt-3 border-t border-zinc-100 pt-3 text-xs text-ui-muted dark:border-cyan-900/40">
                   {lot.description}
                 </p>
               )}
@@ -529,7 +529,7 @@ export default function PropertyClaimDetailPage() {
                 <p className="mt-3">
                   <Link
                     href="/"
-                    className="font-mono text-[12px] text-sky-700 underline dark:text-sky-400"
+                    className="font-mono text-xs text-sky-700 underline dark:text-sky-400"
                   >
                     Visit room →
                   </Link>
@@ -538,7 +538,7 @@ export default function PropertyClaimDetailPage() {
                 </CsPanel>
               ) : (
                 <CsPanel title="Parcel">
-                  <p className="font-mono text-[12px] text-amber-800 dark:text-amber-400">
+                  <p className="font-mono text-xs text-amber-800 dark:text-amber-400">
                     No parcel record is linked to this deed (lot_ref missing).
                   </p>
                 </CsPanel>
@@ -549,7 +549,7 @@ export default function PropertyClaimDetailPage() {
             <>
               <CsPanel title="Development">
             {!holding ? (
-              <p className="mt-2 font-mono text-[12px] text-amber-800 dark:text-amber-400">
+              <p className="mt-2 font-mono text-xs text-amber-800 dark:text-amber-400">
                 No holding linked to this parcel (legacy or missing record).
               </p>
             ) : (
@@ -557,55 +557,55 @@ export default function PropertyClaimDetailPage() {
                 <dl className="grid gap-1">
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Holding</dt>
-                    <dd className="font-mono text-zinc-800 dark:text-zinc-200">#{holding.holdingId}</dd>
+                    <dd className="font-mono text-zinc-800 dark:text-foreground">#{holding.holdingId}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">State</dt>
-                    <dd className="font-mono text-zinc-800 dark:text-zinc-200">
+                    <dd className="font-mono text-zinc-800 dark:text-foreground">
                       {holding.developmentState}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Operation</dt>
-                    <dd className="font-mono text-zinc-800 dark:text-zinc-200">
+                    <dd className="font-mono text-zinc-800 dark:text-foreground">
                       {holding.operation.kind ?? "—"}
                       {holding.operation.paused ? " (paused)" : ""}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Next tick (UTC)</dt>
-                    <dd className="font-mono text-right text-[11px] text-zinc-700 dark:text-zinc-300">
+                    <dd className="font-mono text-right text-xs text-zinc-700 dark:text-foreground">
                       {holding.operation.nextTickAt ?? "—"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Income accrued (ledger)</dt>
-                    <dd className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
+                    <dd className="font-mono tabular-nums text-zinc-800 dark:text-foreground">
                       {holding.ledger.creditsAccrued.toLocaleString()} cr
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Last tick</dt>
-                    <dd className="font-mono text-right text-[11px] text-ui-muted">
+                    <dd className="font-mono text-right text-xs text-ui-muted">
                       {holding.ledger.lastTickIso ?? "—"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Place</dt>
-                    <dd className="font-mono text-zinc-800 dark:text-zinc-200">
+                    <dd className="font-mono text-zinc-800 dark:text-foreground">
                       {holding.place.mode}
                       {holding.place.rootRoomId != null ? ` · room #${holding.place.rootRoomId}` : ""}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Structure slots</dt>
-                    <dd className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
+                    <dd className="font-mono tabular-nums text-zinc-800 dark:text-foreground">
                       {holding.structureSlotsUsed} / {holding.structureSlotsTotal}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Event queue</dt>
-                    <dd className="font-mono text-zinc-800 dark:text-zinc-200">
+                    <dd className="font-mono text-zinc-800 dark:text-foreground">
                       {holding.eventQueueLength} (showing last {holding.eventQueuePreview.length})
                     </dd>
                   </div>
@@ -613,7 +613,7 @@ export default function PropertyClaimDetailPage() {
 
                 <div className="border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
                   {extraSlotErr ? (
-                    <p className="mb-2 font-mono text-[12px] text-red-600 dark:text-red-400">
+                    <p className="mb-2 font-mono text-xs text-red-600 dark:text-red-400">
                       {extraSlotErr}
                     </p>
                   ) : null}
@@ -627,33 +627,33 @@ export default function PropertyClaimDetailPage() {
                       ? "…"
                       : `Buy +1 structure slot (${holding.nextExtraStructureSlotPriceCr.toLocaleString()} cr)`}
                   </button>
-                  <p className="mt-1 text-[11px] text-ui-muted">
+                  <p className="mt-1 text-xs text-ui-muted">
                     In-game: <span className="font-mono">buypropertyslot</span>
                   </p>
                 </div>
 
                 <div className="border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-ui-muted">
+                  <p className="text-xs font-medium uppercase tracking-wide text-ui-muted">
                     Portable ore processor
                   </p>
-                  <p className="mt-1 text-[11px] text-ui-muted">
+                  <p className="mt-1 text-xs text-ui-muted">
                     Installs the unit into this deed&apos;s parcel interior. You do not need to stand
                     there. Use <span className="font-mono">visitproperty</span> when you want to be
                     there in person (same as <span className="font-mono">drop</span> when you are
                     already inside).
                   </p>
                   {(data?.portableProcessorsCarried?.length ?? 0) === 0 ? (
-                    <p className="mt-2 font-mono text-[12px] text-ui-muted">
+                    <p className="mt-2 font-mono text-xs text-ui-muted">
                       No portable ore processor in inventory.
                     </p>
                   ) : (
                     <div className="mt-2 flex flex-wrap items-end gap-2">
-                      <label className="flex flex-col gap-0.5 font-mono text-[12px] text-ui-muted">
+                      <label className="flex flex-col gap-0.5 font-mono text-xs text-ui-muted">
                         Processor
                         <select
                           value={processorDeployId ?? ""}
                           onChange={(ev) => setProcessorDeployId(Number(ev.target.value))}
-                          className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                          className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                         >
                           {(data?.portableProcessorsCarried ?? []).map((p) => (
                             <option key={p.id} value={p.id}>
@@ -673,34 +673,34 @@ export default function PropertyClaimDetailPage() {
                     </div>
                   )}
                   {processorDeployErr ? (
-                    <p className="mt-2 font-mono text-[12px] text-red-600 dark:text-red-400">
+                    <p className="mt-2 font-mono text-xs text-red-600 dark:text-red-400">
                       {processorDeployErr}
                     </p>
                   ) : null}
                 </div>
 
                 {upgradeErr ? (
-                  <p className="font-mono text-[12px] text-red-600 dark:text-red-400">{upgradeErr}</p>
+                  <p className="font-mono text-xs text-red-600 dark:text-red-400">{upgradeErr}</p>
                 ) : null}
 
                 {holding.structures.length > 0 ? (
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-ui-muted">
+                    <p className="text-xs font-medium uppercase tracking-wide text-ui-muted">
                       Structures
                     </p>
                     <ul className="mt-2 flex flex-col gap-2">
                       {holding.structures.map((s) => (
                         <li
                           key={s.id}
-                          className="list-none rounded border border-cyan-900/40 bg-zinc-950/60 px-2 py-2 font-mono text-[11px] text-ui-muted"
+                          className="list-none rounded border border-cyan-900/40 bg-zinc-950/60 px-2 py-2 font-mono text-xs text-ui-muted"
                         >
                           <div>
-                            <span className="text-zinc-800 dark:text-zinc-200">{s.key}</span>
+                            <span className="text-zinc-800 dark:text-foreground">{s.key}</span>
                             {s.blueprintId ? ` · ${s.blueprintId}` : ""} · #{s.id} · slots {s.slotWeight}{" "}
                             · cond {s.condition}
                           </div>
                           {Object.keys(s.upgrades).length > 0 ? (
-                            <div className="mt-1 text-[10px] text-ui-muted">
+                            <div className="mt-1 text-xs text-ui-muted">
                               Upgrades:{" "}
                               {Object.entries(s.upgrades)
                                 .map(([k, v]) => `${k} L${v}`)
@@ -718,7 +718,7 @@ export default function PropertyClaimDetailPage() {
                                   type="button"
                                   disabled={upgradingKey === ukey}
                                   onClick={() => void handleStructureUpgrade(s.id, def.upgradeKey)}
-                                  className="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 text-[10px] font-semibold text-zinc-800 hover:bg-zinc-200 disabled:opacity-50 dark:border-cyan-800 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                                  className="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-800 hover:bg-zinc-200 disabled:opacity-50 dark:border-cyan-800 dark:bg-zinc-800 dark:text-foreground dark:hover:bg-zinc-700"
                                 >
                                   {upgradingKey === ukey
                                     ? "…"
@@ -730,7 +730,7 @@ export default function PropertyClaimDetailPage() {
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-2 text-[11px] text-ui-muted">
+                    <p className="mt-2 text-xs text-ui-muted">
                       In-game: <span className="font-mono">upgradeproperty</span> &lt;structure id&gt;{" "}
                       &lt;upgrade_key&gt;
                     </p>
@@ -739,20 +739,20 @@ export default function PropertyClaimDetailPage() {
 
                 {(holding.workshops?.length ?? 0) > 0 ? (
                   <div className="border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-ui-muted">
+                    <p className="text-xs font-medium uppercase tracking-wide text-ui-muted">
                       Fabrication (workshops)
                     </p>
                     {workshopPanelErr ? (
-                      <p className="mb-2 font-mono text-[12px] text-red-600 dark:text-red-400">
+                      <p className="mb-2 font-mono text-xs text-red-600 dark:text-red-400">
                         {workshopPanelErr}
                       </p>
                     ) : null}
-                    <label className="mt-2 flex flex-col gap-0.5 font-mono text-[12px] text-ui-muted">
+                    <label className="mt-2 flex flex-col gap-0.5 font-mono text-xs text-ui-muted">
                       Workshop
                       <select
                         value={fabWorkshopId ?? ""}
                         onChange={(ev) => setFabWorkshopId(Number(ev.target.value))}
-                        className="min-w-[12rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                        className="min-w-[12rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                       >
                         {(holding.workshops ?? []).map((w) => (
                           <option key={w.workshopId} value={w.workshopId}>
@@ -762,7 +762,7 @@ export default function PropertyClaimDetailPage() {
                       </select>
                     </label>
                     {selectedFabWorkshop ? (
-                      <div className="mt-2 rounded border border-cyan-900/30 bg-zinc-950/40 p-2 font-mono text-[10px] text-ui-muted">
+                      <div className="mt-2 rounded border border-cyan-900/30 bg-zinc-950/40 p-2 font-mono text-xs text-ui-muted">
                         <div>Station: {selectedFabWorkshop.stationKind}</div>
                         <div>Queue: {selectedFabWorkshop.jobQueue.length} job(s)</div>
                         <div className="mt-1">
@@ -784,16 +784,16 @@ export default function PropertyClaimDetailPage() {
                       </div>
                     ) : null}
                     <div className="mt-3 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-ui-muted">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ui-muted">
                         Queue job
                       </p>
                       <div className="flex flex-wrap items-end gap-2">
-                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-ui-muted">
+                        <label className="flex flex-col gap-0.5 font-mono text-xs text-ui-muted">
                           Recipe
                           <select
                             value={fabRecipeKey}
                             onChange={(ev) => setFabRecipeKey(ev.target.value)}
-                            className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                            className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                           >
                             {fabRecipeOptions.length === 0 ? (
                               <option value="">No recipes for this station</option>
@@ -806,12 +806,12 @@ export default function PropertyClaimDetailPage() {
                             )}
                           </select>
                         </label>
-                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-ui-muted">
+                        <label className="flex flex-col gap-0.5 font-mono text-xs text-ui-muted">
                           runs
                           <input
                             value={fabRuns}
                             onChange={(ev) => setFabRuns(ev.target.value)}
-                            className="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                            className="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                           />
                         </label>
                         <button
@@ -825,11 +825,11 @@ export default function PropertyClaimDetailPage() {
                       </div>
                     </div>
                     <div className="mt-3 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-ui-muted">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ui-muted">
                         Feed refined
                       </p>
                       <div className="flex flex-wrap items-end gap-2">
-                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-ui-muted">
+                        <label className="flex flex-col gap-0.5 font-mono text-xs text-ui-muted">
                           Refined product
                           <select
                             value={fabProductKey}
@@ -839,7 +839,7 @@ export default function PropertyClaimDetailPage() {
                               const row = fabFeedRows.find((r) => r.productKey === pk);
                               if (row) setFabUnits(String(row.unitsAvailable));
                             }}
-                            className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                            className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                           >
                             {fabFeedRows.length === 0 ? (
                               <option value="">No feed stock</option>
@@ -852,7 +852,7 @@ export default function PropertyClaimDetailPage() {
                             )}
                           </select>
                         </label>
-                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-ui-muted">
+                        <label className="flex flex-col gap-0.5 font-mono text-xs text-ui-muted">
                           units
                           <input
                             type="number"
@@ -864,10 +864,10 @@ export default function PropertyClaimDetailPage() {
                             step={0.01}
                             value={fabUnits}
                             onChange={(ev) => setFabUnits(ev.target.value)}
-                            className="w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                            className="w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                           />
                         </label>
-                        <label className="flex items-center gap-2 font-mono text-[11px] text-ui-muted">
+                        <label className="flex items-center gap-2 font-mono text-xs text-ui-muted">
                           <input
                             type="checkbox"
                             checked={fabHoldingOnly}
@@ -886,16 +886,16 @@ export default function PropertyClaimDetailPage() {
                       </div>
                     </div>
                     <div className="mt-3 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-ui-muted">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ui-muted">
                         Collect output
                       </p>
                       <div className="flex flex-wrap items-end gap-2">
-                        <label className="flex flex-col gap-0.5 font-mono text-[12px] text-ui-muted">
+                        <label className="flex flex-col gap-0.5 font-mono text-xs text-ui-muted">
                           Product (optional)
                           <select
                             value={fabCollectKey}
                             onChange={(ev) => setFabCollectKey(ev.target.value)}
-                            className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                            className="min-w-[12rem] max-w-[20rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                           >
                             <option value="">All</option>
                             {Object.entries(selectedFabWorkshop?.outputInventory ?? {})
@@ -922,7 +922,7 @@ export default function PropertyClaimDetailPage() {
                         </button>
                       </div>
                     </div>
-                    <p className="mt-2 text-[11px] text-ui-muted">
+                    <p className="mt-2 text-xs text-ui-muted">
                       In-game: <span className="font-mono">queuefab</span>,{" "}
                       <span className="font-mono">feedfab</span>,{" "}
                       <span className="font-mono">collectfab</span>
@@ -931,7 +931,7 @@ export default function PropertyClaimDetailPage() {
                 ) : null}
 
                 {holding.eventQueuePreview.length > 0 ? (
-                  <details className="text-[11px] text-ui-muted">
+                  <details className="text-xs text-ui-muted">
                     <summary className="cursor-pointer font-mono">Event preview</summary>
                     <pre className="mt-1 max-h-40 overflow-auto rounded bg-zinc-100 p-2 dark:bg-zinc-950">
                       {JSON.stringify(holding.eventQueuePreview, null, 2)}
@@ -941,21 +941,21 @@ export default function PropertyClaimDetailPage() {
 
                 {(holding.buildCatalog?.length ?? 0) > 0 ? (
                   <div className="border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-ui-muted">
+                    <p className="text-xs font-medium uppercase tracking-wide text-ui-muted">
                       Build (catalog)
                     </p>
                     {buildErr ? (
-                      <p className="mb-2 font-mono text-[12px] text-red-600 dark:text-red-400">
+                      <p className="mb-2 font-mono text-xs text-red-600 dark:text-red-400">
                         {buildErr}
                       </p>
                     ) : null}
                     <div className="mt-2 flex flex-wrap items-end gap-2">
-                      <label className="flex flex-col gap-0.5 font-mono text-[12px] text-ui-muted">
+                      <label className="flex flex-col gap-0.5 font-mono text-xs text-ui-muted">
                         Blueprint
                         <select
                           value={buildBlueprintId}
                           onChange={(ev) => setBuildBlueprintId(ev.target.value)}
-                          className="min-w-[12rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                          className="min-w-[12rem] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                         >
                           {(holding.buildCatalog ?? []).map((row) => (
                             <option key={row.id} value={row.id}>
@@ -973,7 +973,7 @@ export default function PropertyClaimDetailPage() {
                         {buildBusy ? "Installing…" : "Install structure"}
                       </button>
                     </div>
-                    <p className="mt-2 text-[11px] text-ui-muted">
+                    <p className="mt-2 text-xs text-ui-muted">
                       In-game: <span className="font-mono">buildproperty</span> &lt;blueprintId&gt;
                     </p>
                   </div>
@@ -982,17 +982,17 @@ export default function PropertyClaimDetailPage() {
                 {!holding.operation.kind ? (
                   <div className="border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
                     {startErr ? (
-                      <p className="mb-2 font-mono text-[12px] text-red-600 dark:text-red-400">
+                      <p className="mb-2 font-mono text-xs text-red-600 dark:text-red-400">
                         {startErr}
                       </p>
                     ) : null}
                     {holding.allowedOperationKinds.length > 1 ? (
-                      <label className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[12px] text-ui-muted">
+                      <label className="mb-2 flex flex-wrap items-center gap-2 font-mono text-xs text-ui-muted">
                         Operation kind
                         <select
                           value={opKindChoice}
                           onChange={(ev) => setOpKindChoice(ev.target.value)}
-                          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                         >
                           {holding.allowedOperationKinds.map((k) => (
                             <option key={k} value={k}>
@@ -1010,7 +1010,7 @@ export default function PropertyClaimDetailPage() {
                     >
                       {startBusy ? "Starting…" : "Start income"}
                     </button>
-                    <p className="mt-2 text-[11px] text-ui-muted">
+                    <p className="mt-2 text-xs text-ui-muted">
                       Default for this zone: {holding.defaultOperationKind ?? "—"}. In-game:{" "}
                       <span className="font-mono">startproperty</span>.
                     </p>
@@ -1018,12 +1018,12 @@ export default function PropertyClaimDetailPage() {
                 ) : (
                   <div className="border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
                     {pauseErr ? (
-                      <p className="mb-2 font-mono text-[12px] text-red-600 dark:text-red-400">
+                      <p className="mb-2 font-mono text-xs text-red-600 dark:text-red-400">
                         {pauseErr}
                       </p>
                     ) : null}
                     {retoolErr ? (
-                      <p className="mb-2 font-mono text-[12px] text-red-600 dark:text-red-400">
+                      <p className="mb-2 font-mono text-xs text-red-600 dark:text-red-400">
                         {retoolErr}
                       </p>
                     ) : null}
@@ -1031,7 +1031,7 @@ export default function PropertyClaimDetailPage() {
                       type="button"
                       disabled={pauseBusy}
                       onClick={() => void handlePauseToggle(!holding.operation.paused)}
-                      className="rounded border border-cyan-800/60 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
+                      className="rounded border border-cyan-800/60 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
                     >
                       {pauseBusy ? "…" : holding.operation.paused ? "Resume income" : "Pause income"}
                     </button>
@@ -1040,7 +1040,7 @@ export default function PropertyClaimDetailPage() {
                       const opts = holding.allowedOperationKinds.filter((k) => k !== cur);
                       if (opts.length === 0) {
                         return (
-                          <p className="mt-2 font-mono text-[11px] text-ui-muted">
+                          <p className="mt-2 font-mono text-xs text-ui-muted">
                             No alternate operation type for this zone. In-game:{" "}
                             <span className="font-mono">pauseproperty</span> /{" "}
                             <span className="font-mono">resumeproperty</span> /{" "}
@@ -1050,12 +1050,12 @@ export default function PropertyClaimDetailPage() {
                       }
                       return (
                         <div className="mt-3 space-y-2">
-                          <label className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-ui-muted">
+                          <label className="flex flex-wrap items-center gap-2 font-mono text-xs text-ui-muted">
                             Retool to
                             <select
                               value={retoolKind}
                               onChange={(ev) => setRetoolKind(ev.target.value)}
-                              className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-zinc-200"
+                              className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-800 dark:border-cyan-800 dark:bg-zinc-900 dark:text-foreground"
                             >
                               {opts.map((k) => (
                                 <option key={k} value={k}>
@@ -1074,7 +1074,7 @@ export default function PropertyClaimDetailPage() {
                               ? "Retooling…"
                               : `Retool (${holding.retoolFeeCr.toLocaleString()} cr)`}
                           </button>
-                          <p className="text-[11px] text-ui-muted">
+                          <p className="text-xs text-ui-muted">
                             In-game:{" "}
                             <span className="font-mono">retoolproperty</span> &lt;kind&gt; [optional deed
                             fragment]

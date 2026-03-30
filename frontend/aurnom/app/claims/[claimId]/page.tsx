@@ -107,18 +107,18 @@ export default function ClaimDetailPage() {
               <dl className="mt-2 grid gap-1 text-sm">
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Location</dt>
-                  <dd className="font-mono text-zinc-200">{site.roomKey}</dd>
+                  <dd className="font-mono text-foreground">{site.roomKey}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Volume</dt>
                   <dd>
-                    <span className={`rounded px-1.5 py-0.5 font-mono text-[12px] ${volT.badge}`}>{site.volumeTier}</span>
+                    <span className={`rounded px-1.5 py-0.5 font-mono text-xs ${volT.badge}`}>{site.volumeTier}</span>
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Rarity</dt>
                   <dd>
-                    <span className={`rounded px-1.5 py-0.5 font-mono text-[12px] ${rarT.badge}`}>
+                    <span className={`rounded px-1.5 py-0.5 font-mono text-xs ${rarT.badge}`}>
                       {site.resourceRarityTier}
                     </span>
                   </dd>
@@ -129,7 +129,7 @@ export default function ClaimDetailPage() {
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Allowed purposes</dt>
-                  <dd className="text-right font-mono text-[12px]">
+                  <dd className="text-right font-mono text-xs">
                     {(data.claim?.allowedPurposes ?? ["mining"]).join(", ")}
                   </dd>
                 </div>
@@ -137,7 +137,7 @@ export default function ClaimDetailPage() {
               <p className="mt-3">
                 <Link
                   href="/"
-                  className="font-mono text-[12px] text-sky-700 underline dark:text-sky-400"
+                  className="font-mono text-xs text-sky-700 underline dark:text-sky-400"
                 >
                   Visit site →
                 </Link>
@@ -149,33 +149,33 @@ export default function ClaimDetailPage() {
             <>
               {data.isOwner && !data.isListed ? (
                 <CsPanel title="Sell Deed">
-                  <p className="mt-1 text-[12px] text-ui-muted">
+                  <p className="mt-1 text-xs text-ui-muted">
                     List this claim on the claims market at your price (escrow until sold).
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <input
                       type="number"
                       min={0}
-                      className="w-32 rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-sm text-zinc-900 dark:border-cyan-800 dark:bg-zinc-950 dark:text-zinc-100"
+                      className="w-32 rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-sm text-zinc-900 dark:border-cyan-800 dark:bg-zinc-950 dark:text-foreground"
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
                       placeholder="Price (cr)"
                     />
                     <button
                       type="button"
-                      className="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 font-mono text-[12px] text-zinc-900 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-zinc-100"
+                      className="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-900 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-foreground"
                       disabled={listBusy}
                       onClick={() => void handleList()}
                     >
                       {listBusy ? "Listing…" : "List for sale"}
                     </button>
                   </div>
-                  {listMsg ? <p className="mt-2 font-mono text-[12px] text-ui-muted">{listMsg}</p> : null}
+                  {listMsg ? <p className="mt-2 font-mono text-xs text-ui-muted">{listMsg}</p> : null}
                 </CsPanel>
               ) : null}
               <CsPanel title="Status">
                 {data.isListed ? (
-                  <p className="font-mono text-[12px] text-amber-800 dark:text-amber-400">
+                  <p className="font-mono text-xs text-amber-800 dark:text-amber-400">
                     This deed is listed on the{" "}
                     <Link href="/real-estate#claims-market" className="underline">
                       claims market
@@ -183,9 +183,9 @@ export default function ClaimDetailPage() {
                     .
                   </p>
                 ) : (
-                  <p className="font-mono text-[12px] text-ui-muted">Not currently listed on claims market.</p>
+                  <p className="font-mono text-xs text-ui-muted">Not currently listed on claims market.</p>
                 )}
-                <p className="mt-2 text-[12px] text-ui-muted">
+                <p className="mt-2 text-xs text-ui-muted">
                   <Link href="/" className="underline">
                     Home dashboard
                   </Link>{" "}

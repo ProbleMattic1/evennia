@@ -44,15 +44,15 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
 
   return (
     <>
-      <p className="text-[9px] text-ui-soft">
+      <p className="text-ui-caption text-ui-soft">
         Stored (bid): sites{" "}
         {(data.productionTotalStoredValue ?? data.miningTotalStoredValue)?.toLocaleString() ?? 0} cr · plant silo{" "}
         {data.miningPersonalStoredValue?.toLocaleString() ?? 0} cr
       </p>
       <div className="mt-2">
-        <p className="text-[8px] uppercase tracking-wide text-ui-soft">Est. this slot (accrual)</p>
+        <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Est. this slot (accrual)</p>
         <p
-          className="mt-0.5 break-words font-mono text-[0.5625rem] font-semibold leading-tight tracking-tight text-cyan-400 sm:text-[0.625rem]"
+          className="mt-0.5 break-words font-mono text-ui-caption font-semibold leading-tight tracking-tight text-cyber-cyan sm:text-xs"
           title="Linear accrual estimate by stream this slot"
         >
           mining {miningAccrued.toLocaleString()} cr
@@ -61,12 +61,12 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
         </p>
       </div>
       <div className="mt-3">
-        <p className="text-[8px] uppercase tracking-wide text-ui-soft">Pipeline (stored + accrual est.)</p>
+        <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Pipeline (stored + accrual est.)</p>
         <div
           className={`pipeline-matrix-frame mt-1 px-2 py-2 sm:px-2.5 sm:py-2.5 ${reduceMotion ? "" : "pipeline-matrix-frame--motion"}`}
         >
           <p
-            className="pipeline-matrix-readout relative z-[2] break-all font-mono text-[2.25rem] font-semibold leading-[1.05] tracking-tight tabular-nums sm:text-[2.5rem]"
+            className="pipeline-matrix-readout relative z-[2] break-all font-mono text-ui-pipeline-readout font-semibold tracking-tight tabular-nums"
             title="Stored bid value plus accrual estimate"
           >
             {pipelineOdo.toLocaleString()} cr
@@ -91,11 +91,11 @@ export function EconomyMiningAccrualCard({ data }: { data: ControlSurfaceState }
       hintTitle={ACCRUAL_HINT}
       headerRight={
         nextShort ? (
-          <span className="text-[9px] tabular-nums text-ui-soft" title="Mining grid boundary">
+          <span className="text-ui-caption tabular-nums text-ui-soft" title="Mining grid boundary">
             slot {pct}% · {nextShort}
           </span>
         ) : (
-          <span className="text-[9px] tabular-nums text-ui-soft">slot {pct}%</span>
+          <span className="text-ui-caption tabular-nums text-ui-soft">slot {pct}%</span>
         )
       }
     >

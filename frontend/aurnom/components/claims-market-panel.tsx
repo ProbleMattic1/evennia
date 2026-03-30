@@ -57,41 +57,41 @@ function ClaimCard({
     <div className="rounded border border-cyan-900/40 bg-zinc-950/60 px-3 py-2.5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="truncate text-sm font-medium text-zinc-100">
+          <span className="truncate text-sm font-medium text-foreground">
             {c.roomKey}
           </span>
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${volT.badge}`}>
+            <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${volT.badge}`}>
               {c.volumeTier}
             </span>
-            <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${rarT.badge}`}>
+            <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${rarT.badge}`}>
               {c.resourceRarityTier}
             </span>
-            <span className="text-[11px] text-ui-muted">{c.hazardLabel}</span>
-            <span className="text-[11px] tabular-nums text-ui-muted">
+            <span className="text-xs text-ui-muted">{c.hazardLabel}</span>
+            <span className="text-xs tabular-nums text-ui-muted">
               {c.baseOutputTons.toFixed(1)} t
             </span>
           </div>
-          <p className="text-[11px] leading-snug break-words text-ui-muted">
+          <p className="text-xs leading-snug break-words text-ui-muted">
             {c.resources}
           </p>
           {c.sellerKey ? (
-            <p className="truncate text-[11px] text-ui-muted" title={c.sellerKey}>
+            <p className="truncate text-xs text-ui-muted" title={c.sellerKey}>
               Seller: {c.sellerKey}
             </p>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <span className="font-mono text-sm font-semibold tabular-nums text-cyan-300">
+          <span className="font-mono text-sm font-semibold tabular-nums text-cyber-cyan">
             {c.listingPriceCr.toLocaleString()}{" "}
-            <span className="text-[11px] font-normal text-amber-400">cr</span>
+            <span className="text-xs font-normal text-amber-400">cr</span>
           </span>
           {!authenticated ? (
             <Link href="/" className={`text-center ${panelInlineLinkClass}`}>
               Sign in
             </Link>
           ) : !hasCharacter ? (
-            <span className="max-w-[10rem] text-right text-[10px] leading-snug text-ui-muted">
+            <span className="max-w-[10rem] text-right text-xs leading-snug text-ui-muted">
               {characterMessage ?? "Link a character to buy."}
             </span>
           ) : (
@@ -208,9 +208,9 @@ export function ClaimsMarketPanel() {
       </div>
 
       {purchaseSuccess && (
-        <p className="mb-2 text-[11px] text-emerald-400">{purchaseSuccess}</p>
+        <p className="mb-2 text-xs text-emerald-400">{purchaseSuccess}</p>
       )}
-      {purchaseError && <p className="mb-2 text-[11px] text-red-400">{purchaseError}</p>}
+      {purchaseError && <p className="mb-2 text-xs text-red-400">{purchaseError}</p>}
 
       {error && (
         <p className="py-1.5 text-sm text-red-400">Market unavailable: {error}</p>
@@ -243,7 +243,7 @@ export function ClaimsMarketPanel() {
       )}
 
       <div className="mt-3 space-y-2 border-t border-cyan-900/40 pt-3">
-        <p className="text-[11px] leading-snug text-ui-muted">
+        <p className="text-xs leading-snug text-ui-muted">
           Survey services register a new unclaimed deposit and issue a deed. You receive one random
           mining claim; use{" "}
           <Link href="/" className={panelInlineLinkClass}>
@@ -259,14 +259,14 @@ export function ClaimsMarketPanel() {
           to develop it. Small chance for an elite (jackpot) claim.
         </p>
         {!authenticated ? (
-          <p className="text-[11px] text-ui-muted">
+          <p className="text-xs text-ui-muted">
             <Link href="/" className={panelInlineLinkClass}>
               Sign in
             </Link>{" "}
             to purchase a random claim.
           </p>
         ) : !hasCharacter ? (
-          <p className="text-[11px] text-ui-muted">
+          <p className="text-xs text-ui-muted">
             {characterMessage ?? "Link a character to purchase."}
           </p>
         ) : randomQuote ? (
@@ -283,7 +283,7 @@ export function ClaimsMarketPanel() {
             </button>
           </div>
         ) : (
-          <p className="text-[11px] text-ui-muted">
+          <p className="text-xs text-ui-muted">
             Random mining claim deed is not available.
           </p>
         )}

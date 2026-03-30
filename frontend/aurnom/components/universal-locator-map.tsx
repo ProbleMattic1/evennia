@@ -125,7 +125,7 @@ export function UniversalLocatorMap() {
 
   if (loading && !data) {
     return (
-      <div className="rounded border border-cyan-900/50 bg-zinc-950 p-4 font-mono text-[11px] text-cyan-300">
+      <div className="rounded border border-cyan-900/50 bg-zinc-950 p-4 font-mono text-xs text-cyber-cyan">
         Loading station graph…
       </div>
     );
@@ -133,11 +133,11 @@ export function UniversalLocatorMap() {
 
   if (error && !data) {
     return (
-      <div className="rounded border border-red-900/50 bg-zinc-950 p-4 font-mono text-[11px] text-red-400">
+      <div className="rounded border border-red-900/50 bg-zinc-950 p-4 font-mono text-xs text-red-400">
         {error}
         <button
           type="button"
-          className="ml-2 text-cyan-400 underline"
+          className="ml-2 text-cyber-cyan underline"
           onClick={() => void load()}
         >
           Retry
@@ -152,21 +152,21 @@ export function UniversalLocatorMap() {
     <div className="flex min-w-0 flex-col gap-2">
       {error ? (
         <div
-          className="rounded border border-red-900/50 bg-red-950/40 px-2 py-1 font-mono text-[11px] text-red-300"
+          className="rounded border border-red-900/50 bg-red-950/40 px-2 py-1 font-mono text-xs text-red-300"
           role="alert"
         >
           {error}
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-ui-muted">
+      <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-ui-muted">
         <span>
           Snapshot:{" "}
-          <time dateTime={data.generatedAt} className="text-zinc-300">
+          <time dateTime={data.generatedAt} className="text-foreground">
             {new Date(data.generatedAt).toLocaleString()}
           </time>
         </span>
-        {refreshing ? <span className="text-cyan-300">Refreshing…</span> : null}
+        {refreshing ? <span className="text-cyber-cyan">Refreshing…</span> : null}
         <div
           className="ml-auto flex flex-wrap items-center gap-1"
           role="tablist"
@@ -180,9 +180,9 @@ export function UniversalLocatorMap() {
               aria-selected={mode === t.id}
               title={t.hint}
               className={[
-                "rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide",
+                "rounded border px-2 py-0.5 text-xs uppercase tracking-wide",
                 mode === t.id
-                  ? "border-cyan-500 bg-cyan-950/60 text-cyan-300"
+                  ? "border-cyan-500 bg-cyan-950/60 text-cyber-cyan"
                   : "border-cyan-900/50 text-ui-muted hover:border-cyan-800 hover:text-ui-soft",
               ].join(" ")}
               onClick={() => setMode(t.id)}
@@ -204,7 +204,7 @@ export function UniversalLocatorMap() {
         ) : null}
         <button
           type="button"
-          className="rounded border border-cyan-800/60 px-2 py-0.5 text-cyan-400 hover:bg-cyan-950/50"
+          className="rounded border border-cyan-800/60 px-2 py-0.5 text-cyber-cyan hover:bg-cyan-950/50"
           onClick={() => void load()}
         >
           Refresh now
@@ -216,7 +216,7 @@ export function UniversalLocatorMap() {
         placeholder="Filter rooms…"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        className="w-full max-w-sm rounded border border-cyan-900/50 bg-zinc-950 px-2 py-1 font-mono text-[11px] text-zinc-200 placeholder:text-ui-soft"
+        className="w-full max-w-sm rounded border border-cyan-900/50 bg-zinc-950 px-2 py-1 font-mono text-xs text-foreground placeholder:text-ui-soft"
         aria-label="Filter rooms"
       />
 
@@ -263,16 +263,16 @@ export function UniversalLocatorMap() {
 
 export function LocatorPageChrome({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-svh bg-zinc-950 p-3 font-mono text-[11px] text-zinc-300 md:p-6">
+    <main className="min-h-svh bg-zinc-950 p-3 font-mono text-xs text-foreground md:p-6">
       <header className="mb-4 border-b border-cyan-900/40 pb-3">
         <div className="flex flex-wrap items-baseline gap-3">
-          <h1 className="text-sm font-bold uppercase tracking-widest text-cyan-400">
+          <h1 className="text-sm font-bold uppercase tracking-widest text-cyber-cyan">
             Universal Locator
           </h1>
           <span className="text-ui-muted">Interactive station map</span>
           <Link
             href="/"
-            className="ml-auto rounded border border-cyan-800/60 px-2 py-1 text-cyan-400 hover:bg-cyan-950/50"
+            className="ml-auto rounded border border-cyan-800/60 px-2 py-1 text-cyber-cyan hover:bg-cyan-950/50"
           >
             ← Control surface
           </Link>
@@ -280,7 +280,7 @@ export function LocatorPageChrome({ children }: { children: React.ReactNode }) {
         <nav className="mt-2" aria-label="Locator related">
           <Link
             href="/economy"
-            className="inline-block rounded border border-cyan-800/60 px-2 py-0.5 text-[10px] text-cyan-400 hover:bg-cyan-950/50"
+            className="inline-block rounded border border-cyan-800/60 px-2 py-0.5 text-xs text-cyber-cyan hover:bg-cyan-950/50"
           >
             Economy
           </Link>

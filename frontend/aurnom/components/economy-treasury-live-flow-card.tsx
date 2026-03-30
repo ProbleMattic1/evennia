@@ -75,23 +75,23 @@ export function EconomyTreasuryLiveFlowCard({ data }: { data: ControlSurfaceStat
       hintTitle={HINT}
       headerRight={
         nextShort ? (
-          <span className="text-[9px] tabular-nums text-ui-soft" title="Mining grid boundary">
+          <span className="text-ui-caption tabular-nums text-ui-soft" title="Mining grid boundary">
             ends {nextShort}
           </span>
         ) : null
       }
     >
       <div className="min-w-0">
-        <p className="text-[8px] uppercase tracking-wide text-ui-soft">Net to miners (gross − fees)</p>
+        <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Net to miners (gross − fees)</p>
         <p
           className="mt-0.5 truncate font-mono text-base font-semibold tabular-nums text-red-600 dark:text-red-400"
           title="Treasury outflow this slot"
         >
           {formatOutflowCr(displayNet)}
         </p>
-        <p className="mt-2 text-[9px] leading-relaxed text-ui-soft">
-          <span className="text-cyan-600/90 dark:text-cyan-400/90">Ore / settlement gross</span>{" "}
-          <span className="font-mono tabular-nums text-cyan-600 dark:text-cyan-400">
+        <p className="mt-2 text-ui-caption leading-relaxed text-ui-soft">
+          <span className="text-ui-accent-readable dark:text-cyber-cyan/90">Ore / settlement gross</span>{" "}
+          <span className="font-mono tabular-nums text-ui-accent-readable dark:text-cyber-cyan">
             {formatPositiveCr(displayGross)}
           </span>
           <span className="text-ui-muted"> · </span>
@@ -109,8 +109,8 @@ export function EconomyTreasuryLiveFlowCard({ data }: { data: ControlSurfaceStat
         </p>
       </div>
       <div className="mt-3 border-t border-cyan-950/60 pt-2">
-        <p className="text-[8px] uppercase tracking-wider text-ui-muted">Avg rate this slot (live clock)</p>
-        <p className="mt-0.5 break-words font-mono text-[0.5625rem] font-semibold leading-tight tracking-tight tabular-nums sm:text-[0.625rem]">
+        <p className="text-ui-overline uppercase tracking-wider text-ui-muted">Avg rate this slot (live clock)</p>
+        <p className="mt-0.5 break-words font-mono text-ui-caption font-semibold leading-tight tracking-tight tabular-nums sm:text-xs">
           <span className="text-red-600 dark:text-red-400">Net out {formatOutflowRate(impliedNetPerSec)}</span>
           <span className="text-ui-soft"> · Gross {formatPositiveRate(impliedGrossPerSec)}</span>
           <span className="text-red-500/80 dark:text-red-400/80">
@@ -118,7 +118,7 @@ export function EconomyTreasuryLiveFlowCard({ data }: { data: ControlSurfaceStat
             · Fees {formatPositiveRate(impliedFeesPerSec)} (retained)
           </span>
         </p>
-        <p className="mt-1 text-[8px] text-ui-muted">
+        <p className="mt-1 text-ui-overline text-ui-muted">
           Elapsed {Math.floor(elapsedSec / 60)}m {Math.floor(elapsedSec % 60)}s · updates on poll + clock
         </p>
       </div>

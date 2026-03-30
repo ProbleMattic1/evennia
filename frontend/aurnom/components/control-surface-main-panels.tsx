@@ -50,8 +50,8 @@ function Panel({
 
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest">
-        <span className="min-w-0 truncate text-cyan-300">{title}</span>
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
+        <span className="min-w-0 truncate text-cyber-cyan">{title}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1 normal-case tracking-normal">
           {headerActions}
           <PanelExpandButton
@@ -61,7 +61,7 @@ function Panel({
           />
         </div>
       </div>
-      {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div> : null}
+      {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">{children}</div> : null}
     </section>
   );
 }
@@ -70,7 +70,7 @@ function Kv({ k, v, dim }: { k: string; v: ReactNode; dim?: boolean }) {
   return (
     <div className="flex min-w-0 gap-1">
       <span className="shrink-0 text-ui-muted">{k}</span>
-      <span className={`min-w-0 truncate font-mono ${dim ? "text-ui-muted" : "text-zinc-200"}`}>{v}</span>
+      <span className={`min-w-0 truncate font-mono ${dim ? "text-ui-muted" : "text-foreground"}`}>{v}</span>
     </div>
   );
 }
@@ -83,7 +83,7 @@ function TinyLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}
-      className="shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-[10px] text-cyan-400 hover:bg-cyan-900/40"
+      className="shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40"
     >
       {children}
     </Link>
@@ -106,10 +106,10 @@ function TinyButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`shrink-0 rounded border px-1 py-0 text-[10px] disabled:opacity-40 ${
+      className={`shrink-0 rounded border px-1 py-0 text-xs disabled:opacity-40 ${
         danger
           ? "border-red-800/60 text-red-400 hover:bg-red-900/40"
-          : "border-cyan-800/60 text-cyan-400 hover:bg-cyan-900/40"
+          : "border-cyan-800/60 text-cyber-cyan hover:bg-cyan-900/40"
       }`}
     >
       {children}
@@ -118,7 +118,7 @@ function TinyButton({
 }
 
 function Badge({ label, cls }: { label: string; cls?: string }) {
-  const base = "inline-block rounded px-1 text-[9px] font-bold uppercase";
+  const base = "inline-block rounded px-1 text-ui-caption font-bold uppercase";
   if (cls === "rare" || cls === "epic") {
     return <span className={`${base} bg-purple-900/60 text-purple-300`}>{label}</span>;
   }
@@ -163,7 +163,7 @@ function ResourcesCreditsRollupLabel({
   const complete = rollup.counted === items.length;
   return (
     <span
-      className={`shrink-0 font-mono text-[9px] font-normal normal-case tracking-normal text-zinc-400 ${className}`}
+      className={`shrink-0 font-mono text-ui-caption font-normal normal-case tracking-normal text-ui-muted ${className}`}
       title={
         complete
           ? "Credits per cycle (sum of site yields)"
@@ -263,12 +263,12 @@ function AlertsPanel({
       <div className={ALERTS_SCROLL_LIST_CLASS}>
         {all.map((a: DashboardAlert) => (
           <Row key={a.id} className="mb-0.5 items-start">
-            <span className={`shrink-0 text-[9px] font-bold uppercase ${sevColor(a.severity)}`}>
+            <span className={`shrink-0 text-ui-caption font-bold uppercase ${sevColor(a.severity)}`}>
               {a.severity[0].toUpperCase()}
             </span>
-            <span className="min-w-0 flex-1 text-zinc-300">{a.title}</span>
+            <span className="min-w-0 flex-1 text-foreground">{a.title}</span>
             <span
-              className="shrink-0 tabular-nums text-[9px] text-zinc-500"
+              className="shrink-0 tabular-nums text-ui-caption text-ui-muted"
               title={a.createdAt ? new Date(a.createdAt).toLocaleString() : undefined}
             >
               {formatAlertAge(a.createdAt ?? "", nowMs)}
@@ -285,7 +285,7 @@ function MarketPanel({ commodities }: { commodities: MarketCommodity[] }) {
   if (commodities.length === 0) return null;
   return (
     <Panel panelKey="market" title="Market">
-      <table className="w-full table-fixed text-[10px]">
+      <table className="w-full table-fixed text-xs">
         <thead>
           <tr className="text-ui-muted">
             <th className="w-1/2 text-left font-normal">resource</th>
@@ -296,7 +296,7 @@ function MarketPanel({ commodities }: { commodities: MarketCommodity[] }) {
         <tbody>
           {commodities.map((c) => (
             <tr key={c.key} className="border-t border-zinc-800/60">
-              <td className="truncate text-zinc-300">{c.name}</td>
+              <td className="truncate text-foreground">{c.name}</td>
               <td className="text-right font-mono text-green-400">{c.sellPriceCrPerTon.toLocaleString()}</td>
               <td className="text-right font-mono text-red-400">{c.buyPriceCrPerTon.toLocaleString()}</td>
             </tr>
@@ -329,10 +329,10 @@ function InventoryPanel({ inventory }: { inventory: CsInventory }) {
         const title = labels[bucketId] ?? bucketId.replace(/_/g, " ");
         return (
           <div key={bucketId} className="mt-0.5 first:mt-0">
-            <div className="text-[10px] uppercase text-ui-muted">{title}</div>
+            <div className="text-xs uppercase text-ui-muted">{title}</div>
             {rows.map((item) => (
               <Row key={`${bucketId}-${item.stacked && item.ids?.length ? item.ids.join("-") : item.id}-${item.key}`}>
-                <span className="flex-1 truncate text-zinc-300">
+                <span className="flex-1 truncate text-foreground">
                   {item.count && item.count > 1 ? `${item.count}× ` : ""}
                   {item.key}
                 </span>
@@ -383,9 +383,9 @@ function MineDeploymentPanel({
         <Kv k="claims" v={claimRows.length} />
       </div>
       <>
-          <label className="mt-1 block text-[10px] uppercase tracking-wide text-ui-muted">Package</label>
+          <label className="mt-1 block text-xs uppercase tracking-wide text-ui-muted">Package</label>
           <select
-            className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-200"
+            className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-xs text-foreground"
             value={packageId}
             onChange={(e) => setPackageId(e.target.value ? Number(e.target.value) : "")}
           >
@@ -397,9 +397,9 @@ function MineDeploymentPanel({
             ))}
           </select>
 
-          <label className="mt-1 block text-[10px] uppercase tracking-wide text-ui-muted">Claim</label>
+          <label className="mt-1 block text-xs uppercase tracking-wide text-ui-muted">Claim</label>
           <select
-            className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-200"
+            className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-xs text-foreground"
             value={claimId}
             onChange={(e) => setClaimId(e.target.value ? Number(e.target.value) : "")}
           >
@@ -428,12 +428,12 @@ function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
     <Panel panelKey="ships" title={`Ships (${ships.length})`}>
       {ships.map((s) => (
         <Row key={s.id}>
-          <span className="flex-1 truncate font-semibold text-zinc-200">
+          <span className="flex-1 truncate font-semibold text-foreground">
             {s.count && s.count > 1 ? `${s.count}× ` : ""}
             {s.key}
           </span>
-          {s.state ? <span className="text-[10px] text-ui-muted">{s.state}</span> : null}
-          {s.location ? <span className="text-[10px] text-ui-muted">{s.location}</span> : null}
+          {s.state ? <span className="text-xs text-ui-muted">{s.state}</span> : null}
+          {s.location ? <span className="text-xs text-ui-muted">{s.location}</span> : null}
         </Row>
       ))}
     </Panel>
@@ -488,12 +488,12 @@ function MineDashboardRow({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1">
-            <span className="min-w-0 flex-1 truncate font-mono text-zinc-200">{m.key}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-foreground">{m.key}</span>
             {m.rigWear != null && m.rigWear >= 70 ? (
               <button
                 type="button"
                 onClick={() => onRepairRig(m.id)}
-                className="shrink-0 font-mono text-[10px] text-amber-400 hover:text-amber-300"
+                className="shrink-0 font-mono text-xs text-amber-400 hover:text-amber-300"
               >
                 Repair rig ⚠
               </button>
@@ -517,7 +517,7 @@ function MineDashboardRow({
                 <Badge label={m.resourceRarityTier ?? ""} cls={m.resourceRarityTierCls} />
               </Row>
               {m.estimatedValuePerCycle != null ? (
-                <span className="shrink-0 font-mono text-[10px] text-ui-muted">
+                <span className="shrink-0 font-mono text-xs text-ui-muted">
                   {cr(m.estimatedValuePerCycle)}<span className="text-ui-soft"> yld</span>
                 </span>
               ) : null}
@@ -545,7 +545,7 @@ function MineDashboardRow({
                 <span className="shrink-0 font-mono text-ui-muted">produces</span>
                 <div className="flex min-w-0 flex-col gap-0.5">
                   {produceLines.map((line) => (
-                    <span key={line.key} className="font-mono text-zinc-200">
+                    <span key={line.key} className="font-mono text-foreground">
                       {line.displayName} {line.pct}%
                     </span>
                   ))}
@@ -576,7 +576,7 @@ function ResourcesCategoryGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
         {!open ? (
           <span
             className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
@@ -586,7 +586,7 @@ function ResourcesCategoryGroup({
             ●
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-cyan-300">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
         <ResourcesCreditsRollupLabel items={items} />
         <PanelExpandButton
           open={open}
@@ -648,7 +648,7 @@ function ResourcesPanel({
 
   return (
     <section className="mb-1">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
         {!open ? (
           <span
             className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
@@ -658,10 +658,10 @@ function ResourcesPanel({
             ●
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-cyan-300">{title}</span>
-        <ResourcesCreditsRollupLabel items={resources} className="text-[10px] text-cyan-200/90" />
+        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
+        <ResourcesCreditsRollupLabel items={resources} className="text-xs text-cyber-cyan/80" />
         {nextAt ? (
-          <span className="shrink-0 font-mono text-[10px] font-normal normal-case tracking-normal text-cyan-300">
+          <span className="shrink-0 font-mono text-xs font-normal normal-case tracking-normal text-cyber-cyan">
             <Countdown targetIso={nextAt} prefix="next:" onExpired={onReload} />
           </span>
         ) : null}
@@ -673,7 +673,7 @@ function ResourcesPanel({
         />
       </div>
       {open ? (
-        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
+        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">
           {orderedKindKeys.map((kindKey) => (
             <ResourcesCategoryGroup
               key={kindKey}
@@ -707,7 +707,7 @@ function PropertyRealtyAgentMark({ agent }: { agent: DashboardProperty["realtyAg
   if (agent === "nano") {
     return (
       <span
-        className="inline-flex h-4 shrink-0 items-center justify-center rounded border border-cyan-600/55 bg-cyan-950/90 px-[3px] text-[9px] font-bold leading-none text-cyan-200"
+        className="inline-flex h-4 shrink-0 items-center justify-center rounded border border-cyan-600/55 bg-cyan-950/90 px-[3px] text-ui-caption font-bold leading-none text-cyber-cyan"
         title="NanoMegaPlex Real Estate"
         aria-label="Purchased from NanoMegaPlex Real Estate"
       >
@@ -718,7 +718,7 @@ function PropertyRealtyAgentMark({ agent }: { agent: DashboardProperty["realtyAg
   if (agent === "frontier") {
     return (
       <span
-        className="inline-flex h-4 shrink-0 items-center justify-center rounded border border-amber-600/55 bg-amber-950/85 px-[3px] text-[9px] font-bold leading-none text-amber-200"
+        className="inline-flex h-4 shrink-0 items-center justify-center rounded border border-amber-600/55 bg-amber-950/85 px-[3px] text-ui-caption font-bold leading-none text-amber-200"
         title="Frontier Real Estate"
         aria-label="Purchased from Frontier Real Estate"
       >
@@ -741,8 +741,8 @@ function PropertiesKindGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest">
-        <span className="min-w-0 flex-1 truncate text-cyan-300">{title}</span>
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
+        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
         <PanelExpandButton
           open={open}
           onClick={() => setOpen((v) => !v)}
@@ -756,14 +756,14 @@ function PropertiesKindGroup({
             <Row key={p.claimId}>
               <div className="flex min-w-0 flex-1 items-center gap-1">
                 <PropertyRealtyAgentMark agent={p.realtyAgent} />
-                <span className="min-w-0 flex-1 truncate text-zinc-300">{p.claimKey}</span>
+                <span className="min-w-0 flex-1 truncate text-foreground">{p.claimKey}</span>
               </div>
-              <span className="text-[10px] text-ui-muted">
+              <span className="text-xs text-ui-muted">
                 {p.zone} T{p.tier}
               </span>
               {p.hasBuiltOnParcel ? (
                 <span
-                  className="inline-flex shrink-0 items-center justify-center text-[18px] leading-none text-cyan-400"
+                  className="inline-flex shrink-0 items-center justify-center text-lg leading-none text-cyber-cyan"
                   title="Something built on this property"
                   aria-label="Something built on this property"
                 >
@@ -772,7 +772,7 @@ function PropertiesKindGroup({
               ) : null}
               {p.structureUpgradesAvailable ? (
                 <span
-                  className="inline-flex shrink-0 items-center justify-center text-[10px] leading-none text-amber-400"
+                  className="inline-flex shrink-0 items-center justify-center text-xs leading-none text-amber-400"
                   title="Further structure upgrade available"
                   aria-label="Further structure upgrade available"
                 >
@@ -818,8 +818,8 @@ function PersonalStorageKindGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest">
-        <span className="min-w-0 flex-1 truncate text-cyan-300">{header}</span>
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
+        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{header}</span>
         <PanelExpandButton
           open={open}
           onClick={() => setOpen((v) => !v)}
@@ -829,7 +829,7 @@ function PersonalStorageKindGroup({
       </div>
       {open ? (
         <>
-          <div className="mb-0.5 flex min-w-0 items-baseline gap-2 pt-0.5 font-mono text-[9px] uppercase tracking-wide text-ui-muted">
+          <div className="mb-0.5 flex min-w-0 items-baseline gap-2 pt-0.5 font-mono text-ui-caption uppercase tracking-wide text-ui-muted">
             <span className="min-w-0 flex-1 truncate">resource</span>
             <span className="shrink-0 tabular-nums">t</span>
             <span className="shrink-0 tabular-nums" title="Estimated value at local bids (credits)">
@@ -841,15 +841,15 @@ function PersonalStorageKindGroup({
               const { tons, estimatedValueCr } = personalStorageRow(raw);
               return (
                 <Row key={key}>
-                  <span className="min-w-0 flex-1 truncate text-zinc-300">
+                  <span className="min-w-0 flex-1 truncate text-foreground">
                     {displayResourceName(key, resourceNames)}
                   </span>
-                  <span className="shrink-0 font-mono tabular-nums text-zinc-200">
+                  <span className="shrink-0 font-mono tabular-nums text-foreground">
                     {Number(tons).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     <span className="text-ui-muted"> t</span>
                   </span>
                   <span
-                    className="shrink-0 font-mono tabular-nums text-zinc-400"
+                    className="shrink-0 font-mono tabular-nums text-ui-muted"
                     title="Estimated value at local bids (credits)"
                   >
                     {cr(estimatedValueCr)}
@@ -933,7 +933,7 @@ function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims
             {c.volumeTier ? <Badge label={c.volumeTier} cls={c.volumeTierCls} /> : null}
             {c.resourceRarityTier ? <Badge label={c.resourceRarityTier} cls={c.resourceRarityTierCls} /> : null}
             <span
-              className="inline-block rounded bg-zinc-700/60 px-1 text-[9px] font-bold uppercase tabular-nums text-ui-muted"
+              className="inline-block rounded bg-zinc-700/60 px-1 text-ui-caption font-bold uppercase tabular-nums text-ui-muted"
               title="Est. value per production cycle (local bids)"
             >
               {c.estimatedValuePerCycle != null ? `${c.estimatedValuePerCycle.toLocaleString()} cr/c` : "—"}
@@ -980,7 +980,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
   );
 
   return (
-    <div className="dark min-h-svh bg-zinc-950 font-mono text-[11px] text-zinc-300">
+    <div className="dark min-h-svh bg-zinc-950 font-mono text-xs text-foreground">
       {flash ? (
         <div className="sticky top-0 z-50 bg-red-900/80 px-2 py-1 text-red-200">
           {flash}{" "}
@@ -1016,7 +1016,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           {data.groupedAlerts ? (
             <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} onAckAll={ackAllAlerts} busy={busy} />
           ) : null}
-          {busy ? <div className="mb-1 text-[10px] text-ui-muted">Working...</div> : null}
+          {busy ? <div className="mb-1 text-xs text-ui-muted">Working...</div> : null}
           <InventoryPanel inventory={data.inventory} />
           <PersonalStoragePanel
             buckets={data.personalStorage ?? { mine: {}, flora: {}, fauna: {} }}

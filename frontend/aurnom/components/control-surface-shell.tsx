@@ -12,7 +12,7 @@ export function ControlSurfaceShell({
   onReload: () => void;
 }) {
   return (
-    <div className="dark min-h-svh bg-zinc-950 font-mono text-[11px] text-zinc-300">
+    <div className="dark min-h-svh bg-zinc-950 font-mono text-xs text-foreground">
       <div
         className="grid min-h-svh"
         style={{

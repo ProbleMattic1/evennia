@@ -21,11 +21,11 @@ export function EconomyStatCard({
 }) {
   return (
     <article
-      className="rounded border border-cyan-900/45 bg-zinc-950/90 px-2.5 py-2 font-mono text-[10px] text-ui-muted"
+      className="rounded border border-cyan-900/45 bg-zinc-950/90 px-2.5 py-2 font-mono text-xs text-ui-muted"
       title={hintTitle}
     >
       <header className="mb-1.5 flex items-center justify-between gap-2 border-b border-cyan-950/60 pb-1">
-        <h2 className="text-[9px] font-bold uppercase tracking-wider text-ui-muted">{title}</h2>
+        <h2 className="text-ui-caption font-bold uppercase tracking-wider text-ui-muted">{title}</h2>
         {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
       </header>
       {children}

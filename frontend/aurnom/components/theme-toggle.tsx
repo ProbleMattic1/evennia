@@ -45,7 +45,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="block w-full rounded px-2 py-1 text-left text-[12px] text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-ui-soft dark:hover:bg-cyan-950/40 dark:hover:text-cyan-300"
+      className="block w-full rounded px-2 py-1 text-left text-xs text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-ui-soft dark:hover:bg-cyan-950/40 dark:hover:text-cyber-cyan"
       title={dark ? "Switch to light mode" : "Switch to dark mode"}
     >
       {dark ? "☀ Light" : "☽ Dark"}

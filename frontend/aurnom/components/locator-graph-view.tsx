@@ -126,16 +126,16 @@ function LocatorNode({ data }: NodeProps) {
           d.dim ? "opacity-40" : "",
         ].join(" ")}
       >
-        <div className="truncate font-mono text-[10px] font-semibold text-zinc-100">{d.label}</div>
+        <div className="truncate font-mono text-xs font-semibold text-foreground">{d.label}</div>
         <div className="mt-0.5 flex flex-wrap gap-1">
           {d.here ? (
-            <span className="rounded bg-amber-900/50 px-1 text-[9px] uppercase text-amber-200">You</span>
+            <span className="rounded bg-amber-900/50 px-1 text-ui-caption uppercase text-amber-200">You</span>
           ) : null}
           {d.hasMiningSite ? (
-            <span className="rounded bg-amber-950/80 px-1 text-[9px] text-amber-400">Mine</span>
+            <span className="rounded bg-amber-950/80 px-1 text-ui-caption text-amber-400">Mine</span>
           ) : null}
           {d.canStep ? (
-            <span className="rounded bg-cyan-900/40 px-1 text-[9px] text-cyan-300">Go</span>
+            <span className="rounded bg-cyan-900/40 px-1 text-ui-caption text-cyber-cyan">Go</span>
           ) : null}
         </div>
       </div>
@@ -392,14 +392,14 @@ export function LocatorGraphView({
             aria-label="Overview map"
           />
           <FitViewOnChange deps={`${nodes.length}-${edges.length}-${schematic}-${filter}`} />
-          <Panel position="top-left" className="m-2 max-w-[280px] text-[10px] text-ui-muted">
-            Three clusters: <span className="text-cyan-400">NanoMegaPlex</span> (coreward),{" "}
+          <Panel position="top-left" className="m-2 max-w-[280px] text-xs text-ui-muted">
+            Three clusters: <span className="text-cyber-cyan">NanoMegaPlex</span> (coreward),{" "}
             <span className="text-violet-400">Frontier</span> (rim), and{" "}
             <span className="text-amber-400">industrial mines</span> (plex + Industrial Resource Colony contractor grids).
             The dashed{" "}
             <span className="text-violet-300">violet</span> spine links the two promenades only (not travel); short
             dashed <span className="text-violet-300">violet</span> arrows tie each opened parcel shell to its venue hub
-            (title anchor, not an extra exit). Click <span className="text-cyan-400">Go</span> for cyan exits. Hub mining
+            (title anchor, not an extra exit). Click <span className="text-cyber-cyan">Go</span> for cyan exits. Hub mining
             routes stay off the cyan graph unless Full topology is on.
           </Panel>
         </ReactFlow>

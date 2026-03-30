@@ -48,10 +48,10 @@ function BankPageInner() {
               <StoryPanel title="Bank Output" lines={data.storyLines} />
             </CsPanel>
             <CsPanel title="Treasury">
-              <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-zinc-200">
+              <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-foreground">
                 {data.treasuryBalance.toLocaleString()} <span className="text-amber-400">cr</span>
               </p>
-              <p className="mt-0.5 font-mono text-[11px] text-ui-muted">{data.treasuryAccount}</p>
+              <p className="mt-0.5 font-mono text-xs text-ui-muted">{data.treasuryAccount}</p>
             </CsPanel>
           </>
         }
@@ -64,15 +64,15 @@ function BankPageInner() {
               </p>
               {data.treasuryTransactionLog.length > 0 ? (
                 <div className="mt-2 overflow-x-auto rounded border border-cyan-900/50">
-                  <table className="w-full min-w-[40rem] border-collapse text-left text-[12px]">
+                  <table className="w-full min-w-[40rem] border-collapse text-left text-xs">
                     <thead>
                       <tr className="border-b border-cyan-900/50 bg-zinc-950/80">
-                        <th className="px-2 py-1.5 font-medium text-cyan-300">Time</th>
-                        <th className="px-2 py-1.5 font-medium text-cyan-300">Type</th>
-                        <th className="px-2 py-1.5 font-medium text-cyan-300">From</th>
-                        <th className="px-2 py-1.5 font-medium text-cyan-300">To</th>
-                        <th className="px-2 py-1.5 font-medium text-cyan-300">Memo</th>
-                        <th className="px-2 py-1.5 text-right font-medium text-cyan-300">Δ treasury</th>
+                        <th className="px-2 py-1.5 font-medium text-cyber-cyan">Time</th>
+                        <th className="px-2 py-1.5 font-medium text-cyber-cyan">Type</th>
+                        <th className="px-2 py-1.5 font-medium text-cyber-cyan">From</th>
+                        <th className="px-2 py-1.5 font-medium text-cyber-cyan">To</th>
+                        <th className="px-2 py-1.5 font-medium text-cyber-cyan">Memo</th>
+                        <th className="px-2 py-1.5 text-right font-medium text-cyber-cyan">Δ treasury</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -102,7 +102,7 @@ function BankPageInner() {
                             className="border-b border-cyan-950/60 last:border-0"
                           >
                             <td className="whitespace-nowrap px-2 py-1.5 font-mono text-ui-muted">{timeLabel}</td>
-                            <td className="px-2 py-1.5 font-mono text-zinc-300">{row.type}</td>
+                            <td className="px-2 py-1.5 font-mono text-foreground">{row.type}</td>
                             <td className="max-w-[9rem] truncate px-2 py-1.5 font-mono text-ui-accent-readable" title={row.fromAccount ?? ""}>
                               {row.fromAccount ?? "—"}
                             </td>
@@ -128,8 +128,8 @@ function BankPageInner() {
             </CsPanel>
             <CsPanel title="Your Account">
               {data.credits != null ? (
-                <p className="mt-1 font-mono text-sm tabular-nums text-zinc-300">
-                  Balance <span className="font-semibold text-zinc-100">{data.credits.toLocaleString()}</span>{" "}
+                <p className="mt-1 font-mono text-sm tabular-nums text-foreground">
+                  Balance <span className="font-semibold text-foreground">{data.credits.toLocaleString()}</span>{" "}
                   <span className="text-amber-400">cr</span>
                 </p>
               ) : (
@@ -139,13 +139,13 @@ function BankPageInner() {
               )}
               {data.transactionLog && data.transactionLog.length > 0 ? (
                 <div className="mt-2 overflow-x-auto rounded border border-cyan-900/50">
-                  <table className="w-full min-w-[32rem] border-collapse text-left text-[12px]">
+                  <table className="w-full min-w-[32rem] border-collapse text-left text-xs">
                     <thead>
                       <tr className="border-b border-cyan-900/50 bg-zinc-950/80">
-                        <th className="px-2 py-1.5 font-medium text-cyan-300">Time</th>
-                        <th className="px-2 py-1.5 font-medium text-cyan-300">Type</th>
-                        <th className="px-2 py-1.5 font-medium text-cyan-300">Memo</th>
-                        <th className="px-2 py-1.5 text-right font-medium text-cyan-300">Δ cr</th>
+                        <th className="px-2 py-1.5 font-medium text-cyber-cyan">Time</th>
+                        <th className="px-2 py-1.5 font-medium text-cyber-cyan">Type</th>
+                        <th className="px-2 py-1.5 font-medium text-cyber-cyan">Memo</th>
+                        <th className="px-2 py-1.5 text-right font-medium text-cyber-cyan">Δ cr</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -175,7 +175,7 @@ function BankPageInner() {
                             className="border-b border-cyan-950/60 last:border-0"
                           >
                             <td className="whitespace-nowrap px-2 py-1.5 font-mono text-ui-muted">{timeLabel}</td>
-                            <td className="px-2 py-1.5 font-mono text-zinc-300">{row.type}</td>
+                            <td className="px-2 py-1.5 font-mono text-foreground">{row.type}</td>
                             <td className="max-w-[14rem] truncate px-2 py-1.5 text-ui-accent-readable" title={row.memo}>
                               {row.memo || "—"}
                             </td>

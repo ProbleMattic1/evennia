@@ -17,7 +17,7 @@ export function ActionGrid({ actions }: Props) {
         <Link
           key={action.key}
           href={action.href}
-          className="rounded border border-cyan-800/60 px-2 py-1 text-[11px] text-cyan-400 hover:bg-cyan-900/40 hover:text-cyan-300"
+          className="rounded border border-cyan-800/60 px-2 py-1 text-xs text-cyber-cyan hover:bg-cyan-900/40 hover:text-cyber-cyan"
         >
           {action.label}
         </Link>

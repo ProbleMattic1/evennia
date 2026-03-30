@@ -46,7 +46,7 @@ function statusToneClass(status: string) {
   switch (status) {
     case "complete":
     case "claimed":
-      return "text-cyan-400";
+      return "text-cyber-cyan";
     case "in_progress":
       return "text-amber-400";
     case "expired":
@@ -109,7 +109,7 @@ function ChallengeRow({
       <div className="flex min-w-0 items-start gap-1">
         <div className="min-w-0 flex-1">
           <div
-            className={`min-w-0 truncate font-mono ${done ? "text-cyan-200" : "text-zinc-100"}`}
+            className={`min-w-0 truncate font-mono ${done ? "text-cyber-cyan/85" : "text-foreground"}`}
           >
             {entry.title}
           </div>
@@ -117,17 +117,17 @@ function ChallengeRow({
         </div>
         <div className="shrink-0 text-right">
           <div
-            className={`text-[10px] font-semibold uppercase tracking-wide ${statusToneClass(entry.status)}`}
+            className={`text-xs font-semibold uppercase tracking-wide ${statusToneClass(entry.status)}`}
           >
             {statusLabel(entry.status)}
           </div>
-          <div className="text-[10px] text-zinc-500">{formatWindowKey(entry.windowKey, entry.cadence)}</div>
+          <div className="text-xs text-ui-muted">{formatWindowKey(entry.windowKey, entry.cadence)}</div>
           {canClaim ? (
             <button
               type="button"
               disabled={claimBusy}
               onClick={() => void onClaim(entry.challengeId, entry.windowKey)}
-              className="mt-0.5 rounded border border-cyan-600/50 bg-cyan-950/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-40"
+              className="mt-0.5 rounded border border-cyan-600/50 bg-cyan-950/60 px-1.5 py-0.5 text-ui-caption font-bold uppercase tracking-wide text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40"
             >
               Claim
             </button>
@@ -162,12 +162,12 @@ function CadenceSection({
   return (
     <div className="border-t border-cyan-900/25 pt-1.5 first:border-0 first:pt-0">
       <div className="flex min-w-0 items-center gap-1">
-        <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-widest text-cyan-300">
+        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan">
           {label}
           {completedCount > 0 ? (
             <span className="ml-1 font-mono font-normal normal-case tracking-normal">
-              <span className="text-cyan-400">{completedCount}</span>
-              <span className="text-zinc-500">/</span>
+              <span className="text-cyber-cyan">{completedCount}</span>
+              <span className="text-ui-muted">/</span>
               <span className="text-amber-400">{total}</span>
             </span>
           ) : null}
@@ -206,8 +206,8 @@ type Props = {
 };
 
 const PANEL_HEADER =
-  "flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest";
-const PANEL_BODY = "border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]";
+  "flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest";
+const PANEL_BODY = "border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs";
 
 export function ChallengesPanel({ challenges, onClaimChallenge, claimBusy }: Props) {
   const active = challenges.active ?? [];
@@ -232,7 +232,7 @@ export function ChallengesPanel({ challenges, onClaimChallenge, claimBusy }: Pro
     return (
       <section className="mb-1">
         <div className={PANEL_HEADER}>
-          <span className="min-w-0 truncate text-cyan-300">Challenges</span>
+          <span className="min-w-0 truncate text-cyber-cyan">Challenges</span>
         </div>
         <div className={PANEL_BODY}>
           <p className="text-ui-muted">No challenges tracked yet. Explore, trade, or operate a property to begin.</p>
@@ -244,26 +244,26 @@ export function ChallengesPanel({ challenges, onClaimChallenge, claimBusy }: Pro
   return (
     <section className="mb-1">
         <div className={PANEL_HEADER}>
-          <span className="min-w-0 truncate text-cyan-300">Challenges</span>
+          <span className="min-w-0 truncate text-cyber-cyan">Challenges</span>
           {typeof challenges.pointsLifetime === "number" ? (
-            <span className="shrink-0 font-mono text-[9px] font-normal normal-case tracking-normal text-amber-400/90">
+            <span className="shrink-0 font-mono text-ui-caption font-normal normal-case tracking-normal text-amber-400/90">
               {challenges.pointsLifetime.toLocaleString()} pts
             </span>
           ) : null}
           <div className="ml-auto flex shrink-0 items-center gap-1 normal-case tracking-normal">
           {totalComplete > 0 || totalActive > 0 ? (
-            <span className="font-mono text-[9px] font-normal">
+            <span className="font-mono text-ui-caption font-normal">
               {totalComplete > 0 ? (
                 <>
-                  <span className="text-cyan-400">{totalComplete}</span>
-                  <span className="text-zinc-500"> ready</span>
+                  <span className="text-cyber-cyan">{totalComplete}</span>
+                  <span className="text-ui-muted"> ready</span>
                 </>
               ) : null}
-              {totalComplete > 0 && totalActive > 0 ? <span className="text-zinc-600"> · </span> : null}
+              {totalComplete > 0 && totalActive > 0 ? <span className="text-ui-muted"> · </span> : null}
               {totalActive > 0 ? (
                 <>
                   <span className="text-amber-400">{totalActive}</span>
-                  <span className="text-zinc-500"> active</span>
+                  <span className="text-ui-muted"> active</span>
                 </>
               ) : null}
             </span>
@@ -290,17 +290,17 @@ export function ChallengesPanel({ challenges, onClaimChallenge, claimBusy }: Pro
 
           {history.length > 0 ? (
             <div className="mt-2 border-t border-cyan-900/25 pt-1.5">
-              <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-300">Recent completions</div>
+              <div className="mb-1 text-xs font-bold uppercase tracking-widest text-cyber-cyan">Recent completions</div>
               <div className="flex flex-col gap-0.5">
                 {history.slice(0, 5).map((row) => (
                   <div
                     key={`${row.challengeId}-${row.windowKey}`}
                     className="flex min-w-0 items-baseline justify-between gap-2 border-b border-zinc-800/60 pb-0.5 last:border-0 last:pb-0"
                   >
-                    <span className="min-w-0 truncate font-mono text-cyan-400/90">
+                    <span className="min-w-0 truncate font-mono text-cyber-cyan/90">
                       {row.challengeId.replace(/^(daily|weekly|monthly|quarter|half_year|year)\./, "")}
                     </span>
-                    <span className="shrink-0 font-mono text-[10px] text-ui-muted">
+                    <span className="shrink-0 font-mono text-xs text-ui-muted">
                       {row.cadence} · {row.windowKey}
                     </span>
                   </div>

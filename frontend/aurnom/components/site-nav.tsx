@@ -17,7 +17,7 @@ import { getNavState, playTravel, type NavState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 const linkClass =
-  "block w-full truncate rounded-md px-3 py-2.5 text-sm text-ui-soft hover:bg-cyan-950/40 hover:text-cyan-300 lg:px-2 lg:py-1 lg:text-[12px] lg:rounded-none";
+  "block w-full truncate rounded-md px-3 py-2.5 text-sm text-ui-soft hover:bg-cyan-950/40 hover:text-cyber-cyan lg:px-2 lg:py-1 lg:text-xs lg:rounded-none";
 
 function NavDivider() {
   return (
@@ -29,7 +29,7 @@ function NavDivider() {
 }
 
 const sectionHeaderClass =
-  "flex w-full cursor-pointer items-center justify-between gap-1 truncate px-3 py-2 text-sm font-semibold uppercase tracking-wide text-ui-muted hover:text-cyan-200 lg:px-2 lg:py-1 lg:text-[11px]";
+  "flex w-full cursor-pointer items-center justify-between gap-1 truncate px-3 py-2 text-sm font-semibold uppercase tracking-wide text-ui-muted hover:text-cyber-cyan lg:px-2 lg:py-1 lg:text-xs";
 
 function NavSection({
   title,
@@ -231,7 +231,7 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
         <Link
           href="/locator"
-          className="shrink-0 truncate rounded border border-cyan-900/50 px-1.5 py-0.5 text-[10px] text-cyan-300 no-underline hover:bg-cyan-950/40 hover:text-cyan-300"
+          className="shrink-0 truncate rounded border border-cyan-900/50 px-1.5 py-0.5 text-xs text-cyber-cyan no-underline hover:bg-cyan-950/40 hover:text-cyber-cyan"
           title="Universal Locator"
           onClick={afterNav}
         >
@@ -239,7 +239,7 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
         <Link
           href="/economy"
-          className="shrink-0 truncate rounded border border-cyan-900/50 px-1.5 py-0.5 text-[10px] text-cyan-300 no-underline hover:bg-cyan-950/40 hover:text-cyan-300"
+          className="shrink-0 truncate rounded border border-cyan-900/50 px-1.5 py-0.5 text-xs text-cyber-cyan no-underline hover:bg-cyan-950/40 hover:text-cyber-cyan"
           title="Economic pulse"
           onClick={afterNav}
         >
@@ -271,11 +271,11 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
       <NavDivider />
 
       {error ? (
-        <span className="px-2 py-1 text-[10px] text-red-600 dark:text-red-400">
+        <span className="px-2 py-1 text-xs text-red-600 dark:text-red-400">
           Shops unavailable
         </span>
       ) : loading || !data ? (
-        <span className="px-2 py-1 text-[10px] text-ui-muted">Loading…</span>
+        <span className="px-2 py-1 text-xs text-ui-muted">Loading…</span>
       ) : (
         <>
           {(data.kiosks ?? []).length > 0 && (

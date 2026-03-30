@@ -48,7 +48,7 @@ function CycleRing({ progress }: { progress: number }) {
       aria-valuemax={100}
       aria-label="Mining delivery cycle progress"
     >
-      <div className="absolute inset-2 flex items-center justify-center rounded-full bg-zinc-950 text-[10px] text-cyan-300">
+      <div className="absolute inset-2 flex items-center justify-center rounded-full bg-zinc-950 text-xs text-cyber-cyan">
         {pct}%
       </div>
     </div>
@@ -69,9 +69,9 @@ function SpringCrDisplay({ crPerSec, reduceMotion }: { crPerSec: number; reduceM
   });
 
   if (reduceMotion) {
-    return <span className="text-cyan-300">{formatCrPerSec(crPerSec)}</span>;
+    return <span className="text-cyber-cyan">{formatCrPerSec(crPerSec)}</span>;
   }
-  return <motion.span className="text-cyan-300">{formatCrPerSec(display)}</motion.span>;
+  return <motion.span className="text-cyber-cyan">{formatCrPerSec(display)}</motion.span>;
 }
 
 export function EconomyDashboard({
@@ -140,23 +140,23 @@ export function EconomyDashboard({
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          className="rounded border border-cyan-800/60 px-2 py-1 text-cyan-400 hover:bg-cyan-950/50"
+          className="rounded border border-cyan-800/60 px-2 py-1 text-cyber-cyan hover:bg-cyan-950/50"
           onClick={() => onReload()}
         >
           Sync
         </button>
-        <p className="text-[10px] text-ui-muted">
+        <p className="text-xs text-ui-muted">
           Implied rates assume the current cycle repeats every {period}s at today&apos;s bids.
         </p>
         {data.serverTimeIso ? (
-          <span className="text-[10px] text-ui-soft">Server {data.serverTimeIso}</span>
+          <span className="text-xs text-ui-soft">Server {data.serverTimeIso}</span>
         ) : null}
       </div>
 
       <section className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
         <div className="rounded border border-cyan-900/40 bg-zinc-950/90 p-3">
-          <p className="text-[9px] uppercase tracking-widest text-ui-muted">Portfolio mining (implied)</p>
-          <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-cyan-300">
+          <p className="text-ui-caption uppercase tracking-widest text-ui-muted">Portfolio mining (implied)</p>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-cyber-cyan">
             <SpringCrDisplay crPerSec={crPs} reduceMotion={!!reduceMotion} />
             <span>{tPs.toFixed(4)} t/s</span>
             {data.credits != null ? (
@@ -175,16 +175,16 @@ export function EconomyDashboard({
         </div>
         <div className="flex items-center gap-3">
           <CycleRing progress={progress} />
-          <div className="text-[10px] text-ui-muted">
+          <div className="text-xs text-ui-muted">
             Next grid boundary
             <br />
-            <span className="font-mono text-zinc-300">{data.miningNextCycleAt ?? "—"}</span>
+            <span className="font-mono text-foreground">{data.miningNextCycleAt ?? "—"}</span>
           </div>
         </div>
       </section>
 
       <section className="flex h-52 min-h-0 flex-col rounded border border-cyan-900/40 bg-zinc-950/90 p-2">
-        <p className="mb-1 shrink-0 px-1 text-[9px] uppercase tracking-widest text-ui-muted">
+        <p className="mb-1 shrink-0 px-1 text-ui-caption uppercase tracking-widest text-ui-muted">
           Sample price spark
           {primaryCommodityKey ? (
             <>
@@ -194,7 +194,7 @@ export function EconomyDashboard({
           ) : null}
         </p>
         {sparkData.length === 0 ? (
-          <p className="shrink-0 p-4 text-[10px] text-ui-soft">Collecting market samples…</p>
+          <p className="shrink-0 p-4 text-xs text-ui-soft">Collecting market samples…</p>
         ) : (
           <div className="min-h-0 min-w-0 flex-1">
             <ResponsiveContainer width="100%" height="100%">
@@ -225,7 +225,7 @@ export function EconomyDashboard({
 
       {compChartData.length > 0 ? (
         <section className="flex h-56 min-h-0 flex-col rounded border border-cyan-900/40 bg-zinc-950/90 p-2">
-          <p className="mb-1 shrink-0 px-1 text-[9px] uppercase tracking-widest text-ui-muted">
+          <p className="mb-1 shrink-0 px-1 text-ui-caption uppercase tracking-widest text-ui-muted">
             Estimated output mix (active resource sites, t/cycle implied)
           </p>
           <div className="min-h-0 min-w-0 flex-1">
@@ -256,12 +256,12 @@ export function EconomyDashboard({
 
       {proc ? (
         <section className="rounded border border-cyan-900/40 bg-zinc-950/90 p-3">
-          <p className="text-[9px] uppercase tracking-widest text-ui-muted">Processing plant</p>
-          <p className="mt-0.5 text-[10px] text-ui-muted">{proc.plantName}</p>
+          <p className="text-ui-caption uppercase tracking-widest text-ui-muted">Processing plant</p>
+          <p className="mt-0.5 text-xs text-ui-muted">{proc.plantName}</p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <p className="text-[9px] text-ui-soft">Raw receiving</p>
-              <p className="font-mono text-[11px] text-zinc-200">
+              <p className="text-ui-caption text-ui-soft">Raw receiving</p>
+              <p className="font-mono text-xs text-foreground">
                 {proc.rawStorageUsed.toFixed(1)} / {proc.rawStorageCapacity.toFixed(1)} t
               </p>
               <div className="mt-1 h-1.5 overflow-hidden rounded bg-zinc-800">
@@ -274,15 +274,15 @@ export function EconomyDashboard({
               </div>
             </div>
             <div>
-              <p className="text-[9px] text-ui-soft">Refinery (shared / attributed)</p>
-              <p className="font-mono text-[11px] text-zinc-200">
+              <p className="text-ui-caption text-ui-soft">Refinery (shared / attributed)</p>
+              <p className="font-mono text-xs text-foreground">
                 Pool {proc.refineryInputTons.toFixed(1)} t → {proc.refineryOutputValue.toLocaleString()} cr · Queue{" "}
                 {proc.minerQueueOreTons.toFixed(1)} t · Attr. out {proc.minerOutputValueTotal.toLocaleString()} cr
               </p>
             </div>
             <div>
-              <p className="text-[9px] text-ui-soft">Your queue / refined</p>
-              <p className="font-mono text-[11px] text-zinc-200">
+              <p className="text-ui-caption text-ui-soft">Your queue / refined</p>
+              <p className="font-mono text-xs text-foreground">
                 Ore queued {proc.myOreQueued != null ? `${proc.myOreQueued.toFixed(1)} t` : "—"} · refined value{" "}
                 {proc.myRefinedOutputValue != null ? `${proc.myRefinedOutputValue.toLocaleString()} cr` : "—"}
               </p>
@@ -292,17 +292,17 @@ export function EconomyDashboard({
       ) : null}
 
       <section className="rounded border border-cyan-900/40 bg-zinc-950/90 p-3">
-        <p className="text-[9px] uppercase tracking-widest text-ui-muted">Resources</p>
+        <p className="text-ui-caption uppercase tracking-widest text-ui-muted">Resources</p>
         {resourceSites.length === 0 ? (
-          <p className="mt-1 text-[10px] text-ui-soft">No sites on file for this character.</p>
+          <p className="mt-1 text-xs text-ui-soft">No sites on file for this character.</p>
         ) : (
           <ul className="mt-2 max-h-48 space-y-1 overflow-auto">
             {resourceSites.map((m) => (
               <li
                 key={m.id}
-                className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-800/80 py-1 text-[10px]"
+                className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-800/80 py-1 text-xs"
               >
-                <span className="text-zinc-200">{m.key}</span>
+                <span className="text-foreground">{m.key}</span>
                 <span className="text-ui-muted">
                   {m.active ? "active" : "idle"} · est. {(m.estimatedValuePerCycle ?? 0).toLocaleString()} cr/cycle ·
                   storage {(m.storageUsed ?? 0).toFixed(0)}/{(m.storageCapacity ?? 0).toFixed(0)} t
@@ -315,11 +315,11 @@ export function EconomyDashboard({
 
       {marketAlerts.length > 0 ? (
         <section className="rounded border border-cyan-900/40 bg-zinc-950/90 p-3" aria-label="Market alerts">
-          <p className="text-[9px] uppercase tracking-widest text-ui-muted">Market alerts</p>
+          <p className="text-ui-caption uppercase tracking-widest text-ui-muted">Market alerts</p>
           <ul className="mt-2 space-y-1">
             {marketAlerts.map((a) => (
-              <li key={a.id} className="text-[10px] text-ui-muted">
-                <span className="text-cyan-300">{a.severity}</span> · {a.title}
+              <li key={a.id} className="text-xs text-ui-muted">
+                <span className="text-cyber-cyan">{a.severity}</span> · {a.title}
                 {a.detail ? <span className="text-ui-soft"> — {a.detail}</span> : null}
               </li>
             ))}

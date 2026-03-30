@@ -51,7 +51,7 @@ export function PropertyDeedListForm({ defaultClaimId }: PropertyDeedListFormPro
 
   return (
     <>
-      <p className="mt-1 text-[12px] text-ui-accent-readable">
+      <p className="mt-1 text-xs text-ui-accent-readable">
         List this deed on the property market at your price (hub escrow until sold). Buyers browse listed
         deeds on the{" "}
         <Link href="/real-estate#property-deed-resale-market" className="text-sky-700 underline dark:text-sky-400">
@@ -61,37 +61,37 @@ export function PropertyDeedListForm({ defaultClaimId }: PropertyDeedListFormPro
         <span className="font-mono">buypropertydeed</span>.
       </p>
       {listMsg ? (
-        <p className="mt-2 font-mono text-[12px] text-ui-muted">{listMsg}</p>
+        <p className="mt-2 font-mono text-xs text-ui-muted">{listMsg}</p>
       ) : null}
       <div className="mt-3 border-t border-cyan-900/40 pt-2">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-ui-muted">List your deed</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-ui-muted">List your deed</p>
         <div className="mt-2 flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-0.5 text-[11px] text-ui-muted">
+          <label className="flex flex-col gap-0.5 text-xs text-ui-muted">
             Claim id
             <input
               type="text"
               inputMode="numeric"
               value={listClaimId}
               onChange={(ev) => setListClaimId(ev.target.value)}
-              className="w-28 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 font-mono text-sm text-zinc-200 dark:bg-zinc-950"
+              className="w-28 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 font-mono text-sm text-foreground dark:bg-zinc-950"
               placeholder="#id"
             />
           </label>
-          <label className="flex flex-col gap-0.5 text-[11px] text-ui-muted">
+          <label className="flex flex-col gap-0.5 text-xs text-ui-muted">
             Price (cr)
             <input
               type="text"
               inputMode="numeric"
               value={listPrice}
               onChange={(ev) => setListPrice(ev.target.value)}
-              className="w-32 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 font-mono text-sm text-zinc-200 dark:bg-zinc-950"
+              className="w-32 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 font-mono text-sm text-foreground dark:bg-zinc-950"
             />
           </label>
           <button
             type="button"
             disabled={listBusy}
             onClick={() => void handleList()}
-            className="rounded border border-cyan-800/60 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50 dark:bg-cyan-950/50"
+            className="rounded border border-cyan-800/60 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50 dark:bg-cyan-950/50"
           >
             {listBusy ? "…" : "List deed"}
           </button>

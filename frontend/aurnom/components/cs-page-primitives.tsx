@@ -42,10 +42,10 @@ export function CsPanel({
 }) {
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
+      <div className="bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest text-cyber-cyan">
         {title}
       </div>
-      <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div>
+      <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5">{children}</div>
     </section>
   );
 }
@@ -54,7 +54,7 @@ export function CsButtonLink({ href, children }: { href: string; children: React
   return (
     <Link
       href={href}
-      className="rounded border border-cyan-800/60 px-1.5 py-0.5 text-[10px] text-cyan-400 hover:bg-cyan-900/40"
+      className="rounded border border-cyan-800/60 px-1.5 py-0.5 text-xs text-cyber-cyan hover:bg-cyan-900/40"
     >
       {children}
     </Link>

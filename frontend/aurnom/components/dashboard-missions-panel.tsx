@@ -195,18 +195,18 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
 
   return (
     <section className="mb-1">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest">
-        <span className="min-w-0 truncate text-cyan-300">Missions</span>
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
+        <span className="min-w-0 truncate text-cyber-cyan">Missions</span>
         <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
-          <span className="font-mono text-[9px] font-normal">
-            <span className="text-zinc-500">(</span>
-            <span className="text-cyan-400">{active.length}</span>
-            <span className="text-zinc-500"> active / </span>
+          <span className="font-mono text-ui-caption font-normal">
+            <span className="text-ui-muted">(</span>
+            <span className="text-cyber-cyan">{active.length}</span>
+            <span className="text-ui-muted"> active / </span>
             <span className="text-amber-400">{opportunities.length}</span>
-            <span className="text-zinc-500"> avail)</span>
-            <span className="text-zinc-600"> · </span>
-            <span className="text-zinc-500">decisions pending: </span>
-            <span className={decisionsPending > 0 ? "text-amber-400" : "text-cyan-400"}>{decisionsPending}</span>
+            <span className="text-ui-muted"> avail)</span>
+            <span className="text-ui-muted"> · </span>
+            <span className="text-ui-muted">decisions pending: </span>
+            <span className={decisionsPending > 0 ? "text-amber-400" : "text-cyber-cyan"}>{decisionsPending}</span>
           </span>
           <PanelExpandButton
             open={open}
@@ -217,25 +217,25 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
       </div>
 
       {open ? (
-        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
+        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">
           {flash ? (
-            <div className="mb-1 rounded border border-cyan-900/40 bg-zinc-950 px-1.5 py-1 text-[10px] text-zinc-300">
-              <span className="text-cyan-400">»</span> {flash}
-              <button type="button" className="ml-2 text-ui-muted hover:text-zinc-300" onClick={() => setFlash(null)}>
+            <div className="mb-1 rounded border border-cyan-900/40 bg-zinc-950 px-1.5 py-1 text-xs text-foreground">
+              <span className="text-cyber-cyan">»</span> {flash}
+              <button type="button" className="ml-2 text-ui-muted hover:text-foreground" onClick={() => setFlash(null)}>
                 ×
               </button>
             </div>
           ) : null}
 
           <div className="mb-1.5">
-            <div className="mb-0.5 text-[10px] uppercase tracking-wide text-ui-muted">Game log</div>
+            <div className="mb-0.5 text-xs uppercase tracking-wide text-ui-muted">Game log</div>
             <GameLogPanel messages={gameLog} compact />
           </div>
 
           <div className="space-y-1">
             {active.length > 0 ? (
               <div>
-                <div className="text-[10px] uppercase text-ui-muted">Active</div>
+                <div className="text-xs uppercase text-ui-muted">Active</div>
                 <div className="mt-0.5 space-y-1">
                   {active.map((m) => {
                     const obj = m.currentObjective ?? null;
@@ -247,12 +247,12 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                         <div className="flex min-w-0 items-baseline gap-2">
                           <button
                             type="button"
-                            className="min-w-0 truncate text-left font-semibold text-zinc-200 hover:text-cyan-300"
+                            className="min-w-0 truncate text-left font-semibold text-foreground hover:text-cyber-cyan"
                             onClick={() => setDetailMission(m)}
                           >
                             {m.title}
                           </button>
-                          <span className="ml-auto shrink-0 text-[9px] text-ui-muted">{m.status}</span>
+                          <span className="ml-auto shrink-0 text-ui-caption text-ui-muted">{m.status}</span>
                         </div>
 
                         {prompt ? <div className="mt-0.5 text-ui-muted">{prompt}</div> : null}
@@ -305,7 +305,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
 
             {opportunities.length > 0 ? (
               <div>
-                <div className="flex items-center text-[10px] uppercase text-ui-muted">
+                <div className="flex items-center text-xs uppercase text-ui-muted">
                   <span>Available</span>
                   <PanelExpandButton
                     open={availableOpen}
@@ -320,7 +320,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                       <div key={op.id} className="flex min-w-0 items-baseline gap-2">
                         <button
                           type="button"
-                          className="min-w-0 flex-1 truncate text-left text-ui-muted hover:text-cyan-300"
+                          className="min-w-0 flex-1 truncate text-left text-ui-muted hover:text-cyber-cyan"
                           onClick={() => setAcceptOpp(op)}
                           title={op.summary}
                         >
@@ -345,13 +345,13 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
 
             {completed.length > 0 ? (
               <div>
-                <div className="text-[10px] uppercase text-ui-muted">{`Completed (${completed.length})`}</div>
+                <div className="text-xs uppercase text-ui-muted">{`Completed (${completed.length})`}</div>
                 <div className="mt-0.5 space-y-0.5">
                   {completed.slice(-6).map((m) => (
                     <div key={m.id} className="flex min-w-0 items-baseline gap-2">
                       <span className="min-w-0 flex-1 truncate text-ui-muted">{m.title}</span>
                       {m.completedAt ? (
-                        <span className="shrink-0 text-[9px] text-ui-soft">
+                        <span className="shrink-0 text-ui-caption text-ui-soft">
                           {new Date(m.completedAt).toLocaleString()}
                         </span>
                       ) : null}
@@ -366,7 +366,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
 
           {roomExits.some((e) => e.destination) ? (
             <div className="mt-1.5">
-              <div className="mb-0.5 flex items-center text-[10px] uppercase tracking-wide text-ui-muted">
+              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-ui-muted">
                 <span>Destinations</span>
                 <PanelExpandButton
                   open={exitsOpen}
@@ -396,7 +396,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                   <div className="mt-0.5 flex flex-col gap-2">
                     {destinationGroups.map(({ title, items }) => (
                       <div key={title}>
-                        <div className="mb-0.5 text-[10px] uppercase tracking-wide text-ui-muted">
+                        <div className="mb-0.5 text-xs uppercase tracking-wide text-ui-muted">
                           {title}
                         </div>
                         <div className="flex flex-wrap gap-1">
@@ -426,7 +426,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
       {acceptOpp ? (
         <OverlayDialog title="Accept mission" onClose={() => setAcceptOpp(null)}>
           <div className="space-y-1">
-            <div className="text-[12px] font-semibold text-zinc-200">{acceptOpp.title}</div>
+            <div className="text-xs font-semibold text-foreground">{acceptOpp.title}</div>
             <div className="text-ui-muted">{acceptOpp.summary}</div>
 
             <div className="mt-2 flex items-center gap-1">
@@ -445,14 +445,14 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
       {choiceDialog ? (
         <OverlayDialog title="Decide" onClose={() => setChoiceDialog(null)}>
           <div className="space-y-1">
-            <div className="text-[12px] font-semibold text-zinc-200">{choiceDialog.mission.title}</div>
+            <div className="text-xs font-semibold text-foreground">{choiceDialog.mission.title}</div>
             <div className="text-ui-muted">
               {choiceDialog.mission.currentObjective?.prompt ?? choiceDialog.mission.currentObjective?.text}
             </div>
 
             <div className="mt-2 rounded border border-cyan-900/40 bg-zinc-950 p-1.5">
-              <div className="text-[10px] uppercase tracking-wide text-ui-muted">Choice</div>
-              <div className="text-zinc-200">{choiceDialog.choice.label}</div>
+              <div className="text-xs uppercase tracking-wide text-ui-muted">Choice</div>
+              <div className="text-foreground">{choiceDialog.choice.label}</div>
 
               {choiceDialog.choice.outcome ? (
                 <div className="mt-1 text-ui-muted">
@@ -461,11 +461,11 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
               ) : null}
 
               {choiceDialog.choice.morality ? (
-                <div className="mt-1 text-[10px] text-ui-muted">{formatMoralityDelta(choiceDialog.choice.morality)}</div>
+                <div className="mt-1 text-xs text-ui-muted">{formatMoralityDelta(choiceDialog.choice.morality)}</div>
               ) : null}
 
               {choiceDialog.choice.rewards ? (
-                <div className="mt-1 text-[10px] text-ui-muted">{formatRewards(choiceDialog.choice.rewards)}</div>
+                <div className="mt-1 text-xs text-ui-muted">{formatRewards(choiceDialog.choice.rewards)}</div>
               ) : null}
             </div>
 
@@ -485,15 +485,15 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
       {detailMission ? (
         <OverlayDialog title="Mission detail" onClose={() => setDetailMission(null)}>
           <div className="space-y-1">
-            <div className="text-[12px] font-semibold text-zinc-200">{detailMission.title}</div>
+            <div className="text-xs font-semibold text-foreground">{detailMission.title}</div>
             {detailMission.summary ? <div className="text-ui-muted">{detailMission.summary}</div> : null}
 
             {detailMission.choices && detailMission.choices.length > 0 ? (
               <div className="mt-2">
-                <div className="text-[10px] uppercase text-ui-muted">History</div>
+                <div className="text-xs uppercase text-ui-muted">History</div>
                 <div className="mt-0.5 space-y-0.5">
                   {detailMission.choices.slice(-6).map((c, idx) => (
-                    <div key={`${c.objectiveId}:${c.choiceId}:${idx}`} className="text-[10px] text-ui-muted">
+                    <div key={`${c.objectiveId}:${c.choiceId}:${idx}`} className="text-xs text-ui-muted">
                       <span className="text-ui-muted">{new Date(c.chosenAt).toLocaleString()}:</span>{" "}
                       {c.outcome || `${c.objectiveId} → ${c.choiceId}`}
                     </div>
@@ -525,8 +525,8 @@ function TinyButton({
 }) {
   const cls =
     variant === "pink"
-      ? "shrink-0 rounded border border-pink-500/80 px-1 py-0 text-[10px] text-pink-400 hover:bg-pink-950/50 disabled:opacity-40"
-      : "shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-[10px] text-cyan-400 hover:bg-cyan-900/40 disabled:opacity-40";
+      ? "shrink-0 rounded border border-pink-500/80 px-1 py-0 text-xs text-pink-400 hover:bg-pink-950/50 disabled:opacity-40"
+      : "shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40";
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={cls}>
       {children}
@@ -546,10 +546,10 @@ function OverlayDialog({
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" className="absolute inset-0 bg-zinc-950/70" aria-label="Close dialog" onClick={onClose} />
-      <div className="absolute left-1/2 top-12 w-[min(520px,94vw)] -translate-x-1/2 rounded border border-cyan-900/60 bg-zinc-950 p-2 text-[11px] text-zinc-300 shadow-xl">
+      <div className="absolute left-1/2 top-12 w-[min(520px,94vw)] -translate-x-1/2 rounded border border-cyan-900/60 bg-zinc-950 p-2 text-xs text-foreground shadow-xl">
         <div className="mb-1 flex items-center gap-2 border-b border-zinc-800/60 pb-1">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-cyan-400">{title}</div>
-          <button type="button" className="ml-auto text-ui-muted hover:text-zinc-300" onClick={onClose}>
+          <div className="text-xs font-bold uppercase tracking-widest text-cyber-cyan">{title}</div>
+          <button type="button" className="ml-auto text-ui-muted hover:text-foreground" onClick={onClose}>
             ×
           </button>
         </div>

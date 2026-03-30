@@ -43,7 +43,7 @@ const ZONE_BADGE: Record<string, string> = {
 function ZoneBadge({ zone, label }: { zone: string; label: string }) {
   const cls = ZONE_BADGE[zone] ?? "bg-zinc-100 text-ui-muted dark:bg-zinc-800 dark:text-ui-muted";
   return (
-    <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>
+    <span className={`rounded px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${cls}`}>
       {label}
     </span>
   );
@@ -61,23 +61,23 @@ function LotCard({
   return (
     <div className="flex items-center justify-between gap-3 rounded border border-cyan-900/40 bg-zinc-950/60 px-3 py-2.5">
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+        <span className="truncate text-sm font-medium text-zinc-900 dark:text-foreground">
           {lot.lotKey}
         </span>
         <div className="flex flex-wrap items-center gap-1.5">
           <ZoneBadge zone={lot.zone} label={lot.zoneLabel} />
-          <span className={`text-[11px] font-semibold ${TIER_COLOR[lot.tier] ?? TIER_COLOR[1]}`}>
+          <span className={`text-xs font-semibold ${TIER_COLOR[lot.tier] ?? TIER_COLOR[1]}`}>
             Tier {lot.tier} — {lot.tierLabel}
           </span>
-          <span className="text-[11px] text-ui-muted">
+          <span className="text-xs text-ui-muted">
             {lot.sizeUnits} unit{lot.sizeUnits !== 1 ? "s" : ""}
           </span>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2.5">
-        <span className="font-mono text-sm font-semibold tabular-nums text-zinc-700 dark:text-cyan-300">
+        <span className="font-mono text-sm font-semibold tabular-nums text-zinc-700 dark:text-cyber-cyan">
           {lot.listingPriceCr.toLocaleString()}{" "}
-          <span className="text-[11px] font-normal text-amber-700 dark:text-amber-400">cr</span>
+          <span className="text-xs font-normal text-amber-700 dark:text-amber-400">cr</span>
         </span>
         {lot.purchasable && (
           <button
@@ -189,7 +189,7 @@ function RealEstatePageInner() {
             <StoryPanel lines={data.storyLines} compact />
             {feedback && (
               <p
-                className={`mt-2 rounded border px-2 py-1.5 text-[11px] ${
+                className={`mt-2 rounded border px-2 py-1.5 text-xs ${
                   feedback.ok
                     ? "border-emerald-800/50 text-emerald-400"
                     : "border-red-800/50 text-red-400"
@@ -230,7 +230,7 @@ function RealEstatePageInner() {
             <PropertyDeedResaleBrowse onPurchased={() => void reload()} />
 
             <div className="mt-3 space-y-2 border-t border-cyan-900/40 pt-2">
-              <p className="text-[11px] leading-snug text-ui-muted">
+              <p className="text-xs leading-snug text-ui-muted">
                 Buy a random listable parcel by zone (price follows tier and zone, same as choosing a
                 specific lot).
               </p>

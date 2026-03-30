@@ -43,7 +43,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             <button
               ref={menuButtonRef}
               type="button"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-cyan-700/50 text-cyan-300 dark:border-cyan-700/50 dark:text-cyan-300"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-cyan-700/50 text-cyber-cyan dark:border-cyan-700/50 dark:text-cyber-cyan"
               aria-expanded={open}
               aria-controls="mobile-nav"
               onClick={() => setOpen(true)}
@@ -64,7 +64,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 />
               </svg>
             </button>
-            <span className="truncate text-sm font-semibold text-zinc-100 dark:text-zinc-100">
+            <span className="truncate text-sm font-semibold text-foreground dark:text-foreground">
               Aurnom
             </span>
           </header>
@@ -84,7 +84,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 <div className="flex items-center justify-end border-b border-cyan-900/50 p-2 dark:border-cyan-900/50">
                   <button
                     type="button"
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ui-muted dark:text-cyan-400"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ui-muted dark:text-cyber-cyan"
                     onClick={close}
                   >
                     <span className="sr-only">Close</span>

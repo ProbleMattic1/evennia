@@ -117,7 +117,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
   return (
     <section className="mx-2 rounded-lg border border-fuchsia-200/60 bg-fuchsia-50/40 px-3 py-2 dark:border-fuchsia-800/40 dark:bg-fuchsia-950/20">
       <details className="group" open>
-        <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-bold uppercase tracking-widest text-cyan-300 [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-bold uppercase tracking-widest text-cyber-cyan [&::-webkit-details-marker]:hidden">
           <span>Mission Board</span>
           <svg
             className="size-3 shrink-0 transition-transform group-open:rotate-90"
@@ -130,37 +130,37 @@ export function MissionBoard({ missions, onChanged }: Props) {
           </svg>
         </summary>
         <div className="mt-1">
-          <p className="text-[12px] text-ui-accent-readable">
+          <p className="text-xs text-ui-accent-readable">
             Opportunities: {opportunities.length} · Active: {active.length} · Decisions pending: {decisionsPending}
           </p>
 
-          <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
+          <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
             <span className="rounded bg-emerald-100 px-1.5 py-0.5 dark:bg-emerald-900/40">Good {morality.good}</span>
             <span className="rounded bg-red-100 px-1.5 py-0.5 dark:bg-red-900/40">Evil {morality.evil}</span>
             <span className="rounded bg-sky-100 px-1.5 py-0.5 dark:bg-sky-900/40">Lawful {morality.lawful}</span>
             <span className="rounded bg-amber-100 px-1.5 py-0.5 dark:bg-amber-900/40">Chaotic {morality.chaotic}</span>
           </div>
 
-          {error ? <p className="mt-2 text-[12px] text-red-600 dark:text-red-400">{error}</p> : null}
-          {notice ? <p className="mt-2 text-[12px] text-emerald-600 dark:text-emerald-400">{notice}</p> : null}
+          {error ? <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p> : null}
+          {notice ? <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">{notice}</p> : null}
 
           <details className="group mt-2" open>
-            <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-cyan-300 [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-xs font-bold uppercase tracking-widest text-cyber-cyan [&::-webkit-details-marker]:hidden">
               Opportunities
             </summary>
             {opportunities.length === 0 ? (
-              <p className="mt-1 text-[12px] text-ui-muted">No mission opportunities right now.</p>
+              <p className="mt-1 text-xs text-ui-muted">No mission opportunities right now.</p>
             ) : (
               <ul className="mt-1 space-y-1">
                 {opportunities.map((op) => (
                   <li key={op.id} className="rounded bg-white/50 px-2 py-1 dark:bg-zinc-900/20">
-                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{op.title}</p>
-                    <p className="text-[12px] text-ui-muted">{op.summary}</p>
+                    <p className="text-sm font-medium text-zinc-800 dark:text-foreground">{op.title}</p>
+                    <p className="text-xs text-ui-muted">{op.summary}</p>
                     <button
                       type="button"
                       onClick={() => handleAccept(op.id)}
                       disabled={pendingAccept === op.id}
-                      className="mt-1 rounded border border-zinc-300 px-2 py-0.5 text-[12px] hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      className="mt-1 rounded border border-zinc-300 px-2 py-0.5 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                     >
                       {pendingAccept === op.id ? "Accepting..." : "Accept"}
                     </button>
@@ -171,26 +171,26 @@ export function MissionBoard({ missions, onChanged }: Props) {
           </details>
 
           <details className="group mt-2" open>
-            <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-cyan-300 [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-xs font-bold uppercase tracking-widest text-cyber-cyan [&::-webkit-details-marker]:hidden">
               Active
             </summary>
             {active.length === 0 ? (
-              <p className="mt-1 text-[12px] text-ui-muted">No active missions.</p>
+              <p className="mt-1 text-xs text-ui-muted">No active missions.</p>
             ) : (
               <ul className="mt-1 space-y-1">
                 {active.map((m) => {
                   const objective = m.currentObjective;
                   return (
                     <li key={m.id} className="rounded bg-white/50 px-2 py-1 dark:bg-zinc-900/20">
-                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{m.title}</p>
+                      <p className="text-sm font-medium text-zinc-800 dark:text-foreground">{m.title}</p>
                       {objective?.prompt || objective?.text ? (
-                        <p className="text-[12px] text-ui-muted">
+                        <p className="text-xs text-ui-muted">
                           {objective.prompt ?? objective.text}
                         </p>
                       ) : null}
                       {objective ? (
                         <div className="mt-1 rounded border border-cyan-900/40 bg-zinc-900/50 px-2 py-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-ui-soft">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-ui-soft">
                             Next step
                           </p>
 
@@ -204,7 +204,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
                                     type="button"
                                     onClick={() => handleVisitRoom(m.id, roomKey)}
                                     disabled={pendingPathAction === busyKey}
-                                    className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                                    className="rounded border border-zinc-300 px-2 py-0.5 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                                   >
                                     {pendingPathAction === busyKey ? "Traveling..." : `Go to ${roomKey}`}
                                   </button>
@@ -223,7 +223,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
                                     type="button"
                                     onClick={() => handleInteraction(m.id, interactionKey)}
                                     disabled={pendingPathAction === busyKey}
-                                    className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                                    className="rounded border border-zinc-300 px-2 py-0.5 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                                   >
                                     {pendingPathAction === busyKey
                                       ? "Running..."
@@ -235,7 +235,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
                           ) : null}
 
                           {objective.kind === "choice" ? (
-                            <p className="mt-1 text-[12px] text-ui-muted">
+                            <p className="mt-1 text-xs text-ui-muted">
                               Choose one option below to proceed.
                             </p>
                           ) : null}
@@ -251,7 +251,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
                                 type="button"
                                 onClick={() => handleChoose(m.id, choice.id)}
                                 disabled={pendingChoose === key}
-                                className="rounded border border-zinc-300 px-2 py-0.5 text-[12px] hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                                className="rounded border border-zinc-300 px-2 py-0.5 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                               >
                                 {pendingChoose === key ? "Submitting..." : choice.label}
                               </button>
@@ -267,16 +267,16 @@ export function MissionBoard({ missions, onChanged }: Props) {
           </details>
 
           <details className="group mt-2">
-            <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-widest text-cyan-300 [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-xs font-bold uppercase tracking-widest text-cyber-cyan [&::-webkit-details-marker]:hidden">
               Completed ({completed.length})
             </summary>
             {completed.length === 0 ? (
-              <p className="mt-1 text-[12px] text-ui-muted">No completed missions yet.</p>
+              <p className="mt-1 text-xs text-ui-muted">No completed missions yet.</p>
             ) : (
               <ul className="mt-1 space-y-1">
                 {completed.map((m) => (
-                  <li key={m.id} className="rounded bg-white/50 px-2 py-1 text-[12px] dark:bg-zinc-900/20">
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200">{m.title}</span>
+                  <li key={m.id} className="rounded bg-white/50 px-2 py-1 text-xs dark:bg-zinc-900/20">
+                    <span className="font-medium text-zinc-800 dark:text-foreground">{m.title}</span>
                     {m.completedAt ? (
                       <span className="ml-2 text-ui-muted">
                         {new Date(m.completedAt).toLocaleString()}

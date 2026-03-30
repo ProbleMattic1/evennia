@@ -74,7 +74,7 @@ export function EconomyMinerPayoutHero({
       hintTitle={`${HINT_PREFIX}${slotHint(miningDeliveryPeriodSeconds)} “Total” = all-time.`}
       headerRight={
         nextShort ? (
-          <span className="text-[9px] tabular-nums text-ui-soft" title="Current slot ends">
+          <span className="text-ui-caption tabular-nums text-ui-soft" title="Current slot ends">
             ends {nextShort}
           </span>
         ) : null
@@ -82,24 +82,24 @@ export function EconomyMinerPayoutHero({
     >
       <div className="grid grid-cols-2 gap-x-3 divide-x divide-cyan-900/35">
         <div className="min-w-0 pr-3">
-          <p className="text-[8px] uppercase tracking-wide text-ui-soft">Last slot (net out)</p>
+          <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Last slot (net out)</p>
           <p className={`mt-0.5 ${OUTFLOW_CLS}`} title="Credits left treasury (net to miners)">
             {formatTreasuryOutflowCr(last)}
           </p>
-          <p className="mt-2 text-[9px] leading-snug text-ui-soft">
-            <span className="text-zinc-400">Settlement gross</span> {formatPositiveCr(lg)}
+          <p className="mt-2 text-ui-caption leading-snug text-ui-soft">
+            <span className="text-ui-muted">Settlement gross</span> {formatPositiveCr(lg)}
             <br />
             <span className="text-red-600 dark:text-red-400">Fees retained</span>{" "}
             <span className="tabular-nums text-red-600 dark:text-red-400">{formatTreasuryOutflowCr(lf)}</span>
           </p>
         </div>
         <div className="min-w-0 pl-3">
-          <p className="text-[8px] uppercase tracking-wide text-ui-soft">All-time (net out)</p>
+          <p className="text-ui-overline uppercase tracking-wide text-ui-soft">All-time (net out)</p>
           <p className={`mt-0.5 ${OUTFLOW_CLS}`} title="All-time credits left treasury (net to miners)">
             {formatTreasuryOutflowCr(total)}
           </p>
-          <p className="mt-2 text-[9px] leading-snug text-ui-soft">
-            <span className="text-zinc-400">Settlement gross</span> {formatPositiveCr(tg)}
+          <p className="mt-2 text-ui-caption leading-snug text-ui-soft">
+            <span className="text-ui-muted">Settlement gross</span> {formatPositiveCr(tg)}
             <br />
             <span className="text-red-600 dark:text-red-400">Fees retained</span>{" "}
             <span className="tabular-nums text-red-600 dark:text-red-400">{formatTreasuryOutflowCr(tf)}</span>

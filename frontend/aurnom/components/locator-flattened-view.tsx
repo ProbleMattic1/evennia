@@ -35,7 +35,7 @@ function exitPieceKey(piece: OutboundExitDisplayPiece, index: number): string {
 function SingleExitLine({ ex }: { ex: OutboundExit }) {
   return (
     <>
-      <span className="text-cyan-300">{ex.exitKey}</span>
+      <span className="text-cyber-cyan">{ex.exitKey}</span>
       <span className="text-ui-soft"> → </span>
       {ex.toKey}
     </>
@@ -61,7 +61,7 @@ function OutboundExitsCell({ exits, roomId }: { exits: OutboundExit[]; roomId: n
         ) : (
           <li key={exitPieceKey(piece, i)} className="list-none">
             <details className="ml-[-0.5rem]">
-              <summary className="cursor-pointer select-none text-cyan-300 hover:text-cyan-400">
+              <summary className="cursor-pointer select-none text-cyber-cyan hover:text-cyber-cyan">
                 {piece.cluster.label}{" "}
                 <span className="text-ui-muted">({piece.cluster.count})</span>
               </summary>
@@ -90,8 +90,8 @@ function OutboundExitsCell({ exits, roomId }: { exits: OutboundExit[]; roomId: n
 
   return (
     <details id={summaryId}>
-      <summary className="cursor-pointer select-none text-ui-muted hover:text-zinc-300">
-        {summaryBits.join(" · ")} — <span className="text-cyan-300">expand</span>
+      <summary className="cursor-pointer select-none text-ui-muted hover:text-foreground">
+        {summaryBits.join(" · ")} — <span className="text-cyber-cyan">expand</span>
       </summary>
       <div className="mt-1 border-t border-zinc-800/80 pt-1">{list}</div>
     </details>
@@ -137,14 +137,14 @@ export function LocatorFlattenedView({
 
   return (
     <div className="rounded border border-cyan-900/40 bg-zinc-950">
-      <p id="locator-flattened-desc" className="border-b border-cyan-900/30 px-2 py-2 text-[10px] text-ui-muted">
+      <p id="locator-flattened-desc" className="border-b border-cyan-900/30 px-2 py-2 text-xs text-ui-muted">
         Directory by location (hops + exits). Industrial <span className="text-amber-600">pad bays</span> are omitted
         from the table until you search or enable the checkbox — staging grids stay one row each. Staging exits stay
-        collapsed until expanded. <span className="text-cyan-400">Travel</span> = one hop only (same as Graph &quot;Go&quot;).
+        collapsed until expanded. <span className="text-cyber-cyan">Travel</span> = one hop only (same as Graph &quot;Go&quot;).
       </p>
       {industrialPadBayCount > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-cyan-900/20 px-2 py-1.5 font-mono text-[10px] text-ui-muted">
-          <label className="flex cursor-pointer items-center gap-1.5 text-ui-muted hover:text-zinc-300">
+        <div className="flex flex-wrap items-center gap-2 border-b border-cyan-900/20 px-2 py-1.5 font-mono text-xs text-ui-muted">
+          <label className="flex cursor-pointer items-center gap-1.5 text-ui-muted hover:text-foreground">
             <input
               type="checkbox"
               checked={showPadBays}
@@ -166,7 +166,7 @@ export function LocatorFlattenedView({
       ) : null}
       <div className="max-h-[min(60vh,640px)] min-h-[320px] overflow-auto">
         <table
-          className="w-full border-collapse font-mono text-[10px] text-zinc-300"
+          className="w-full border-collapse font-mono text-xs text-foreground"
           aria-describedby="locator-flattened-desc"
         >
           <thead className="sticky top-0 z-[1] bg-zinc-900/95 text-left text-ui-muted">
@@ -199,15 +199,15 @@ export function LocatorFlattenedView({
                   aria-current={here ? "location" : undefined}
                 >
                   <td className="border-b border-zinc-800/80 px-2 py-1.5 align-top">
-                    <span className="font-semibold text-zinc-100">{r.key}</span>
+                    <span className="font-semibold text-foreground">{r.key}</span>
                     <span className="ml-1 inline-flex flex-wrap gap-0.5">
                       {here ? (
-                        <span className="rounded bg-amber-900/50 px-1 text-[9px] uppercase text-amber-200">
+                        <span className="rounded bg-amber-900/50 px-1 text-ui-caption uppercase text-amber-200">
                           You
                         </span>
                       ) : null}
                       {r.hasMiningSite ? (
-                        <span className="rounded bg-amber-950/80 px-1 text-[9px] text-amber-400">Mine</span>
+                        <span className="rounded bg-amber-950/80 px-1 text-ui-caption text-amber-400">Mine</span>
                       ) : null}
                     </span>
                   </td>
@@ -222,7 +222,7 @@ export function LocatorFlattenedView({
                       <button
                         type="button"
                         disabled={travelBusy}
-                        className="rounded border border-cyan-700/60 bg-cyan-950/50 px-2 py-0.5 text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-40"
+                        className="rounded border border-cyan-700/60 bg-cyan-950/50 px-2 py-0.5 text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40"
                         onClick={() => onTravelTo(r.key)}
                         onMouseEnter={() => onPrefetchRoom(r.key)}
                       >

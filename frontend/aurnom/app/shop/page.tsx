@@ -133,7 +133,7 @@ function ShopPageInner() {
       />
 
       {actionError ? (
-        <p className="mx-1.5 mt-1 rounded border border-red-800/40 bg-red-950/30 px-1.5 py-1 text-[10px] text-red-300">
+        <p className="mx-1.5 mt-1 rounded border border-red-800/40 bg-red-950/30 px-1.5 py-1 text-xs text-red-300">
           {actionError}
         </p>
       ) : null}
@@ -158,13 +158,13 @@ function ShopPageInner() {
                 return (
                   <li key={entry.id} className="rounded border border-cyan-900/30 p-2">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="text-sm font-medium text-zinc-200">{entry.key}</span>
-                      <span className="text-[12px] text-ui-muted">
+                      <span className="text-sm font-medium text-foreground">{entry.key}</span>
+                      <span className="text-xs text-ui-muted">
                         {entry.price != null ? `${entry.price.toLocaleString()} cr` : "N/A"}
                       </span>
                       <button
                         type="button"
-                        className="inline-flex shrink-0 items-center justify-center rounded border border-cyan-700/50 p-1 text-cyan-400 hover:bg-cyan-950/40"
+                        className="inline-flex shrink-0 items-center justify-center rounded border border-cyan-700/50 p-1 text-cyber-cyan hover:bg-cyan-950/40"
                         aria-expanded={expanded}
                         aria-label={expanded ? "Hide details" : "Show details"}
                         onClick={() => toggleExpanded(entry.id)}
@@ -186,12 +186,12 @@ function ShopPageInner() {
                     </div>
                     {expanded ? (
                       <>
-                        {entry.description ? <p className="mt-0.5 text-[12px] text-ui-muted">{entry.description}</p> : null}
-                        {entry.summary ? <p className="mt-0.5 text-[12px] text-ui-muted">{entry.summary}</p> : null}
+                        {entry.description ? <p className="mt-0.5 text-xs text-ui-muted">{entry.description}</p> : null}
+                        {entry.summary ? <p className="mt-0.5 text-xs text-ui-muted">{entry.summary}</p> : null}
                         <div className="mt-1 flex gap-1.5">
                           <button
                             type="button"
-                            className="rounded border border-cyan-700/50 px-2 py-0.5 text-[12px] text-cyan-400 disabled:text-ui-muted"
+                            className="rounded border border-cyan-700/50 px-2 py-0.5 text-xs text-cyber-cyan disabled:text-ui-muted"
                             disabled={rowBusy}
                             onClick={() => onInspect(entry.id, entry.key)}
                           >
@@ -199,7 +199,7 @@ function ShopPageInner() {
                           </button>
                           <button
                             type="button"
-                            className="rounded border border-cyan-700/50 bg-cyan-950/40 px-2 py-0.5 text-[12px] text-cyan-400 hover:bg-cyan-900/50 disabled:opacity-60"
+                            className="rounded border border-cyan-700/50 bg-cyan-950/40 px-2 py-0.5 text-xs text-cyber-cyan hover:bg-cyan-900/50 disabled:opacity-60"
                             disabled={rowBusy}
                             onClick={() => onBuy(entry.id, entry.key)}
                           >

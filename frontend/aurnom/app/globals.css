@@ -19,8 +19,7 @@
 }
 
 html {
-  /* Global +1pt +3px from browser initial (scales rem-based Tailwind type). */
-  font-size: calc(100% + 1pt + 3px);
+  font-size: 100%;
 }
 
 .dark {
@@ -59,6 +58,34 @@ html {
   }
   .text-ui-accent-readable {
     color: var(--ui-text-accent-readable);
+  }
+
+  /**
+   * Micro type for dense HUD (rem = respects html font-size bump).
+   * Prefer these over arbitrary text-[0.Nrem] in components.
+   */
+  .text-ui-micro {
+    font-size: 0.4375rem;
+    line-height: 1.2;
+  }
+  .text-ui-overline {
+    font-size: 0.5rem;
+    line-height: 1.25;
+  }
+  .text-ui-caption {
+    font-size: 0.5625rem;
+    line-height: 1.25;
+  }
+
+  /** Economy pipeline matrix hero readout (replaces arbitrary text-[2.25rem] / sm:text-[2.5rem]). */
+  .text-ui-pipeline-readout {
+    font-size: 2.25rem;
+    line-height: 1.05;
+  }
+  @media (min-width: 640px) {
+    .text-ui-pipeline-readout {
+      font-size: 2.5rem;
+    }
   }
 }
 

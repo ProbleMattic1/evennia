@@ -58,8 +58,8 @@ function Panel({
 
   return (
     <section className={`mb-1 ${className}`}>
-      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest">
-        <span className="text-cyan-300">{title}</span>
+      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
+        <span className="text-cyber-cyan">{title}</span>
         <PanelExpandButton
           open={open}
           onClick={() => setOpen((v) => !v)}
@@ -67,7 +67,7 @@ function Panel({
           className="ml-auto shrink-0"
         />
       </div>
-      {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">{children}</div> : null}
+      {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">{children}</div> : null}
     </section>
   );
 }
@@ -76,7 +76,7 @@ function Kv({ k, v }: { k: string; v: ReactNode }) {
   return (
     <div className="flex min-w-0 gap-1">
       <span className="shrink-0 text-ui-muted">{k}</span>
-      <span className="min-w-0 truncate font-mono text-zinc-200">{v}</span>
+      <span className="min-w-0 truncate font-mono text-foreground">{v}</span>
     </div>
   );
 }
@@ -89,7 +89,7 @@ function TinyLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}
-      className="shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-[10px] text-cyan-400 hover:bg-cyan-900/40"
+      className="shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40"
     >
       {children}
     </Link>
@@ -117,11 +117,11 @@ function UtcClock() {
   });
   return (
     <div
-      className="font-mono tabular-nums tracking-wide text-cyan-300"
+      className="font-mono tabular-nums tracking-wide text-cyber-cyan"
       title="Coordinated Universal Time"
     >
-      <div className="text-[10px] leading-tight text-cyan-300">{dateStr}</div>
-      <div className="text-[11px] leading-tight">
+      <div className="text-xs leading-tight text-cyber-cyan">{dateStr}</div>
+      <div className="text-xs leading-tight">
         {line} UTC
       </div>
     </div>
@@ -161,7 +161,7 @@ function PlayerPanel({
   return (
     <Panel panelKey="character" title="Character">
       <Row>
-        <span className="font-bold text-zinc-100">{char.key}</span>
+        <span className="font-bold text-foreground">{char.key}</span>
       </Row>
       <Kv k="room" v={char.room ?? "—"} />
       <Kv
@@ -181,22 +181,22 @@ function PlayerPanel({
       <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
         {abilityRows.map(([key, ability]) => (
           <span key={key} className="text-ui-muted">
-            {key.toUpperCase()} <span className="text-zinc-200">{ability.score}</span>
+            {key.toUpperCase()} <span className="text-foreground">{ability.score}</span>
           </span>
         ))}
       </div>
-      <div className="mt-0.5 flex gap-3 text-[10px] text-ui-muted">
+      <div className="mt-0.5 flex gap-3 text-xs text-ui-muted">
         <span>
-          G <span className="text-zinc-300">{morality.good}</span>
+          G <span className="text-foreground">{morality.good}</span>
         </span>
         <span>
-          E <span className="text-zinc-300">{morality.evil}</span>
+          E <span className="text-foreground">{morality.evil}</span>
         </span>
         <span>
-          L <span className="text-zinc-300">{morality.lawful}</span>
+          L <span className="text-foreground">{morality.lawful}</span>
         </span>
         <span>
-          C <span className="text-zinc-300">{morality.chaotic}</span>
+          C <span className="text-foreground">{morality.chaotic}</span>
         </span>
       </div>
     </Panel>
@@ -218,7 +218,7 @@ function NavDestinationRow({
       type="button"
       onClick={() => onTravel(exit.destination)}
       disabled={busyKey === k}
-      className="block w-full truncate rounded border border-cyan-800/60 px-1 py-0.5 text-left text-[10px] text-cyan-400 hover:bg-cyan-900/40 disabled:opacity-40"
+      className="block w-full truncate rounded border border-cyan-800/60 px-1 py-0.5 text-left text-xs text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40"
     >
       {busyKey === k ? "Moving…" : exit.label}
     </button>
@@ -298,7 +298,7 @@ function NavPanel({
             <div className="space-y-1.5">
               {destinationGroups.map(({ title, items }) => (
                 <div key={title}>
-                  <div className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-ui-muted">{title}</div>
+                  <div className="mb-0.5 text-ui-caption font-semibold uppercase tracking-wide text-ui-muted">{title}</div>
                   <div className="space-y-0.5">
                     {items.map((ex) => (
                       <NavDestinationRow
@@ -363,7 +363,7 @@ export function PersistentNavRail() {
               type="button"
               disabled={switchBusy}
               onClick={onSwitchCharacter}
-              className="block w-full rounded border border-cyan-900/50 bg-zinc-950/80 px-1.5 py-0.5 text-left text-[10px] uppercase tracking-widest text-cyan-300 hover:border-cyan-700/60 hover:bg-cyan-950/40 disabled:opacity-50"
+              className="block w-full rounded border border-cyan-900/50 bg-zinc-950/80 px-1.5 py-0.5 text-left text-xs uppercase tracking-widest text-cyber-cyan hover:border-cyan-700/60 hover:bg-cyan-950/40 disabled:opacity-50"
             >
               {switchBusy ? "Switching..." : "Switch Character"}
             </button>
@@ -387,14 +387,14 @@ export function PersistentNavRail() {
           {pickErr ? <p className="text-red-400">{pickErr}</p> : null}
           {rows.length > 0 ? (
             <div className="space-y-0.5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-600">Character</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-cyber-cyan">Character</p>
               {rows.map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   disabled={pickBusy}
                   onClick={() => onPickCharacter(c.id)}
-                  className="block w-full truncate rounded border border-cyan-900/50 bg-zinc-950/80 px-1.5 py-0.5 text-left text-zinc-200 hover:border-cyan-700/60 hover:bg-cyan-950/40 disabled:opacity-50"
+                  className="block w-full truncate rounded border border-cyan-900/50 bg-zinc-950/80 px-1.5 py-0.5 text-left text-foreground hover:border-cyan-700/60 hover:bg-cyan-950/40 disabled:opacity-50"
                 >
                   {c.key}
                 </button>
@@ -413,15 +413,15 @@ export function PersistentNavRail() {
     <aside className="sticky top-0 h-svh min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
       <div className="mb-1 flex flex-wrap items-start gap-x-2 gap-y-0.5 border-b border-cyan-900/40 pb-1">
         <div className="flex min-w-0 flex-col leading-tight">
-          <Link href="/" className="font-bold text-cyan-400 hover:text-cyan-300">
+          <Link href="/" className="font-bold text-cyber-cyan hover:text-cyber-cyan">
             AURNOM
           </Link>
           <UtcClock />
         </div>
-        <Link href="/messages" className="text-[10px] font-bold uppercase tracking-widest text-cyan-300 hover:text-cyan-300">
+        <Link href="/messages" className="text-xs font-bold uppercase tracking-widest text-cyber-cyan hover:text-cyber-cyan">
           Messages
         </Link>
-        {(loading || pickBusy || switchBusy) && <span className="ml-auto text-[9px] text-ui-muted">…</span>}
+        {(loading || pickBusy || switchBusy) && <span className="ml-auto text-ui-caption text-ui-muted">…</span>}
       </div>
 
       {!data && error ? <div className="mb-1 text-red-400">{error}</div> : null}

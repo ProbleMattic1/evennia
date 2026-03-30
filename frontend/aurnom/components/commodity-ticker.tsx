@@ -22,9 +22,9 @@ const CAT: Record<string, { label: string; text: string; badge: string; heading:
   },
   gem_bearing: {
     label:   "Gem",
-    text:    "text-cyan-600 dark:text-cyan-400",
-    badge:   "bg-cyan-100 text-cyan-800 ring-1 ring-cyan-300 dark:bg-cyan-950 dark:text-cyan-400 dark:ring-cyan-700/50",
-    heading: "text-cyan-700 dark:text-cyan-300",
+    text:    "text-ui-accent-readable dark:text-cyber-cyan",
+    badge:   "bg-cyan-100 text-cyan-800 ring-1 ring-cyan-300 dark:bg-cyan-950 dark:text-cyber-cyan dark:ring-cyan-700/50",
+    heading: "text-ui-accent-readable dark:text-cyber-cyan",
   },
 };
 
@@ -64,7 +64,7 @@ export function CommodityTickerStrip() {
   if (loading && !data) {
     return (
       <div className="overflow-hidden rounded border border-cyan-900/40 bg-zinc-950/80 px-3 py-2">
-        <p className="animate-pulse font-mono text-[13px] text-ui-muted">
+        <p className="animate-pulse font-mono text-sm text-ui-muted">
           SYNCING MARKET FEED…
         </p>
       </div>
@@ -81,7 +81,7 @@ export function CommodityTickerStrip() {
       <div className="flex min-w-0 items-center justify-between border-b border-cyan-900/50 bg-cyan-950/40 px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500 dark:bg-cyan-400" />
-          <span className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-cyan-300">
+          <span className="min-w-0 truncate font-mono text-xs font-semibold uppercase tracking-widest text-cyber-cyan">
             Aurnom Commodity Exchange · Live Pricing
           </span>
         </div>
@@ -98,10 +98,10 @@ export function CommodityTickerStrip() {
             return (
               <span
                 key={`${c.key}-${i}`}
-                className="inline-flex items-center gap-1.5 font-mono text-[13px]"
+                className="inline-flex items-center gap-1.5 font-mono text-sm"
               >
                 <span className={cat(c).text}>{c.name.toUpperCase()}</span>
-                <span className="text-ui-muted dark:text-zinc-300">
+                <span className="text-ui-muted dark:text-foreground">
                   {c.sellPriceCrPerTon.toLocaleString()} cr/t
                 </span>
                 <span className={d.cls}>
@@ -135,14 +135,14 @@ function CommodityRow({ c }: { c: MarketCommodity }) {
         <span className={`font-mono text-sm font-semibold ${s.text}`}>{c.name}</span>
       </td>
       <td className="py-1.5 pr-3">
-        <span className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${s.badge}`}>
+        <span className={`rounded px-1.5 py-0.5 font-mono text-xs font-medium ${s.badge}`}>
           {s.label}
         </span>
       </td>
       <td className="py-1.5 pr-3 text-right font-mono text-sm text-ui-muted">
         {c.basePriceCrPerTon.toLocaleString()}
       </td>
-      <td className="py-1.5 pr-3 text-right font-mono text-sm font-semibold text-zinc-100">
+      <td className="py-1.5 pr-3 text-right font-mono text-sm font-semibold text-foreground">
         {c.sellPriceCrPerTon.toLocaleString()}
       </td>
       <td className="py-1.5 pr-3 text-right font-mono text-sm text-ui-muted">
@@ -159,7 +159,7 @@ function SectionRow({ label, className }: { label: string; className: string }) 
   return (
     <tr>
       <td colSpan={6} className="pb-1 pt-3">
-        <span className={`font-mono text-[12px] uppercase tracking-widest ${className}`}>
+        <span className={`font-mono text-xs uppercase tracking-widest ${className}`}>
           — {label} —
         </span>
       </td>
@@ -185,12 +185,12 @@ export function CommodityTickerTable() {
     <section className="overflow-hidden rounded border border-cyan-900/40 bg-zinc-950/80">
       {/* Header */}
       <div className="flex min-w-0 flex-col gap-2 border-b border-cyan-900/50 bg-cyan-950/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="min-w-0 truncate font-mono text-[12px] font-semibold uppercase tracking-widest text-cyan-300">
+        <h2 className="min-w-0 truncate font-mono text-xs font-semibold uppercase tracking-widest text-cyber-cyan">
           Market Rates — All Commodities
         </h2>
         <div className="flex shrink-0 items-center gap-2">
           {lastUpdated && (
-            <span className="font-mono text-[12px] text-ui-muted">
+            <span className="font-mono text-xs text-ui-muted">
               SYNC {lastUpdated.toLocaleTimeString()}
             </span>
           )}
@@ -198,7 +198,7 @@ export function CommodityTickerTable() {
             type="button"
             onClick={reload}
             disabled={loading}
-            className="rounded border border-cyan-700/50 px-1.5 py-0.5 font-mono text-[12px] text-cyan-300 transition hover:border-cyan-500 hover:text-cyan-300 disabled:opacity-30"
+            className="rounded border border-cyan-700/50 px-1.5 py-0.5 font-mono text-xs text-cyber-cyan transition hover:border-cyan-500 hover:text-cyber-cyan disabled:opacity-30"
           >
             {loading ? "…" : "↻"}
           </button>
@@ -233,7 +233,7 @@ export function CommodityTickerTable() {
                 ).map(([h, align, extra]) => (
                   <th
                     key={h}
-                    className={`pb-1.5 font-mono text-[12px] uppercase tracking-wider text-ui-muted ${align} ${extra}`}
+                    className={`pb-1.5 font-mono text-xs uppercase tracking-wider text-ui-muted ${align} ${extra}`}
                   >
                     {h}
                   </th>

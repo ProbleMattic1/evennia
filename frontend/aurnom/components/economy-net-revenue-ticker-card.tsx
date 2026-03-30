@@ -60,30 +60,30 @@ export function EconomyNetRevenueTickerCard({ data }: { data: ControlSurfaceStat
       title="Plant margin accrual (this slot)"
       hintTitle={HINT}
       headerRight={
-        <span className="text-[9px] tabular-nums text-ui-soft">slot {pct}%</span>
+        <span className="text-ui-caption tabular-nums text-ui-soft">slot {pct}%</span>
       }
     >
-      <p className="text-[8px] uppercase tracking-wide text-ui-soft">
+      <p className="text-ui-overline uppercase tracking-wide text-ui-soft">
         Net to plant (fee / margin on est. gross)
       </p>
       <p
-        className="mt-1 break-all font-mono text-lg font-semibold leading-tight tracking-tight text-cyan-400 sm:text-xl"
+        className="mt-1 break-all font-mono text-lg font-semibold leading-tight tracking-tight text-cyber-cyan sm:text-xl"
         title="Estimated credits retained this slot from processing fee on accrual gross"
       >
         {formatPositiveCr(liveMarginCr)}
       </p>
-      <p className="mt-1 font-mono text-[10px] tabular-nums text-cyan-500/80">
+      <p className="mt-1 font-mono text-xs tabular-nums text-cyber-cyan/80">
         {formatRate(feesCrPerSec, "+")} · est. cap {cap.toLocaleString()} cr / slot
       </p>
 
-      <p className="mt-3 text-[8px] uppercase tracking-wide text-ui-soft">Context (same model)</p>
-      <p className="mt-2 break-words font-mono text-[0.5625rem] font-semibold leading-tight tracking-tight sm:text-[0.625rem]">
-        <span className="text-cyan-500/95 dark:text-cyan-400/90">Miner payout est. this slot:</span>{" "}
+      <p className="mt-3 text-ui-overline uppercase tracking-wide text-ui-soft">Context (same model)</p>
+      <p className="mt-2 break-words font-mono text-ui-caption font-semibold leading-tight tracking-tight sm:text-xs">
+        <span className="text-cyber-cyan/90">Miner payout est. this slot:</span>{" "}
         <span className="tabular-nums text-red-600 dark:text-red-400">
           {formatOutflowCr(Math.min(maxMinerThisSlot, Math.floor(cap * minerRate * slotProgress)))}
         </span>
         <br />
-        <span className="text-cyan-500/95 dark:text-cyan-400/90">at</span>{" "}
+        <span className="text-cyber-cyan/90">at</span>{" "}
         <span className="tabular-nums text-red-600 dark:text-red-400">{formatRate(costCrPerSec, "−")}</span>
       </p>
 
@@ -101,18 +101,18 @@ export function EconomyNetRevenueTickerCard({ data }: { data: ControlSurfaceStat
             style={{ width: `${pct}%` }}
           />
         </div>
-        <p className="mt-1 text-[8px] text-ui-muted">
+        <p className="mt-1 text-ui-overline text-ui-muted">
           {pct}% elapsed · proj. end-of-slot: +{projectedEndFees.toLocaleString()} cr retained /{" "}
           −{projectedEndCost.toLocaleString()} cr out
         </p>
       </div>
 
       {feeRate > 0 ? (
-        <p className="mt-1.5 text-[8px] text-ui-muted">
+        <p className="mt-1.5 text-ui-overline text-ui-muted">
           Fee rate {(feeRate * 100).toFixed(0)}% · margin on {cap.toLocaleString()} cr est. cap
         </p>
       ) : (
-        <p className="mt-1.5 text-[8px] text-amber-600/80">
+        <p className="mt-1.5 text-ui-overline text-amber-600/80">
           Fee rate not available — connect to plant
         </p>
       )}

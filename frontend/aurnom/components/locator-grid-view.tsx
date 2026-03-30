@@ -166,26 +166,26 @@ function LocatorTreemapCell(props: CellProps) {
             <>
               <div className="min-w-0">
                 <div
-                  className="truncate font-mono text-[9px] font-semibold leading-tight text-zinc-100"
+                  className="truncate font-mono text-ui-caption font-semibold leading-tight text-foreground"
                   title={rk || name}
                 >
                   {name}
                 </div>
                 <div className="mt-0.5 flex flex-wrap gap-0.5">
                   {here ? (
-                    <span className="rounded bg-amber-900/60 px-1 text-[7px] uppercase text-amber-200">You</span>
+                    <span className="rounded bg-amber-900/60 px-1 text-ui-micro uppercase text-amber-200">You</span>
                   ) : null}
                   {hasMiningSite ? (
-                    <span className="rounded bg-amber-950/80 px-1 text-[7px] text-amber-400">Mine</span>
+                    <span className="rounded bg-amber-950/80 px-1 text-ui-micro text-amber-400">Mine</span>
                   ) : null}
                   {parcelSummary ? (
-                    <span className="rounded bg-violet-950/80 px-1 text-[7px] text-violet-300">Parcel</span>
+                    <span className="rounded bg-violet-950/80 px-1 text-ui-micro text-violet-300">Parcel</span>
                   ) : null}
                   {canStep && !here ? (
-                    <span className="rounded bg-cyan-900/50 px-1 text-[7px] text-cyan-300">Adj</span>
+                    <span className="rounded bg-cyan-900/50 px-1 text-ui-micro text-cyber-cyan">Adj</span>
                   ) : null}
                   <span
-                    className="rounded bg-zinc-900/90 px-1 text-[7px] tabular-nums text-ui-muted"
+                    className="rounded bg-zinc-900/90 px-1 text-ui-micro tabular-nums text-ui-muted"
                     title="Player characters in this room (excludes NPCs)"
                   >
                     {playerCount}
@@ -195,14 +195,14 @@ function LocatorTreemapCell(props: CellProps) {
               {showBody ? (
                 <div className="mt-auto shrink-0">
                   {parcelSummary ? (
-                    <span className="text-[7px] leading-tight text-violet-200/90">
+                    <span className="text-ui-micro leading-tight text-violet-200/90">
                       Hub-anchored titled parcel{rk ? " · shell on map" : ""}
                     </span>
                   ) : canStep && !here ? (
                     <button
                       type="button"
                       disabled={travelBusy}
-                      className="w-full rounded border border-cyan-700/60 bg-cyan-950/70 py-0.5 text-[8px] text-cyan-200 hover:bg-cyan-900/50 disabled:opacity-40"
+                      className="w-full rounded border border-cyan-700/60 bg-cyan-950/70 py-0.5 text-ui-overline text-cyber-cyan hover:bg-cyan-900/50 disabled:opacity-40"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (rk) onTravelTo(rk);
@@ -212,9 +212,9 @@ function LocatorTreemapCell(props: CellProps) {
                       Travel
                     </button>
                   ) : here ? (
-                    <span className="text-[7px] text-ui-muted">Current location</span>
+                    <span className="text-ui-micro text-ui-muted">Current location</span>
                   ) : (
-                    <span className="text-[7px] text-ui-soft">Not adjacent</span>
+                    <span className="text-ui-micro text-ui-soft">Not adjacent</span>
                   )}
                 </div>
               ) : null}
@@ -286,15 +286,15 @@ export function LocatorGridView({
 
   return (
     <div className="max-h-[min(72vh,720px)] min-h-[320px] rounded border border-cyan-900/40 bg-zinc-950 p-2">
-      <p className="mb-2 text-[10px] text-ui-muted">
+      <p className="mb-2 text-xs text-ui-muted">
         Station <span className="text-ui-muted">treemap</span>: rectangle area ≈ relative scale (hub &amp; concourses
-        vs industrial pads &amp; claims). Each <span className="text-cyan-400">venue</span> from the server gets its own
+        vs industrial pads &amp; claims). Each <span className="text-cyber-cyan">venue</span> from the server gets its own
         block for promenade-adjacent rooms; industrial pads split by venue where needed (e.g. plex vs frontier).{" "}
         <span className="text-violet-300">Titled parcels</span> (per venue) anchor to the hub; color ≈ player density
-        in parcel shells. <span className="text-cyan-400">Travel</span> when adjacent (room leaves only).
+        in parcel shells. <span className="text-cyber-cyan">Travel</span> when adjacent (room leaves only).
       </p>
       {empty ? (
-        <div className="flex min-h-[280px] items-center justify-center text-[11px] text-ui-muted">
+        <div className="flex min-h-[280px] items-center justify-center text-xs text-ui-muted">
           No locations match this filter.
         </div>
       ) : (

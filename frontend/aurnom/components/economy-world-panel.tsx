@@ -34,10 +34,10 @@ export function EconomyWorldPanel() {
   }, [reduceMotion]);
 
   if (err) {
-    return <p className="text-[10px] text-red-400">{err}</p>;
+    return <p className="text-xs text-red-400">{err}</p>;
   }
   if (!data) {
-    return <p className="text-[10px] text-ui-muted">Loading world economy…</p>;
+    return <p className="text-xs text-ui-muted">Loading world economy…</p>;
   }
 
   const mining = (data.world.mining as Record<string, number> | undefined) ?? {};
@@ -48,12 +48,12 @@ export function EconomyWorldPanel() {
 
   return (
     <section className="mb-4 rounded border border-cyan-900/40 bg-zinc-950/90 p-3">
-      <p className="text-[9px] uppercase tracking-widest text-ui-muted">World economy</p>
-      <p className="mt-1 font-mono text-sm tabular-nums text-cyan-300">
+      <p className="text-ui-caption uppercase tracking-widest text-ui-muted">World economy</p>
+      <p className="mt-1 font-mono text-sm tabular-nums text-cyber-cyan">
         {Math.floor(live).toLocaleString()} <span className="text-ui-muted">cr</span>
-        <span className="ml-2 text-[10px] text-ui-soft">slot meter (implied)</span>
+        <span className="ml-2 text-xs text-ui-soft">slot meter (implied)</span>
       </p>
-      <div className="mt-2 grid gap-1 text-[10px] text-ui-muted sm:grid-cols-2">
+      <div className="mt-2 grid gap-1 text-xs text-ui-muted sm:grid-cols-2">
         <span>sites {mining.siteCount ?? 0}</span>
         <span>active {mining.activeSiteCount ?? 0}</span>
         <span>producing {mining.producingSiteCount ?? 0}</span>

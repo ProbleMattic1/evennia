@@ -48,9 +48,9 @@ function LabeledStackLines({ label, lines }: { label: string; lines: { key: stri
     <div className="flex justify-between gap-2">
       <span className="shrink-0 text-ui-muted">{label}</span>
       {lines.length === 0 ? (
-        <span className="min-w-0 truncate text-right font-mono text-zinc-200">—</span>
+        <span className="min-w-0 truncate text-right font-mono text-foreground">—</span>
       ) : (
-        <div className="min-w-0 space-y-0.5 text-right font-mono text-zinc-200">
+        <div className="min-w-0 space-y-0.5 text-right font-mono text-foreground">
           {lines.map((l) => (
             <div key={l.key}>{l.text}</div>
           ))}
@@ -63,11 +63,11 @@ function LabeledStackLines({ label, lines }: { label: string; lines: { key: stri
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-1">
-      <div className="bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
+      <div className="bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest text-cyber-cyan">
         {title}
       </div>
-      <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
-        <div className="flex flex-col gap-1 text-[11px]">{children}</div>
+      <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">
+        <div className="flex flex-col gap-1 text-xs">{children}</div>
       </div>
     </section>
   );
@@ -88,8 +88,8 @@ function MineDetailSectionCard({
   const [open, setOpen] = useDashboardPanelOpen(panelKey, true);
   return (
     <section className="mb-1">
-      <div className="flex min-w-0 items-center bg-cyan-900/30 px-1.5 py-0.5 text-[10px] font-bold tracking-widest">
-        <span className={`min-w-0 truncate text-cyan-300 ${uppercaseTitle ? "uppercase" : "normal-case"}`}>{title}</span>
+      <div className="flex min-w-0 items-center bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold tracking-widest">
+        <span className={`min-w-0 truncate text-cyber-cyan ${uppercaseTitle ? "uppercase" : "normal-case"}`}>{title}</span>
         <PanelExpandButton
           open={open}
           onClick={() => setOpen((v) => !v)}
@@ -98,8 +98,8 @@ function MineDetailSectionCard({
         />
       </div>
       {open ? (
-        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-[11px]">
-          <div className="flex flex-col gap-1 text-[11px]">{children}</div>
+        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">
+          <div className="flex flex-col gap-1 text-xs">{children}</div>
         </div>
       ) : null}
     </section>
@@ -110,7 +110,7 @@ function Kv({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between gap-2">
       <span className="shrink-0 text-ui-muted">{label}</span>
-      <span className="min-w-0 truncate text-right font-mono text-zinc-200">
+      <span className="min-w-0 truncate text-right font-mono text-foreground">
         {value}
       </span>
     </div>
@@ -120,7 +120,7 @@ function Kv({ label, value }: { label: string; value: React.ReactNode }) {
 function RigDetailRows({ r }: { r: MineRigRow }) {
   return (
     <div className="border-b border-cyan-900/40 pb-2 last:border-0">
-      <p className="font-mono text-[12px] font-medium text-zinc-200">{r.key}</p>
+      <p className="font-mono text-xs font-medium text-foreground">{r.key}</p>
       <div className="mt-1 space-y-0.5 pl-0">
         <Kv label="Rating" value={r.rating} />
         <Kv label="Wear" value={`${r.wear}%`} />
@@ -139,7 +139,7 @@ function RigDetailRows({ r }: { r: MineRigRow }) {
           <Kv label="Maintenance" value={r.maintenanceLevel} />
         ) : null}
         {r.needsRepair ? (
-          <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
             Needs repair
           </span>
         ) : null}
@@ -197,7 +197,7 @@ export function MineDetailsPanel({ site }: PrimaryProps) {
             <div className="flex items-center gap-1.5">
               <span className="text-ui-muted">Volume</span>
               <span
-                className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${
+                className={`rounded px-1.5 py-0.5 font-mono text-xs font-medium ${
                   volumeTierStyle(site.volumeTierCls).badge
                 }`}
               >
@@ -207,7 +207,7 @@ export function MineDetailsPanel({ site }: PrimaryProps) {
             <div className="flex items-center gap-1.5">
               <span className="text-ui-muted">Rarity</span>
               <span
-                className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ${
+                className={`rounded px-1.5 py-0.5 font-mono text-xs font-medium ${
                   rarityTierStyle(site.resourceRarityTierCls).badge
                 }`}
               >
@@ -427,13 +427,13 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
           <div className="mt-2 flex flex-col gap-1.5 border-t border-cyan-900/40 pt-2">
             {postUndeploy != null ? (
               <div className="space-y-2 rounded border border-emerald-800/50 bg-zinc-900/80 p-2">
-                <p className="text-[11px] text-zinc-300">
+                <p className="text-xs text-foreground">
                   {equipmentLines.length > 0
                     ? "Equipment returned to inventory:"
                     : "Rig, storage, and hauler (when present) returned to your inventory."}
                 </p>
                 {equipmentLines.length > 0 ? (
-                  <ul className="list-inside list-disc font-mono text-[11px] text-ui-muted">
+                  <ul className="list-inside list-disc font-mono text-xs text-ui-muted">
                     {equipmentLines.map((line) => (
                       <li key={line}>{line}</li>
                     ))}
@@ -442,7 +442,7 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
                 <button
                   type="button"
                   onClick={handleDismissUndeployBanner}
-                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-900/40"
+                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40"
                 >
                   Dismiss
                 </button>
@@ -455,7 +455,7 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
                   type="button"
                   onClick={() => void handleUndeploy()}
                   disabled={undeployBusy}
-                  className="w-fit rounded border border-amber-600/70 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-amber-300 hover:bg-amber-900/20 disabled:opacity-50"
+                  className="w-fit rounded border border-amber-600/70 bg-zinc-900 px-2 py-1 text-xs font-medium text-amber-300 hover:bg-amber-900/20 disabled:opacity-50"
                 >
                   {undeployBusy ? "Undeploying…" : "Undeploy Mine"}
                 </button>
@@ -467,14 +467,14 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
 
             {showIdleActions && (
               <div className="space-y-2 rounded border border-cyan-800/50 bg-zinc-900/80 p-2">
-                <p className="text-[11px] text-zinc-300">
+                <p className="text-xs text-foreground">
                   Mine is idle. Reactivate with your gear, or list the property on the claims market.
                 </p>
                 <button
                   type="button"
                   onClick={() => void handleReactivate(undefined)}
                   disabled={reactivateBusy}
-                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
+                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
                 >
                   {reactivateBusy ? "Working…" : "Reactivate (inventory gear)"}
                 </button>
@@ -483,20 +483,20 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2 border-t border-cyan-900/50 pt-2">
                   <label className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-ui-muted">List price (cr)</span>
+                    <span className="text-xs text-ui-muted">List price (cr)</span>
                     <input
                       type="number"
                       min={0}
                       value={listPrice}
                       onChange={(e) => setListPrice(e.target.value)}
-                      className="w-28 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-0.5 text-[11px] font-mono text-zinc-200"
+                      className="w-28 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-0.5 text-xs font-mono text-foreground"
                     />
                   </label>
                   <button
                     type="button"
                     onClick={() => void handleListProperty()}
                     disabled={listBusy}
-                    className="rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
+                    className="rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
                   >
                     {listBusy ? "Listing…" : "List property on claims market"}
                   </button>
@@ -519,7 +519,7 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
                 key={r.key}
                 className="flex flex-col gap-1 border-b border-cyan-900/40 pb-2 last:border-0"
               >
-                <span className="font-mono text-[12px] text-zinc-300">{r.key}</span>
+                <span className="font-mono text-xs text-foreground">{r.key}</span>
                 {r.repairTotalCr != null ? (
                   <span className="text-xs text-ui-muted">
                     Total {r.repairTotalCr.toLocaleString()} cr — service{" "}
@@ -531,7 +531,7 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
                   type="button"
                   onClick={() => void handleRepairRig(r.key)}
                   disabled={repairBusyRigKey !== null}
-                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
+                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
                 >
                   {repairBusyRigKey === r.key ? "Repairing…" : "Pay and repair"}
                 </button>

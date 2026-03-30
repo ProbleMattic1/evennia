@@ -48,7 +48,7 @@ export function ExitGrid({ exits }: Props) {
           <Link
             key={`${exit.key}-${exit.destination ?? "none"}`}
             href="/"
-            className="rounded border border-cyan-800/60 px-2 py-1 text-[11px] text-cyan-400 hover:bg-cyan-900/40 hover:text-cyan-300"
+            className="rounded border border-cyan-800/60 px-2 py-1 text-xs text-cyber-cyan hover:bg-cyan-900/40 hover:text-cyber-cyan"
           >
             {exit.label}
           </Link>
@@ -61,13 +61,13 @@ export function ExitGrid({ exits }: Props) {
     <div className="flex flex-col gap-2">
       {groups.map(({ title, items }) => (
         <div key={title}>
-          <div className="mb-0.5 text-[10px] uppercase tracking-wide text-ui-muted">{title}</div>
+          <div className="mb-0.5 text-xs uppercase tracking-wide text-ui-muted">{title}</div>
           <div className="flex flex-wrap gap-1">
             {items.map((exit) => (
               <Link
                 key={`${exit.key}-${exit.destination ?? "none"}`}
                 href="/"
-                className="rounded border border-cyan-800/60 px-2 py-1 text-[11px] text-cyan-400 hover:bg-cyan-900/40 hover:text-cyan-300"
+                className="rounded border border-cyan-800/60 px-2 py-1 text-xs text-cyber-cyan hover:bg-cyan-900/40 hover:text-cyber-cyan"
               >
                 {exit.label}
               </Link>
