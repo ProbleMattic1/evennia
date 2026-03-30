@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo } from "reac
 
 import { PersistentNavRail } from "@/components/persistent-nav-rail";
 import { getControlSurfaceState, type ControlSurfaceState } from "@/lib/control-surface-api";
+import { intervalMs, isUiPollPaused } from "@/lib/ui-refresh-policy";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 type ControlSurfaceContextValue = {
@@ -28,9 +29,12 @@ export function ControlSurfaceProvider({ children }: { children: React.ReactNode
   const { data, error, loading, reload } = useUiResource(loader);
 
   useEffect(() => {
-    const id = setInterval(reload, 15_000);
+    const ms = intervalMs("controlSurface", data?.clientPollHints);
+    const id = setInterval(() => {
+      if (!isUiPollPaused()) reload();
+    }, ms);
     return () => clearInterval(id);
-  }, [reload]);
+  }, [reload, data?.clientPollHints]);
 
   const value = useMemo(
     () => ({ data, loading, error, reload }),

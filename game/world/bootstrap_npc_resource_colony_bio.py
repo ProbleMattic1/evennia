@@ -122,23 +122,23 @@ def _get_or_create_room(key: str, desc: str):
     return room
 
 
-def _flora_components(colony_label: str, cell: str) -> list:
+def _flora_components(colony_label: str) -> list:
     return [
         {
             "type": "harvester",
-            "key": f"{colony_label} Flora Harvester {cell}",
+            "key": "Flora Harvester Mk III",
             "desc": f"High-throughput harvest head for {colony_label}.",
             "rig_rating": 1.25,
         },
         {
             "type": "storage",
-            "key": f"{colony_label} Flora Storage {cell}",
+            "key": "Flora Storage Gamma",
             "desc": f"Pressurised bulk bin for {colony_label} mixed harvest manifests.",
             "capacity_tons": 1500.0,
         },
         {
             "type": "hauler",
-            "key": f"{colony_label} Flora Hauler {cell}",
+            "key": "Mk III Autonomous Flora Hauler",
             "desc": f"Autonomous hauler on the {colony_label} flora route.",
             "cargo_capacity_tons": 250.0,
             "cycle_hours": 2.0,
@@ -146,23 +146,23 @@ def _flora_components(colony_label: str, cell: str) -> list:
     ]
 
 
-def _fauna_components(colony_label: str, cell: str) -> list:
+def _fauna_components(colony_label: str) -> list:
     return [
         {
             "type": "harvester",
-            "key": f"{colony_label} Fauna Harvester {cell}",
+            "key": "Fauna Harvester Mk III",
             "desc": f"High-throughput harvest rig for {colony_label}.",
             "rig_rating": 1.25,
         },
         {
             "type": "storage",
-            "key": f"{colony_label} Fauna Storage {cell}",
+            "key": "Fauna Storage Gamma",
             "desc": f"Pressurised bulk containment for {colony_label} mixed fauna manifests.",
             "capacity_tons": 1500.0,
         },
         {
             "type": "hauler",
-            "key": f"{colony_label} Fauna Hauler {cell}",
+            "key": "Mk III Autonomous Fauna Hauler",
             "desc": f"Autonomous hauler on the {colony_label} fauna route.",
             "cargo_capacity_tons": 250.0,
             "cycle_hours": 2.0,
@@ -296,7 +296,7 @@ def _bootstrap_flora_track(venue_id: str, bio: dict, owners: list, log_prefix: s
             print(f"{log_prefix} Flora site {site.key!r} claimed by another owner; skip.")
             continue
 
-        components = copy.deepcopy(_flora_components(colony_label, cell))
+        components = copy.deepcopy(_flora_components(colony_label))
         ok, msg = deploy_flora_colony_site(owner, site, cell_room, components, plant_keys)
         if ok:
             site.tags.add(tag, category="world")
@@ -358,7 +358,7 @@ def _bootstrap_fauna_track(venue_id: str, bio: dict, owners: list, log_prefix: s
             print(f"{log_prefix} Fauna site {site.key!r} claimed by another owner; skip.")
             continue
 
-        components = copy.deepcopy(_fauna_components(colony_label, cell))
+        components = copy.deepcopy(_fauna_components(colony_label))
         ok, msg = deploy_fauna_colony_site(owner, site, cell_room, components, plant_keys)
         if ok:
             site.tags.add(tag, category="world")

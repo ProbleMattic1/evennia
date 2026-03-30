@@ -27,23 +27,23 @@ function formatBoundaryShort(iso: string | undefined) {
 
 function formatOutflowCr(n: number) {
   const v = Math.max(0, Math.floor(Number(n) || 0));
-  return `−${v.toLocaleString("en-US")} cr`;
+  return `−${v.toLocaleString("en-US")}cr`;
 }
 
 function formatPositiveCr(n: number) {
   const v = Math.max(0, Math.floor(Number(n) || 0));
-  return `${v.toLocaleString("en-US")} cr`;
+  return `${v.toLocaleString("en-US")}cr`;
 }
 
 function formatOutflowRate(crPerSec: number) {
-  if (!Number.isFinite(crPerSec) || crPerSec <= 0) return "−0 cr/s";
-  if (crPerSec >= 1) return `−${crPerSec.toFixed(2)} cr/s`;
+  if (!Number.isFinite(crPerSec) || crPerSec <= 0) return "−0cr/s";
+  if (crPerSec >= 1) return `−${crPerSec.toFixed(2)}cr/s`;
   return `−${(crPerSec * 100).toFixed(1)} ¢/s`;
 }
 
 function formatPositiveRate(crPerSec: number) {
-  if (!Number.isFinite(crPerSec) || crPerSec <= 0) return "0 cr/s";
-  if (crPerSec >= 1) return `${crPerSec.toFixed(2)} cr/s`;
+  if (!Number.isFinite(crPerSec) || crPerSec <= 0) return "0cr/s";
+  if (crPerSec >= 1) return `${crPerSec.toFixed(2)}cr/s`;
   return `${(crPerSec * 100).toFixed(1)} ¢/s`;
 }
 

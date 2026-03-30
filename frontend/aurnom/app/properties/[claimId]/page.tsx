@@ -452,7 +452,7 @@ export default function PropertyClaimDetailPage() {
               <p className="mt-3 border-t border-cyan-900/40 pt-2 text-xs text-ui-muted">
                 In-game <span className="font-mono">give</span> to another character charges{" "}
                 <span className="font-mono tabular-nums">
-                  {holding.deedTransferFeeCr.toLocaleString()} cr
+                  {holding.deedTransferFeeCr.toLocaleString()}cr
                 </span>{" "}
                 (transfer fee). List below; buy player-listed deeds on the{" "}
                 <Link
@@ -502,7 +502,7 @@ export default function PropertyClaimDetailPage() {
                 <div className="flex justify-between gap-2">
                   <dt className="text-ui-muted">Sovereign list price (reference)</dt>
                   <dd className="font-mono tabular-nums text-zinc-800 dark:text-foreground">
-                    {lot.referenceListPriceCr.toLocaleString()} cr
+                    {lot.referenceListPriceCr.toLocaleString()}cr
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
@@ -581,7 +581,7 @@ export default function PropertyClaimDetailPage() {
                   <div className="flex justify-between gap-2">
                     <dt className="text-ui-muted">Income accrued (ledger)</dt>
                     <dd className="font-mono tabular-nums text-zinc-800 dark:text-foreground">
-                      {holding.ledger.creditsAccrued.toLocaleString()} cr
+                      {holding.ledger.creditsAccrued.toLocaleString()}cr
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
@@ -625,7 +625,7 @@ export default function PropertyClaimDetailPage() {
                   >
                     {extraSlotBusy
                       ? "…"
-                      : `Buy +1 structure slot (${holding.nextExtraStructureSlotPriceCr.toLocaleString()} cr)`}
+                      : `Buy +1 structure slot (${holding.nextExtraStructureSlotPriceCr.toLocaleString()}cr)`}
                   </button>
                   <p className="mt-1 text-xs text-ui-muted">
                     In-game: <span className="font-mono">buypropertyslot</span>
@@ -722,7 +722,7 @@ export default function PropertyClaimDetailPage() {
                                 >
                                   {upgradingKey === ukey
                                     ? "…"
-                                    : `${def.upgradeKey} → L${offer.nextLevel} (${offer.priceCr.toLocaleString()} cr)`}
+                                    : `${def.upgradeKey} → L${offer.nextLevel} (${offer.priceCr.toLocaleString()}cr)`}
                                 </button>
                               );
                             })}
@@ -959,7 +959,7 @@ export default function PropertyClaimDetailPage() {
                         >
                           {(holding.buildCatalog ?? []).map((row) => (
                             <option key={row.id} value={row.id}>
-                              {row.name} — {row.priceCr.toLocaleString()} cr · slots {row.slotWeight}
+                              {row.name} — {row.priceCr.toLocaleString()}cr · slots {row.slotWeight}
                             </option>
                           ))}
                         </select>
@@ -1072,7 +1072,7 @@ export default function PropertyClaimDetailPage() {
                           >
                             {retoolBusy
                               ? "Retooling…"
-                              : `Retool (${holding.retoolFeeCr.toLocaleString()} cr)`}
+                              : `Retool (${holding.retoolFeeCr.toLocaleString()}cr)`}
                           </button>
                           <p className="text-xs text-ui-muted">
                             In-game:{" "}

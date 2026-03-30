@@ -12,6 +12,7 @@ from typeclasses.flora import FloraHarvester, FloraStorage
 from typeclasses.fauna import FaunaHarvester, FaunaStorage
 from typeclasses.haulers import set_hauler_next_cycle
 from typeclasses.vehicles import Hauler
+from world.deploy_component_keys import prepare_deploy_components
 
 
 def resolve_plant_room(ordered_room_keys: tuple[str, ...] | list[str]):
@@ -34,6 +35,10 @@ def deploy_flora_colony_site(owner, site, site_room, components: list, plant_roo
     refinery_room = resolve_plant_room(plant_room_keys)
     if not refinery_room:
         return False, "No processing plant room found (flora plant key list exhausted)."
+
+    components = prepare_deploy_components(
+        components, owner, site, ("harvester", "storage", "hauler")
+    )
 
     harvester = storage = hauler = None
     for comp in components:
@@ -132,6 +137,10 @@ def deploy_fauna_colony_site(owner, site, site_room, components: list, plant_roo
     refinery_room = resolve_plant_room(plant_room_keys)
     if not refinery_room:
         return False, "No processing plant room found (fauna plant key list exhausted)."
+
+    components = prepare_deploy_components(
+        components, owner, site, ("harvester", "storage", "hauler")
+    )
 
     harvester = storage = hauler = None
     for comp in components:

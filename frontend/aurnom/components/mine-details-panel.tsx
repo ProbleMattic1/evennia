@@ -161,7 +161,7 @@ export function MineDetailsPanel({ site }: PrimaryProps) {
   }));
   const inventoryLines = Object.entries(site.inventory || {}).map(([k, v]) => ({
     key: k,
-    text: `${displayResourceName(k, resourceNames)}: ${Number(v).toFixed(1)} t`,
+    text: `${displayResourceName(k, resourceNames)}: ${Number(v).toFixed(1)}t`,
   }));
 
   const pk = (slug: string) => `play-mine:${site.id}:${slug}`;
@@ -216,7 +216,7 @@ export function MineDetailsPanel({ site }: PrimaryProps) {
             </div>
           </div>
           <Kv label="Richness" value={site.richness.toFixed(4)} />
-          <Kv label="Output" value={`${site.baseOutputTons} t/cycle`} />
+          <Kv label="Output" value={`${site.baseOutputTons}t/cycle`} />
           <Kv label="Resources" value={site.resources} />
           <LabeledStackLines label="Composition" lines={compositionLines} />
         </MineDetailSectionCard>
@@ -233,7 +233,7 @@ export function MineDetailsPanel({ site }: PrimaryProps) {
 
         <MineDetailSectionCard panelKey={pk("cycle")} title="Cycle">
           <Kv label="Last processed" value={formatDate(site.lastProcessedAt)} />
-          <Kv label="Est. value" value={`${site.estimatedValuePerCycle.toLocaleString()} cr`} />
+          <Kv label="Est. value" value={`${site.estimatedValuePerCycle.toLocaleString()}cr`} />
         </MineDetailSectionCard>
 
         <MineDetailSectionCard panelKey={pk("depletion")} title="Depletion">
@@ -242,7 +242,7 @@ export function MineDetailsPanel({ site }: PrimaryProps) {
         </MineDetailSectionCard>
 
         <MineDetailSectionCard panelKey={pk("storage")} title="Storage">
-          <Kv label="Used" value={`${site.storageUsed} / ${site.storageCapacity} t`} />
+          <Kv label="Used" value={`${site.storageUsed} / ${site.storageCapacity}t`} />
           {inventoryLines.length > 0 ? <LabeledStackLines label="Stored" lines={inventoryLines} /> : null}
         </MineDetailSectionCard>
 
@@ -522,9 +522,9 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
                 <span className="font-mono text-xs text-foreground">{r.key}</span>
                 {r.repairTotalCr != null ? (
                   <span className="text-xs text-ui-muted">
-                    Total {r.repairTotalCr.toLocaleString()} cr — service{" "}
-                    {(r.repairVendorCr ?? 0).toLocaleString()} cr, tax{" "}
-                    {(r.repairTaxCr ?? 0).toLocaleString()} cr (3%)
+                    Total {r.repairTotalCr.toLocaleString()}cr — service{" "}
+                    {(r.repairVendorCr ?? 0).toLocaleString()}cr, tax{" "}
+                    {(r.repairTaxCr ?? 0).toLocaleString()}cr (3%)
                   </span>
                 ) : null}
                 <button

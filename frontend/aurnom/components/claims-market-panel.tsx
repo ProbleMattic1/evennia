@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Countdown } from "@/components/countdown";
 import {
@@ -22,6 +22,8 @@ import {
   panelPrimaryButtonClass,
 } from "@/lib/exchange-panel-classes";
 import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
+import { UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
+import { useReloadAfterIso } from "@/lib/use-reload-after-iso";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 function rowBusyKey(c: ClaimsMarketClaim): string {
@@ -69,7 +71,7 @@ function ClaimCard({
             </span>
             <span className="text-xs text-ui-muted">{c.hazardLabel}</span>
             <span className="text-xs tabular-nums text-ui-muted">
-              {c.baseOutputTons.toFixed(1)} t
+              {c.baseOutputTons.toFixed(1)}t
             </span>
           </div>
           <p className="text-xs leading-snug break-words text-ui-muted">
@@ -127,14 +129,7 @@ export function ClaimsMarketPanel() {
   const hasCharacter = !!dash?.character;
   const characterMessage = dash?.message ?? null;
 
-  useEffect(() => {
-    const iso = data?.nextDiscoveryAt;
-    if (!iso) return;
-    const t = new Date(iso).getTime();
-    if (t > Date.now()) return;
-    const id = setInterval(() => reload(), 15000);
-    return () => clearInterval(id);
-  }, [data?.nextDiscoveryAt, reload]);
+  useReloadAfterIso(data?.nextDiscoveryAt ?? null, reload, UI_REFRESH_MS.postDeadlinePoll);
 
   const handleBuySiteDeed = useCallback(
     async (siteKey: string) => {
@@ -279,7 +274,7 @@ export function ClaimsMarketPanel() {
             >
               {randomMiningBusy
                 ? "…"
-                : `Random mining claim — ${randomQuote.priceCr.toLocaleString()} cr`}
+                : `Random mining claim — ${randomQuote.priceCr.toLocaleString()}cr`}
             </button>
           </div>
         ) : (

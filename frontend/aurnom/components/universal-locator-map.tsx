@@ -10,6 +10,7 @@ import { LocatorFlattenedView } from "@/components/locator-flattened-view";
 import { LocatorGraphView } from "@/components/locator-graph-view";
 import { LocatorGridView } from "@/components/locator-grid-view";
 import { fetchWorldGraph, getPlayState, playTravel, type WorldGraphState } from "@/lib/ui-api";
+import { isUiPollPaused, UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
 
 const LOCATOR_MODE_STORAGE_KEY = "aurnom:locator-view-mode";
 
@@ -84,7 +85,9 @@ export function UniversalLocatorMap() {
   }, [load]);
 
   useEffect(() => {
-    const id = window.setInterval(() => load(), 45_000);
+    const id = window.setInterval(() => {
+      if (!isUiPollPaused()) void load();
+    }, UI_REFRESH_MS.worldGraph);
     return () => window.clearInterval(id);
   }, [load]);
 

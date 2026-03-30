@@ -18,16 +18,16 @@ const HINT =
   "End-of-slot projection and fee rate are context below the main readout.";
 
 function formatPositiveCr(n: number) {
-  return `+${Math.max(0, Math.floor(n)).toLocaleString("en-US")} cr`;
+  return `+${Math.max(0, Math.floor(n)).toLocaleString("en-US")}cr`;
 }
 
 function formatOutflowCr(n: number) {
-  return `−${Math.max(0, Math.floor(n)).toLocaleString("en-US")} cr`;
+  return `−${Math.max(0, Math.floor(n)).toLocaleString("en-US")}cr`;
 }
 
 function formatRate(crPerSec: number, sign: "+" | "−") {
-  if (!Number.isFinite(crPerSec) || crPerSec <= 0) return `${sign}0 cr/s`;
-  if (crPerSec >= 1) return `${sign}${crPerSec.toFixed(2)} cr/s`;
+  if (!Number.isFinite(crPerSec) || crPerSec <= 0) return `${sign}0cr/s`;
+  if (crPerSec >= 1) return `${sign}${crPerSec.toFixed(2)}cr/s`;
   return `${sign}${(crPerSec * 100).toFixed(1)} ¢/s`;
 }
 
@@ -73,7 +73,7 @@ export function EconomyNetRevenueTickerCard({ data }: { data: ControlSurfaceStat
         {formatPositiveCr(liveMarginCr)}
       </p>
       <p className="mt-1 font-mono text-xs tabular-nums text-cyber-cyan/80">
-        {formatRate(feesCrPerSec, "+")} · est. cap {cap.toLocaleString()} cr / slot
+        {formatRate(feesCrPerSec, "+")} · est. cap {cap.toLocaleString()}cr/slot
       </p>
 
       <p className="mt-3 text-ui-overline uppercase tracking-wide text-ui-soft">Context (same model)</p>
@@ -102,14 +102,14 @@ export function EconomyNetRevenueTickerCard({ data }: { data: ControlSurfaceStat
           />
         </div>
         <p className="mt-1 text-ui-overline text-ui-muted">
-          {pct}% elapsed · proj. end-of-slot: +{projectedEndFees.toLocaleString()} cr retained /{" "}
-          −{projectedEndCost.toLocaleString()} cr out
+          {pct}% elapsed · proj. end-of-slot: +{projectedEndFees.toLocaleString()}cr retained /{" "}
+          −{projectedEndCost.toLocaleString()}cr out
         </p>
       </div>
 
       {feeRate > 0 ? (
         <p className="mt-1.5 text-ui-overline text-ui-muted">
-          Fee rate {(feeRate * 100).toFixed(0)}% · margin on {cap.toLocaleString()} cr est. cap
+          Fee rate {(feeRate * 100).toFixed(0)}% · margin on {cap.toLocaleString()}cr est. cap
         </p>
       ) : (
         <p className="mt-1.5 text-ui-overline text-amber-600/80">

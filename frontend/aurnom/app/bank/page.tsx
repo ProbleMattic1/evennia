@@ -49,7 +49,7 @@ function BankPageInner() {
             </CsPanel>
             <CsPanel title="Treasury">
               <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-foreground">
-                {data.treasuryBalance.toLocaleString()} <span className="text-amber-400">cr</span>
+                {data.treasuryBalance.toLocaleString()}<span className="text-amber-400">cr</span>
               </p>
               <p className="mt-0.5 font-mono text-xs text-ui-muted">{data.treasuryAccount}</p>
             </CsPanel>
@@ -129,7 +129,7 @@ function BankPageInner() {
             <CsPanel title="Your Account">
               {data.credits != null ? (
                 <p className="mt-1 font-mono text-sm tabular-nums text-foreground">
-                  Balance <span className="font-semibold text-foreground">{data.credits.toLocaleString()}</span>{" "}
+                  Balance <span className="font-semibold text-foreground">{data.credits.toLocaleString()}</span>
                   <span className="text-amber-400">cr</span>
                 </p>
               ) : (
@@ -145,7 +145,7 @@ function BankPageInner() {
                         <th className="px-2 py-1.5 font-medium text-cyber-cyan">Time</th>
                         <th className="px-2 py-1.5 font-medium text-cyber-cyan">Type</th>
                         <th className="px-2 py-1.5 font-medium text-cyber-cyan">Memo</th>
-                        <th className="px-2 py-1.5 text-right font-medium text-cyber-cyan">Δ cr</th>
+                        <th className="px-2 py-1.5 text-right font-medium text-cyber-cyan">Δcr</th>
                       </tr>
                     </thead>
                     <tbody>

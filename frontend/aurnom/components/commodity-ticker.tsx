@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { getMarketState } from "@/lib/ui-api";
 import type { MarketCommodity } from "@/lib/ui-api";
+import { isUiPollPaused, UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 // ─── Category config ─────────────────────────────────────────────────────────
@@ -47,11 +48,14 @@ function priceDelta(sell: number, base: number) {
 function useMarket() {
   const loader = useCallback(() => getMarketState(), []);
   const resource = useUiResource(loader);
+  const { reload } = resource;
 
   useEffect(() => {
-    const id = setInterval(resource.reload, 30_000);
+    const id = setInterval(() => {
+      if (!isUiPollPaused()) reload();
+    }, UI_REFRESH_MS.marketSnapshot);
     return () => clearInterval(id);
-  }, [resource.reload]);
+  }, [reload]);
 
   return resource;
 }
@@ -102,7 +106,7 @@ export function CommodityTickerStrip() {
               >
                 <span className={cat(c).text}>{c.name.toUpperCase()}</span>
                 <span className="text-ui-muted dark:text-foreground">
-                  {c.sellPriceCrPerTon.toLocaleString()} cr/t
+                  {c.sellPriceCrPerTon.toLocaleString()}cr/t
                 </span>
                 <span className={d.cls}>
                   {d.icon}

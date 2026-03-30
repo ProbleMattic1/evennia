@@ -50,16 +50,16 @@ export function EconomyWorldPanel() {
     <section className="mb-4 rounded border border-cyan-900/40 bg-zinc-950/90 p-3">
       <p className="text-ui-caption uppercase tracking-widest text-ui-muted">World economy</p>
       <p className="mt-1 font-mono text-sm tabular-nums text-cyber-cyan">
-        {Math.floor(live).toLocaleString()} <span className="text-ui-muted">cr</span>
+        {Math.floor(live).toLocaleString()}<span className="text-ui-muted">cr</span>
         <span className="ml-2 text-xs text-ui-soft">slot meter (implied)</span>
       </p>
       <div className="mt-2 grid gap-1 text-xs text-ui-muted sm:grid-cols-2">
         <span>sites {mining.siteCount ?? 0}</span>
         <span>active {mining.activeSiteCount ?? 0}</span>
         <span>producing {mining.producingSiteCount ?? 0}</span>
-        <span>stored (bid) {(mining.storedValueBidCr ?? 0).toLocaleString()} cr</span>
-        <span>treasury {(ledger.treasuryBalanceCr ?? 0).toLocaleString()} cr</span>
-        <span>player mass {(ledger.playerCreditsMassCr ?? 0).toLocaleString()} cr</span>
+        <span>stored (bid) {(mining.storedValueBidCr ?? 0).toLocaleString()}cr</span>
+        <span>treasury {(ledger.treasuryBalanceCr ?? 0).toLocaleString()}cr</span>
+        <span>player mass {(ledger.playerCreditsMassCr ?? 0).toLocaleString()}cr</span>
       </div>
     </section>
   );

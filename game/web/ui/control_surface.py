@@ -14,7 +14,7 @@ import json
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from evennia import search_object
+from evennia import search_object, search_script
 
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
 from world.time import (
@@ -31,6 +31,7 @@ from world.time import (
 from world.bootstrap_hub import HUB_ROOM_KEY as CORE_HUB_ROOM_KEY
 from world.venue_resolve import hub_for_object, processing_plant_room_for_object, treasury_bank_id_for_object, venue_id_for_object
 
+from .client_poll_hints import CLIENT_POLL_HINTS_MS
 from .views import (
     _dashboard_inventory_item_for_obj,
     _dashboard_property_portfolio,
@@ -44,6 +45,39 @@ from .views import (
 
 # v2: ``resources``, ``nav.resources``, ``production*`` aggregate keys (``mines`` / ``mining*`` retained).
 SCHEMA_VERSION = 2
+
+
+def _world_production_pipeline_from_telemetry():
+    """Snapshot dict may include estimatedPipelineTotalCr, storedSitesBidCr, accrualThisSlotEstimatedCr."""
+    found = search_script("economy_world_telemetry")
+    if not found:
+        return None
+    snap = found[0].db.snapshot or {}
+    block = snap.get("worldProductionPipeline")
+    return block if isinstance(block, dict) else None
+
+
+def _world_production_pipeline_for_control_surface():
+    """
+    Prefer telemetry snapshot; if missing, compute once per request so the web
+    payload always carries the same keys (no sparse block).
+    """
+    block = _world_production_pipeline_from_telemetry()
+    if block is not None:
+        return block
+    from world.production_pipeline_estimate import sum_player_pipeline_breakdown_cr
+
+    char_n, world_stored_cr, world_accrual_cr, world_pipeline_cr = sum_player_pipeline_breakdown_cr()
+    return {
+        "playerCharacterCount": char_n,
+        "estimatedPipelineTotalCr": world_pipeline_cr,
+        "storedSitesBidCr": world_stored_cr,
+        "accrualThisSlotEstimatedCr": world_accrual_cr,
+        "note": (
+            "Sum of per-character pipeline estimates (sites stored + in-slot accrual); "
+            "not wallet; excludes plant silo. Stored and accrual rows sum to the pipeline total."
+        ),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -537,8 +571,11 @@ def control_surface_state(request):
         "floraNextCycleAt": next_flora_delivery_boundary_iso(),
     }
 
+    world_production_pipeline = _world_production_pipeline_for_control_surface()
+
     base_sparse = {
         "schemaVersion": SCHEMA_VERSION,
+        "clientPollHints": CLIENT_POLL_HINTS_MS,
         "authenticated": False,
         "character": None,
         "credits": None,
@@ -576,6 +613,7 @@ def control_surface_state(request):
         "minerSettlementThisSlotNetCr": miner_settlement_this_net,
         "minerSettlementThisSlotGrossCr": miner_settlement_this_gross,
         "minerSettlementThisSlotFeesCr": miner_settlement_this_fees,
+        "worldProductionPipeline": world_production_pipeline,
         **clock_payload,
     }
 
@@ -646,6 +684,7 @@ def control_surface_state(request):
 
     return JsonResponse({
         "schemaVersion": SCHEMA_VERSION,
+        "clientPollHints": CLIENT_POLL_HINTS_MS,
         "authenticated": True,
         "character": character_block,
         "credits": credits,
@@ -684,5 +723,6 @@ def control_surface_state(request):
         "minerSettlementThisSlotNetCr": miner_settlement_this_net,
         "minerSettlementThisSlotGrossCr": miner_settlement_this_gross,
         "minerSettlementThisSlotFeesCr": miner_settlement_this_fees,
+        "worldProductionPipeline": world_production_pipeline,
         **clock_payload,
     })

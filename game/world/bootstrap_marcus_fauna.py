@@ -53,19 +53,19 @@ MARCUS_FAUNA_PLANT_KEYS = (
 MARCUS_FAUNA_COMPONENTS = [
     {
         "type": "harvester",
-        "key": "Killstar Fauna Harvester Mk III",
+        "key": "Fauna Harvester Mk III",
         "desc": "High-throughput harvest rig for the Killstar fauna stack.",
         "rig_rating": 1.25,
     },
     {
         "type": "storage",
-        "key": "Killstar Fauna Storage Gamma",
+        "key": "Fauna Storage Gamma",
         "desc": "Pressurised bulk containment for mixed fauna manifests.",
         "capacity_tons": 1500.0,
     },
     {
         "type": "hauler",
-        "key": "Killstar Mk III Fauna Hauler",
+        "key": "Mk III Autonomous Fauna Hauler",
         "desc": "Autonomous hauler on the fauna route.",
         "cargo_capacity_tons": 250.0,
         "cycle_hours": 2.0,

@@ -160,7 +160,7 @@ function ShopPageInner() {
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-sm font-medium text-foreground">{entry.key}</span>
                       <span className="text-xs text-ui-muted">
-                        {entry.price != null ? `${entry.price.toLocaleString()} cr` : "N/A"}
+                        {entry.price != null ? `${entry.price.toLocaleString()}cr` : "N/A"}
                       </span>
                       <button
                         type="button"

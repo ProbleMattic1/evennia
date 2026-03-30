@@ -17,21 +17,14 @@ reactivate_mine_from_package(buyer, package_obj, site)
     Restart operations at an idle owned site using inventory equipment or spawns.
 """
 
-import copy
-
 from evennia import create_object, search_object
+
+from world.deploy_component_keys import deploy_instance_suffix, prepare_deploy_components
 
 
 def _deploy_instance_suffix(buyer, site) -> str:
-    """
-    Stable, short token for object keys: owner display key + site primary key.
-    Caps length so keys stay readable; site.id guarantees uniqueness.
-    """
-    bk = (getattr(buyer, "key", None) or "?").strip()[:12] or "?"
-    sid = getattr(site, "id", None)
-    if sid is None:
-        sid = 0
-    return f"{bk}:{sid}"[:28]
+    """Stable suffix for deployed rig/storage/hauler keys (see world.deploy_component_keys)."""
+    return deploy_instance_suffix(buyer, site)
 
 
 def _prepare_deploy_components(components, buyer, site):
@@ -39,18 +32,7 @@ def _prepare_deploy_components(components, buyer, site):
     Deep-copy rig/storage/hauler entries and append a unique suffix to each key.
     Safe to call with MINING_PACKAGES or Object.db lists — originals are never mutated.
     """
-    if not components:
-        return []
-    out = copy.deepcopy(components)
-    unique = _deploy_instance_suffix(buyer, site)
-    for c in out:
-        if c.get("type") not in ("rig", "storage", "hauler"):
-            continue
-        base = (c.get("key") or "").strip()
-        if not base:
-            continue
-        c["key"] = f"{base} [{unique}]"
-    return out
+    return prepare_deploy_components(components, buyer, site, ("rig", "storage", "hauler"))
 
 
 def _deploy_profile_for_tier_string(tier_str):

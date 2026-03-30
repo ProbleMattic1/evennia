@@ -51,19 +51,19 @@ MARCUS_FLORA_PLANT_KEYS = ("Aurnom Flora Processing Plant", "Aurnom Ore Processi
 MARCUS_FLORA_COMPONENTS = [
     {
         "type": "harvester",
-        "key": "Killstar Flora Harvester Mk III",
+        "key": "Flora Harvester Mk III",
         "desc": "High-throughput harvest head for the Killstar botanical stack.",
         "rig_rating": 1.25,
     },
     {
         "type": "storage",
-        "key": "Killstar Flora Storage Gamma",
+        "key": "Flora Storage Gamma",
         "desc": "Pressurised bulk bin for mixed harvest manifests.",
         "capacity_tons": 1500.0,
     },
     {
         "type": "hauler",
-        "key": "Killstar Mk III Flora Hauler",
+        "key": "Mk III Autonomous Flora Hauler",
         "desc": "Autonomous hauler on the flora route.",
         "cargo_capacity_tons": 250.0,
         "cycle_hours": 2.0,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect } from "react";
+import { Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
@@ -9,6 +9,8 @@ import { ExitGrid } from "@/components/exit-grid";
 import { MineDetailsPanel, MinePlayRightColumn, PlayMissionsPanel } from "@/components/mine-details-panel";
 import { StoryPanel } from "@/components/story-panel";
 import { getPlayState } from "@/lib/ui-api";
+import { UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
+import { useReloadAfterIso } from "@/lib/use-reload-after-iso";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 const MINING_OUTFITTERS_ROOM = "Aurnom Mining Outfitters";
@@ -19,13 +21,8 @@ function PlayPageInner() {
   const loader = useCallback(() => getPlayState(room), [room]);
   const { data, error, loading, reload } = useUiResource(loader);
 
-  useEffect(() => {
-    const iso = data?.miningNextCycleAt ?? data?.site?.nextCycleAt;
-    if (!iso) return;
-    if (new Date(iso).getTime() > Date.now()) return;
-    const id = setInterval(() => reload(), 15000);
-    return () => clearInterval(id);
-  }, [data?.miningNextCycleAt, data?.site?.nextCycleAt, reload]);
+  const iso = data?.miningNextCycleAt ?? data?.site?.nextCycleAt ?? null;
+  useReloadAfterIso(iso, reload, UI_REFRESH_MS.postDeadlinePoll);
 
   if (loading) {
     return (

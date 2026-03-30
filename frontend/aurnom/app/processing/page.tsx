@@ -27,8 +27,8 @@ function StorageBar({ used, capacity }: { used: number; capacity: number }) {
   return (
     <div className="mt-1">
       <div className="flex justify-between text-xs text-ui-muted mb-0.5">
-        <span>{used.toLocaleString(undefined, { maximumFractionDigits: 1 })} t used</span>
-        <span>{capacity.toLocaleString(undefined, { maximumFractionDigits: 0 })} t cap</span>
+        <span>{used.toLocaleString(undefined, { maximumFractionDigits: 1 })}t used</span>
+        <span>{capacity.toLocaleString(undefined, { maximumFractionDigits: 0 })}t cap</span>
       </div>
       <div className="h-1.5 w-full rounded-full bg-zinc-200 dark:bg-cyan-950/50">
         <div
@@ -61,7 +61,7 @@ function MinerSection({ data }: { data: ProcessingState }) {
       <div className="mt-1 space-y-0.5">
         <StatRow
           label="Ore queued for processing"
-          value={`${myOreQueued.toLocaleString(undefined, { maximumFractionDigits: 1 })} t`}
+          value={`${myOreQueued.toLocaleString(undefined, { maximumFractionDigits: 1 })}t`}
         />
         {myRefinedOutputValue !== null && (
           <StatRow
@@ -235,7 +235,7 @@ function ProcessingPageInner() {
               <div className="mt-1 space-y-0.5">
                 <StatRow
                   label="Shared pool input"
-                  value={`${data.refineryInputTons.toLocaleString(undefined, { maximumFractionDigits: 1 })} t`}
+                  value={`${data.refineryInputTons.toLocaleString(undefined, { maximumFractionDigits: 1 })}t`}
                 />
                 <StatRow
                   label="Shared pool output value"
@@ -248,7 +248,7 @@ function ProcessingPageInner() {
                 />
                 <StatRow
                   label="Attributed ore queue (all miners)"
-                  value={`${data.minerQueueOreTons.toLocaleString(undefined, { maximumFractionDigits: 1 })} t`}
+                  value={`${data.minerQueueOreTons.toLocaleString(undefined, { maximumFractionDigits: 1 })}t`}
                 />
                 <StatRow
                   label="Attributed output value (gross)"

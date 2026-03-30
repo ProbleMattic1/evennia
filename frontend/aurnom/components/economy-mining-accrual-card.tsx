@@ -2,7 +2,7 @@
 
 import { useReducedMotion } from "motion/react";
 
-import type { ControlSurfaceState } from "@/lib/control-surface-api";
+import type { ControlSurfaceState, WorldProductionPipelineSnapshot } from "@/lib/control-surface-api";
 import {
   estimatedPipelineTotalCr,
   faunaPortfolioAccruedCr,
@@ -10,6 +10,7 @@ import {
   miningCycleProgress,
   miningPeriodSeconds,
   miningPortfolioAccruedCr,
+  portfolioAccrualThisSlotTotalCr,
 } from "@/lib/economy-dashboard-derive";
 import { EconomyStatCard } from "@/components/economy-stat-card";
 import { useOdometerInt } from "@/lib/use-odometer-value";
@@ -18,6 +19,9 @@ import { useServerAnchoredTimeMs } from "@/lib/use-server-anchored-time";
 const ACCRUAL_HINT =
   "Linear estimate within the current UTC delivery slot from server rates and bids. " +
   "Not wallet credits; real ticks can differ (hazards, wear, storage, bid moves).";
+
+const WORLD_TELEMETRY_HINT =
+  "World figures from economy_world_telemetry snapshot (~60s interval), not recomputed each poll.";
 
 function formatBoundaryShort(iso: string | undefined) {
   if (!iso) return null;
@@ -41,13 +45,28 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
   const miningAccrued = miningPortfolioAccruedCr(data, nowMs);
   const floraAccrued = floraPortfolioAccruedCr(data, nowMs);
   const faunaAccrued = faunaPortfolioAccruedCr(data, nowMs);
+  const userStoredSites = data.productionTotalStoredValue ?? data.miningTotalStoredValue ?? 0;
+  const userAccrualThisSlot = portfolioAccrualThisSlotTotalCr(data, nowMs);
+  const wpp = data.worldProductionPipeline;
+  const w: WorldProductionPipelineSnapshot =
+    wpp ??
+    ({
+      storedSitesBidCr: 0,
+      accrualThisSlotEstimatedCr: 0,
+      estimatedPipelineTotalCr: 0,
+      playerCharacterCount: 0,
+    } satisfies WorldProductionPipelineSnapshot);
+
+  const matrixFrameCls = `pipeline-matrix-frame px-2 py-2 sm:px-2.5 sm:py-2.5 ${reduceMotion ? "" : "pipeline-matrix-frame--motion"}`;
+  const matrixReadoutCls =
+    "pipeline-matrix-readout relative z-[2] break-all font-mono text-ui-pipeline-readout-secondary font-semibold tracking-tight tabular-nums";
 
   return (
     <>
       <p className="text-ui-caption text-ui-soft">
         Stored (bid): sites{" "}
-        {(data.productionTotalStoredValue ?? data.miningTotalStoredValue)?.toLocaleString() ?? 0} cr · plant silo{" "}
-        {data.miningPersonalStoredValue?.toLocaleString() ?? 0} cr
+        {(data.productionTotalStoredValue ?? data.miningTotalStoredValue)?.toLocaleString() ?? 0}cr · plant silo{" "}
+        {data.miningPersonalStoredValue?.toLocaleString() ?? 0}cr
       </p>
       <div className="mt-2">
         <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Est. this slot (accrual)</p>
@@ -55,9 +74,9 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
           className="mt-0.5 break-words font-mono text-ui-caption font-semibold leading-tight tracking-tight text-cyber-cyan sm:text-xs"
           title="Linear accrual estimate by stream this slot"
         >
-          mining {miningAccrued.toLocaleString()} cr
-          {floraAccrued > 0 ? <> · flora {floraAccrued.toLocaleString()} cr</> : null}
-          {faunaAccrued > 0 ? <> · fauna {faunaAccrued.toLocaleString()} cr</> : null}
+          mining {miningAccrued.toLocaleString()}cr
+          {floraAccrued > 0 ? <> · flora {floraAccrued.toLocaleString()}cr</> : null}
+          {faunaAccrued > 0 ? <> · fauna {faunaAccrued.toLocaleString()}cr</> : null}
         </p>
       </div>
       <div className="mt-3">
@@ -69,7 +88,61 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
             className="pipeline-matrix-readout relative z-[2] break-all font-mono text-ui-pipeline-readout font-semibold tracking-tight tabular-nums"
             title="Stored bid value plus accrual estimate"
           >
-            {pipelineOdo.toLocaleString()} cr
+            {pipelineOdo.toLocaleString()}cr
+          </p>
+        </div>
+      </div>
+      <div className="mt-3">
+        <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Stored (sites, bid)</p>
+        <div
+          className="mt-1 flex flex-wrap gap-2"
+          title={
+            "Sites only (same basis as pipeline green number); not plant silo. " + WORLD_TELEMETRY_HINT
+          }
+        >
+          <div className={`${matrixFrameCls} min-w-[min(100%,8.5rem)] flex-1`}>
+            <p className="relative z-[2] text-ui-overline uppercase tracking-wide text-ui-soft">You</p>
+            <p className={matrixReadoutCls}>{userStoredSites.toLocaleString()}cr</p>
+          </div>
+          <div className={`${matrixFrameCls} min-w-[min(100%,8.5rem)] flex-1`}>
+            <p className="relative z-[2] text-ui-overline uppercase tracking-wide text-ui-soft">World</p>
+            <p className={matrixReadoutCls}>{(w.storedSitesBidCr ?? 0).toLocaleString()}cr</p>
+          </div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Est. this slot (accrual)</p>
+        <div
+          className="mt-1 flex flex-wrap gap-2"
+          title={
+            "Mining + flora + fauna linear accrual this slot; matches pipeline accrual half. " +
+            WORLD_TELEMETRY_HINT
+          }
+        >
+          <div className={`${matrixFrameCls} min-w-[min(100%,8.5rem)] flex-1`}>
+            <p className="relative z-[2] text-ui-overline uppercase tracking-wide text-ui-soft">You</p>
+            <p className={matrixReadoutCls}>{userAccrualThisSlot.toLocaleString()}cr</p>
+          </div>
+          <div className={`${matrixFrameCls} min-w-[min(100%,8.5rem)] flex-1`}>
+            <p className="relative z-[2] text-ui-overline uppercase tracking-wide text-ui-soft">World</p>
+            <p className={matrixReadoutCls}>{(w.accrualThisSlotEstimatedCr ?? 0).toLocaleString()}cr</p>
+          </div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <p className="text-ui-overline uppercase tracking-wide text-ui-soft">
+          All players (est., sum of portfolios)
+        </p>
+        <div
+          className={`${matrixFrameCls} mt-1`}
+          title={
+            w.note ??
+            "Sum of per-character pipeline estimates; updated on telemetry interval, not wallet credits."
+          }
+        >
+          <p className={matrixReadoutCls}>{(w.estimatedPipelineTotalCr ?? 0).toLocaleString()}cr</p>
+          <p className="relative z-[2] mt-1 font-mono text-ui-caption tabular-nums text-ui-soft">
+            {w.playerCharacterCount ?? 0} chars
           </p>
         </div>
       </div>

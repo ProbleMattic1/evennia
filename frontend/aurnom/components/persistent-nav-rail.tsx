@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { groupExits } from "@/components/exit-grid";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import type { ControlSurfaceNav, CsCharacter, NavKiosk } from "@/lib/control-surface-api";
+import { formatCr as cr } from "@/lib/format-units";
 import { playTravel, type ExitButton } from "@/lib/ui-api";
 
 /** Web routes not guaranteed on older API payloads; append after server kiosks. */
@@ -128,10 +129,6 @@ function UtcClock() {
   );
 }
 
-function cr(n: number | null | undefined) {
-  if (n == null) return "—";
-  return `${n.toLocaleString()} cr`;
-}
 
 type Morality = {
   good: number;

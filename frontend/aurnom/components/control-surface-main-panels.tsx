@@ -21,6 +21,7 @@ import type {
   DashboardShip,
   MarketCommodity,
 } from "@/lib/ui-api";
+import { formatCr as cr } from "@/lib/format-units";
 import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
@@ -131,11 +132,6 @@ function Badge({ label, cls }: { label: string; cls?: string }) {
   return <span className={`${base} bg-zinc-700/60 text-ui-muted`}>{label}</span>;
 }
 
-function cr(n: number | null | undefined) {
-  if (n == null) return "—";
-  return `${n.toLocaleString()} cr`;
-}
-
 /** Sum `estimatedValuePerCycle` where present (matches per-row yield display). */
 function resourcesCreditsRollup(items: DashboardMine[]): { sum: number; counted: number } | null {
   let sum = 0;
@@ -170,8 +166,46 @@ function ResourcesCreditsRollupLabel({
           : `Credits per cycle from ${rollup.counted} of ${items.length} sites (others omit yield)`
       }
     >
-      {cr(rollup.sum)}
-      <span className="text-ui-soft"> /cyc</span>
+      {rollup.sum.toLocaleString()}cr<span className="text-ui-soft">/cyc</span>
+      {!complete ? <span className="text-ui-muted"> *</span> : null}
+    </span>
+  );
+}
+
+/** Same typography as `ResourcesCreditsRollupLabel` — for personal storage section bars. */
+const RESOURCE_ROLLUP_MONO =
+  "shrink-0 font-mono text-ui-caption font-normal normal-case tracking-normal text-ui-muted";
+
+function PersonalStorageTonsRollupLabel({ tons }: { tons: number }) {
+  return (
+    <span className={RESOURCE_ROLLUP_MONO} title="Total stored mass">
+      {tons.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+      <span className="text-ui-soft">t</span>
+    </span>
+  );
+}
+
+function PersonalStorageCreditsRollupLabel({
+  sumCr,
+  counted,
+  rowCount,
+}: {
+  sumCr: number;
+  counted: number;
+  rowCount: number;
+}) {
+  if (counted === 0) return null;
+  const complete = counted === rowCount;
+  return (
+    <span
+      className={RESOURCE_ROLLUP_MONO}
+      title={
+        complete
+          ? "Estimated value at local bids (sum of rows)"
+          : `Estimated value from ${counted} of ${rowCount} rows (others omit estimate)`
+      }
+    >
+      {cr(sumCr)}
       {!complete ? <span className="text-ui-muted"> *</span> : null}
     </span>
   );
@@ -233,16 +267,16 @@ function AlertsPanel({
   onAckAll: () => void;
   busy?: boolean;
 }) {
-  const [, setAgeTick] = useState(0);
+  const [nowMs, setNowMs] = useState(0);
+
   useEffect(() => {
-    const id = window.setInterval(() => setAgeTick((n) => n + 1), 30_000);
+    queueMicrotask(() => setNowMs(Date.now()));
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, []);
 
   const all = [...grouped.critical, ...grouped.warning, ...grouped.info];
   if (all.length === 0) return null;
-
-  const nowMs = Date.now();
 
   const sevColor = (s: string) => {
     if (s === "critical") return "text-red-400";
@@ -271,38 +305,12 @@ function AlertsPanel({
               className="shrink-0 tabular-nums text-ui-caption text-ui-muted"
               title={a.createdAt ? new Date(a.createdAt).toLocaleString() : undefined}
             >
-              {formatAlertAge(a.createdAt ?? "", nowMs)}
+              {nowMs > 0 ? formatAlertAge(a.createdAt ?? "", nowMs) : "—"}
             </span>
             <TinyButton onClick={() => onAck(a.id)}>×</TinyButton>
           </Row>
         ))}
       </div>
-    </Panel>
-  );
-}
-
-function MarketPanel({ commodities }: { commodities: MarketCommodity[] }) {
-  if (commodities.length === 0) return null;
-  return (
-    <Panel panelKey="market" title="Market">
-      <table className="w-full table-fixed text-xs">
-        <thead>
-          <tr className="text-ui-muted">
-            <th className="w-1/2 text-left font-normal">resource</th>
-            <th className="w-1/4 text-right font-normal">sell</th>
-            <th className="w-1/4 text-right font-normal">buy</th>
-          </tr>
-        </thead>
-        <tbody>
-          {commodities.map((c) => (
-            <tr key={c.key} className="border-t border-zinc-800/60">
-              <td className="truncate text-foreground">{c.name}</td>
-              <td className="text-right font-mono text-green-400">{c.sellPriceCrPerTon.toLocaleString()}</td>
-              <td className="text-right font-mono text-red-400">{c.buyPriceCrPerTon.toLocaleString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </Panel>
   );
 }
@@ -518,7 +526,7 @@ function MineDashboardRow({
               </Row>
               {m.estimatedValuePerCycle != null ? (
                 <span className="shrink-0 font-mono text-xs text-ui-muted">
-                  {cr(m.estimatedValuePerCycle)}<span className="text-ui-soft"> yld</span>
+                  {cr(m.estimatedValuePerCycle)} <span className="text-ui-soft">yld</span>
                 </span>
               ) : null}
             </div>
@@ -528,7 +536,7 @@ function MineDashboardRow({
       {open ? (
         <div className={`ml-3 mt-1 items-start gap-x-2 ${hasProduces ? "grid grid-cols-2" : ""}`}>
           <div className="min-w-0 space-y-0">
-            <Kv k="storage" v={`${m.storageUsed}/${m.storageCapacity} t`} />
+            <Kv k="storage" v={`${m.storageUsed}/${m.storageCapacity}t`} />
             {m.rigWear != null ? <Kv k="rig wear" v={`${m.rigWear}%${!m.rigOperational ? " ⚠ offline" : ""}`} /> : null}
             {Object.keys(m.inventory || {}).length > 0 ? (
               <Kv
@@ -799,6 +807,9 @@ function personalStorageRow(raw: PersonalStorageEntry | number): {
   return { tons: raw.tons, estimatedValueCr: raw.estimatedValueCr };
 }
 
+const PERSONAL_STORAGE_TABLE_GRID =
+  "grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(5.5rem,auto)_minmax(5.5rem,auto)] gap-x-2 items-baseline";
+
 function PersonalStorageKindGroup({
   panelSlug,
   title,
@@ -811,50 +822,65 @@ function PersonalStorageKindGroup({
   resourceNames: ReturnType<typeof useResourceNameLookup>;
 }) {
   const entries = Object.entries(weights).sort(([a], [b]) => a.localeCompare(b));
+  const [open, setOpen] = useDashboardPanelOpen(`personal-storage:${panelSlug}`, true);
   if (entries.length === 0) return null;
 
-  const header = `${title} (${entries.length})`;
-  const [open, setOpen] = useDashboardPanelOpen(`personal-storage:${panelSlug}`, true);
+  let rollupTons = 0;
+  let rollupCr = 0;
+  let rollupCrRows = 0;
+  for (const [, raw] of entries) {
+    const { tons, estimatedValueCr } = personalStorageRow(raw);
+    rollupTons += Number(tons) || 0;
+    if (estimatedValueCr != null && !Number.isNaN(estimatedValueCr)) {
+      rollupCr += estimatedValueCr;
+      rollupCrRows += 1;
+    }
+  }
+  const headerTitle = `${title} (${entries.length})`;
 
   return (
     <div className="mb-1 last:mb-0">
       <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
-        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{header}</span>
+        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{headerTitle}</span>
+        <PersonalStorageTonsRollupLabel tons={rollupTons} />
+        <PersonalStorageCreditsRollupLabel sumCr={rollupCr} counted={rollupCrRows} rowCount={entries.length} />
         <PanelExpandButton
           open={open}
           onClick={() => setOpen((v) => !v)}
-          aria-label={`${open ? "Collapse" : "Expand"} ${header}`}
+          aria-label={`${open ? "Collapse" : "Expand"} ${headerTitle}`}
           className="shrink-0"
         />
       </div>
       {open ? (
         <>
-          <div className="mb-0.5 flex min-w-0 items-baseline gap-2 pt-0.5 font-mono text-ui-caption uppercase tracking-wide text-ui-muted">
-            <span className="min-w-0 flex-1 truncate">resource</span>
-            <span className="shrink-0 tabular-nums">t</span>
-            <span className="shrink-0 tabular-nums" title="Estimated value at local bids (credits)">
-              est. cr
+          <div
+            className={`mb-0.5 ${PERSONAL_STORAGE_TABLE_GRID} pt-0.5 font-mono text-ui-caption uppercase tracking-wide text-ui-muted`}
+          >
+            <span className="min-w-0 truncate">resource</span>
+            <span className="text-right tabular-nums">t</span>
+            <span className="text-right tabular-nums" title="Estimated value at local bids (credits)">
+              est.cr
             </span>
           </div>
           <div className={`${DASHBOARD_SCROLL_LIST_CLASS} space-y-0`}>
             {entries.map(([key, raw]) => {
               const { tons, estimatedValueCr } = personalStorageRow(raw);
               return (
-                <Row key={key}>
-                  <span className="min-w-0 flex-1 truncate text-foreground">
+                <div key={key} className={PERSONAL_STORAGE_TABLE_GRID}>
+                  <span className="min-w-0 truncate text-foreground">
                     {displayResourceName(key, resourceNames)}
                   </span>
-                  <span className="shrink-0 font-mono tabular-nums text-foreground">
+                  <span className="text-right font-mono tabular-nums text-foreground">
                     {Number(tons).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    <span className="text-ui-muted"> t</span>
+                    <span className="text-ui-muted">t</span>
                   </span>
                   <span
-                    className="shrink-0 font-mono tabular-nums text-ui-muted"
+                    className="text-right font-mono tabular-nums text-ui-muted"
                     title="Estimated value at local bids (credits)"
                   >
                     {cr(estimatedValueCr)}
                   </span>
-                </Row>
+                </div>
               );
             })}
           </div>
@@ -876,7 +902,7 @@ function PersonalStoragePanel({ buckets }: { buckets: PersonalStorageBuckets }) 
     <Panel panelKey="personal-storage" title={`Personal storage (${n})`}>
       <PersonalStorageKindGroup
         panelSlug="mine"
-        title="Mined resources"
+        title="Mined"
         weights={buckets.mine}
         resourceNames={resourceNames}
       />
@@ -936,7 +962,7 @@ function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims
               className="inline-block rounded bg-zinc-700/60 px-1 text-ui-caption font-bold uppercase tabular-nums text-ui-muted"
               title="Est. value per production cycle (local bids)"
             >
-              {c.estimatedValuePerCycle != null ? `${c.estimatedValuePerCycle.toLocaleString()} cr/c` : "—"}
+              {c.estimatedValuePerCycle != null ? `${c.estimatedValuePerCycle.toLocaleString()}cr/c` : "—"}
             </span>
           </div>
         ))}

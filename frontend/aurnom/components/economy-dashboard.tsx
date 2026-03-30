@@ -31,6 +31,7 @@ import {
   miningPeriodSeconds,
 } from "@/lib/economy-dashboard-derive";
 import { getMarketState } from "@/lib/ui-api";
+import { isUiPollPaused, UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
 import { useMarketHistory, seriesForKey } from "@/lib/use-market-history";
 import { useServerAnchoredTimeMs } from "@/lib/use-server-anchored-time";
 
@@ -102,6 +103,7 @@ export function EconomyDashboard({
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
+      if (isUiPollPaused()) return;
       try {
         const m = await getMarketState();
         if (!cancelled) push(m.commodities);
@@ -110,7 +112,7 @@ export function EconomyDashboard({
       }
     };
     void tick();
-    const id = window.setInterval(tick, 30_000);
+    const id = window.setInterval(tick, UI_REFRESH_MS.marketSnapshot);
     return () => {
       cancelled = true;
       window.clearInterval(id);
@@ -158,16 +160,16 @@ export function EconomyDashboard({
           <p className="text-ui-caption uppercase tracking-widest text-ui-muted">Portfolio mining (implied)</p>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-cyber-cyan">
             <SpringCrDisplay crPerSec={crPs} reduceMotion={!!reduceMotion} />
-            <span>{tPs.toFixed(4)} t/s</span>
+            <span>{tPs.toFixed(4)}t/s</span>
             {data.credits != null ? (
-              <span className="text-ui-muted">Wallet {data.credits.toLocaleString()} cr</span>
+              <span className="text-ui-muted">Wallet {data.credits.toLocaleString()}cr</span>
             ) : null}
             {data.treasuryBalance != null ? (
-              <span className="text-ui-muted">Treasury {data.treasuryBalance.toLocaleString()} cr</span>
+              <span className="text-ui-muted">Treasury {data.treasuryBalance.toLocaleString()}cr</span>
             ) : null}
             {data.propertyReferenceListValueTotalCr != null && data.propertyReferenceListValueTotalCr > 0 ? (
               <span className="text-ui-muted">
-                Property ref. {data.propertyReferenceListValueTotalCr.toLocaleString()} cr
+                Property ref. {data.propertyReferenceListValueTotalCr.toLocaleString()}cr
               </span>
             ) : null}
           </div>
@@ -262,7 +264,7 @@ export function EconomyDashboard({
             <div>
               <p className="text-ui-caption text-ui-soft">Raw receiving</p>
               <p className="font-mono text-xs text-foreground">
-                {proc.rawStorageUsed.toFixed(1)} / {proc.rawStorageCapacity.toFixed(1)} t
+                {proc.rawStorageUsed.toFixed(1)} / {proc.rawStorageCapacity.toFixed(1)}t
               </p>
               <div className="mt-1 h-1.5 overflow-hidden rounded bg-zinc-800">
                 <div
@@ -276,15 +278,15 @@ export function EconomyDashboard({
             <div>
               <p className="text-ui-caption text-ui-soft">Refinery (shared / attributed)</p>
               <p className="font-mono text-xs text-foreground">
-                Pool {proc.refineryInputTons.toFixed(1)} t → {proc.refineryOutputValue.toLocaleString()} cr · Queue{" "}
-                {proc.minerQueueOreTons.toFixed(1)} t · Attr. out {proc.minerOutputValueTotal.toLocaleString()} cr
+                Pool {proc.refineryInputTons.toFixed(1)}t → {proc.refineryOutputValue.toLocaleString()}cr · Queue{" "}
+                {proc.minerQueueOreTons.toFixed(1)}t · Attr. out {proc.minerOutputValueTotal.toLocaleString()}cr
               </p>
             </div>
             <div>
               <p className="text-ui-caption text-ui-soft">Your queue / refined</p>
               <p className="font-mono text-xs text-foreground">
-                Ore queued {proc.myOreQueued != null ? `${proc.myOreQueued.toFixed(1)} t` : "—"} · refined value{" "}
-                {proc.myRefinedOutputValue != null ? `${proc.myRefinedOutputValue.toLocaleString()} cr` : "—"}
+                Ore queued {proc.myOreQueued != null ? `${proc.myOreQueued.toFixed(1)}t` : "—"} · refined value{" "}
+                {proc.myRefinedOutputValue != null ? `${proc.myRefinedOutputValue.toLocaleString()}cr` : "—"}
               </p>
             </div>
           </div>
@@ -304,8 +306,8 @@ export function EconomyDashboard({
               >
                 <span className="text-foreground">{m.key}</span>
                 <span className="text-ui-muted">
-                  {m.active ? "active" : "idle"} · est. {(m.estimatedValuePerCycle ?? 0).toLocaleString()} cr/cycle ·
-                  storage {(m.storageUsed ?? 0).toFixed(0)}/{(m.storageCapacity ?? 0).toFixed(0)} t
+                  {m.active ? "active" : "idle"} · est. {(m.estimatedValuePerCycle ?? 0).toLocaleString()}cr/cycle ·
+                  storage {(m.storageUsed ?? 0).toFixed(0)}/{(m.storageCapacity ?? 0).toFixed(0)}t
                 </span>
               </li>
             ))}

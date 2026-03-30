@@ -87,6 +87,17 @@ html {
       font-size: 2.5rem;
     }
   }
+
+  /** Same neon treatment as hero pipeline; smaller for You/World / all-players rows. */
+  .text-ui-pipeline-readout-secondary {
+    font-size: 1.35rem;
+    line-height: 1.08;
+  }
+  @media (min-width: 640px) {
+    .text-ui-pipeline-readout-secondary {
+      font-size: 1.6rem;
+    }
+  }
 }
 
 .panel-expand-toggle[data-expanded="false"] {

@@ -5,12 +5,12 @@ import { EconomyStatCard } from "@/components/economy-stat-card";
 /** Treasury outflow: minus sign + credits (magnitude only in arg). */
 function formatTreasuryOutflowCr(n: number | undefined) {
   const v = Number.isFinite(n) ? Math.max(0, Math.floor(Number(n))) : 0;
-  return `−${v.toLocaleString("en-US")} cr`;
+  return `−${v.toLocaleString("en-US")}cr`;
 }
 
 function formatPositiveCr(n: number | undefined) {
   const v = Number.isFinite(n) ? Math.max(0, Math.floor(Number(n))) : 0;
-  return `${v.toLocaleString("en-US")} cr`;
+  return `${v.toLocaleString("en-US")}cr`;
 }
 
 function formatBoundaryShort(iso: string | undefined) {

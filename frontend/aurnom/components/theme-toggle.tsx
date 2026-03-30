@@ -1,36 +1,41 @@
 "use client";
 
-import { useLayoutEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "theme";
 
-function readIsDark() {
+function readIsDark(): boolean {
   if (typeof document === "undefined") {
     return false;
   }
   try {
     const s = localStorage.getItem(STORAGE_KEY);
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    if (s === "dark") {
-      return true;
-    }
-    if (s === "light") {
-      return false;
-    }
+    if (s === "dark") return true;
+    if (s === "light") return false;
     return prefersDark;
   } catch {
     return document.documentElement.classList.contains("dark");
   }
 }
 
+function subscribe(onChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  mq.addEventListener("change", onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    mq.removeEventListener("change", onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
+  const dark = useSyncExternalStore(subscribe, readIsDark, () => false);
 
-  useLayoutEffect(() => {
-    setDark(readIsDark());
-  }, []);
-
-  const toggle = () => {
+  const toggle = useCallback(() => {
     const next = !document.documentElement.classList.contains("dark");
     document.documentElement.classList.toggle("dark", next);
     try {
@@ -38,8 +43,8 @@ export function ThemeToggle() {
     } catch {
       /* ignore */
     }
-    setDark(next);
-  };
+    window.dispatchEvent(new Event("storage"));
+  }, []);
 
   return (
     <button

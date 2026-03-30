@@ -86,7 +86,7 @@ export function PropertyDeedResaleBrowse({ onPurchased }: PropertyDeedResaleBrow
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="font-mono text-sm tabular-nums text-amber-400">
-                  {row.price.toLocaleString()} cr
+                  {row.price.toLocaleString()}cr
                 </span>
                 <button
                   type="button"

@@ -63,8 +63,22 @@ class EconomyWorldTelemetry(Script):
             int(v) for k, v in accounts.items() if str(k).startswith("player:")
         )
 
+        from world.production_pipeline_estimate import sum_player_pipeline_breakdown_cr
+
+        char_n, world_stored_cr, world_accrual_cr, world_pipeline_cr = sum_player_pipeline_breakdown_cr()
+
         self.db.snapshot = {
             "computedAtIso": now_iso,
+            "worldProductionPipeline": {
+                "playerCharacterCount": char_n,
+                "estimatedPipelineTotalCr": world_pipeline_cr,
+                "storedSitesBidCr": world_stored_cr,
+                "accrualThisSlotEstimatedCr": world_accrual_cr,
+                "note": (
+                    "Sum of per-character pipeline estimates (sites stored + in-slot accrual); "
+                    "not wallet; excludes plant silo. Stored and accrual rows sum to the pipeline total."
+                ),
+            },
             "mining": {
                 "siteCount": site_count,
                 "activeSiteCount": active_count,

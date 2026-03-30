@@ -26,6 +26,8 @@ import {
   exchangePanelToolbarTitleClass,
   panelPrimaryButtonClass,
 } from "@/lib/exchange-panel-classes";
+import { UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
+import { useReloadAfterIso } from "@/lib/use-reload-after-iso";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 const TIER_COLOR: Record<number, string> = {
@@ -103,14 +105,7 @@ function RealEstatePageInner() {
   const [randomZoneBusy, setRandomZoneBusy] = useState<PropertyZone | null>(null);
   const [feedback, setFeedback]         = useState<{ ok: boolean; message: string } | null>(null);
 
-  useEffect(() => {
-    const iso = data?.nextPropertyDiscoveryAt;
-    if (!iso) return;
-    const t = new Date(iso).getTime();
-    if (t > Date.now()) return;
-    const id = setInterval(() => reload(), 15000);
-    return () => clearInterval(id);
-  }, [data?.nextPropertyDiscoveryAt, reload]);
+  useReloadAfterIso(data?.nextPropertyDiscoveryAt ?? null, reload, UI_REFRESH_MS.postDeadlinePoll);
 
   useEffect(() => {
     if (typeof window === "undefined" || loading) return;
