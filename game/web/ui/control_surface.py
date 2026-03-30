@@ -171,19 +171,25 @@ def _serialize_personal_storage(char):
 
     Same discovery paths as _personal_plant_ore_stored_value_cr and
     _local_raw_stored_value_cr — bounded to one plant room + two inventories.
+
+    Per-resource ``estimatedValueCr`` uses local bid prices at each inventory's
+    location (silo vs local_raw_storage), matching how totals are computed.
     """
     from collections import defaultdict
 
     from typeclasses.haulers import get_plant_player_storage
-    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG
-    from typeclasses.flora import FLORA_RESOURCE_CATALOG
-    from typeclasses.mining import RESOURCE_CATALOG
+    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG, get_fauna_commodity_bid
+    from typeclasses.flora import FLORA_RESOURCE_CATALOG, get_flora_commodity_bid
+    from typeclasses.mining import RESOURCE_CATALOG, get_commodity_bid
 
     mine = defaultdict(float)
+    mine_val = defaultdict(float)
     flora = defaultdict(float)
+    flora_val = defaultdict(float)
     fauna = defaultdict(float)
+    fauna_val = defaultdict(float)
 
-    def absorb(inv):
+    def absorb(inv, sloc):
         if not inv:
             return
         for k, tons in inv.items():
@@ -195,29 +201,41 @@ def _serialize_personal_storage(char):
                 continue
             kr = str(k)
             if kr in RESOURCE_CATALOG:
+                bid = int(get_commodity_bid(kr, location=sloc))
                 mine[kr] += t
+                mine_val[kr] += t * bid
             elif kr in FLORA_RESOURCE_CATALOG:
+                bid = int(get_flora_commodity_bid(kr, location=sloc))
                 flora[kr] += t
+                flora_val[kr] += t * bid
             elif kr in FAUNA_RESOURCE_CATALOG:
+                bid = int(get_fauna_commodity_bid(kr, location=sloc))
                 fauna[kr] += t
+                fauna_val[kr] += t * bid
 
     room = processing_plant_room_for_object(char)
     if room and char:
         silo = get_plant_player_storage(room, char)
         if silo:
-            absorb(getattr(silo.db, "inventory", None) or {})
+            absorb(getattr(silo.db, "inventory", None) or {}, silo.location)
 
     st = getattr(char.db, "local_raw_storage", None) if char else None
     if st is not None and getattr(st, "db", None) is not None:
-        absorb(getattr(st.db, "inventory", None) or {})
+        absorb(getattr(st.db, "inventory", None) or {}, st.location)
 
-    def finalize(d):
-        return {k: round(float(d[k]), 2) for k in sorted(d.keys())}
+    def finalize(tons_map, val_map):
+        out = {}
+        for k in sorted(tons_map.keys()):
+            out[k] = {
+                "tons": round(float(tons_map[k]), 2),
+                "estimatedValueCr": int(round(val_map[k])),
+            }
+        return out
 
     return {
-        "mine": finalize(mine),
-        "flora": finalize(flora),
-        "fauna": finalize(fauna),
+        "mine": finalize(mine, mine_val),
+        "flora": finalize(flora, flora_val),
+        "fauna": finalize(fauna, fauna_val),
     }
 
 

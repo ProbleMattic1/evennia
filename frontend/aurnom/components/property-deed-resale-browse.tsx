@@ -7,7 +7,7 @@ import {
   getPropertyDeedListings,
   type PropertyDeedListingRow,
 } from "@/lib/ui-api";
-import { exchangePanelEmptyClass } from "@/lib/exchange-panel-classes";
+import { exchangePanelEmptyClass, panelPrimaryButtonClass } from "@/lib/exchange-panel-classes";
 
 type PropertyDeedResaleBrowseProps = {
   onPurchased?: () => void;
@@ -62,11 +62,9 @@ export function PropertyDeedResaleBrowse({ onPurchased }: PropertyDeedResaleBrow
     >
       <p className="text-[11px] font-medium uppercase tracking-wide text-ui-muted">Listed deeds</p>
       {purchaseSuccess ? (
-        <p className="mt-2 font-mono text-[12px] text-emerald-400">{purchaseSuccess}</p>
+        <p className="mt-2 text-[11px] text-emerald-400">{purchaseSuccess}</p>
       ) : null}
-      {purchaseError ? (
-        <p className="mt-2 font-mono text-[12px] text-red-400">{purchaseError}</p>
-      ) : null}
+      {purchaseError ? <p className="mt-2 text-[11px] text-red-400">{purchaseError}</p> : null}
       {loading ? (
         <p className="mt-2 text-sm text-ui-muted">Loading…</p>
       ) : error ? (
@@ -94,7 +92,7 @@ export function PropertyDeedResaleBrowse({ onPurchased }: PropertyDeedResaleBrow
                   type="button"
                   disabled={buyingId === row.claimId}
                   onClick={() => void handleBuy(row)}
-                  className="rounded border border-cyan-800/60 bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-50"
+                  className={panelPrimaryButtonClass}
                 >
                   {buyingId === row.claimId ? "…" : "Buy"}
                 </button>

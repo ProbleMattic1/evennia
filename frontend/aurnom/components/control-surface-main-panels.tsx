@@ -7,7 +7,12 @@ import { Countdown } from "@/components/countdown";
 import { ChallengesPanel } from "@/components/challenges-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { DashboardMissionsPanel } from "@/components/dashboard-missions-panel";
-import type { ControlSurfaceState, CsInventory, PersonalStorageBuckets } from "@/lib/control-surface-api";
+import type {
+  ControlSurfaceState,
+  CsInventory,
+  PersonalStorageBuckets,
+  PersonalStorageEntry,
+} from "@/lib/control-surface-api";
 import type {
   DashboardAlert,
   DashboardGroupedAlerts,
@@ -196,6 +201,14 @@ function formatClaimOptionLabel(c: {
 /** Not listed in Inventory panel; Mine Operations still reads these buckets from the same payload. */
 const INVENTORY_PANEL_HIDDEN_BUCKETS = new Set(["mining_claim", "property_deed"]);
 
+/** Alerts only: original taller viewport (~10 rows), remainder scrolls. */
+const ALERTS_SCROLL_LIST_CLASS =
+  "max-h-[min(220px,40vh)] min-h-[48px] overflow-y-auto overflow-x-hidden pr-0.5 [scrollbar-gutter:stable]";
+
+/** Properties, claims, personal storage: shorter viewport (~6 rows). */
+const DASHBOARD_SCROLL_LIST_CLASS =
+  "max-h-[min(132px,24vh)] min-h-[32px] overflow-y-auto overflow-x-hidden pr-0.5 [scrollbar-gutter:stable]";
+
 function formatAlertAge(iso: string, nowMs: number): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return "—";
@@ -247,7 +260,7 @@ function AlertsPanel({
         </TinyButton>
       }
     >
-      <div className="max-h-[min(220px,40vh)] min-h-[48px] overflow-y-auto overflow-x-hidden pr-0.5 [scrollbar-gutter:stable]">
+      <div className={ALERTS_SCROLL_LIST_CLASS}>
         {all.map((a: DashboardAlert) => (
           <Row key={a.id} className="mb-0.5 items-start">
             <span className={`shrink-0 text-[9px] font-bold uppercase ${sevColor(a.severity)}`}>
@@ -738,7 +751,7 @@ function PropertiesKindGroup({
         />
       </div>
       {open ? (
-        <div className="space-y-0 pt-0.5">
+        <div className={`${DASHBOARD_SCROLL_LIST_CLASS} space-y-0 pt-0.5`}>
           {items.map((p) => (
             <Row key={p.claimId}>
               <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -778,6 +791,14 @@ function PropertiesKindGroup({
   );
 }
 
+function personalStorageRow(raw: PersonalStorageEntry | number): {
+  tons: number;
+  estimatedValueCr: number | null;
+} {
+  if (typeof raw === "number") return { tons: raw, estimatedValueCr: null };
+  return { tons: raw.tons, estimatedValueCr: raw.estimatedValueCr };
+}
+
 function PersonalStorageKindGroup({
   panelSlug,
   title,
@@ -786,7 +807,7 @@ function PersonalStorageKindGroup({
 }: {
   panelSlug: string;
   title: string;
-  weights: Record<string, number>;
+  weights: Record<string, PersonalStorageEntry | number>;
   resourceNames: ReturnType<typeof useResourceNameLookup>;
 }) {
   const entries = Object.entries(weights).sort(([a], [b]) => a.localeCompare(b));
@@ -807,19 +828,37 @@ function PersonalStorageKindGroup({
         />
       </div>
       {open ? (
-        <div className="space-y-0 pt-0.5">
-          {entries.map(([key, tons]) => (
-            <Row key={key}>
-              <span className="min-w-0 flex-1 truncate text-zinc-300">
-                {displayResourceName(key, resourceNames)}
-              </span>
-              <span className="shrink-0 font-mono tabular-nums text-zinc-200">
-                {Number(tons).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                <span className="text-ui-muted"> t</span>
-              </span>
-            </Row>
-          ))}
-        </div>
+        <>
+          <div className="mb-0.5 flex min-w-0 items-baseline gap-2 pt-0.5 font-mono text-[9px] uppercase tracking-wide text-ui-muted">
+            <span className="min-w-0 flex-1 truncate">resource</span>
+            <span className="shrink-0 tabular-nums">t</span>
+            <span className="shrink-0 tabular-nums" title="Estimated value at local bids (credits)">
+              est. cr
+            </span>
+          </div>
+          <div className={`${DASHBOARD_SCROLL_LIST_CLASS} space-y-0`}>
+            {entries.map(([key, raw]) => {
+              const { tons, estimatedValueCr } = personalStorageRow(raw);
+              return (
+                <Row key={key}>
+                  <span className="min-w-0 flex-1 truncate text-zinc-300">
+                    {displayResourceName(key, resourceNames)}
+                  </span>
+                  <span className="shrink-0 font-mono tabular-nums text-zinc-200">
+                    {Number(tons).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    <span className="text-ui-muted"> t</span>
+                  </span>
+                  <span
+                    className="shrink-0 font-mono tabular-nums text-zinc-400"
+                    title="Estimated value at local bids (credits)"
+                  >
+                    {cr(estimatedValueCr)}
+                  </span>
+                </Row>
+              );
+            })}
+          </div>
+        </>
       ) : null}
     </div>
   );
@@ -887,19 +926,21 @@ function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims
   if (claims.length === 0) return null;
   return (
     <Panel panelKey="claims" title={`Claims (${claims.length})`}>
-      {claims.map((c) => (
-        <div key={c.href} className="flex flex-wrap items-center gap-1">
-          <TinyLink href={c.href}>{c.label}</TinyLink>
-          {c.volumeTier ? <Badge label={c.volumeTier} cls={c.volumeTierCls} /> : null}
-          {c.resourceRarityTier ? <Badge label={c.resourceRarityTier} cls={c.resourceRarityTierCls} /> : null}
-          <span
-            className="inline-block rounded bg-zinc-700/60 px-1 text-[9px] font-bold uppercase tabular-nums text-ui-muted"
-            title="Est. value per production cycle (local bids)"
-          >
-            {c.estimatedValuePerCycle != null ? `${c.estimatedValuePerCycle.toLocaleString()} cr/c` : "—"}
-          </span>
-        </div>
-      ))}
+      <div className={DASHBOARD_SCROLL_LIST_CLASS}>
+        {claims.map((c) => (
+          <div key={c.href} className="flex flex-wrap items-center gap-1">
+            <TinyLink href={c.href}>{c.label}</TinyLink>
+            {c.volumeTier ? <Badge label={c.volumeTier} cls={c.volumeTierCls} /> : null}
+            {c.resourceRarityTier ? <Badge label={c.resourceRarityTier} cls={c.resourceRarityTierCls} /> : null}
+            <span
+              className="inline-block rounded bg-zinc-700/60 px-1 text-[9px] font-bold uppercase tabular-nums text-ui-muted"
+              title="Est. value per production cycle (local bids)"
+            >
+              {c.estimatedValuePerCycle != null ? `${c.estimatedValuePerCycle.toLocaleString()} cr/c` : "—"}
+            </span>
+          </div>
+        ))}
+      </div>
     </Panel>
   );
 }
