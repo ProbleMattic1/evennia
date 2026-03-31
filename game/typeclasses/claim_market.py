@@ -294,22 +294,12 @@ def site_is_claims_market_listable(site):
 
 def listing_price_cr(site):
     """
-    Deterministic listing from deposit value and hazard (buyer-agnostic).
-    Mirrors dashboard estimated value logic, scaled with a hazard factor.
+    Deterministic listing from deposit value and hazard (buyer-agnostic),
+    scaled by the global economy automation phase (PHASE_PRICE_MULTIPLIERS).
     """
-    from typeclasses.mining import get_commodity_bid
+    from world.econ_automation.resolve_prices import resolve_claim_listing_price_cr
 
-    deposit = site.db.deposit or {}
-    comp = deposit.get("composition") or {}
-    richness = float(deposit.get("richness", 0) or 0)
-    base_tons = float(deposit.get("base_output_tons", 0) or 0)
-    hazard = float(site.db.hazard_level or 0)
-    total_tons = base_tons * richness
-    ev = 0.0
-    for k, frac in comp.items():
-        ev += total_tons * float(frac) * float(get_commodity_bid(k))
-    hazard_factor = max(0.55, min(1.0, 1.0 - 0.35 * hazard))
-    return int(max(500, round(ev * 4 * hazard_factor)))
+    return resolve_claim_listing_price_cr(site)
 
 
 def claims_market_row_extras(site):

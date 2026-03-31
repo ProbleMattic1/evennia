@@ -6,7 +6,7 @@
     "summary": "Complete at least one mining deposit today.",
     "predicateKey": "extraction.single_mine_deposit",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["mine_deposits_today"],
     "enabled": true
   },
@@ -17,7 +17,7 @@
     "summary": "Participate in at least one mining delivery slot today.",
     "predicateKey": "extraction.mining_slot_participation",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["mine_deposits_today"],
     "enabled": true
   },
@@ -28,7 +28,7 @@
     "summary": "Touch all three resource pipelines today — mining, flora, and fauna.",
     "predicateKey": "extraction.triple_pipeline_touch",
     "predicateParams": {"min_pipelines": 3},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["pipelines_today"],
     "enabled": true
   },
@@ -39,7 +39,7 @@
     "summary": "Complete at least one full hauler run today.",
     "predicateKey": "extraction.hauler_cycle",
     "predicateParams": {"min_cycles": 1},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["hauler_events_today"],
     "enabled": true
   }

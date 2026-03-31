@@ -27,6 +27,7 @@ import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
 import {
   claimChallengeReward,
+  claimChallengeRewardsForCadence,
   dashboardAckAlert,
   dashboardAckAllAlerts,
   mineDeploy,
@@ -430,19 +431,86 @@ function MineDeploymentPanel({
   );
 }
 
+function shipClassKey(s: DashboardShip): string {
+  const slug = (s.vehicleClassSlug || "").trim();
+  if (slug) return slug;
+  return "unknown";
+}
+
+function shipSectionLabel(s: DashboardShip): string {
+  const label = (s.vehicleClassLabel || "").trim();
+  if (label) return label;
+  return "Other";
+}
+
+function ShipsClassGroup({
+  classKey,
+  label,
+  items,
+}: {
+  classKey: string;
+  label: string;
+  items: DashboardShip[];
+}) {
+  const title = `${label} (${items.length})`;
+  const [open, setOpen] = useDashboardPanelOpen(`ships:${classKey}`, true);
+
+  return (
+    <div className="mb-1 last:mb-0">
+      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
+        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
+        <PanelExpandButton
+          open={open}
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+          className="shrink-0"
+        />
+      </div>
+      {open ? (
+        <div className="pt-0.5">
+          {items.map((s) => (
+            <Row key={s.id}>
+              <span className="flex-1 truncate font-semibold text-foreground">
+                {s.count && s.count > 1 ? `${s.count}× ` : ""}
+                {s.key}
+              </span>
+              {s.state ? <span className="text-xs text-ui-muted">{s.state}</span> : null}
+              {s.location ? <span className="text-xs text-ui-muted">{s.location}</span> : null}
+            </Row>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ShipsPanel({ ships }: { ships: DashboardShip[] }) {
   if (ships.length === 0) return null;
+
+  const byClass = new Map<string, DashboardShip[]>();
+  for (const s of ships) {
+    const k = shipClassKey(s);
+    if (!byClass.has(k)) byClass.set(k, []);
+    byClass.get(k)!.push(s);
+  }
+  for (const list of byClass.values()) {
+    list.sort((a, b) => a.key.localeCompare(b.key));
+  }
+  const orderedClassKeys = [...byClass.keys()].sort((a, b) => {
+    const la = shipSectionLabel(byClass.get(a)![0]);
+    const lb = shipSectionLabel(byClass.get(b)![0]);
+    return la.localeCompare(lb);
+  });
+
   return (
     <Panel panelKey="ships" title={`Ships (${ships.length})`}>
-      {ships.map((s) => (
-        <Row key={s.id}>
-          <span className="flex-1 truncate font-semibold text-foreground">
-            {s.count && s.count > 1 ? `${s.count}× ` : ""}
-            {s.key}
-          </span>
-          {s.state ? <span className="text-xs text-ui-muted">{s.state}</span> : null}
-          {s.location ? <span className="text-xs text-ui-muted">{s.location}</span> : null}
-        </Row>
+      {orderedClassKeys.map((classKey) => (
+        <ShipsClassGroup
+          key={classKey}
+          classKey={classKey}
+          label={shipSectionLabel(byClass.get(classKey)![0])}
+          items={byClass.get(classKey) ?? []}
+        />
       ))}
     </Panel>
   );
@@ -1004,6 +1072,10 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       run(() => claimChallengeReward({ challengeId, windowKey })),
     [run],
   );
+  const claimCadenceCb = useCallback(
+    (cadence: string) => run(() => claimChallengeRewardsForCadence({ cadence })),
+    [run],
+  );
 
   return (
     <div className="dark min-h-svh bg-zinc-950 font-mono text-xs text-foreground">
@@ -1015,13 +1087,14 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           </button>
         </div>
       ) : null}
-      <div className="grid min-h-svh grid-cols-2">
-        <div className="min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
+      <div className="grid min-h-0 grid-cols-1 md:min-h-svh md:grid-cols-2">
+        <div className="min-h-0 min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5 md:min-h-0">
           {data.challenges ? (
             <div className="mb-2">
               <ChallengesPanel
                 challenges={data.challenges}
                 onClaimChallenge={claimChallengeCb}
+                onClaimCadence={claimCadenceCb}
                 claimBusy={busy}
               />
             </div>
@@ -1038,7 +1111,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
             onRepairRig={repairRigCb}
           />
         </div>
-        <div className="min-w-0 overflow-y-auto p-1.5">
+        <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
           {data.groupedAlerts ? (
             <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} onAckAll={ackAllAlerts} busy={busy} />
           ) : null}

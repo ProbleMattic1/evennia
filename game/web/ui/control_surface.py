@@ -32,6 +32,8 @@ from world.bootstrap_hub import HUB_ROOM_KEY as CORE_HUB_ROOM_KEY
 from world.venue_resolve import hub_for_object, processing_plant_room_for_object, treasury_bank_id_for_object, venue_id_for_object
 
 from .client_poll_hints import CLIENT_POLL_HINTS_MS
+from .dashboard_ships import dashboard_ship_row
+from .ore_receiving_bay_serialize import serialize_ore_receiving_bay_rows
 from .views import (
     _dashboard_inventory_item_for_obj,
     _dashboard_property_portfolio,
@@ -48,7 +50,7 @@ SCHEMA_VERSION = 2
 
 
 def _world_production_pipeline_from_telemetry():
-    """Snapshot dict may include estimatedPipelineTotalCr, storedSitesBidCr, accrualThisSlotEstimatedCr."""
+    """Snapshot dict may include pipeline roll-ups and impliedAccrualCrPerHourTotal."""
     found = search_script("economy_world_telemetry")
     if not found:
         return None
@@ -59,23 +61,21 @@ def _world_production_pipeline_from_telemetry():
 
 def _world_production_pipeline_for_control_surface():
     """
-    Prefer telemetry snapshot; if missing, compute once per request so the web
-    payload always carries the same keys (no sparse block).
+    Prefer telemetry snapshot (EconomyWorldTelemetry script, ~60s interval).
+    If missing, return a same-shaped default — avoid O(n) world scan per HTTP GET.
     """
     block = _world_production_pipeline_from_telemetry()
     if block is not None:
         return block
-    from world.production_pipeline_estimate import sum_player_pipeline_breakdown_cr
-
-    char_n, world_stored_cr, world_accrual_cr, world_pipeline_cr = sum_player_pipeline_breakdown_cr()
     return {
-        "playerCharacterCount": char_n,
-        "estimatedPipelineTotalCr": world_pipeline_cr,
-        "storedSitesBidCr": world_stored_cr,
-        "accrualThisSlotEstimatedCr": world_accrual_cr,
+        "playerCharacterCount": 0,
+        "estimatedPipelineTotalCr": 0,
+        "storedSitesBidCr": 0,
+        "accrualThisSlotEstimatedCr": 0,
+        "impliedAccrualCrPerHourTotal": 0,
         "note": (
-            "Sum of per-character pipeline estimates (sites stored + in-slot accrual); "
-            "not wallet; excludes plant silo. Stored and accrual rows sum to the pipeline total."
+            "World pipeline roll-up unavailable until economy_world_telemetry snapshot "
+            "is populated (script interval ~60s after server start)."
         ),
     }
 
@@ -113,28 +113,7 @@ def _serialize_ships(char):
             obj = found[0] if found else None
         if not obj:
             continue
-        loc = obj.location.key if obj.location else None
-        pilot_key = None
-        pilot = getattr(obj.db, "pilot", None)
-        if pilot is not None:
-            pilot_key = getattr(pilot, "key", str(pilot))
-        summary = obj.get_vehicle_summary() if hasattr(obj, "get_vehicle_summary") else obj.key
-        is_autonomous = (
-            obj.tags.has("autonomous_hauler", category="mining")
-            or obj.tags.has("autonomous_hauler", category="flora")
-            or obj.tags.has("autonomous_hauler", category="fauna")
-        )
-        ships.append(
-            {
-                "id": obj.id,
-                "key": obj.key,
-                "location": loc,
-                "pilot": pilot_key,
-                "state": getattr(obj.db, "state", None),
-                "summary": summary,
-                "is_autonomous": is_autonomous,
-            }
-        )
+        ships.append(dashboard_ship_row(obj))
     return ships
 
 
@@ -345,6 +324,7 @@ def _serialize_processing_summary(char):
     return {
         "venueId": venue_id_for_object(char) if char else None,
         "plantName": room.key,
+        "oreReceivingBay": serialize_ore_receiving_bay_rows(receiving_bay, room),
         "rawStorageUsed": raw_used,
         "rawStorageCapacity": raw_cap,
         "refineryInputTons": refinery_input_tons,

@@ -35,7 +35,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
   return (
     <SiteNavProvider>
-      <div className="dark mx-auto flex min-h-svh w-[85%] min-w-0 flex-1 flex-col lg:flex-row">
+      <div className="dark mx-auto flex min-h-svh w-full max-w-[400px] min-w-0 flex-1 flex-col md:max-w-[800px] lg:max-w-[1200px] lg:flex-row">
         <SiteNavAside />
 
         <div className="flex min-w-0 flex-1 flex-col">

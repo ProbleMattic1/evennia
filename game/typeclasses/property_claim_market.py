@@ -39,13 +39,9 @@ def get_advertising_agent():
 
 
 def lot_listing_price(lot):
-    from typeclasses.property_lots import TIER_LIST_PRICES, ZONE_MULTIPLIERS
+    from world.econ_automation.resolve_prices import resolve_property_lot_listing_price
 
-    tier = int(lot.db.lot_tier or 1)
-    zone = lot.db.zone or "residential"
-    base = TIER_LIST_PRICES.get(tier, 5_000)
-    mult = ZONE_MULTIPLIERS.get(zone, 1.00)
-    return int(round(base * mult))
+    return resolve_property_lot_listing_price(lot)
 
 
 def lot_is_market_listable(lot):

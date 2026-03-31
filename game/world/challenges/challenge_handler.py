@@ -450,6 +450,39 @@ class ChallengeHandler:
         self._save()
         return True, "Claimed."
 
+    def list_complete_claim_pairs_for_cadence(self, cadence: str) -> list[tuple[str, str]]:
+        """Snapshot (challengeId, windowKey) for entries ready to claim in this cadence."""
+        out: list[tuple[str, str]] = []
+        for e in list(self._state.get("active") or []):
+            if e.get("cadence") != cadence or e.get("status") != "complete":
+                continue
+            cid = str(e.get("challengeId") or "").strip()
+            wk = str(e.get("windowKey") or "").strip()
+            if cid and wk:
+                out.append((cid, wk))
+        return out
+
+    def claim_all_complete_for_cadence(self, cadence: str) -> tuple[int, str]:
+        """
+        Claim every challenge in ``cadence`` that is currently ``complete``.
+        Reuses mark_claimed per entry so economy grants and _save() match single-claim semantics.
+        """
+        if cadence not in VALID_CADENCES:
+            return 0, f"Unknown cadence {cadence!r}."
+        pairs = self.list_complete_claim_pairs_for_cadence(cadence)
+        if not pairs:
+            return 0, "No completed challenges to claim for that cadence."
+        n = 0
+        last_msg = ""
+        for cid, wk in pairs:
+            ok, msg = self.mark_claimed(cid, wk)
+            last_msg = msg or last_msg
+            if ok:
+                n += 1
+        if n:
+            return n, f"Claimed {n} challenge(s)."
+        return 0, last_msg or "Nothing could be claimed."
+
     def _push_history(self, challenge_id: str, cadence: str, window_key: str) -> None:
         hist = list(self._state.get("history") or [])
         hist.append({
@@ -520,9 +553,14 @@ class ChallengeHandler:
                 "progress": dict(entry.get("progress") or {}),
                 "rewardsGranted": bool(entry.get("rewardsGranted")),
             })
-        recent_history = list(
-            reversed((self._state.get("history") or [])[-20:])
-        )
+        history_rows = list(reversed((self._state.get("history") or [])[-20:]))
+        recent_history = []
+        for row in history_rows:
+            out = dict(row)
+            cid = out.get("challengeId") or ""
+            tmpl = get_challenge_template(cid) or {}
+            out["title"] = str(tmpl.get("title") or "")
+            recent_history.append(out)
         return {
             "active": active_payload,
             "history": recent_history,

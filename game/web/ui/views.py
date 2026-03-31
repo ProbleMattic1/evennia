@@ -17,6 +17,7 @@ from world.nav_exit import nav_fields_for_exit
 from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
+from .dashboard_ships import dashboard_ship_row
 from .room_nav_utils import (
     is_mining_site_room as _is_mining_site_room,
     resolve_exit_destination_dict as _resolve_exit_destination,
@@ -134,9 +135,10 @@ def _find_template(stock, *, template_id=None, name=None):
     return None
 
 
-def _ship_price(template):
-    economy = getattr(template.db, "economy", None) or {}
-    return economy.get("total_price_cr") or economy.get("base_price_cr")
+def _ship_price(template, *, room, vendor=None):
+    from world.econ_automation.resolve_prices import resolve_vehicle_listing_price
+
+    return resolve_vehicle_listing_price(template, room=room, buyer=None, vendor=vendor)
 
 
 def _playable_characters(account):
@@ -1919,6 +1921,7 @@ def processing_state(request):
     from typeclasses.haulers import get_plant_ore_receiving_bay
     from typeclasses.mining import COMMODITY_ASK_OVER_BID
     from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE, REFINING_RECIPES
+    from web.ui.ore_receiving_bay_serialize import serialize_ore_receiving_bay_rows
     from world.venues import get_venue
 
     char = None
@@ -1985,7 +1988,11 @@ def processing_state(request):
                     haulers.append({
                         "id": h.id,
                         "key": h.key,
-                        "deliveryMode": "ore_receiving_bay",
+                        "deliveryMode": (
+                            "local_raw_reserve"
+                            if getattr(char.db, "haul_delivers_to_local_raw_storage", False)
+                            else "ore_receiving_bay"
+                        ),
                     })
             my_delivery_modes = haulers
 
@@ -2016,6 +2023,7 @@ def processing_state(request):
         "roomDescription": room.db.desc or "",
         "storyLines": story_lines,
         "exits": _room_exits(room),
+        "oreReceivingBay": serialize_ore_receiving_bay_rows(receiving_bay, room),
         "rawStorageUsed": raw_used,
         "rawStorageCapacity": raw_cap,
         "refineryInputTons": refinery_input_tons,
@@ -2301,31 +2309,7 @@ def dashboard_state(request):
             obj = found[0] if found else None
         if not obj:
             continue
-        loc = obj.location.key if obj.location else None
-        pilot_key = None
-        pilot = getattr(obj.db, "pilot", None)
-        if pilot is not None:
-            pilot_key = getattr(pilot, "key", str(pilot))
-        summary = obj.get_vehicle_summary() if hasattr(obj, "get_vehicle_summary") else obj.key
-        is_autonomous = (
-            hasattr(obj, "tags")
-            and (
-                obj.tags.has("autonomous_hauler", category="mining")
-                or obj.tags.has("autonomous_hauler", category="flora")
-                or obj.tags.has("autonomous_hauler", category="fauna")
-            )
-        )
-        ships.append(
-            {
-                "id": obj.id,
-                "key": obj.key,
-                "location": loc,
-                "pilot": pilot_key,
-                "state": getattr(obj.db, "state", None),
-                "summary": summary,
-                "is_autonomous": is_autonomous,
-            }
-        )
+        ships.append(dashboard_ship_row(obj))
 
     from world.mining_site_metrics import owned_production_sites_for_dashboard
 
@@ -2618,17 +2602,22 @@ def shop_inspect(request):
                     "key": template.key,
                     "description": getattr(template.db, "desc", "") or "",
                     "summary": summary,
-                    "price": _ship_price(template),
+                    "price": _ship_price(template, room=room, vendor=vendor),
                 },
                 "state": vendor.get_shop_state_for_api(),
             }
         )
 
-    from typeclasses.economy import get_economy
+    from world.econ_automation.resolve_prices import resolve_catalog_item_price
 
-    econ = get_economy(create_missing=True)
     market_type = getattr(vendor.db, "market_type", None) or "normal"
-    price = econ.get_final_price(template, buyer=None, location=room, market_type=market_type)
+    price = resolve_catalog_item_price(
+        template,
+        buyer=None,
+        room=room,
+        market_type=market_type,
+        vendor=vendor,
+    )
     desc = template.db.desc or ""
 
     return JsonResponse(
@@ -2961,8 +2950,8 @@ def shop_buy(request):
         return JsonResponse({"ok": False, "message": "Item or ship not found in catalog."}, status=404)
 
     if _is_ship_catalog_vendor(vendor):
-        price = _ship_price(template)
-        if price is None:
+        price = _ship_price(template, room=room, vendor=vendor)
+        if int(price) <= 0:
             return JsonResponse({"ok": False, "message": "Ship has no listed price."}, status=400)
 
         from typeclasses.economy import get_economy
@@ -3026,10 +3015,17 @@ def shop_buy(request):
         )
 
     from typeclasses.economy import get_economy
+    from world.econ_automation.resolve_prices import resolve_catalog_item_price
 
     econ = get_economy(create_missing=True)
     market_type = getattr(vendor.db, "market_type", None) or "normal"
-    price = econ.get_final_price(template, buyer=buyer, location=room, market_type=market_type)
+    price = resolve_catalog_item_price(
+        template,
+        buyer=buyer,
+        room=room,
+        market_type=market_type,
+        vendor=vendor,
+    )
     if price <= 0:
         return JsonResponse({"ok": False, "message": "Item has no valid price."}, status=400)
 
@@ -3667,3 +3663,61 @@ def challenges_claim(request):
         "message": result_msg,
         "challenges": char.challenges.serialize_for_web(),
     })
+
+
+@csrf_exempt
+@require_POST
+def challenges_claim_cadence(request):
+    """
+    POST /ui/challenges/claim-cadence — claim all completed challenges for one cadence.
+    Body: { "cadence": "daily" } (daily, weekly, monthly, quarter, half_year, year).
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."},
+            status=401,
+        )
+
+    if not cache.add(f"challenge_claim_all:{request.user.id}", 1, timeout=5):
+        return JsonResponse(
+            {"ok": False, "code": "RATE_LIMIT", "message": "Too many requests; try again shortly."},
+            status=429,
+        )
+
+    body = _json_body(request)
+    cadence = str(body.get("cadence") or "").strip()
+    if not cadence:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing cadence."},
+            status=400,
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        char.challenges.sync_all_windows()
+        char.challenges.evaluate_window()
+        claimed_count, result_msg = char.challenges.claim_all_complete_for_cadence(cadence)
+    except Exception as exc:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "CHALLENGE_CLAIM_ALL_FAILED",
+                "message": f"Could not claim challenges: {exc}",
+            },
+            status=500,
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "claimedCount": claimed_count,
+            "message": result_msg,
+            "challenges": char.challenges.serialize_for_web(),
+        }
+    )

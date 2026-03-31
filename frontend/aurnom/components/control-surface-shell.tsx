@@ -14,13 +14,14 @@ export function ControlSurfaceShell({
   return (
     <div className="dark min-h-svh bg-zinc-950 font-mono text-xs text-foreground">
       <div
-        className="grid min-h-svh"
-        style={{
-          gridTemplateColumns: "minmax(12rem,20%) minmax(20rem,40%) minmax(20rem,40%)",
-        }}
+        className={
+          "mx-auto grid min-h-svh w-full max-w-[400px] grid-cols-1 " +
+          "md:max-w-[800px] md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] " +
+          "lg:max-w-[1200px]"
+        }
       >
         <PersistentNavRail />
-        <div className="col-span-2 min-w-0">
+        <div className="min-w-0 md:col-span-2">
           <ControlSurfaceMainPanels data={data} onReload={onReload} />
         </div>
       </div>

@@ -169,13 +169,13 @@ class CmdBuyShip(Command):
             caller.msg(f"No ship matching '{self.args.strip()}' is for sale. Use |wshipyard|n to list options.")
             return
 
-        economy = template.db.economy or {}
-        price = economy.get("total_price_cr") or economy.get("base_price_cr")
-        if price is None:
+        from typeclasses.economy import get_economy
+        from world.econ_automation.resolve_prices import resolve_vehicle_listing_price
+
+        price = resolve_vehicle_listing_price(template, room=caller.location, buyer=caller, vendor=shop)
+        if int(price) <= 0:
             caller.msg("This ship has no listed price. Contact an administrator.")
             return
-
-        from typeclasses.economy import get_economy
 
         econ = get_economy(create_missing=True)
         credits = econ.get_character_balance(caller)

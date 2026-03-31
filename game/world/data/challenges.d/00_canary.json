@@ -6,7 +6,7 @@
     "summary": "[DEV] Visit at least one distinct locator zone today. Used to verify telemetry plumbing.",
     "predicateKey": "navigation.locator_zone_bingo",
     "predicateParams": {"min_zones": 1},
-    "rewards": {"challengePoints": 5, "credits": 0, "grantOn": "claim"},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "enabled": true
   },
   {
@@ -16,7 +16,7 @@
     "summary": "[DEV] Make at least one vendor purchase today. Verifies economy hook.",
     "predicateKey": "economy.vendor_purchase",
     "predicateParams": {"min_purchases": 1},
-    "rewards": {"challengePoints": 5, "credits": 0, "grantOn": "claim"},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "enabled": true
   },
   {
@@ -26,7 +26,7 @@
     "summary": "[DEV] Trigger at least one treasury credit this week. Verifies treasury hook.",
     "predicateKey": "economy.treasury_touch",
     "predicateParams": {"min_touches": 1},
-    "rewards": {"challengePoints": 10, "credits": 0, "grantOn": "claim"},
+    "rewards": {"challengePoints": 9, "credits": 900, "grantOn": "claim"},
     "enabled": true
   }
 ]

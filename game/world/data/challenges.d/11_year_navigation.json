@@ -6,7 +6,7 @@
     "summary": "Visit at least one room in every configured venue across the world this year.",
     "predicateKey": "navigation.title_odyssey_venues",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1250, "credits": 100000, "grantOn": "claim"},
     "requiresTelemetry": ["venues_ever"],
     "enabled": true
   },
@@ -17,7 +17,7 @@
     "summary": "Set foot in every known locator zone at least once this year.",
     "predicateKey": "navigation.title_odyssey_locator_zones",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1250, "credits": 100000, "grantOn": "claim"},
     "requiresTelemetry": ["locator_zones_ever"],
     "enabled": true
   },
@@ -28,7 +28,7 @@
     "summary": "Discover at least 5 rooms you have never visited before this month.",
     "predicateKey": "navigation.cartography",
     "predicateParams": {"min_rooms": 5},
-    "rewards": {},
+    "rewards": {"challengePoints": 45, "credits": 4500, "grantOn": "claim"},
     "requiresTelemetry": ["rooms_ever"],
     "enabled": true
   }

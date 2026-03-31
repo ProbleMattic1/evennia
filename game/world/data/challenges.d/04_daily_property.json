@@ -6,7 +6,7 @@
     "summary": "Interact with a property operation today — start, inspect, or manage income.",
     "predicateKey": "property.property_operation_touch",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["property_ops_today"],
     "enabled": true
   },
@@ -17,7 +17,7 @@
     "summary": "Travel inside your property parcel interior today.",
     "predicateKey": "property.visit_parcel_shell",
     "predicateParams": {"require_owner": true},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "enabled": true
   },
   {
@@ -27,7 +27,7 @@
     "summary": "Keep at least one property deed in your inventory.",
     "predicateKey": "property.deed_on_person",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "enabled": true
   }
 ]

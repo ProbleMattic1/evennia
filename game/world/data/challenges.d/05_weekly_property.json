@@ -6,7 +6,7 @@
     "summary": "Buy, list, or sell a property deed on the market this week.",
     "predicateKey": "property.deed_market_action",
     "predicateParams": {"min_actions": 1},
-    "rewards": {},
+    "rewards": {"challengePoints": 9, "credits": 900, "grantOn": "claim"},
     "requiresTelemetry": ["deed_actions_by_window"],
     "enabled": true
   },
@@ -17,7 +17,7 @@
     "summary": "Purchase a new deed from the primary Real Estate market this week.",
     "predicateKey": "property.primary_deed_purchase",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 9, "credits": 900, "grantOn": "claim"},
     "enabled": true
   },
   {
@@ -27,7 +27,7 @@
     "summary": "Assign at least one manager or tenant to a holding this week.",
     "predicateKey": "property.access_control_change",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 9, "credits": 900, "grantOn": "claim"},
     "enabled": true
   }
 ]

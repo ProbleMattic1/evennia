@@ -6,7 +6,7 @@
     "summary": "Own property holdings in at least two distinct zones this month.",
     "predicateKey": "property.portfolio_two_zones",
     "predicateParams": {"min_zones": 2},
-    "rewards": {},
+    "rewards": {"challengePoints": 45, "credits": 4500, "grantOn": "claim"},
     "enabled": true
   },
   {
@@ -16,7 +16,7 @@
     "summary": "Run two different operation types across your holdings this month.",
     "predicateKey": "property.two_operation_kinds",
     "predicateParams": {"min_kinds": 2},
-    "rewards": {},
+    "rewards": {"challengePoints": 45, "credits": 4500, "grantOn": "claim"},
     "enabled": true
   },
   {
@@ -26,7 +26,7 @@
     "summary": "Have at least one holding move beyond idle development state.",
     "predicateKey": "property.development_not_idle",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 45, "credits": 4500, "grantOn": "claim"},
     "enabled": true
   },
   {
@@ -36,7 +36,7 @@
     "summary": "Reach operation level 1 or higher on a holding.",
     "predicateKey": "property.operation_level",
     "predicateParams": {"min_level": 1},
-    "rewards": {},
+    "rewards": {"challengePoints": 45, "credits": 4500, "grantOn": "claim"},
     "enabled": true
   },
   {
@@ -46,7 +46,7 @@
     "summary": "Contribute at least 100 cr to the treasury through taxes this month.",
     "predicateKey": "economy.tax_contribution",
     "predicateParams": {"min_tax": 100},
-    "rewards": {},
+    "rewards": {"challengePoints": 45, "credits": 4500, "grantOn": "claim"},
     "enabled": true
   }
 ]

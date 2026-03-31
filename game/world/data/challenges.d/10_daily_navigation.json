@@ -6,7 +6,7 @@
     "summary": "Visit at least 3 distinct locator zones today.",
     "predicateKey": "navigation.locator_zone_bingo",
     "predicateParams": {"min_zones": 3},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["zones_today"],
     "enabled": true
   },
@@ -17,7 +17,7 @@
     "summary": "Pass through an arrival zone today.",
     "predicateKey": "navigation.arrival_zone_visit",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["zones_today"],
     "enabled": true
   },
@@ -30,7 +30,7 @@
     "predicateParams": {
       "require_zones": ["core-hub", "core-services", "core-retail"]
     },
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["zones_today"],
     "enabled": true
   },
@@ -41,7 +41,7 @@
     "summary": "Monday theme — ensure you have at least one item in your inventory.",
     "predicateKey": "navigation.monday_inventory",
     "predicateParams": {"min_items": 1},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "weekdayOnly": 0,
     "enabled": true
   },
@@ -52,7 +52,7 @@
     "summary": "Thursday theme — complete a deed market action or trade interaction.",
     "predicateKey": "navigation.thursday_social",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "weekdayOnly": 3,
     "enabled": true
   }

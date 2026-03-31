@@ -1,15 +1,60 @@
 "use client";
 
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
 import { ExitGrid } from "@/components/exit-grid";
 import { StoryPanel } from "@/components/story-panel";
+import { formatCr as cr } from "@/lib/format-units";
 import { getProcessingState, playInteract } from "@/lib/ui-api";
-import type { ProcessingState } from "@/lib/ui-api";
+import type { OreReceivingBayRow, ProcessingState } from "@/lib/ui-api";
+import { intervalMs, isUiPollPaused } from "@/lib/ui-refresh-policy";
 import { useUiResource } from "@/lib/use-ui-resource";
+
+function haulerDeliveryBadgeLabel(mode: string): string {
+  if (mode === "ore_receiving_bay") return "Ore Receiving Bay";
+  if (mode === "local_raw_reserve") return "Local raw reserve";
+  return mode;
+}
+
+function OreReceivingBayGrid({ rows }: { rows: OreReceivingBayRow[] }) {
+  const maxTons = useMemo(() => rows.reduce((m, r) => Math.max(m, r.tons), 0), [rows]);
+  return (
+    <div className="mt-2 max-h-52 overflow-y-auto space-y-1.5 pr-0.5">
+      {rows.map((r) => {
+        const pct = maxTons > 0 ? Math.min(100, (r.tons / maxTons) * 100) : 0;
+        return (
+          <div
+            key={r.key}
+            className="rounded border border-cyan-900/35 bg-zinc-950/60 px-1.5 py-1 dark:border-cyan-900/35"
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 truncate text-xs font-medium text-zinc-800 dark:text-foreground" title={r.key}>
+                {r.displayName}
+              </span>
+              <span className="shrink-0 font-mono tabular-nums text-xs text-cyber-cyan">
+                {r.tons.toLocaleString(undefined, { maximumFractionDigits: 2 })}t
+              </span>
+            </div>
+            <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-ui-muted">
+              <span className="min-w-0 flex-1 h-1 rounded-full bg-zinc-200 dark:bg-cyan-950/70">
+                <span
+                  className="block h-1 rounded-full bg-emerald-500/80 transition-all"
+                  style={{ width: `${pct}%` }}
+                />
+              </span>
+              <span className="shrink-0 font-mono tabular-nums" title="Estimated value at local bids (credits)">
+                {cr(r.estimatedValueCr)}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -107,7 +152,7 @@ function MinerSection({ data }: { data: ProcessingState }) {
               <div key={h.id} className="flex items-center justify-between gap-2">
                 <span className="truncate text-xs text-ui-muted dark:text-foreground">{h.key}</span>
                 <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs font-medium text-ui-soft ring-1 ring-zinc-200 dark:bg-cyan-950/40 dark:text-cyber-cyan dark:ring-cyan-800/50">
-                  {h.deliveryMode === "ore_receiving_bay" ? "Ore Receiving Bay" : h.deliveryMode}
+                  {haulerDeliveryBadgeLabel(h.deliveryMode)}
                 </span>
               </div>
             ))}
@@ -172,7 +217,15 @@ function ProcessingPageInner() {
   const searchParams = useSearchParams();
   const venue = searchParams.get("venue")?.trim() || undefined;
   const loader = useCallback(() => getProcessingState(venue), [venue]);
-  const { data, error, loading } = useUiResource(loader);
+  const { data, error, loading, reload } = useUiResource(loader);
+
+  useEffect(() => {
+    const ms = intervalMs("controlSurface", null);
+    const id = window.setInterval(() => {
+      if (!isUiPollPaused()) reload();
+    }, ms);
+    return () => window.clearInterval(id);
+  }, [reload]);
 
   if (loading) {
     return (
@@ -210,6 +263,7 @@ function ProcessingPageInner() {
             </CsPanel>
             <CsPanel title="Ore Receiving Bay">
               <StorageBar used={data.rawStorageUsed} capacity={data.rawStorageCapacity} />
+              <OreReceivingBayGrid rows={data.oreReceivingBay ?? []} />
               <div className="mt-2 space-y-0.5">
                 <StatRow
                   label="Plant buys your raw (from bay / storage)"

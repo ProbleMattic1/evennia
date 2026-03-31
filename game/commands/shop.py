@@ -65,19 +65,19 @@ class CmdShop(Command):
             caller.msg("Nothing is on sale here right now.")
             return
 
-        from typeclasses.economy import get_economy
+        from world.econ_automation.resolve_prices import resolve_catalog_item_price
 
-        econ = get_economy(create_missing=True)
         market_type = getattr(vendor.db, "market_type", None) or "normal"
         lines = [f"|w{vendor.db.vendor_name or vendor.key}:|n"]
         for item in stock:
             if getattr(item.db, "grants_random_claim_only", False):
                 continue
-            price = econ.get_final_price(
+            price = resolve_catalog_item_price(
                 item,
                 buyer=caller,
-                location=caller.location,
+                room=caller.location,
                 market_type=market_type,
+                vendor=vendor,
             )
             if getattr(item.db, "is_sale_package", False):
                 if getattr(item.db, "includes_random_claim", True):
@@ -125,6 +125,7 @@ class CmdBuy(Command):
         stock = _get_stock_for_vendor(vendor)
 
         from typeclasses.economy import get_economy
+        from world.econ_automation.resolve_prices import resolve_catalog_item_price
 
         econ = get_economy(create_missing=True)
         market_type = getattr(vendor.db, "market_type", None) or "normal"
@@ -135,11 +136,12 @@ class CmdBuy(Command):
             caller.msg(f"No item matching '{self.args.strip()}' is sold here. Use |wshop|n to list stock.")
             return
 
-        price = econ.get_final_price(
+        price = resolve_catalog_item_price(
             template,
             buyer=caller,
-            location=caller.location,
+            room=caller.location,
             market_type=market_type,
+            vendor=vendor,
         )
         if price <= 0:
             caller.msg("That item has no valid price. Contact an administrator.")

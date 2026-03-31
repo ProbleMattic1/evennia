@@ -37,11 +37,13 @@ def at_server_start():
         from world.ambient_mission_coverage import log_ambient_mission_coverage
         from world.mission_loader import load_mission_templates
         from typeclasses.mission_seeds import get_mission_seeds_script
+        from server.conf.economy_automation_hook import ensure_economy_automation
 
         _run("ambient registry (JSON)", bootstrap_ambient_registry_at_startup)
         _run("mission templates (JSON)", load_mission_templates)
         log_ambient_mission_coverage()
         _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
+        _run("economy automation controller", ensure_economy_automation)
 
         from evennia import search_script
 
@@ -194,6 +196,7 @@ def at_server_cold_start():
     """
     from world.bootstrap_character_abilities import bootstrap_character_abilities
     from world.bootstrap_economy import bootstrap_economy
+    from server.conf.economy_automation_hook import ensure_economy_automation
     from world.bootstrap_frontier import bootstrap_frontier, bootstrap_frontier_hub_links
     from world.bootstrap_haulers import bootstrap_haulers
     from world.bootstrap_hub import bootstrap_hub
@@ -242,6 +245,7 @@ def at_server_cold_start():
     _run("promenade room ambience", bootstrap_promenade_room_ambience)
     _run("station service NPCs and contracts", bootstrap_station_services)
     _run("global economy script", bootstrap_economy)
+    _run("economy automation controller", ensure_economy_automation)
     _run("character ability baselines (STR–CHA)", bootstrap_character_abilities)
     _run("Marcus Killstar (account link; credits on create only)", bootstrap_marcus_killstar)
     _run(

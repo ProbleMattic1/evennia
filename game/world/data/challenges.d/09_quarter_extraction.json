@@ -6,7 +6,7 @@
     "summary": "Complete at least 10 hauler cycles originating from the Industrial Resource Colony zone this quarter.",
     "predicateKey": "extraction.district_track",
     "predicateParams": {"zone_id": "industrial-colony", "min_events": 10},
-    "rewards": {},
+    "rewards": {"challengePoints": 200, "credits": 20000, "grantOn": "claim"},
     "requiresTelemetry": ["hauler_throughput_by_window", "locator_zones_ever"],
     "enabled": true
   },
@@ -17,7 +17,7 @@
     "summary": "Complete at least 10 hauler cycles originating from the Killstar Annex zone this quarter.",
     "predicateKey": "extraction.district_track",
     "predicateParams": {"zone_id": "killstar-annex", "min_events": 10},
-    "rewards": {},
+    "rewards": {"challengePoints": 200, "credits": 20000, "grantOn": "claim"},
     "requiresTelemetry": ["hauler_throughput_by_window", "locator_zones_ever"],
     "enabled": true
   },
@@ -28,7 +28,7 @@
     "summary": "Complete at least 10 hauler cycles in the Meridian Shipping zone this quarter.",
     "predicateKey": "extraction.district_track",
     "predicateParams": {"zone_id": "meridian-shipping", "min_events": 10},
-    "rewards": {},
+    "rewards": {"challengePoints": 200, "credits": 20000, "grantOn": "claim"},
     "requiresTelemetry": ["hauler_throughput_by_window", "locator_zones_ever"],
     "enabled": true
   },
@@ -39,7 +39,7 @@
     "summary": "Have at least one holding running an operation with at least one structure installed.",
     "predicateKey": "property.claim_to_skyline",
     "predicateParams": {"min_structures": 1},
-    "rewards": {},
+    "rewards": {"challengePoints": 500, "credits": 50000, "grantOn": "claim"},
     "enabled": true
   },
   {
@@ -49,7 +49,7 @@
     "summary": "Own and actively operate sites in at least one resource pipeline for six months.",
     "predicateKey": "extraction.pipeline_specialist",
     "predicateParams": {"pipeline": "mining"},
-    "rewards": {},
+    "rewards": {"challengePoints": 500, "credits": 50000, "grantOn": "claim"},
     "enabled": true
   }
 ]

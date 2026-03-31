@@ -6,7 +6,7 @@
     "summary": "Hold one property deed continuously for 365 days.",
     "predicateKey": "property.anniversary_deed",
     "predicateParams": {"min_days": 365},
-    "rewards": {},
+    "rewards": {"challengePoints": 1250, "credits": 100000, "grantOn": "claim"},
     "enabled": true
   }
 ]

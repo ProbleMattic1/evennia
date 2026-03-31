@@ -6,7 +6,7 @@
     "summary": "Complete at least 5 hauler runs across 2 or more distinct extraction zones this week.",
     "predicateKey": "extraction.hauler_throughput",
     "predicateParams": {"min_cycles": 5, "min_zones": 2},
-    "rewards": {},
+    "rewards": {"challengePoints": 9, "credits": 900, "grantOn": "claim"},
     "requiresTelemetry": ["hauler_throughput_by_window"],
     "enabled": true
   },
@@ -17,7 +17,7 @@
     "summary": "Own and operate at least one active mining site this week.",
     "predicateKey": "extraction.pipeline_specialist",
     "predicateParams": {"pipeline": "mining"},
-    "rewards": {},
+    "rewards": {"challengePoints": 9, "credits": 900, "grantOn": "claim"},
     "enabled": true
   }
 ]

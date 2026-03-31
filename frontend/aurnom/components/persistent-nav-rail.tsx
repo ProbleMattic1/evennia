@@ -39,15 +39,19 @@ function Panel({
   className?: string;
 }) {
   const storageKey = `aurnom:nav-panel:${panelKey}`;
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    /* sessionStorage is only available after mount; avoids SSR/client mismatch on first paint. */
+    /* eslint-disable react-hooks/set-state-in-effect */
     try {
       const raw = window.sessionStorage.getItem(storageKey);
-      return raw == null ? true : raw === "1";
+      if (raw !== null) setOpen(raw === "1");
     } catch {
-      return true;
+      // ignore
     }
-  });
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [storageKey]);
 
   useEffect(() => {
     try {
@@ -98,11 +102,28 @@ function TinyLink({ href, children }: { href: string; children: ReactNode }) {
 }
 
 function UtcClock() {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
+
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- clock mounts after hydration; avoids SSR time skew */
+    setNow(new Date());
     const id = window.setInterval(() => setNow(new Date()), 1000);
+    /* eslint-enable react-hooks/set-state-in-effect */
     return () => window.clearInterval(id);
   }, []);
+
+  if (!now) {
+    return (
+      <div
+        className="font-mono tabular-nums tracking-wide text-cyber-cyan"
+        title="Coordinated Universal Time"
+      >
+        <div className="text-xs leading-tight text-cyber-cyan">…</div>
+        <div className="text-xs leading-tight">--:--:-- UTC</div>
+      </div>
+    );
+  }
+
   const dateStr = now.toLocaleDateString("en-GB", {
     timeZone: "UTC",
     day: "numeric",
@@ -116,15 +137,14 @@ function UtcClock() {
     minute: "2-digit",
     second: "2-digit",
   });
+
   return (
     <div
       className="font-mono tabular-nums tracking-wide text-cyber-cyan"
       title="Coordinated Universal Time"
     >
       <div className="text-xs leading-tight text-cyber-cyan">{dateStr}</div>
-      <div className="text-xs leading-tight">
-        {line} UTC
-      </div>
+      <div className="text-xs leading-tight">{line} UTC</div>
     </div>
   );
 }
@@ -407,7 +427,7 @@ export function PersistentNavRail() {
   })();
 
   return (
-    <aside className="sticky top-0 h-svh min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5">
+    <aside className="relative min-w-0 border-b border-cyan-900/40 bg-zinc-950 p-1.5 md:sticky md:top-0 md:z-20 md:h-svh md:border-b-0 md:border-r md:overflow-y-auto">
       <div className="mb-1 flex flex-wrap items-start gap-x-2 gap-y-0.5 border-b border-cyan-900/40 pb-1">
         <div className="flex min-w-0 flex-col leading-tight">
           <Link href="/" className="font-bold text-cyber-cyan hover:text-cyber-cyan">

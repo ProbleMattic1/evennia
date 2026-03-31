@@ -6,7 +6,7 @@
     "summary": "End the day with more credits than you started with.",
     "predicateKey": "economy.balance_net_positive",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["balance_snapshot"],
     "enabled": true
   },
@@ -17,7 +17,7 @@
     "summary": "Pay at least one fee or tax today and still end up richer than when you started.",
     "predicateKey": "economy.balance_after_fee",
     "predicateParams": {},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["balance_snapshot", "treasury_touches_today"],
     "enabled": true
   },
@@ -28,7 +28,7 @@
     "summary": "Complete at least one transaction that flows through the Alpha-Prime treasury today.",
     "predicateKey": "economy.treasury_touch",
     "predicateParams": {"min_touches": 1},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["treasury_touches_today"],
     "enabled": true
   },
@@ -39,7 +39,7 @@
     "summary": "Make at least one purchase from a vendor today.",
     "predicateKey": "economy.vendor_purchase",
     "predicateParams": {"min_purchases": 1},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["vendor_sales_today"],
     "enabled": true
   },
@@ -50,7 +50,7 @@
     "summary": "Make at least one purchase today while keeping total vendor spending under 1,000 cr.",
     "predicateKey": "economy.vendor_spend_cap",
     "predicateParams": {"max_credits": 1000},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["vendor_sales_today"],
     "enabled": true
   },
@@ -61,7 +61,7 @@
     "summary": "End the day net-positive after buying from at least 2 distinct vendors.",
     "predicateKey": "economy.arbitrage_note",
     "predicateParams": {"min_vendors": 2},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "requiresTelemetry": ["vendor_ids_today", "balance_snapshot"],
     "enabled": true
   },
@@ -72,7 +72,7 @@
     "summary": "Make a single vendor purchase worth at least 500 cr.",
     "predicateKey": "economy.friday_risk",
     "predicateParams": {"min_single_purchase": 500},
-    "rewards": {},
+    "rewards": {"challengePoints": 1, "credits": 100, "grantOn": "claim"},
     "weekdayOnly": 4,
     "requiresTelemetry": ["vendor_sales_today"],
     "enabled": true

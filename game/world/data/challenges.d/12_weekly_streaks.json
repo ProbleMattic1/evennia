@@ -6,7 +6,7 @@
     "summary": "Keep at least one property operation running all week and accrue at least 1 credit.",
     "predicateKey": "property.property_operation_streak",
     "predicateParams": {"min_accrued": 1},
-    "rewards": {},
+    "rewards": {"challengePoints": 9, "credits": 900, "grantOn": "claim"},
     "enabled": true
   }
 ]

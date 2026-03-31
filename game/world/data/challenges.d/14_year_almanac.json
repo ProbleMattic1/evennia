@@ -6,7 +6,7 @@
     "summary": "Complete at least 12 distinct monthly challenges throughout the year.",
     "predicateKey": "year_long.almanac_twelve",
     "predicateParams": {"min_monthly_completions": 12},
-    "rewards": {},
+    "rewards": {"challengePoints": 1250, "credits": 100000, "grantOn": "claim"},
     "requiresTelemetry": [],
     "enabled": true
   },
@@ -17,7 +17,7 @@
     "summary": "Move at least 1,000,000 credits through your account across your lifetime.",
     "predicateKey": "year_long.ledger_lifetime_milestone",
     "predicateParams": {"threshold": 1000000},
-    "rewards": {},
+    "rewards": {"challengePoints": 1250, "credits": 100000, "grantOn": "claim"},
     "requiresTelemetry": ["lifetime_credits_moved"],
     "enabled": true
   },
@@ -28,7 +28,7 @@
     "summary": "Voluntarily commit to the Pacifist Oath for the year and honor it.",
     "predicateKey": "year_long.oath_constraint",
     "predicateParams": {"oath_id": "pacifist"},
-    "rewards": {},
+    "rewards": {"challengePoints": 1250, "credits": 100000, "grantOn": "claim"},
     "enabled": true
   }
 ]

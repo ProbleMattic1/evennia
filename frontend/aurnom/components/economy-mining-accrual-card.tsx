@@ -4,15 +4,16 @@ import { useReducedMotion } from "motion/react";
 
 import type { ControlSurfaceState, WorldProductionPipelineSnapshot } from "@/lib/control-surface-api";
 import {
-  estimatedPipelineTotalCr,
   faunaPortfolioAccruedCr,
   floraPortfolioAccruedCr,
   miningCycleProgress,
   miningPeriodSeconds,
   miningPortfolioAccruedCr,
-  portfolioAccrualThisSlotTotalCr,
+  portfolioImpliedAccrualCrPerHour,
 } from "@/lib/economy-dashboard-derive";
 import { EconomyStatCard } from "@/components/economy-stat-card";
+import { formatCr } from "@/lib/format-units";
+import { getRunningLedger, reconcileImpliedRunningLedger } from "@/lib/implied-accrual-running-totals";
 import { useOdometerInt } from "@/lib/use-odometer-value";
 import { useServerAnchoredTimeMs } from "@/lib/use-server-anchored-time";
 
@@ -39,20 +40,33 @@ function formatBoundaryShort(iso: string | undefined) {
 export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }) {
   const reduceMotion = useReducedMotion();
   const nowMs = useServerAnchoredTimeMs(data.serverTimeIso);
-  const pipelineTarget = estimatedPipelineTotalCr(data, nowMs);
-  const pipelineOdoRaw = useOdometerInt(pipelineTarget, 24);
-  const pipelineOdo = reduceMotion ? pipelineTarget : pipelineOdoRaw;
   const miningAccrued = miningPortfolioAccruedCr(data, nowMs);
   const floraAccrued = floraPortfolioAccruedCr(data, nowMs);
   const faunaAccrued = faunaPortfolioAccruedCr(data, nowMs);
   const userStoredSites = data.productionTotalStoredValue ?? data.miningTotalStoredValue ?? 0;
-  const userAccrualThisSlot = portfolioAccrualThisSlotTotalCr(data, nowMs);
+  const userImpliedCrPerHour = portfolioImpliedAccrualCrPerHour(data);
+  const worldImpliedCrPerHour = data.worldProductionPipeline?.impliedAccrualCrPerHourTotal ?? 0;
+  const { youTarget, worldTarget } = reconcileImpliedRunningLedger(
+    getRunningLedger(),
+    nowMs,
+    userImpliedCrPerHour,
+    worldImpliedCrPerHour,
+  );
+  const perFrameYou = Math.max(1, Math.ceil(userImpliedCrPerHour / 216000));
+  const perFrameWorld = Math.max(1, Math.ceil(worldImpliedCrPerHour / 216000));
+  const snapYou = perFrameYou * 120;
+  const snapWorld = perFrameWorld * 120;
+  const userImpliedOdoRaw = useOdometerInt(youTarget, perFrameYou, snapYou);
+  const worldImpliedOdoRaw = useOdometerInt(worldTarget, perFrameWorld, snapWorld);
+  const userImpliedDisplay = reduceMotion ? youTarget : userImpliedOdoRaw;
+  const worldImpliedDisplay = reduceMotion ? worldTarget : worldImpliedOdoRaw;
   const wpp = data.worldProductionPipeline;
   const w: WorldProductionPipelineSnapshot =
     wpp ??
     ({
       storedSitesBidCr: 0,
       accrualThisSlotEstimatedCr: 0,
+      impliedAccrualCrPerHourTotal: 0,
       estimatedPipelineTotalCr: 0,
       playerCharacterCount: 0,
     } satisfies WorldProductionPipelineSnapshot);
@@ -60,6 +74,8 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
   const matrixFrameCls = `pipeline-matrix-frame px-2 py-2 sm:px-2.5 sm:py-2.5 ${reduceMotion ? "" : "pipeline-matrix-frame--motion"}`;
   const matrixReadoutCls =
     "pipeline-matrix-readout relative z-[2] break-all font-mono text-ui-pipeline-readout-secondary font-semibold tracking-tight tabular-nums";
+  const rateReadoutCls =
+    "pipeline-matrix-readout relative z-[2] whitespace-nowrap font-mono text-ui-pipeline-readout-secondary font-semibold tracking-tight tabular-nums";
 
   return (
     <>
@@ -80,25 +96,10 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
         </p>
       </div>
       <div className="mt-3">
-        <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Pipeline (stored + accrual est.)</p>
-        <div
-          className={`pipeline-matrix-frame mt-1 px-2 py-2 sm:px-2.5 sm:py-2.5 ${reduceMotion ? "" : "pipeline-matrix-frame--motion"}`}
-        >
-          <p
-            className="pipeline-matrix-readout relative z-[2] break-all font-mono text-ui-pipeline-readout font-semibold tracking-tight tabular-nums"
-            title="Stored bid value plus accrual estimate"
-          >
-            {pipelineOdo.toLocaleString()}cr
-          </p>
-        </div>
-      </div>
-      <div className="mt-3">
         <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Stored (sites, bid)</p>
         <div
           className="mt-1 flex flex-wrap gap-2"
-          title={
-            "Sites only (same basis as pipeline green number); not plant silo. " + WORLD_TELEMETRY_HINT
-          }
+          title={"Sites only (bid-valued site storage); not plant silo. " + WORLD_TELEMETRY_HINT}
         >
           <div className={`${matrixFrameCls} min-w-[min(100%,8.5rem)] flex-1`}>
             <p className="relative z-[2] text-ui-overline uppercase tracking-wide text-ui-soft">You</p>
@@ -111,21 +112,26 @@ export function EconomyMiningAccrualBody({ data }: { data: ControlSurfaceState }
         </div>
       </div>
       <div className="mt-3">
-        <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Est. this slot (accrual)</p>
+        <p className="text-ui-overline uppercase tracking-wide text-ui-soft">Implied accrual running (est.)</p>
+        <p className="mt-0.5 font-mono text-ui-caption tabular-nums text-ui-soft">
+          UTC day + carry · at {userImpliedCrPerHour.toLocaleString()} /{" "}
+          {worldImpliedCrPerHour.toLocaleString()}cr/h
+        </p>
         <div
           className="mt-1 flex flex-wrap gap-2"
           title={
-            "Mining + flora + fauna linear accrual this slot; matches pipeline accrual half. " +
+            "Grows continuously from server time at the implied cr/h rate for the current UTC calendar day. " +
+            "At UTC midnight, the previous day closes at 24× the last seen rate and is added to carry (persisted in this browser) so the meter does not reset to zero. " +
             WORLD_TELEMETRY_HINT
           }
         >
           <div className={`${matrixFrameCls} min-w-[min(100%,8.5rem)] flex-1`}>
             <p className="relative z-[2] text-ui-overline uppercase tracking-wide text-ui-soft">You</p>
-            <p className={matrixReadoutCls}>{userAccrualThisSlot.toLocaleString()}cr</p>
+            <p className={rateReadoutCls}>{formatCr(userImpliedDisplay)}</p>
           </div>
           <div className={`${matrixFrameCls} min-w-[min(100%,8.5rem)] flex-1`}>
             <p className="relative z-[2] text-ui-overline uppercase tracking-wide text-ui-soft">World</p>
-            <p className={matrixReadoutCls}>{(w.accrualThisSlotEstimatedCr ?? 0).toLocaleString()}cr</p>
+            <p className={rateReadoutCls}>{formatCr(worldImpliedDisplay)}</p>
           </div>
         </div>
       </div>

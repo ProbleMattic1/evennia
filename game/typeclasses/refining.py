@@ -70,6 +70,19 @@ def plant_raw_resource_display_name(resource_key: str) -> str:
     return resource_key
 
 
+def iter_plant_raw_resource_keys():
+    """Stable order: mining, flora, fauna — keys accepted as plant raw (ore / flora / fauna)."""
+    from typeclasses.fauna import FAUNA_RESOURCE_CATALOG
+    from typeclasses.flora import FLORA_RESOURCE_CATALOG
+
+    for k in RESOURCE_CATALOG:
+        yield k
+    for k in FLORA_RESOURCE_CATALOG:
+        yield k
+    for k in FAUNA_RESOURCE_CATALOG:
+        yield k
+
+
 def split_raw_sale_payout(gross_cr, fee_rate=None):
     if fee_rate is None:
         fee_rate = RAW_SALE_FEE_RATE

@@ -141,10 +141,11 @@ class CatalogVendor(ObjectParent, DefaultObject):
         exits = self._exits_for_api()
 
         if mode == "ships":
+            from world.econ_automation.resolve_prices import resolve_vehicle_listing_price
+
             ships = []
             for obj in self.get_catalog_items():
-                economy = getattr(obj.db, "economy", None) or {}
-                price = economy.get("total_price_cr") or economy.get("base_price_cr")
+                price = resolve_vehicle_listing_price(obj, room=room, vendor=self)
                 summary = (
                     obj.get_vehicle_summary()
                     if hasattr(obj, "get_vehicle_summary")
@@ -177,9 +178,8 @@ class CatalogVendor(ObjectParent, DefaultObject):
                 ],
             }
 
-        from typeclasses.economy import get_economy
+        from world.econ_automation.resolve_prices import resolve_catalog_item_price
 
-        econ = get_economy(create_missing=True)
         market_type = getattr(self.db, "market_type", None) or "normal"
         catalog = []
         for obj in self.get_catalog_items():
@@ -187,11 +187,12 @@ class CatalogVendor(ObjectParent, DefaultObject):
                 continue
             if getattr(obj.db, "grants_random_claim_only", False):
                 continue
-            price = econ.get_final_price(
+            price = resolve_catalog_item_price(
                 obj,
                 buyer=buyer,
-                location=room,
+                room=room,
                 market_type=market_type,
+                vendor=self,
             )
             desc = getattr(obj.db, "desc", "") or ""
             catalog.append(

@@ -146,23 +146,26 @@ type CadenceGroup = {
 function CadenceSection({
   group,
   onClaim,
+  onClaimCadence,
   claimBusy,
 }: {
   group: CadenceGroup;
   onClaim?: (challengeId: string, windowKey: string) => void | Promise<void>;
+  onClaimCadence?: (cadence: string) => void | Promise<void>;
   claimBusy?: boolean;
 }) {
   const label = CADENCE_LABELS[group.cadence] ?? group.cadence;
   const completedCount = group.entries.filter(
     (e) => e.status === "complete" || e.status === "claimed",
   ).length;
+  const claimableCount = group.entries.filter((e) => e.status === "complete").length;
   const total = group.entries.length;
   const [open, setOpen] = useDashboardPanelOpen(`challenges-cadence:${group.cadence}`, true);
 
   return (
     <div className="border-t border-cyan-900/25 pt-1.5 first:border-0 first:pt-0">
-      <div className="flex min-w-0 items-center gap-1">
-        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan">
+      <div className="flex min-w-0 flex-wrap items-start gap-x-1 gap-y-1 sm:items-center">
+        <span className="min-w-0 flex-1 basis-[min(100%,10rem)] truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan sm:basis-auto">
           {label}
           {completedCount > 0 ? (
             <span className="ml-1 font-mono font-normal normal-case tracking-normal">
@@ -172,12 +175,24 @@ function CadenceSection({
             </span>
           ) : null}
         </span>
-        <PanelExpandButton
-          open={open}
-          onClick={() => setOpen((v) => !v)}
-          aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
-          className="shrink-0"
-        />
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          {claimableCount > 0 && onClaimCadence ? (
+            <button
+              type="button"
+              disabled={claimBusy}
+              onClick={() => void onClaimCadence(group.cadence)}
+              className="shrink-0 rounded border border-amber-600/50 bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400 hover:bg-amber-900/30 disabled:opacity-40"
+            >
+              Claim all
+            </button>
+          ) : null}
+          <PanelExpandButton
+            open={open}
+            onClick={() => setOpen((v) => !v)}
+            aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
+            className="shrink-0"
+          />
+        </div>
       </div>
       {open ? (
         <div className="mt-1 space-y-1">
@@ -202,6 +217,7 @@ function CadenceSection({
 type Props = {
   challenges: ChallengesState;
   onClaimChallenge?: (challengeId: string, windowKey: string) => void | Promise<void>;
+  onClaimCadence?: (cadence: string) => void | Promise<void>;
   claimBusy?: boolean;
 };
 
@@ -209,7 +225,12 @@ const PANEL_HEADER =
   "flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest";
 const PANEL_BODY = "border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs";
 
-export function ChallengesPanel({ challenges, onClaimChallenge, claimBusy }: Props) {
+export function ChallengesPanel({
+  challenges,
+  onClaimChallenge,
+  onClaimCadence,
+  claimBusy,
+}: Props) {
   const active = challenges.active ?? [];
   const history = challenges.history ?? [];
   const [panelOpen, setPanelOpen] = useDashboardPanelOpen("challenges", true);
@@ -243,16 +264,20 @@ export function ChallengesPanel({ challenges, onClaimChallenge, claimBusy }: Pro
 
   return (
     <section className="mb-1">
-        <div className={PANEL_HEADER}>
-          <span className="min-w-0 truncate text-cyber-cyan">Challenges</span>
+      <div
+        className={`${PANEL_HEADER} max-sm:flex-col max-sm:items-stretch max-sm:gap-y-1 sm:items-center`}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-cyber-cyan">Challenges</span>
           {typeof challenges.pointsLifetime === "number" ? (
             <span className="shrink-0 font-mono text-ui-caption font-normal normal-case tracking-normal text-amber-400/90">
               {challenges.pointsLifetime.toLocaleString()} pts
             </span>
           ) : null}
-          <div className="ml-auto flex shrink-0 items-center gap-1 normal-case tracking-normal">
+        </div>
+        <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 normal-case tracking-normal sm:ml-auto">
           {totalComplete > 0 || totalActive > 0 ? (
-            <span className="font-mono text-ui-caption font-normal">
+            <span className="min-w-0 truncate text-right font-mono text-ui-caption font-normal">
               {totalComplete > 0 ? (
                 <>
                   <span className="text-cyber-cyan">{totalComplete}</span>
@@ -283,6 +308,7 @@ export function ChallengesPanel({ challenges, onClaimChallenge, claimBusy }: Pro
                 key={group.cadence}
                 group={group}
                 onClaim={onClaimChallenge}
+                onClaimCadence={onClaimCadence}
                 claimBusy={claimBusy}
               />
             ))}
@@ -295,12 +321,12 @@ export function ChallengesPanel({ challenges, onClaimChallenge, claimBusy }: Pro
                 {history.slice(0, 5).map((row) => (
                   <div
                     key={`${row.challengeId}-${row.windowKey}`}
-                    className="flex min-w-0 items-baseline justify-between gap-2 border-b border-zinc-800/60 pb-0.5 last:border-0 last:pb-0"
+                    className="flex min-w-0 flex-col gap-0.5 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2 sm:pb-0.5"
                   >
-                    <span className="min-w-0 truncate font-mono text-cyber-cyan/90">
-                      {row.challengeId.replace(/^(daily|weekly|monthly|quarter|half_year|year)\./, "")}
+                    <span className="min-w-0 break-words font-mono text-cyber-cyan/90 sm:truncate">
+                      {row.title}
                     </span>
-                    <span className="shrink-0 font-mono text-xs text-ui-muted">
+                    <span className="shrink-0 self-end font-mono text-xs tabular-nums text-ui-muted sm:self-auto">
                       {row.cadence} · {row.windowKey}
                     </span>
                   </div>
