@@ -260,9 +260,9 @@ export function EconomyDashboard({
         <section className="rounded border border-cyan-900/40 bg-zinc-950/90 p-3">
           <p className="text-ui-caption uppercase tracking-widest text-ui-muted">Processing plant</p>
           <p className="mt-0.5 text-xs text-ui-muted">{proc.plantName}</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <div>
-              <p className="text-ui-caption text-ui-soft">Raw receiving</p>
+              <p className="text-ui-caption text-ui-soft">Raw mass storage</p>
               <p className="font-mono text-xs text-foreground">
                 {proc.rawStorageUsed.toFixed(1)} / {proc.rawStorageCapacity.toFixed(1)}t
               </p>
@@ -276,18 +276,18 @@ export function EconomyDashboard({
               </div>
             </div>
             <div>
-              <p className="text-ui-caption text-ui-soft">Refinery (shared / attributed)</p>
-              <p className="font-mono text-xs text-foreground">
-                Pool {proc.refineryInputTons.toFixed(1)}t → {proc.refineryOutputValue.toLocaleString()}cr · Queue{" "}
-                {proc.minerQueueOreTons.toFixed(1)}t · Attr. out {proc.minerOutputValueTotal.toLocaleString()}cr
-              </p>
-            </div>
-            <div>
-              <p className="text-ui-caption text-ui-soft">Your queue / refined</p>
-              <p className="font-mono text-xs text-foreground">
-                Ore queued {proc.myOreQueued != null ? `${proc.myOreQueued.toFixed(1)}t` : "—"} · refined value{" "}
-                {proc.myRefinedOutputValue != null ? `${proc.myRefinedOutputValue.toLocaleString()}cr` : "—"}
-              </p>
+              <p className="text-ui-caption text-ui-soft">Autonomous haulers</p>
+              {proc.myHaulers && proc.myHaulers.length > 0 ? (
+                <ul className="mt-1 space-y-0.5 font-mono text-xs text-foreground">
+                  {proc.myHaulers.map((h) => (
+                    <li key={h.id}>
+                      {h.key} · {h.deliveryMode}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 font-mono text-xs text-ui-soft">—</p>
+              )}
             </div>
           </div>
         </section>

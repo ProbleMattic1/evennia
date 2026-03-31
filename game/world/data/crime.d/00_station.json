@@ -1,0 +1,26 @@
+[
+  {
+    "id": "crime_customs_anomaly_tick",
+    "cadence": "tick",
+    "weight": 4,
+    "cooldown_seconds": 7200,
+    "severity": "info",
+    "category": "smuggling",
+    "title": "Customs sampling spike",
+    "summary": "Dock scanners flagged an unusual cluster of low-risk holds. Clerks are gossiping about a blind spot in the lane rotation.",
+    "source": "crime_world_engine",
+    "broadcast": false
+  },
+  {
+    "id": "crime_ledger_discrepancy_strong",
+    "cadence": "strong",
+    "weight": 2,
+    "cooldown_seconds": 14400,
+    "severity": "warning",
+    "category": "fraud",
+    "title": "Ledger discrepancy rumor",
+    "summary": "A reconciliation batch did not tie out. Internal mail is quiet, but floor traders are taking side bets on which desk cooked the smoothing.",
+    "source": "crime_world_engine",
+    "broadcast": true
+  }
+]

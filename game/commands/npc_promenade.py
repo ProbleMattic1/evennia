@@ -34,6 +34,7 @@ class CmdAskGuide(Command):
         caller.msg(dialogue)
         caller.missions.sync_global_seeds()
         caller.missions.sync_interaction(interaction_key)
+        caller.quests.on_interaction(interaction_key)
 
 
 class NPCPromenadeCmdSet(CmdSet):

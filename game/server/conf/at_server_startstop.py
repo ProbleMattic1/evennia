@@ -35,13 +35,23 @@ def at_server_start():
     try:
         from world.ambient_loader import bootstrap_ambient_registry_at_startup
         from world.ambient_mission_coverage import log_ambient_mission_coverage
+        from world.crime_loader import bootstrap_crime_registry_at_startup
+        from world.crime_mission_coverage import log_crime_mission_coverage
+        from world.battlespace_loader import bootstrap_battlespace_registry_at_startup
+        from world.battlespace_mission_coverage import log_battlespace_mission_coverage
         from world.mission_loader import load_mission_templates
+        from world.quest_loader import load_quest_templates
         from typeclasses.mission_seeds import get_mission_seeds_script
         from server.conf.economy_automation_hook import ensure_economy_automation
 
         _run("ambient registry (JSON)", bootstrap_ambient_registry_at_startup)
+        _run("crime registry (JSON)", bootstrap_crime_registry_at_startup)
+        _run("battlespace registry (JSON)", bootstrap_battlespace_registry_at_startup)
         _run("mission templates (JSON)", load_mission_templates)
+        _run("quest templates (JSON)", load_quest_templates)
         log_ambient_mission_coverage()
+        log_crime_mission_coverage()
+        log_battlespace_mission_coverage()
         _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
         _run("economy automation controller", ensure_economy_automation)
 
@@ -173,12 +183,18 @@ def at_server_reload_start():
     """Called only when the server starts back up after a reload."""
     from world.ambient_loader import bootstrap_ambient_registry_at_startup
     from world.ambient_mission_coverage import log_ambient_mission_coverage
+    from world.crime_loader import bootstrap_crime_registry_at_startup
+    from world.crime_mission_coverage import log_crime_mission_coverage
     from world.mission_loader import load_mission_templates
+    from world.quest_loader import load_quest_templates
     from typeclasses.mission_seeds import get_mission_seeds_script
 
     _run("ambient registry (JSON)", bootstrap_ambient_registry_at_startup)
+    _run("crime registry (JSON)", bootstrap_crime_registry_at_startup)
     _run("mission templates (JSON)", load_mission_templates)
+    _run("quest templates (JSON)", load_quest_templates)
     log_ambient_mission_coverage()
+    log_crime_mission_coverage()
     _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
 
 
@@ -227,7 +243,11 @@ def at_server_cold_start():
     from world.bootstrap_shipyard import bootstrap_shipyard
     from world.bootstrap_shops import bootstrap_shops
     from world.bootstrap_vehicle_catalog import bootstrap_vehicle_catalog
+    from world.bootstrap_crime import bootstrap_crime_world
+    from world.bootstrap_battlespace import bootstrap_battlespace_world
     from world.bootstrap_world_ambient import bootstrap_world_ambient
+    from world.crime_loader import bootstrap_crime_registry_at_startup
+    from world.battlespace_loader import bootstrap_battlespace_registry_at_startup
     from world.bootstrap_parcel_mission_npcs import bootstrap_parcel_mission_npcs
     from world.bootstrap_promenade_guide import (
         bootstrap_promenade_guide,
@@ -235,19 +255,21 @@ def at_server_cold_start():
     )
     from world.bootstrap_station_services import bootstrap_station_services
     from world.mission_loader import load_mission_templates
+    from world.quest_loader import load_quest_templates
     from typeclasses.mission_seeds import get_mission_seeds_script
     from typeclasses.system_alerts import get_system_alerts_script
 
     _run("frontier player arrival", bootstrap_frontier)
     _run("NanoMegaPlex hub (#2 → Promenade)", bootstrap_hub)
     _run("frontier ↔ hub exits", bootstrap_frontier_hub_links)
+    _run("global economy script", bootstrap_economy)
+    _run("economy automation controller", ensure_economy_automation)
+    # Marcus before other admin-account NPC bootstraps so his Character id stays lowest after admin.
+    _run("Marcus Killstar (account link; credits on create only)", bootstrap_marcus_killstar)
     _run("promenade guide NPC", bootstrap_promenade_guide)
     _run("promenade room ambience", bootstrap_promenade_room_ambience)
     _run("station service NPCs and contracts", bootstrap_station_services)
-    _run("global economy script", bootstrap_economy)
-    _run("economy automation controller", ensure_economy_automation)
     _run("character ability baselines (STR–CHA)", bootstrap_character_abilities)
-    _run("Marcus Killstar (account link; credits on create only)", bootstrap_marcus_killstar)
     _run(
         "NanoMegaPlex Real Estate (account link; credits on create only)",
         bootstrap_nanomega_realty,
@@ -293,8 +315,13 @@ def at_server_cold_start():
     _run("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)
     _run("system alerts queue", lambda: get_system_alerts_script(create_missing=True))
     _run("mission templates (JSON)", load_mission_templates)
+    _run("quest templates (JSON)", load_quest_templates)
     _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
+    _run("crime registry (JSON)", bootstrap_crime_registry_at_startup)
+    _run("battlespace registry (JSON)", bootstrap_battlespace_registry_at_startup)
     _run("ambient world engine", bootstrap_world_ambient)
+    _run("crime world engine", bootstrap_crime_world)
+    _run("battlespace world engine", bootstrap_battlespace_world)
     _run("venue controller scripts", bootstrap_venue_controllers)
 
 

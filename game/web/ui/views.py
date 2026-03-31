@@ -12,7 +12,7 @@ from evennia.utils import utils
 from world.bootstrap_frontier import get_player_start_room
 from world.bootstrap_hub import HUB_ROOM_KEY
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
-from world.time import next_mining_delivery_boundary_iso
+from world.time import VALID_CADENCES, next_mining_delivery_boundary_iso
 from world.nav_exit import nav_fields_for_exit
 from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
@@ -1447,6 +1447,7 @@ def play_travel(request):
         char.missions.sync_global_seeds()
         if char.location:
             char.missions.sync_room(char.location)
+            char.quests.sync_room(char.location)
     except Exception:
         pass
 
@@ -1536,8 +1537,10 @@ def play_interact(request):
     try:
         char.missions.sync_global_seeds()
         char.missions.sync_interaction(outcome.interaction_key)
+        char.quests.on_interaction(outcome.interaction_key)
         if char.location:
             char.missions.sync_room(char.location)
+            char.quests.sync_room(char.location)
     except Exception:
         pass
 
@@ -1918,10 +1921,7 @@ def real_estate_purchase_random(request):
 
 @require_GET
 def processing_state(request):
-    from typeclasses.haulers import get_plant_ore_receiving_bay
-    from typeclasses.mining import COMMODITY_ASK_OVER_BID
-    from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE, REFINING_RECIPES
-    from web.ui.ore_receiving_bay_serialize import serialize_ore_receiving_bay_rows
+    from web.ui.processing_read_model import build_processing_plant_payload
     from world.venues import get_venue
 
     char = None
@@ -1933,110 +1933,31 @@ def processing_state(request):
     if not room:
         raise Http404(f"Room '{plant_key}' was not found.")
 
-    receiving_bay = get_plant_ore_receiving_bay(room)
-    refinery_obj = None
-    for obj in room.contents:
-        if refinery_obj is None and obj.is_typeclass(
-            "typeclasses.refining.Refinery", exact=False
-        ):
-            refinery_obj = obj
+    payload = build_processing_plant_payload(
+        room,
+        char_for_haulers=char,
+        venue_id=venue_id,
+    )
 
-    raw_used = 0.0
-    raw_cap = 0.0
-    if receiving_bay:
-        raw_used = receiving_bay.total_mass() if hasattr(receiving_bay, "total_mass") else 0.0
-        raw_cap = float(getattr(receiving_bay.db, "capacity_tons", 0) or 0)
-
-    refinery_input_tons = 0.0
-    refinery_output_value = 0
-    miner_queue_ore_tons = 0.0
-    miner_output_value_total = 0
-    if refinery_obj:
-        in_inv = refinery_obj.db.input_inventory or {}
-        refinery_input_tons = round(sum(float(v) for v in in_inv.values()), 2)
-        out_inv = refinery_obj.db.output_inventory or {}
-        for key, units in out_inv.items():
-            recipe = REFINING_RECIPES.get(key, {})
-            refinery_output_value += int(units * recipe.get("base_value_cr", 0))
-        miner_queue_ore_tons = refinery_obj.get_total_miner_ore_queued_tons()
-        miner_output_value_total = refinery_obj.get_total_miner_output_value()
-
-    # Per-miner data for authenticated user
-    my_ore_queued = None
-    my_refined_output = None
-    my_refined_output_value = None
-    my_delivery_modes = None
-
-    if request.user.is_authenticated:
-        char, _ = _resolve_character_for_web(request.user)
-        if char and refinery_obj:
-            owner_id = str(char.id)
-            my_ore_queued = refinery_obj.get_miner_ore_queued_tons(owner_id)
-            my_refined_output = refinery_obj.get_miner_output(owner_id)
-            my_refined_output_value = refinery_obj.get_miner_output_value(owner_id)
-
-            haulers = []
-            for entry in (char.db.owned_vehicles or []):
-                h = entry if hasattr(entry, "key") else None
-                if not h:
-                    continue
-                if (
-                    h.tags.has("autonomous_hauler", category="mining")
-                    or h.tags.has("autonomous_hauler", category="flora")
-                    or h.tags.has("autonomous_hauler", category="fauna")
-                ):
-                    haulers.append({
-                        "id": h.id,
-                        "key": h.key,
-                        "deliveryMode": (
-                            "local_raw_reserve"
-                            if getattr(char.db, "haul_delivers_to_local_raw_storage", False)
-                            else "ore_receiving_bay"
-                        ),
-                    })
-            my_delivery_modes = haulers
+    raw_used = payload["rawStorageUsed"]
+    raw_cap = payload["rawStorageCapacity"]
 
     story_lines = [
         {"id": "plant-title", "text": room.key, "kind": "title"},
         {"id": "plant-desc", "text": room.db.desc or "No description.", "kind": "room"},
         {
             "id": "plant-storage",
-            "text": f"Ore Receiving Bay: {raw_used:.1f} / {raw_cap:.0f} t",
-            "kind": "system",
-        },
-        {
-            "id": "plant-refinery",
-            "text": (
-                f"Shared pool input: {refinery_input_tons:.1f} t  |  "
-                f"Shared output: {refinery_output_value:,} cr  |  "
-                f"Attributed queue: {miner_queue_ore_tons:.1f} t  |  "
-                f"Attributed output: {miner_output_value_total:,} cr"
-            ),
+            "text": f"Plant raw mass storage: {raw_used:.1f} / {raw_cap:.0f} t",
             "kind": "system",
         },
     ]
 
     return JsonResponse({
-        "venueId": venue_id,
-        "plantName": room.key,
+        **payload,
         "roomName": room.key,
         "roomDescription": room.db.desc or "",
         "storyLines": story_lines,
         "exits": _room_exits(room),
-        "oreReceivingBay": serialize_ore_receiving_bay_rows(receiving_bay, room),
-        "rawStorageUsed": raw_used,
-        "rawStorageCapacity": raw_cap,
-        "refineryInputTons": refinery_input_tons,
-        "refineryOutputValue": refinery_output_value,
-        "minerQueueOreTons": miner_queue_ore_tons,
-        "minerOutputValueTotal": miner_output_value_total,
-        "processingFeeRate": PROCESSING_FEE_RATE,
-        "rawSaleFeeRate": RAW_SALE_FEE_RATE,
-        "rawAskPremiumRate": float(COMMODITY_ASK_OVER_BID) - 1.0,
-        "myOreQueued": my_ore_queued,
-        "myRefinedOutput": my_refined_output,
-        "myRefinedOutputValue": my_refined_output_value,
-        "myHaulers": my_delivery_modes,
     })
 
 
@@ -2229,6 +2150,12 @@ def dashboard_state(request):
         "active": [],
         "completed": [],
     }
+    empty_quests = {
+        "flags": {},
+        "opportunities": [],
+        "active": [],
+        "completed": [],
+    }
 
     if not request.user.is_authenticated:
         return JsonResponse(
@@ -2250,6 +2177,7 @@ def dashboard_state(request):
                 "alerts": [],
                 "groupedAlerts": empty_alerts,
                 "missions": empty_missions,
+                "quests": empty_quests,
             }
         )
 
@@ -2284,13 +2212,16 @@ def dashboard_state(request):
                 "alerts": alerts,
                 "groupedAlerts": grouped_alerts,
                 "missions": empty_missions,
+                "quests": empty_quests,
             }
         )
 
     char.missions.sync_global_seeds()
     if char.location:
         char.missions.sync_room(char.location)
+        char.quests.on_room_enter(char.location)
     missions = char.missions.serialize_for_web()
+    quests = char.quests.serialize_for_web()
 
     char.challenges.sync_all_windows()
     char.challenges.evaluate_window()
@@ -2341,6 +2272,7 @@ def dashboard_state(request):
             "alerts": alerts,
             "groupedAlerts": grouped_alerts,
             "missions": missions,
+            "quests": quests,
             "challenges": challenges_web,
         }
     )
@@ -2372,6 +2304,7 @@ def missions_accept(request):
         char.missions.sync_global_seeds()
         if char.location:
             char.missions.sync_room(char.location)
+            char.quests.on_room_enter(char.location)
         ok, result_msg, mission = char.missions.accept(opportunity_id)
     except Exception as exc:
         return JsonResponse(
@@ -2487,6 +2420,104 @@ def missions_decline(request):
         {
             "ok": True,
             "message": result_msg or "Mission declined.",
+            "dashboard": bundle.get("dashboard", {}),
+            "play": bundle.get("play", {}),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def quests_accept(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."}, status=401)
+
+    body = _json_body(request)
+    opportunity_id = str(body.get("opportunityId") or "").strip()
+    if not opportunity_id:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing opportunityId."},
+            status=400,
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        if char.location:
+            char.quests.on_room_enter(char.location)
+        ok, result_msg, quest = char.quests.accept(opportunity_id)
+    except Exception as exc:
+        return JsonResponse(
+            {"ok": False, "code": "QUEST_ACCEPT_FAILED", "message": f"Could not accept quest: {exc}"},
+            status=500,
+        )
+
+    if not ok:
+        return JsonResponse(
+            {"ok": False, "code": "QUEST_ACCEPT_REJECTED", "message": result_msg or "Quest accept rejected."},
+            status=400,
+        )
+
+    room_key = char.location.key if getattr(char, "location", None) else DEFAULT_PLAY_ROOM
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": result_msg or "Quest accepted.",
+            "quest": quest or {},
+            "dashboard": bundle.get("dashboard", {}),
+            "play": bundle.get("play", {}),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def quests_choose(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."}, status=401)
+
+    body = _json_body(request)
+    quest_id = str(body.get("questId") or "").strip()
+    choice_id = str(body.get("choiceId") or "").strip()
+    if not quest_id or not choice_id:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing questId or choiceId."},
+            status=400,
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        ok, result_msg, quest = char.quests.choose(quest_id, choice_id)
+    except Exception as exc:
+        return JsonResponse(
+            {"ok": False, "code": "QUEST_CHOOSE_FAILED", "message": f"Could not record quest choice: {exc}"},
+            status=500,
+        )
+    if not ok:
+        return JsonResponse(
+            {"ok": False, "code": "QUEST_CHOOSE_REJECTED", "message": result_msg or "Quest choice rejected."},
+            status=400,
+        )
+
+    room_key = char.location.key if getattr(char, "location", None) else DEFAULT_PLAY_ROOM
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": result_msg or "Choice recorded.",
+            "quest": quest or {},
             "dashboard": bundle.get("dashboard", {}),
             "play": bundle.get("play", {}),
         }
@@ -3622,12 +3653,6 @@ def challenges_claim(request):
             status=401,
         )
 
-    if not cache.add(f"challenge_claim:{request.user.id}", 1, timeout=2):
-        return JsonResponse(
-            {"ok": False, "code": "RATE_LIMIT", "message": "Too many requests; try again shortly."},
-            status=429,
-        )
-
     body = _json_body(request)
     challenge_id = str(body.get("challengeId") or "").strip()
     window_key = str(body.get("windowKey") or "").strip()
@@ -3635,6 +3660,13 @@ def challenges_claim(request):
         return JsonResponse(
             {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing challengeId or windowKey."},
             status=400,
+        )
+
+    lock = f"challenge_claim:{request.user.id}:{challenge_id}:{window_key}"
+    if not cache.add(lock, 1, timeout=2):
+        return JsonResponse(
+            {"ok": False, "code": "RATE_LIMIT", "message": "Too many requests; try again shortly."},
+            status=429,
         )
 
     char, msg = _resolve_character_for_web(request.user)
@@ -3678,18 +3710,18 @@ def challenges_claim_cadence(request):
             status=401,
         )
 
-    if not cache.add(f"challenge_claim_all:{request.user.id}", 1, timeout=5):
-        return JsonResponse(
-            {"ok": False, "code": "RATE_LIMIT", "message": "Too many requests; try again shortly."},
-            status=429,
-        )
-
     body = _json_body(request)
     cadence = str(body.get("cadence") or "").strip()
     if not cadence:
         return JsonResponse(
             {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing cadence."},
             status=400,
+        )
+
+    if not cache.add(f"challenge_claim_all:{request.user.id}:{cadence}", 1, timeout=2):
+        return JsonResponse(
+            {"ok": False, "code": "RATE_LIMIT", "message": "Too many requests; try again shortly."},
+            status=429,
         )
 
     char, msg = _resolve_character_for_web(request.user)
@@ -3718,6 +3750,85 @@ def challenges_claim_cadence(request):
             "ok": True,
             "claimedCount": claimed_count,
             "message": result_msg,
+            "challenges": char.challenges.serialize_for_web(),
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def challenges_claim_all(request):
+    """
+    POST /ui/challenges/claim-all — claim all completed challenges for multiple cadences in one request.
+    Body: { "cadences": ["daily", "weekly", ...] }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."},
+            status=401,
+        )
+
+    if not cache.add(f"challenge_claim_bulk:{request.user.id}", 1, timeout=5):
+        return JsonResponse(
+            {"ok": False, "code": "RATE_LIMIT", "message": "Too many requests; try again shortly."},
+            status=429,
+        )
+
+    body = _json_body(request)
+    raw = body.get("cadences")
+    if not isinstance(raw, list) or not raw:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing or invalid cadences array."},
+            status=400,
+        )
+
+    cadences: list = []
+    seen: set = set()
+    for item in raw:
+        c = str(item or "").strip()
+        if not c or c in seen:
+            continue
+        if c not in VALID_CADENCES:
+            return JsonResponse(
+                {"ok": False, "code": "INVALID_ARGUMENT", "message": f"Unknown cadence {c!r}."},
+                status=400,
+            )
+        seen.add(c)
+        cadences.append(c)
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        char.challenges.sync_all_windows()
+        char.challenges.evaluate_window()
+        total = 0
+        notes: list = []
+        for cadence in cadences:
+            n, result_msg = char.challenges.claim_all_complete_for_cadence(cadence)
+            total += n
+            if result_msg:
+                notes.append(result_msg)
+    except Exception as exc:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "CHALLENGE_CLAIM_BULK_FAILED",
+                "message": f"Could not claim challenges: {exc}",
+            },
+            status=500,
+        )
+
+    summary = "; ".join(notes) if notes else "No challenges to claim."
+    return JsonResponse(
+        {
+            "ok": True,
+            "claimedCount": total,
+            "message": summary,
             "challenges": char.challenges.serialize_for_web(),
         }
     )

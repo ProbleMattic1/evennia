@@ -3,7 +3,7 @@ Bootstrap NPC-owned mining ops — Industrial Resource Colony contractor grid.
 
 Topology: Hub -> Industrial Resource Colony Grid (staging) -> one room per pad.
 Each NPC unit owns 4 pads (4 sites, 4 rigs, 4 storages, 4 haulers).
-Deposits tuned for Deep volume + Rare resource tier (mining.py helpers).
+Deposits: full RESOURCE_CATALOG mix, Deep-tier volume, Marcus-aligned rig tuning.
 
 Idempotent: site tag npc_industrial_supply (category world).
 """
@@ -20,6 +20,7 @@ from world.bootstrap_hub import get_hub_room
 from world.bootstrap_mining import _get_or_create_exit
 from world.bootstrap_mining_packages import MINING_PACKAGES
 from world.industrial_colony_constants import NPC_INDUSTRIAL_UNITS
+from world.mining_bootstrap_presets import catalog_wide_ore_deposit, retune_mining_rigs_on_site
 from world.npc_miner_registry import register_npc_miner_character_id
 
 STAGING_ROOM_KEY = "Industrial Resource Colony Grid"
@@ -35,19 +36,6 @@ STAGING_TO_HUB_EXIT_KEY = "promenade"
 STAGING_TO_HUB_ALIASES = ["back", "exit", "out", "plex", "hub"]
 
 CELL_EXIT_PREFIX = "pad "
-
-# Deep: richness * base_output_tons >= 20 (_volume_tier).
-# Rare: weighted RESOURCE_CATALOG rarity avg >= 1.5 (_resource_rarity_tier).
-DEEP_RARE_DEPOSIT = {
-    "richness": 1.0,
-    "base_output_tons": 20.0,
-    "composition": {
-        "platinum_group_ore": 0.5,
-        "diamond_kimberlite": 0.5,
-    },
-    "depletion_rate": 0.002,
-    "richness_floor": 0.12,
-}
 
 
 def _components_for_profile(deploy_profile: str) -> tuple[list, str]:
@@ -171,7 +159,9 @@ def _ensure_site_in_room(room, site_key: str, deposit: dict):
         location=room,
         home=room,
     )
-    site.db.desc = "Industrial Resource Colony lease; Deep/Rare tier feedstock for the processing plant."
+    site.db.desc = (
+        "Industrial Resource Colony lease; catalog-wide feedstock mix for the processing plant."
+    )
     site.db.deposit = dict(deposit)
     site.db.hazard_level = 0.0
     return site
@@ -190,6 +180,11 @@ def bootstrap_npc_industrial_miners():
 
     staging = _ensure_staging_and_hub_link()
 
+    deposit = catalog_wide_ore_deposit()
+    if not deposit.get("composition"):
+        print("[npc-industrial] RESOURCE_CATALOG empty; skip.")
+        return
+
     for unit in NPC_INDUSTRIAL_UNITS:
         npc = _ensure_npc_character(account, unit["npc_key"], unit["npc_desc"])
         if not npc:
@@ -199,9 +194,11 @@ def bootstrap_npc_industrial_miners():
             cell_room = _ensure_cell_room(staging, grid_cell)
             site_key = f"Industrial Resource Colony Pad {grid_cell} Deposit"
 
-            site = _ensure_site_in_room(cell_room, site_key, DEEP_RARE_DEPOSIT)
+            site = _ensure_site_in_room(cell_room, site_key, deposit)
             site.db.hazard_level = 0.0
             if site.tags.has("npc_industrial_supply", category="world"):
+                site.db.deposit = dict(deposit)
+                retune_mining_rigs_on_site(site)
                 print(f"[npc-industrial] Already deployed: {site.key!r} in {cell_room.key!r}.")
                 continue
             if site.db.is_claimed and site.db.owner and site.db.owner != npc:
@@ -213,6 +210,7 @@ def bootstrap_npc_industrial_miners():
             ok, msg = _deploy_components_at_site(npc, site, cell_room, components, tier)
             if ok:
                 site.tags.add("npc_industrial_supply", category="world")
+                retune_mining_rigs_on_site(site)
                 print(
                     f"[npc-industrial] Deployed {unit['npc_key']!r} @ {cell_room.key!r}: "
                     f"{msg.splitlines()[0]}"

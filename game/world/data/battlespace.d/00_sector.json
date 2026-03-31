@@ -1,0 +1,110 @@
+[
+  {
+    "id": "bs_patrol_contact_tick",
+    "cadence": "tick",
+    "weight": 5,
+    "cooldown_seconds": 5400,
+    "severity": "info",
+    "category": "battlespace",
+    "title": "Patrol contact — unresolved IFF",
+    "summary": "A sector picket logged a contact that did not squawk clean. Last vector has it burning toward the outer transit lanes.",
+    "source": "battlespace_world_engine",
+    "broadcast": false
+  },
+  {
+    "id": "bs_distress_skwak_tick",
+    "cadence": "tick",
+    "weight": 4,
+    "cooldown_seconds": 7200,
+    "severity": "warning",
+    "category": "battlespace",
+    "title": "Distress squawk — outer lane",
+    "summary": "An automated distress beacon lit up on the outer approach vector. Signal is degraded; no voice contact established.",
+    "source": "battlespace_world_engine",
+    "broadcast": true
+  },
+  {
+    "id": "bs_intercept_geometry_tick",
+    "cadence": "tick",
+    "weight": 3,
+    "cooldown_seconds": 9000,
+    "severity": "info",
+    "category": "battlespace",
+    "title": "Intercept geometry reported",
+    "summary": "Traffic control posted a closure-rate advisory after a fast mover crossed a freighter's mandatory separation corridor.",
+    "source": "battlespace_world_engine",
+    "broadcast": false
+  },
+  {
+    "id": "bs_thermal_bloom_tick",
+    "cadence": "tick",
+    "weight": 3,
+    "cooldown_seconds": 10800,
+    "severity": "info",
+    "category": "battlespace",
+    "title": "Unattributed thermal bloom",
+    "summary": "Sensors logged a brief high-energy bloom consistent with weapon fire or a drive overburn at extreme range. No origin squawk.",
+    "source": "battlespace_world_engine",
+    "broadcast": false
+  },
+  {
+    "id": "bs_emcon_zone_tick",
+    "cadence": "tick",
+    "weight": 2,
+    "cooldown_seconds": 14400,
+    "severity": "info",
+    "category": "battlespace",
+    "title": "EMCON zone advisory posted",
+    "summary": "Station authority flagged a transit corridor for emissions control compliance after multiple vessels ran hot signatures past the approach beacon.",
+    "source": "battlespace_world_engine",
+    "broadcast": false
+  },
+  {
+    "id": "bs_cap_scramble_strong",
+    "cadence": "strong",
+    "weight": 3,
+    "cooldown_seconds": 14400,
+    "severity": "warning",
+    "category": "battlespace",
+    "title": "CAP scramble — station approach",
+    "summary": "A task unit sortied two fighters to intercept an unresponsive heavy that crossed the exclusion perimeter without clearance. Dock traffic holding.",
+    "source": "battlespace_world_engine",
+    "broadcast": true
+  },
+  {
+    "id": "bs_convoy_ambush_strong",
+    "cadence": "strong",
+    "weight": 2,
+    "cooldown_seconds": 21600,
+    "severity": "warning",
+    "category": "battlespace",
+    "title": "Convoy ambush — transit lane seven",
+    "summary": "A three-ship freight group reported weapons lock and evasive contact in transit lane seven. Escort called weapons free; outcome unconfirmed.",
+    "source": "battlespace_world_engine",
+    "broadcast": true
+  },
+  {
+    "id": "bs_salvage_under_fire_strong",
+    "cadence": "strong",
+    "weight": 2,
+    "cooldown_seconds": 28800,
+    "severity": "critical",
+    "category": "battlespace",
+    "title": "Salvage tug under fire",
+    "summary": "A licensed salvage tug reported hostile intercept while working a derelict in the outer belt. Crew aboard; no escort on station.",
+    "source": "battlespace_world_engine",
+    "broadcast": true
+  },
+  {
+    "id": "bs_false_iff_strong",
+    "cadence": "strong",
+    "weight": 1,
+    "cooldown_seconds": 36000,
+    "severity": "critical",
+    "category": "battlespace",
+    "title": "False IFF squawk confirmed",
+    "summary": "Station security confirmed a vessel was broadcasting a spoofed transponder signature. The hull is not in any registered registry. Considered hostile.",
+    "source": "battlespace_world_engine",
+    "broadcast": true
+  }
+]

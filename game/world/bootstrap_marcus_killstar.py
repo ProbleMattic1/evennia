@@ -7,7 +7,8 @@ Existing characters keep their ledger balance unless MARCUS_RESET_CREDITS is set
 Ability scores use MARCUS_ABILITY_BASES (see typeclasses.characters). Set MARCUS_RESET_STATS=1
 to re-apply those bases to an existing Marcus.
 
-Runs from server/conf/at_server_cold_start after bootstrap_hub and bootstrap_economy.
+Runs from server/conf/at_server_cold_start after bootstrap_hub and bootstrap_economy,
+before promenade/station NPC bootstraps (lowest Character id on the admin account after first setup).
 Idempotent for linkage; credits are not reset each cold start by default.
 """
 

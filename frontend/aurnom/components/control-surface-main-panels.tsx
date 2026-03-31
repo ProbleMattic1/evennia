@@ -7,6 +7,7 @@ import { Countdown } from "@/components/countdown";
 import { ChallengesPanel } from "@/components/challenges-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { DashboardMissionsPanel } from "@/components/dashboard-missions-panel";
+import { DashboardQuestsPanel } from "@/components/dashboard-quests-panel";
 import type {
   ControlSurfaceState,
   CsInventory,
@@ -27,6 +28,7 @@ import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
 import {
   claimChallengeReward,
+  claimChallengeRewardsAll,
   claimChallengeRewardsForCadence,
   dashboardAckAlert,
   dashboardAckAllAlerts,
@@ -176,6 +178,32 @@ function ResourcesCreditsRollupLabel({
 /** Same typography as `ResourcesCreditsRollupLabel` — for personal storage section bars. */
 const RESOURCE_ROLLUP_MONO =
   "shrink-0 font-mono text-ui-caption font-normal normal-case tracking-normal text-ui-muted";
+
+function PropertiesCreditsRollupLabel({
+  sumCr,
+  counted,
+  rowCount,
+}: {
+  sumCr: number;
+  counted: number;
+  rowCount: number;
+}) {
+  if (counted === 0) return null;
+  const complete = counted === rowCount;
+  return (
+    <span
+      className={RESOURCE_ROLLUP_MONO}
+      title={
+        complete
+          ? "Reference list value (sum of properties)"
+          : `Reference list value from ${counted} of ${rowCount} properties (others omit list price)`
+      }
+    >
+      {cr(sumCr)}
+      {!complete ? <span className="text-ui-muted"> *</span> : null}
+    </span>
+  );
+}
 
 function PersonalStorageTonsRollupLabel({ tons }: { tons: number }) {
   return (
@@ -686,12 +714,15 @@ function ResourcesPanel({
   resources,
   market,
   miningNextCycleAt,
+  mineStorageValueCr,
   onReload,
   onRepairRig,
 }: {
   resources: DashboardMine[];
   market: MarketCommodity[];
   miningNextCycleAt: string;
+  /** Total estimated cr held at production sites (same as Character “mine storage”). */
+  mineStorageValueCr: number;
   onReload: () => void;
   onRepairRig: (siteId: number) => void;
 }) {
@@ -736,6 +767,12 @@ function ResourcesPanel({
         ) : null}
         <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
         <ResourcesCreditsRollupLabel items={resources} className="text-xs text-cyber-cyan/80" />
+        <span
+          className={RESOURCE_ROLLUP_MONO}
+          title="Estimated value of material held at production sites (mine storage)"
+        >
+          stor {cr(mineStorageValueCr)}
+        </span>
         {nextAt ? (
           <span className="shrink-0 font-mono text-xs font-normal normal-case tracking-normal text-cyber-cyan">
             <Countdown targetIso={nextAt} prefix="next:" onExpired={onReload} />
@@ -815,10 +852,21 @@ function PropertiesKindGroup({
   const title = `${propertyKindTitle(kind)} (${items.length})`;
   const [open, setOpen] = useDashboardPanelOpen(`properties:${kind}`, true);
 
+  let rollupCr = 0;
+  let rollupCrRows = 0;
+  for (const p of items) {
+    const v = p.referenceListPriceCr;
+    if (v != null && !Number.isNaN(v)) {
+      rollupCr += v;
+      rollupCrRows += 1;
+    }
+  }
+
   return (
     <div className="mb-1 last:mb-0">
       <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
         <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
+        <PropertiesCreditsRollupLabel sumCr={rollupCr} counted={rollupCrRows} rowCount={items.length} />
         <PanelExpandButton
           open={open}
           onClick={() => setOpen((v) => !v)}
@@ -873,6 +921,30 @@ function personalStorageRow(raw: PersonalStorageEntry | number): {
 } {
   if (typeof raw === "number") return { tons: raw, estimatedValueCr: null };
   return { tons: raw.tons, estimatedValueCr: raw.estimatedValueCr };
+}
+
+function aggregatePersonalStorageRollups(buckets: PersonalStorageBuckets): {
+  totalTons: number;
+  sumCr: number;
+  crRows: number;
+  rowCount: number;
+} {
+  let totalTons = 0;
+  let sumCr = 0;
+  let crRows = 0;
+  let rowCount = 0;
+  for (const bucket of [buckets.mine, buckets.flora, buckets.fauna]) {
+    for (const raw of Object.values(bucket)) {
+      rowCount += 1;
+      const { tons, estimatedValueCr } = personalStorageRow(raw);
+      totalTons += Number(tons) || 0;
+      if (estimatedValueCr != null && !Number.isNaN(estimatedValueCr)) {
+        sumCr += estimatedValueCr;
+        crRows += 1;
+      }
+    }
+  }
+  return { totalTons, sumCr, crRows, rowCount };
 }
 
 const PERSONAL_STORAGE_TABLE_GRID =
@@ -966,8 +1038,23 @@ function PersonalStoragePanel({ buckets }: { buckets: PersonalStorageBuckets }) 
     Object.keys(buckets.fauna).length;
   if (n === 0) return null;
 
+  const psRollup = aggregatePersonalStorageRollups(buckets);
+
   return (
-    <Panel panelKey="personal-storage" title={`Personal storage (${n})`}>
+    <Panel
+      panelKey="personal-storage"
+      title={`Personal storage (${n})`}
+      headerActions={
+        <>
+          <PersonalStorageTonsRollupLabel tons={psRollup.totalTons} />
+          <PersonalStorageCreditsRollupLabel
+            sumCr={psRollup.sumCr}
+            counted={psRollup.crRows}
+            rowCount={psRollup.rowCount}
+          />
+        </>
+      }
+    >
       <PersonalStorageKindGroup
         panelSlug="mine"
         title="Mined"
@@ -1005,8 +1092,28 @@ function PropertiesPanel({ properties }: { properties: DashboardProperty[] }) {
     byKind[k].sort((a, b) => a.claimKey.localeCompare(b.claimKey));
   }
 
+  let propsRollupCr = 0;
+  let propsRollupCrRows = 0;
+  for (const p of properties) {
+    const v = p.referenceListPriceCr;
+    if (v != null && !Number.isNaN(v)) {
+      propsRollupCr += v;
+      propsRollupCrRows += 1;
+    }
+  }
+
   return (
-    <Panel panelKey="properties" title={`Properties (${properties.length})`}>
+    <Panel
+      panelKey="properties"
+      title={`Properties (${properties.length})`}
+      headerActions={
+        <PropertiesCreditsRollupLabel
+          sumCr={propsRollupCr}
+          counted={propsRollupCrRows}
+          rowCount={properties.length}
+        />
+      }
+    >
       {PROPERTY_KIND_ORDER.map((kind) => {
         const items = byKind[kind];
         if (items.length === 0) return null;
@@ -1077,6 +1184,11 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
     [run],
   );
 
+  const claimAllChallengesCb = useCallback(
+    (cadences: string[]) => run(() => claimChallengeRewardsAll({ cadences })),
+    [run],
+  );
+
   return (
     <div className="dark min-h-svh bg-zinc-950 font-mono text-xs text-foreground">
       {flash ? (
@@ -1095,6 +1207,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
                 challenges={data.challenges}
                 onClaimChallenge={claimChallengeCb}
                 onClaimCadence={claimCadenceCb}
+                onClaimAll={claimAllChallengesCb}
                 claimBusy={busy}
               />
             </div>
@@ -1102,25 +1215,29 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           {data.missions ? (
             <DashboardMissionsPanel missions={data.missions} roomExits={data.roomExits} onChanged={onReload} />
           ) : null}
+          {data.quests ? (
+            <DashboardQuestsPanel quests={data.quests} roomExits={data.roomExits} onChanged={onReload} />
+          ) : null}
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
-          <ResourcesPanel
-            resources={data.resources ?? data.mines}
-            market={data.market}
-            miningNextCycleAt={data.miningNextCycleAt ?? ""}
-            onReload={onReload}
-            onRepairRig={repairRigCb}
-          />
         </div>
         <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
           {data.groupedAlerts ? (
             <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} onAckAll={ackAllAlerts} busy={busy} />
           ) : null}
+          <ShipsPanel ships={data.ships} />
           {busy ? <div className="mb-1 text-xs text-ui-muted">Working...</div> : null}
           <InventoryPanel inventory={data.inventory} />
+          <ResourcesPanel
+            resources={data.resources ?? data.mines}
+            market={data.market}
+            miningNextCycleAt={data.miningNextCycleAt ?? ""}
+            mineStorageValueCr={data.productionTotalStoredValue ?? data.miningTotalStoredValue ?? 0}
+            onReload={onReload}
+            onRepairRig={repairRigCb}
+          />
           <PersonalStoragePanel
             buckets={data.personalStorage ?? { mine: {}, flora: {}, fauna: {} }}
           />
-          <ShipsPanel ships={data.ships} />
           <PropertiesPanel properties={data.properties} />
           <ClaimsNavPanel claims={data.nav.claims} />
         </div>

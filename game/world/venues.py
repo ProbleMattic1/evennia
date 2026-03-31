@@ -90,31 +90,31 @@ _NANOMEGA_INDUSTRIAL_UNITS = (
         "unit_id": "N1",
         "npc_key": "NanoMegaPlex Mining Unit Foxtrot",
         "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
     {
         "unit_id": "N2",
         "npc_key": "NanoMegaPlex Mining Unit Golf",
         "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
     {
         "unit_id": "N3",
         "npc_key": "NanoMegaPlex Mining Unit Hotel",
         "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
     {
         "unit_id": "N4",
         "npc_key": "NanoMegaPlex Mining Unit India",
         "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
     {
         "unit_id": "N5",
         "npc_key": "NanoMegaPlex Mining Unit Juliet",
         "npc_desc": "Multiplex contractor; ore routed under standard plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
 )
 
@@ -123,31 +123,31 @@ _FRONTIER_INDUSTRIAL_UNITS = (
         "unit_id": "F1",
         "npc_key": "Frontier Mining Unit Foxtrot",
         "npc_desc": "Outpost contractor; ore routed under frontier plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
     {
         "unit_id": "F2",
         "npc_key": "Frontier Mining Unit Golf",
         "npc_desc": "Outpost contractor; ore routed under frontier plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
     {
         "unit_id": "F3",
         "npc_key": "Frontier Mining Unit Hotel",
         "npc_desc": "Outpost contractor; ore routed under frontier plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
     {
         "unit_id": "F4",
         "npc_key": "Frontier Mining Unit India",
         "npc_desc": "Outpost contractor; ore routed under frontier plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
     {
         "unit_id": "F5",
         "npc_key": "Frontier Mining Unit Juliet",
         "npc_desc": "Outpost contractor; ore routed under frontier plant tariffs.",
-        "deploy_profile": "mining_starter",
+        "deploy_profile": "mining_pro",
     },
 )
 

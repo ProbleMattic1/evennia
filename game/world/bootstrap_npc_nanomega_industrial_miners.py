@@ -14,6 +14,7 @@ from typeclasses.characters import ABILITY_KEYS, CHARACTER_TYPECLASS_PATH
 from typeclasses.packages import _deploy_components_at_site
 from world.bootstrap_mining import _get_or_create_exit
 from world.bootstrap_mining_packages import MINING_PACKAGES
+from world.mining_bootstrap_presets import catalog_wide_ore_deposit, retune_mining_rigs_on_site
 from world.npc_miner_registry import register_npc_miner_character_id
 from world.venue_resolve import hub_room_for_venue
 from world.venues import all_venue_ids, apply_venue_metadata, get_venue
@@ -142,9 +143,7 @@ def _ensure_site_in_room(room, site_key: str, deposit: dict):
         location=room,
         home=room,
     )
-    site.db.desc = (
-        "Industrial lease; Deep/Uncommon tier feedstock for the processing plant."
-    )
+    site.db.desc = "Industrial lease; catalog-wide feedstock for the processing plant."
     site.db.deposit = dict(deposit)
     site.db.hazard_level = 0.0
     return site
@@ -152,19 +151,6 @@ def _ensure_site_in_room(room, site_key: str, deposit: dict):
 
 def _pads_for_unit(unit_id: str):
     return [f"{unit_id}-{i}" for i in range(1, 5)]
-
-
-DEEP_UNCOMMON_DEPOSIT = {
-    "richness": 1.0,
-    "base_output_tons": 20.0,
-    "composition": {
-        "cobalt_ore": 1.0 / 3,
-        "tungsten_ore": 1.0 / 3,
-        "rare_earth_concentrate": 1.0 / 3,
-    },
-    "depletion_rate": 0.002,
-    "richness_floor": 0.12,
-}
 
 
 def bootstrap_industrial_miners_for_venue(venue_id: str):
@@ -178,6 +164,11 @@ def bootstrap_industrial_miners_for_venue(venue_id: str):
         print(f"{log_prefix} No admin/superuser account; skip.")
         return
 
+    deposit = catalog_wide_ore_deposit()
+    if not deposit.get("composition"):
+        print(f"{log_prefix} RESOURCE_CATALOG empty; skip.")
+        return
+
     staging = _ensure_staging_and_hub_link(venue_id, log_prefix)
 
     for unit in ind["units"]:
@@ -189,9 +180,11 @@ def bootstrap_industrial_miners_for_venue(venue_id: str):
             cell_room = _ensure_cell_room(staging, grid_cell, venue_id, ind)
             site_key = ind["site_key_template"].format(cell=grid_cell)
 
-            site = _ensure_site_in_room(cell_room, site_key, DEEP_UNCOMMON_DEPOSIT)
+            site = _ensure_site_in_room(cell_room, site_key, deposit)
             site.db.hazard_level = 0.0
             if site.tags.has(deploy_tag, category="world"):
+                site.db.deposit = dict(deposit)
+                retune_mining_rigs_on_site(site)
                 print(f"{log_prefix} Already deployed: {site.key!r} in {cell_room.key!r}.")
                 continue
             if site.db.is_claimed and site.db.owner and site.db.owner != npc:
@@ -203,6 +196,7 @@ def bootstrap_industrial_miners_for_venue(venue_id: str):
             ok, msg = _deploy_components_at_site(npc, site, cell_room, components, tier)
             if ok:
                 site.tags.add(deploy_tag, category="world")
+                retune_mining_rigs_on_site(site)
                 print(
                     f"{log_prefix} Deployed {unit['npc_key']!r} @ {cell_room.key!r}: "
                     f"{msg.splitlines()[0]}"

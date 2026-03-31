@@ -50,6 +50,7 @@ _DAILY_TRIGGERS = frozenset({
     "hauler_tick",
     "miner_payout",
     "balance_snapshot",
+    "space_engagement",
 })
 
 _WEEKLY_TRIGGERS = frozenset({

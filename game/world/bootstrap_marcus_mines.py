@@ -14,11 +14,11 @@ from evennia import create_object, search_object
 
 from typeclasses.characters import CHARACTER_TYPECLASS_PATH, MARCUS_CHARACTER_KEY
 from world.bootstrap_marcus_killstar import ensure_marcus_local_raw_destination
-from typeclasses.mining import RESOURCE_CATALOG
 from typeclasses.packages import _deploy_components_at_site
 from world.bootstrap_hub import get_hub_room
 from world.bootstrap_mining import _get_or_create_exit
 from world.bootstrap_mining_packages import MINING_PACKAGES
+from world.mining_bootstrap_presets import catalog_wide_ore_deposit, retune_mining_rigs_on_site
 
 LOG_PREFIX = "[marcus-mines]"
 DEPLOY_TAG = "marcus_killstar_supply"
@@ -33,28 +33,6 @@ HUB_TO_STAGING_EXIT_KEY = "killstar mines"
 HUB_TO_STAGING_ALIASES = ["marcus mines", "killstar annex", "killstar pads"]
 STAGING_TO_HUB_EXIT_KEY = "promenade"
 STAGING_TO_HUB_ALIASES = ["back", "exit", "out", "plex", "hub"]
-
-# Match industrial NPC Deep-tier throughput (richness × base_output_tons × rig modifiers).
-MARCUS_DEPOSIT_BASE = {
-    "richness": 1.0,
-    "base_output_tons": 20.0,
-    "depletion_rate": 0.002,
-    "richness_floor": 0.12,
-}
-
-
-def _composition_all_resources():
-    keys = list(RESOURCE_CATALOG.keys())
-    if not keys:
-        return {}
-    w = 1.0 / len(keys)
-    return {k: w for k in keys}
-
-
-def _marcus_deposit():
-    d = dict(MARCUS_DEPOSIT_BASE)
-    d["composition"] = _composition_all_resources()
-    return d
 
 
 def _components_for_profile(deploy_profile: str):
@@ -139,20 +117,6 @@ def _ensure_site_in_room(room, site_key: str, deposit: dict):
     return site
 
 
-def _tune_rig_max_output(rig):
-    rig.db.mode = "overdrive"
-    rig.db.power_level = "high"
-    rig.db.target_family = "mixed"
-    rig.db.purity_cutoff = "low"
-    rig.db.maintenance_level = "premium"
-
-
-def _retune_rigs_on_site(site):
-    for r in site.db.rigs or []:
-        if r:
-            _tune_rig_max_output(r)
-
-
 def _pad_ids():
     return [f"K-{i}" for i in range(1, 5)]
 
@@ -167,7 +131,7 @@ def bootstrap_marcus_mines():
         print(f"{LOG_PREFIX} {MARCUS_CHARACTER_KEY!r} is not a Character; skip.")
         return
 
-    deposit = _marcus_deposit()
+    deposit = catalog_wide_ore_deposit()
     if not deposit.get("composition"):
         print(f"{LOG_PREFIX} RESOURCE_CATALOG empty; skip.")
         return
@@ -188,7 +152,7 @@ def bootstrap_marcus_mines():
         site.db.hazard_level = 0.0
 
         if site.tags.has(DEPLOY_TAG, category="world"):
-            _retune_rigs_on_site(site)
+            retune_mining_rigs_on_site(site)
             print(f"{LOG_PREFIX} Already deployed: {site.key!r} in {cell_room.key!r}.")
             continue
 
@@ -199,7 +163,7 @@ def bootstrap_marcus_mines():
         ok, msg = _deploy_components_at_site(char, site, cell_room, components, tier)
         if ok:
             site.tags.add(DEPLOY_TAG, category="world")
-            _retune_rigs_on_site(site)
+            retune_mining_rigs_on_site(site)
             print(f"{LOG_PREFIX} Deployed @ {cell_room.key!r}: {msg.splitlines()[0]}")
         else:
             print(f"{LOG_PREFIX} Deploy failed {grid_cell!r}: {msg}")

@@ -33,9 +33,86 @@ function cat(c: MarketCommodity) {
   return CAT[c.category] ?? CAT.standard_metal;
 }
 
+const BAY_EXTRA: Record<
+  "flora" | "fauna" | "unknown",
+  { heading: string; title: string }
+> = {
+  flora: {
+    title: "Flora & biomass",
+    heading: "text-teal-700 dark:text-teal-400",
+  },
+  fauna: {
+    title: "Fauna & organics",
+    heading: "text-violet-700 dark:text-violet-400",
+  },
+  unknown: {
+    title: "Unmapped bay",
+    heading: "text-zinc-500 dark:text-zinc-400",
+  },
+};
+
+/** Section keys: market metals (board categories), then flora / fauna / unmapped keys. */
+export const BAY_TILE_CATEGORY_ORDER = [
+  "standard_metal",
+  "exotic_metal",
+  "gem_bearing",
+  "flora",
+  "fauna",
+  "unknown",
+] as const;
+export type BayTileCategory = (typeof BAY_TILE_CATEGORY_ORDER)[number];
+
+export function bayTileSectionTitle(section: BayTileCategory): string {
+  switch (section) {
+    case "standard_metal":
+      return "Standard Metals";
+    case "exotic_metal":
+      return "Exotic & Strategic Metals";
+    case "gem_bearing":
+      return "Gem-Bearing Materials";
+    case "flora":
+      return BAY_EXTRA.flora.title;
+    case "fauna":
+      return BAY_EXTRA.fauna.title;
+    case "unknown":
+      return BAY_EXTRA.unknown.title;
+  }
+}
+
+export function bayTileSectionHeadingClass(section: BayTileCategory): string {
+  if (section === "flora" || section === "fauna" || section === "unknown") {
+    return `font-mono text-[11px] font-semibold uppercase tracking-widest ${BAY_EXTRA[section].heading}`;
+  }
+  return `font-mono text-[11px] font-semibold uppercase tracking-widest ${CAT[section].heading}`;
+}
+
+/** Card shell aligned with Commodity Board category colors (left rail + subtle fill + ring). */
+export function bayTileCardClass(section: BayTileCategory): string {
+  const base =
+    "min-w-0 basis-[220px] flex-1 rounded-md px-2 py-1.5 shadow-sm ring-1 transition-colors hover:bg-zinc-950/40";
+  switch (section) {
+    case "standard_metal":
+      return `${base} border-l-[3px] border-l-emerald-500/75 bg-gradient-to-br from-emerald-950/35 to-zinc-950/90 ring-emerald-900/35`;
+    case "exotic_metal":
+      return `${base} border-l-[3px] border-l-amber-500/75 bg-gradient-to-br from-amber-950/30 to-zinc-950/90 ring-amber-900/35`;
+    case "gem_bearing":
+      return `${base} border-l-[3px] border-l-cyan-500/70 bg-gradient-to-br from-cyan-950/35 to-zinc-950/90 ring-cyan-800/40`;
+    case "flora":
+      return `${base} border-l-[3px] border-l-teal-500/75 bg-gradient-to-br from-teal-950/35 to-zinc-950/90 ring-teal-900/35`;
+    case "fauna":
+      return `${base} border-l-[3px] border-l-violet-500/75 bg-gradient-to-br from-violet-950/35 to-zinc-950/90 ring-violet-900/35`;
+    case "unknown":
+      return `${base} border-l-[3px] border-l-zinc-600 bg-zinc-900/70 ring-zinc-800/50`;
+  }
+}
+
+export function commodityStyle(c: MarketCommodity) {
+  return cat(c);
+}
+
 // ─── Price delta helper ───────────────────────────────────────────────────────
 
-function priceDelta(sell: number, base: number) {
+export function priceDelta(sell: number, base: number) {
   if (!base) return { icon: "—", pct: 0, cls: "text-ui-muted" };
   const pct = Math.round(((sell - base) / base) * 100);
   if (pct > 0) return { icon: "▲", pct, cls: "text-emerald-600 dark:text-emerald-400" };

@@ -63,6 +63,10 @@ PLANT_PLAYER_STORAGE_CATEGORY = "mining"
 LOCAL_RAW_STORAGE_TAG = "local_raw_ore_storage"
 LOCAL_RAW_STORAGE_CATEGORY = "mining"
 
+# Shared plant receiving bay (bootstrap + hauler unload + web UI). Canonical identity is this tag.
+ORE_RECEIVING_BAY_TAG = "ore_receiving_bay"
+ORE_RECEIVING_BAY_TAG_CATEGORY = "mining"
+
 
 def _now():
     return datetime.now(UTC)
@@ -265,10 +269,50 @@ def get_mining_storage_in_room(room):
     return None
 
 
+def iter_plant_aggregated_raw_inventory(plant_room):
+    """
+    Sum raw tons by resource key for all intake tied to this processing plant room:
+    the shared ore receiving bay, every player-assigned plant silo, and every
+    local raw reserve in the room. Used for web “market snapshot” / plant intake
+    views so totals are not limited to the pooled bay alone.
+    """
+    merged: dict[str, float] = {}
+
+    def absorb(inv):
+        for k, v in (inv or {}).items():
+            kr = str(k)
+            try:
+                tons = float(v or 0)
+            except (TypeError, ValueError):
+                continue
+            if tons <= 0:
+                continue
+            merged[kr] = merged.get(kr, 0.0) + tons
+
+    bay = get_plant_ore_receiving_bay(plant_room)
+    if bay:
+        absorb(getattr(bay.db, "inventory", None))
+
+    if not plant_room:
+        return merged
+
+    for obj in plant_room.contents:
+        if not obj.tags.has("mining_storage", category="mining"):
+            continue
+        if obj.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
+            absorb(getattr(obj.db, "inventory", None))
+        elif obj.tags.has(LOCAL_RAW_STORAGE_TAG, category=LOCAL_RAW_STORAGE_CATEGORY):
+            absorb(getattr(obj.db, "inventory", None))
+
+    return merged
+
+
 def get_plant_ore_receiving_bay(room):
     """
-    Shared plant raw intake (Ore Receiving Bay). Excludes per-owner plant silos.
-    Matches the object the web UI uses for rawStorageUsed when key contains receiving/bay.
+    Shared plant raw intake: exactly one object per processing plant room, tagged
+    ``ore_receiving_bay`` (and ``mining_storage``). Bootstrap creates it with key
+    ``Ore Receiving Bay``; exact key is a secondary predicate for legacy rows
+    before re-bootstrap tags exist.
     """
     if not room:
         return None
@@ -277,8 +321,11 @@ def get_plant_ore_receiving_bay(room):
             continue
         if obj.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
             continue
-        kl = (obj.key or "").lower()
-        if "receiving" in kl or "bay" in kl:
+        if obj.tags.has(LOCAL_RAW_STORAGE_TAG, category=LOCAL_RAW_STORAGE_CATEGORY):
+            continue
+        if obj.tags.has(ORE_RECEIVING_BAY_TAG, category=ORE_RECEIVING_BAY_TAG_CATEGORY):
+            return obj
+        if obj.key == "Ore Receiving Bay":
             return obj
     return None
 

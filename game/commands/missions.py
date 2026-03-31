@@ -10,7 +10,7 @@ class CmdMissions(Command):
     """
 
     key = "missions"
-    aliases = ["quests", "story"]
+    aliases = ["story"]
     locks = "cmd:all()"
     help_category = "Story"
 

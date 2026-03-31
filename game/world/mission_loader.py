@@ -13,8 +13,8 @@ _DEFAULT_JSON = _DATA_DIR / "mission_templates.json"
 _REQUIRED_TEMPLATE_KEYS = frozenset(
     {"id", "title", "summary", "missionKind", "trigger", "objectives"}
 )
-_ALLOWED_TRIGGER_KINDS = frozenset({"alert", "incident", "room", "interaction"})
-_ALLOWED_OBJECTIVE_KINDS = frozenset({"visit_room", "interaction", "choice"})
+_ALLOWED_TRIGGER_KINDS = frozenset({"alert", "incident", "room", "interaction", "crime", "battlespace"})
+_ALLOWED_OBJECTIVE_KINDS = frozenset({"visit_room", "interaction", "choice", "engagement"})
 
 _registry: dict[str, Any] = {
     "version": 0,
@@ -90,6 +90,11 @@ def _normalize_mission_row(raw: dict, _ref: str) -> tuple[dict | None, str | Non
                 )
             new_obj["prompt"] = str(obj.get("prompt") or "")
             new_obj["choices"] = choices
+        elif kind == "engagement":
+            new_obj["missionTagsAny"] = [
+                str(v) for v in list(obj.get("missionTagsAny") or []) if str(v).strip()
+            ]
+            new_obj["rewards"] = dict(obj.get("rewards") or {})
         objectives.append(new_obj)
 
     row = {

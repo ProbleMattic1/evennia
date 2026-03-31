@@ -139,8 +139,11 @@ urlpatterns = [
     path("missions/accept", views.missions_accept, name="ui-missions-accept"),
     path("missions/choose", views.missions_choose, name="ui-missions-choose"),
     path("missions/decline", views.missions_decline, name="ui-missions-decline"),
+    path("quests/accept", views.quests_accept, name="ui-quests-accept"),
+    path("quests/choose", views.quests_choose, name="ui-quests-choose"),
     path("challenges", views.challenges_state, name="ui-challenges"),
     path("challenges/claim", views.challenges_claim, name="ui-challenges-claim"),
     path("challenges/claim-cadence", views.challenges_claim_cadence, name="ui-challenges-claim-cadence"),
+    path("challenges/claim-all", views.challenges_claim_all, name="ui-challenges-claim-all"),
     path("debug/msg-buffer", views.debug_msg_buffer, name="ui-debug-msg-buffer"),
 ]

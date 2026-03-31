@@ -33,5 +33,6 @@ class Room(ObjectParent, DefaultRoom):
         try:
             moved_obj.missions.sync_global_seeds()
             moved_obj.missions.sync_room(self)
+            moved_obj.quests.sync_room(self)
         except Exception:
             pass

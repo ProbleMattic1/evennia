@@ -16,7 +16,9 @@ from evennia.utils import lazy_property, logger
 from evennia.utils.text2html import parse_html
 from evennia.utils.utils import make_iter
 
+from typeclasses.crime_record import CrimeRecordHandler
 from typeclasses.missions import MissionHandler
+from typeclasses.quests import QuestHandler
 from world.challenges.challenge_handler import ChallengeHandler
 from world.progression import LevelUpEvent, add_xp as rules_add_xp, snapshot as progression_snapshot
 from world.progression_rewards import apply_level_up_rewards
@@ -247,6 +249,14 @@ class Character(ObjectParent, DefaultCharacter):
         return MissionHandler(self)
 
     @lazy_property
+    def crime_record(self):
+        return CrimeRecordHandler(self)
+
+    @lazy_property
+    def quests(self):
+        return QuestHandler(self)
+
+    @lazy_property
     def challenges(self):
         return ChallengeHandler(self)
 
@@ -465,6 +475,10 @@ class Character(ObjectParent, DefaultCharacter):
         # Mirror mission room sync here to consolidate the pipeline
         try:
             self.missions.sync_room(dest)
+        except Exception:
+            pass
+        try:
+            self.quests.on_room_enter(dest)
         except Exception:
             pass
 

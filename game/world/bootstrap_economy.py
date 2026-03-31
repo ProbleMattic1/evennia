@@ -13,6 +13,9 @@ from evennia import create_object, create_script, search_object, search_script
 SCRIPT_PATH = "typeclasses.economy.EconomyEngine"
 SCRIPT_KEY = "global_economy"
 
+# Seeded on first ledger creation for treasury:alpha-prime only (see bootstrap loop).
+INITIAL_ALPHA_PRIME_TREASURY_CR = 10_000_000_000
+
 COMMODITY_DEMAND_PATH = "typeclasses.commodity_demand.CommodityDemandEngine"
 COMMODITY_DEMAND_KEY = "commodity_demand"
 
@@ -98,7 +101,14 @@ def bootstrap_economy():
         bank.db.bank_id = bank_id
         treasury_account = econ.get_treasury_account(bank_id)
         bank.db.treasury_account = treasury_account
-        econ.ensure_account(treasury_account, opening_balance=int(econ.get_balance(treasury_account) or 0))
+        accounts_map = econ.db.accounts or {}
+        is_new = treasury_account not in accounts_map
+        opening = (
+            INITIAL_ALPHA_PRIME_TREASURY_CR
+            if bank_id == "alpha-prime" and is_new
+            else int(accounts_map.get(treasury_account, 0) or 0)
+        )
+        econ.ensure_account(treasury_account, opening_balance=opening)
 
         hub = hub_room_for_venue(venue_id)
         if hub:

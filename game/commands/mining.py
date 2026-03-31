@@ -127,6 +127,7 @@ class CmdSurvey(Command):
         )
         caller.missions.sync_global_seeds()
         caller.missions.sync_interaction(outcome.interaction_key)
+        caller.quests.on_interaction(outcome.interaction_key)
 
 
 class CmdClaimSite(Command):

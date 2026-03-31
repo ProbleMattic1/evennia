@@ -1,60 +1,18 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { PanelExpandButton } from "@/components/panel-expand-button";
+import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
-import { ExitGrid } from "@/components/exit-grid";
+import { OreReceivingBayTiles } from "@/components/ore-receiving-bay-tiles";
 import { StoryPanel } from "@/components/story-panel";
+import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { formatCr as cr } from "@/lib/format-units";
 import { getProcessingState, playInteract } from "@/lib/ui-api";
-import type { OreReceivingBayRow, ProcessingState } from "@/lib/ui-api";
 import { intervalMs, isUiPollPaused } from "@/lib/ui-refresh-policy";
 import { useUiResource } from "@/lib/use-ui-resource";
-
-function haulerDeliveryBadgeLabel(mode: string): string {
-  if (mode === "ore_receiving_bay") return "Ore Receiving Bay";
-  if (mode === "local_raw_reserve") return "Local raw reserve";
-  return mode;
-}
-
-function OreReceivingBayGrid({ rows }: { rows: OreReceivingBayRow[] }) {
-  const maxTons = useMemo(() => rows.reduce((m, r) => Math.max(m, r.tons), 0), [rows]);
-  return (
-    <div className="mt-2 max-h-52 overflow-y-auto space-y-1.5 pr-0.5">
-      {rows.map((r) => {
-        const pct = maxTons > 0 ? Math.min(100, (r.tons / maxTons) * 100) : 0;
-        return (
-          <div
-            key={r.key}
-            className="rounded border border-cyan-900/35 bg-zinc-950/60 px-1.5 py-1 dark:border-cyan-900/35"
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="min-w-0 truncate text-xs font-medium text-zinc-800 dark:text-foreground" title={r.key}>
-                {r.displayName}
-              </span>
-              <span className="shrink-0 font-mono tabular-nums text-xs text-cyber-cyan">
-                {r.tons.toLocaleString(undefined, { maximumFractionDigits: 2 })}t
-              </span>
-            </div>
-            <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-ui-muted">
-              <span className="min-w-0 flex-1 h-1 rounded-full bg-zinc-200 dark:bg-cyan-950/70">
-                <span
-                  className="block h-1 rounded-full bg-emerald-500/80 transition-all"
-                  style={{ width: `${pct}%` }}
-                />
-              </span>
-              <span className="shrink-0 font-mono tabular-nums" title="Estimated value at local bids (credits)">
-                {cr(r.estimatedValueCr)}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -62,109 +20,6 @@ function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-xs text-ui-muted">{label}</span>
       <span className="font-mono text-sm font-semibold tabular-nums text-zinc-800 dark:text-foreground">{value}</span>
     </div>
-  );
-}
-
-function StorageBar({ used, capacity }: { used: number; capacity: number }) {
-  const pct = capacity > 0 ? Math.min(100, (used / capacity) * 100) : 0;
-  const color =
-    pct < 60 ? "bg-emerald-500" : pct < 85 ? "bg-amber-400" : "bg-red-500";
-  return (
-    <div className="mt-1">
-      <div className="flex justify-between text-xs text-ui-muted mb-0.5">
-        <span>{used.toLocaleString(undefined, { maximumFractionDigits: 1 })}t used</span>
-        <span>{capacity.toLocaleString(undefined, { maximumFractionDigits: 0 })}t cap</span>
-      </div>
-      <div className="h-1.5 w-full rounded-full bg-zinc-200 dark:bg-cyan-950/50">
-        <div
-          className={`h-1.5 rounded-full transition-all ${color}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function MinerSection({ data }: { data: ProcessingState }) {
-  const { myOreQueued, myRefinedOutput, myRefinedOutputValue, myHaulers, processingFeeRate } =
-    data;
-
-  if (myOreQueued === null) {
-    return (
-      <section>
-        <div className="mb-1 text-xs font-bold uppercase tracking-widest text-cyber-cyan">Your Activity</div>
-        <p className="mt-1 text-xs text-ui-accent-readable">Sign in to see your ore queue and output.</p>
-      </section>
-    );
-  }
-
-  const hasOutput = myRefinedOutput && Object.keys(myRefinedOutput).length > 0;
-
-  return (
-    <section>
-      <div className="mb-1 text-xs font-bold uppercase tracking-widest text-cyber-cyan">Your Activity</div>
-      <div className="mt-1 space-y-0.5">
-        <StatRow
-          label="Ore queued for processing"
-          value={`${myOreQueued.toLocaleString(undefined, { maximumFractionDigits: 1 })}t`}
-        />
-        {myRefinedOutputValue !== null && (
-          <StatRow
-            label={`Refined output (gross, before ${(processingFeeRate * 100).toFixed(0)}% fee)`}
-            value={
-              <>
-                {myRefinedOutputValue.toLocaleString()}{" "}
-                <span className="text-amber-700 dark:text-amber-400">cr</span>
-              </>
-            }
-          />
-        )}
-        {myRefinedOutputValue !== null && myRefinedOutputValue > 0 && (
-          <StatRow
-            label="Net payout after fee"
-            value={
-              <>
-                {Math.floor(myRefinedOutputValue * (1 - processingFeeRate)).toLocaleString()}{" "}
-                <span className="text-amber-700 dark:text-amber-400">cr</span>
-              </>
-            }
-          />
-        )}
-      </div>
-
-      {hasOutput && (
-        <p className="mt-2 text-xs text-ui-accent-readable">
-          Collect your output with{" "}
-          <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs text-zinc-700 dark:bg-cyan-950/50 dark:text-cyber-cyan">
-            collectrefined
-          </code>{" "}
-          at the Processing Plant.
-        </p>
-      )}
-
-      {myHaulers && myHaulers.length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ui-accent-readable">
-            Hauler delivery
-          </p>
-          <div className="mt-1 space-y-0.5">
-            {myHaulers.map((h) => (
-              <div key={h.id} className="flex items-center justify-between gap-2">
-                <span className="truncate text-xs text-ui-muted dark:text-foreground">{h.key}</span>
-                <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs font-medium text-ui-soft ring-1 ring-zinc-200 dark:bg-cyan-950/40 dark:text-cyber-cyan dark:ring-cyan-800/50">
-                  {haulerDeliveryBadgeLabel(h.deliveryMode)}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-1.5 text-xs text-ui-accent-readable">
-            At the plant, haulers unload into the Ore Receiving Bay and you are paid on delivery. Use
-            feedrefinery to move ore from the bay into refining when you want processing; collectrefined
-            for refined payout. For a personal processor, use feedprocessor in that room.
-          </p>
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -227,6 +82,8 @@ function ProcessingPageInner() {
     return () => window.clearInterval(id);
   }, [reload]);
 
+  const [marketSnapshotOpen, setMarketSnapshotOpen] = useDashboardPanelOpen("processing:market-snapshot", true);
+
   if (loading) {
     return (
       <CsPage>
@@ -245,6 +102,20 @@ function ProcessingPageInner() {
     );
   }
 
+  const FEE = 0.03;
+  const oreRows = data.oreReceivingBay ?? [];
+  const rollup = oreRows.reduce(
+    (acc, r) => {
+      const est = typeof r.estimatedValueCr === "number" && !Number.isNaN(r.estimatedValueCr) ? r.estimatedValueCr : 0;
+      acc.market += est;
+      acc.spent += Math.floor(est * (1 - FEE));
+      acc.sell += Math.floor(est * (1 + FEE));
+      return acc;
+    },
+    { spent: 0, market: 0, sell: 0 },
+  );
+  const net = rollup.sell - rollup.spent;
+
   return (
     <CsPage>
       <CsHeader
@@ -252,79 +123,63 @@ function ProcessingPageInner() {
         subtitle={data.roomName}
         actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
-      <CsColumns
-        left={
-          <>
-            <CsPanel title="Destinations">
-              <ExitGrid exits={data.exits} />
-            </CsPanel>
+      <div className="flex flex-col gap-1.5 p-1.5">
+        <div className="min-w-0">
+          <CsPanel title="Live Pricing">
+            <CommodityTickerStrip />
+          </CsPanel>
+        </div>
+        <div className="grid gap-1.5 lg:grid-cols-2">
+          <div className="min-w-0">
             <CsPanel title="Plant Output">
               <StoryPanel title="Plant Output" lines={data.storyLines} />
             </CsPanel>
-            <CsPanel title="Ore Receiving Bay">
-              <StorageBar used={data.rawStorageUsed} capacity={data.rawStorageCapacity} />
-              <OreReceivingBayGrid rows={data.oreReceivingBay ?? []} />
-              <div className="mt-2 space-y-0.5">
-                <StatRow
-                  label="Plant buys your raw (from bay / storage)"
-                  value={`${(data.rawSaleFeeRate * 100).toFixed(0)}% hassle fee on bid total; you receive the rest`}
-                />
-                <StatRow
-                  label="You buy raw from the plant"
-                  value={`Ask = bid + ${(data.rawAskPremiumRate * 100).toFixed(0)}%`}
-                />
-              </div>
-            </CsPanel>
+          </div>
+          <div className="min-w-0">
             <CsPanel title="Procurement board">
               <ProcurementBoardPanel />
             </CsPanel>
-          </>
-        }
-        right={
-          <>
-            <CsPanel title="Market Snapshot">
-              <CommodityTickerStrip />
-            </CsPanel>
-            <CsPanel title="Shared Refinery">
-              <div className="mt-1 space-y-0.5">
-                <StatRow
-                  label="Shared pool input"
-                  value={`${data.refineryInputTons.toLocaleString(undefined, { maximumFractionDigits: 1 })}t`}
-                />
-                <StatRow
-                  label="Shared pool output value"
-                  value={
-                    <>
-                      {data.refineryOutputValue.toLocaleString()}{" "}
-                      <span className="text-amber-700 dark:text-amber-400">cr</span>
-                    </>
-                  }
-                />
-                <StatRow
-                  label="Attributed ore queue (all miners)"
-                  value={`${data.minerQueueOreTons.toLocaleString(undefined, { maximumFractionDigits: 1 })}t`}
-                />
-                <StatRow
-                  label="Attributed output value (gross)"
-                  value={
-                    <>
-                      {data.minerOutputValueTotal.toLocaleString()}{" "}
-                      <span className="text-amber-700 dark:text-amber-400">cr</span>
-                    </>
-                  }
-                />
-                <StatRow label="Processing fee" value={`${(data.processingFeeRate * 100).toFixed(0)}%`} />
-              </div>
-            </CsPanel>
-            <CsPanel title="Your Activity">
-              <MinerSection data={data} />
-            </CsPanel>
-            <CsPanel title="Commodity Board">
-              <CommodityTickerTable />
-            </CsPanel>
-          </>
-        }
-      />
+          </div>
+        </div>
+
+        <section className="mb-1 min-w-0">
+          <div className="flex min-w-0 flex-nowrap items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest text-cyber-cyan">
+            <span className="min-w-0 truncate text-cyber-cyan">Market Snapshot</span>
+            <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
+              <span className="min-w-0 truncate text-right font-mono text-ui-caption font-normal whitespace-nowrap">
+                <span className="text-ui-muted">spent </span>
+                <span className="text-cyber-cyan/90">{cr(rollup.spent)}</span>
+                <span className="text-ui-muted"> · </span>
+                <span className="text-ui-muted">mkt </span>
+                <span className="text-cyber-cyan/90">{cr(rollup.market)}</span>
+                <span className="text-ui-muted"> · </span>
+                <span className="text-ui-muted">sell </span>
+                <span className="text-cyber-cyan/90">{cr(rollup.sell)}</span>
+                <span className="text-ui-muted"> · </span>
+                <span className="text-ui-muted">net </span>
+                <span className="text-cyber-cyan/90">{cr(net)}</span>
+              </span>
+              <PanelExpandButton
+                open={marketSnapshotOpen}
+                onClick={() => setMarketSnapshotOpen((v) => !v)}
+                aria-label={`${marketSnapshotOpen ? "Collapse" : "Expand"} Market Snapshot`}
+                className="shrink-0"
+              />
+            </div>
+          </div>
+          {marketSnapshotOpen ? (
+            <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5">
+              <OreReceivingBayTiles rows={oreRows} />
+            </div>
+          ) : null}
+        </section>
+
+        <div className="min-w-0">
+          <CsPanel title="Commodity Board">
+            <CommodityTickerTable />
+          </CsPanel>
+        </div>
+      </div>
     </CsPage>
   );
 }

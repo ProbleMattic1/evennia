@@ -34,8 +34,10 @@ class CmdAskParcelCommuter(Command):
         caller.msg(dialogue)
         caller.missions.sync_global_seeds()
         caller.missions.sync_interaction(interaction_key)
+        caller.quests.on_interaction(interaction_key)
         if caller.location:
             caller.missions.sync_room(caller.location)
+            caller.quests.sync_room(caller.location)
 
 
 class CmdAskParcelClerk(Command):
@@ -61,5 +63,7 @@ class CmdAskParcelClerk(Command):
         caller.msg(dialogue)
         caller.missions.sync_global_seeds()
         caller.missions.sync_interaction(interaction_key)
+        caller.quests.on_interaction(interaction_key)
         if caller.location:
             caller.missions.sync_room(caller.location)
+            caller.quests.sync_room(caller.location)

@@ -19,12 +19,14 @@ ORE_RECEIVING_BAY_CAPACITY_TONS = 50_000.0
 
 def _get_or_create_refinery_receiving_storage(room):
     """Ensure an Ore Receiving Bay MiningStorage exists in the refinery room."""
+    from typeclasses.haulers import ORE_RECEIVING_BAY_TAG, ORE_RECEIVING_BAY_TAG_CATEGORY
     from typeclasses.mining import MiningStorage
     from evennia import create_object
 
     for obj in room.contents:
         if obj.tags.has("mining_storage", category="mining") and obj.key == "Ore Receiving Bay":
             obj.db.capacity_tons = ORE_RECEIVING_BAY_CAPACITY_TONS
+            obj.tags.add(ORE_RECEIVING_BAY_TAG, category=ORE_RECEIVING_BAY_TAG_CATEGORY)
             return obj
     storage = create_object(
         MiningStorage,
@@ -37,6 +39,7 @@ def _get_or_create_refinery_receiving_storage(room):
         "Sell-mode ore is held here for automated plant processing."
     )
     storage.db.capacity_tons = ORE_RECEIVING_BAY_CAPACITY_TONS
+    storage.tags.add(ORE_RECEIVING_BAY_TAG, category=ORE_RECEIVING_BAY_TAG_CATEGORY)
     return storage
 
 

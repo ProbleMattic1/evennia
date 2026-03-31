@@ -1,0 +1,94 @@
+[
+  {
+    "id": "main_dock_pressure_01",
+    "title": "Pressure at the Dock",
+    "summary": "Local operators want a cut. You can push back, pay, or slip past.",
+    "questKind": "main",
+    "storylineId": "arc_dock_wars",
+    "threadId": "t1",
+    "version": 1,
+    "trigger": {
+      "kind": "room",
+      "roomKeysAny": ["promenade_dock_gate"]
+    },
+    "prerequisites": {
+      "completedQuestIdsAny": [],
+      "flagsAll": []
+    },
+    "eligibility": {
+      "once": true,
+      "maxActive": 1
+    },
+    "rewards": {},
+    "unlockQuestIds": ["main_dock_pressure_02"],
+    "objectives": [
+      {
+        "id": "hear_rumor",
+        "kind": "interaction",
+        "text": "Learn what the dock crew is planning.",
+        "interactionKeysAny": ["dock_crew_rumor"]
+      },
+      {
+        "id": "standoff",
+        "kind": "resolve_situation",
+        "text": "Deal with the shakedown. Fighting works; so does paying or finding another way.",
+        "paths": [
+          {
+            "via": "signal",
+            "signal": "combat_victory",
+            "completionKey": "fought_through",
+            "match": { "encounter_id": "dock_ambush_01" }
+          },
+          {
+            "via": "interaction",
+            "completionKey": "paid_them_off",
+            "interactionKeysAny": ["dock_shakedown_pay"]
+          },
+          {
+            "via": "interaction",
+            "completionKey": "used_service_tunnel",
+            "interactionKeysAny": ["dock_sneak_service_tunnel"]
+          }
+        ]
+      },
+      {
+        "id": "debrief",
+        "kind": "visit_room",
+        "text": "Report to your contact.",
+        "roomKeysAny": ["office_station_liaison"]
+      }
+    ]
+  },
+  {
+    "id": "main_dock_pressure_02",
+    "title": "After the Dock",
+    "summary": "Follow-up beat placeholder; unlocked when the first dock arc completes.",
+    "questKind": "main",
+    "storylineId": "arc_dock_wars",
+    "threadId": "t2",
+    "version": 1,
+    "trigger": {
+      "kind": "manual",
+      "roomKeysAny": [],
+      "interactionKeysAny": []
+    },
+    "prerequisites": {
+      "completedQuestIdsAny": ["main_dock_pressure_01"],
+      "flagsAll": []
+    },
+    "eligibility": {
+      "once": true,
+      "maxActive": 1
+    },
+    "rewards": {},
+    "unlockQuestIds": [],
+    "objectives": [
+      {
+        "id": "await_contact",
+        "kind": "visit_room",
+        "text": "Check in when content is wired.",
+        "roomKeysAny": ["promenade_dock_gate"]
+      }
+    ]
+  }
+]

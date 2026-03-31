@@ -76,7 +76,7 @@ class MissionHandler:
 
     def _should_mark_source_seen(self, source: dict[str, Any]) -> bool:
         kind = str(source.get("kind") or "").strip().lower()
-        return kind in {"alert", "incident", "followup"}
+        return kind in {"alert", "incident", "followup", "crime", "battlespace"}
 
     def _source_seen(self, source_key: str) -> bool:
         return source_key in set(self._state.get("seenSources") or [])
@@ -405,6 +405,32 @@ class MissionHandler:
                 continue
             valid = {str(v).strip().lower() for v in list(objective.get("interactionKeysAny") or [])}
             if interaction_key in valid:
+                self._complete_objective_and_advance(mission, tmpl, objective)
+                changed = True
+        if changed:
+            self._save()
+
+    def _progress_engagement(self, engagement_state: dict) -> None:
+        """
+        Called by SpaceEngagement._broadcast_end when a fight closes.
+        Advances any active mission objective of kind="engagement" whose
+        missionTagsAny intersects the engagement state's mission_tags.
+        """
+        tags = set(engagement_state.get("mission_tags") or [])
+        if not tags:
+            return
+        changed = False
+        for mission in list(self._state.get("active") or []):
+            tmpl = get_mission_template(mission.get("templateId") or "")
+            if not tmpl:
+                continue
+            objective = self._current_objective(mission, tmpl)
+            if not objective or objective.get("kind") != "engagement":
+                continue
+            required = {str(v).strip() for v in list(objective.get("missionTagsAny") or [])}
+            if required & tags:
+                rewards = dict(objective.get("rewards") or {})
+                self._apply_rewards(rewards)
                 self._complete_objective_and_advance(mission, tmpl, objective)
                 changed = True
         if changed:

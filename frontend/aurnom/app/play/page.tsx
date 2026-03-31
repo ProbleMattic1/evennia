@@ -6,7 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
 import { ExitGrid } from "@/components/exit-grid";
-import { MineDetailsPanel, MinePlayRightColumn, PlayMissionsPanel } from "@/components/mine-details-panel";
+import {
+  MineDetailsPanel,
+  MinePlayRightColumn,
+  PlayMissionsPanel,
+  PlayQuestsPanel,
+} from "@/components/mine-details-panel";
 import { StoryPanel } from "@/components/story-panel";
 import { getPlayState } from "@/lib/ui-api";
 import { UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
@@ -54,6 +59,9 @@ function PlayPageInner() {
       <>
         <CsPanel title="Missions">
           <PlayMissionsPanel onPlayReload={reload} />
+        </CsPanel>
+        <CsPanel title="Main quests">
+          <PlayQuestsPanel onPlayReload={reload} />
         </CsPanel>
         <CsPanel title="Mine detail">
           <MinePlayRightColumn site={data.site} playActions={data.actions} onPlayReload={reload} />

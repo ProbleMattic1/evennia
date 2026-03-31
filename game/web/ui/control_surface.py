@@ -33,7 +33,6 @@ from world.venue_resolve import hub_for_object, processing_plant_room_for_object
 
 from .client_poll_hints import CLIENT_POLL_HINTS_MS
 from .dashboard_ships import dashboard_ship_row
-from .ore_receiving_bay_serialize import serialize_ore_receiving_bay_rows
 from .views import (
     _dashboard_inventory_item_for_obj,
     _dashboard_property_portfolio,
@@ -46,7 +45,7 @@ from .views import (
 )
 
 # v2: ``resources``, ``nav.resources``, ``production*`` aggregate keys (``mines`` / ``mining*`` retained).
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3  # processing: removed refinery/miner-queue/refined-owner fields
 
 
 def _world_production_pipeline_from_telemetry():
@@ -253,92 +252,16 @@ def _serialize_personal_storage(char):
 
 
 def _serialize_processing_summary(char):
-    from typeclasses.haulers import get_plant_ore_receiving_bay
-    from typeclasses.mining import COMMODITY_ASK_OVER_BID
-    from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE, REFINING_RECIPES
+    from web.ui.processing_read_model import build_processing_plant_payload
 
     room = processing_plant_room_for_object(char) if char else None
     if not room:
         return None
-
-    receiving_bay = get_plant_ore_receiving_bay(room)
-    refinery_obj = None
-    for obj in room.contents:
-        if refinery_obj is None and obj.is_typeclass(
-            "typeclasses.refining.Refinery", exact=False
-        ):
-            refinery_obj = obj
-
-    raw_used = 0.0
-    raw_cap = 0.0
-    if receiving_bay:
-        raw_used = receiving_bay.total_mass() if hasattr(receiving_bay, "total_mass") else 0.0
-        raw_cap = float(getattr(receiving_bay.db, "capacity_tons", 0) or 0)
-
-    refinery_input_tons = 0.0
-    refinery_output_value = 0
-    miner_queue_ore_tons = 0.0
-    miner_output_value_total = 0
-    if refinery_obj:
-        in_inv = refinery_obj.db.input_inventory or {}
-        refinery_input_tons = round(sum(float(v) for v in in_inv.values()), 2)
-        out_inv = refinery_obj.db.output_inventory or {}
-        for key, units in out_inv.items():
-            recipe = REFINING_RECIPES.get(key, {})
-            refinery_output_value += int(units * recipe.get("base_value_cr", 0))
-        miner_queue_ore_tons = refinery_obj.get_total_miner_ore_queued_tons()
-        miner_output_value_total = refinery_obj.get_total_miner_output_value()
-
-    my_ore_queued = None
-    my_refined_output = None
-    my_refined_output_value = None
-    my_haulers = None
-
-    if char and refinery_obj:
-        owner_id = str(char.id)
-        my_ore_queued = refinery_obj.get_miner_ore_queued_tons(owner_id)
-        my_refined_output = refinery_obj.get_miner_output(owner_id)
-        my_refined_output_value = refinery_obj.get_miner_output_value(owner_id)
-
-        haulers = []
-        for entry in (char.db.owned_vehicles or []):
-            h = entry if hasattr(entry, "key") else None
-            if not h:
-                continue
-            if (
-                h.tags.has("autonomous_hauler", category="mining")
-                or h.tags.has("autonomous_hauler", category="flora")
-                or h.tags.has("autonomous_hauler", category="fauna")
-            ):
-                haulers.append({
-                    "id": h.id,
-                    "key": h.key,
-                    "deliveryMode": (
-                        "local_raw_reserve"
-                        if getattr(char.db, "haul_delivers_to_local_raw_storage", False)
-                        else "ore_receiving_bay"
-                    ),
-                })
-        my_haulers = haulers
-
-    return {
-        "venueId": venue_id_for_object(char) if char else None,
-        "plantName": room.key,
-        "oreReceivingBay": serialize_ore_receiving_bay_rows(receiving_bay, room),
-        "rawStorageUsed": raw_used,
-        "rawStorageCapacity": raw_cap,
-        "refineryInputTons": refinery_input_tons,
-        "refineryOutputValue": refinery_output_value,
-        "minerQueueOreTons": miner_queue_ore_tons,
-        "minerOutputValueTotal": miner_output_value_total,
-        "processingFeeRate": PROCESSING_FEE_RATE,
-        "rawSaleFeeRate": RAW_SALE_FEE_RATE,
-        "rawAskPremiumRate": float(COMMODITY_ASK_OVER_BID) - 1.0,
-        "myOreQueued": my_ore_queued,
-        "myRefinedOutput": my_refined_output,
-        "myRefinedOutputValue": my_refined_output_value,
-        "myHaulers": my_haulers,
-    }
+    return build_processing_plant_payload(
+        room,
+        char_for_haulers=char,
+        venue_id=venue_id_for_object(char) if char else None,
+    )
 
 
 def _serialize_market():
@@ -497,6 +420,12 @@ _EMPTY_MISSIONS = {
     "active": [],
     "completed": [],
 }
+_EMPTY_QUESTS = {
+    "flags": {},
+    "opportunities": [],
+    "active": [],
+    "completed": [],
+}
 _EMPTY_NAV = {
     "hubRoomKey": "",
     "exits": [],
@@ -580,6 +509,7 @@ def control_surface_state(request):
         "alerts": [],
         "groupedAlerts": _EMPTY_ALERTS,
         "missions": _EMPTY_MISSIONS,
+        "quests": _EMPTY_QUESTS,
         "nav": _EMPTY_NAV,
         "roomExits": [],
         "treasuryBalance": treasury_balance,
@@ -629,7 +559,9 @@ def control_surface_state(request):
     char.missions.sync_global_seeds()
     if char.location:
         char.missions.sync_room(char.location)
+        char.quests.on_room_enter(char.location)
     missions = char.missions.serialize_for_web()
+    quests = char.quests.serialize_for_web()
 
     char.challenges.sync_all_windows()
     char.challenges.evaluate_window()
@@ -689,6 +621,7 @@ def control_surface_state(request):
         "alerts": alerts,
         "groupedAlerts": grouped_alerts,
         "missions": missions,
+        "quests": quests,
         "challenges": challenges,
         "nav": nav,
         "roomExits": room_exits,

@@ -39,6 +39,7 @@ _EVENT_DISPATCH: dict[str, str] = {
     "miner_payout": "_handle_miner_payout",
     "parcel_visited": "_handle_property_op",
     "balance_snapshot": "_handle_balance_snapshot",
+    "space_engagement": "_handle_space_engagement",
 }
 
 
@@ -196,3 +197,36 @@ def _handle_miner_payout(handler: "ChallengeHandler", payload: dict) -> None:
 def _handle_balance_snapshot(handler: "ChallengeHandler", payload: dict) -> None:
     balance = int(payload.get("balance") or 0)
     handler.take_balance_snapshot(balance)
+
+
+def _handle_space_engagement(handler: "ChallengeHandler", payload: dict) -> None:
+    """Telemetry from space combat resolver + engagement close."""
+    tel = handler.telemetry
+    day = window_key_for_cadence("daily")
+    if tel.get("space_engagement_day_key") != day:
+        tel["space_engagement_day_key"] = day
+        tel["space_engagement_events_today"] = 0
+        tel["space_engagement_completions_today"] = 0
+        tel["space_under_fire_events_today"] = 0
+        tel["space_heat_stress_events_today"] = 0
+
+    tel["space_engagement_events_today"] = int(tel.get("space_engagement_events_today") or 0) + 1
+
+    kind = str(payload.get("kind") or "")
+
+    under_fire_kinds = frozenset({
+        "kinetic_hit",
+        "missile_hit",
+        "heat_warning",
+        "heat_critical",
+    })
+    if kind in under_fire_kinds and payload.get("target_is_player"):
+        tel["space_under_fire_events_today"] = int(tel.get("space_under_fire_events_today") or 0) + 1
+
+    if kind == "heat_critical":
+        tel["space_heat_stress_events_today"] = int(tel.get("space_heat_stress_events_today") or 0) + 1
+
+    if kind == "engagement_closed":
+        tel["space_engagement_completions_today"] = int(
+            tel.get("space_engagement_completions_today") or 0
+        ) + 1

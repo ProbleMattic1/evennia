@@ -46,7 +46,9 @@ from commands.manufacturing import (
     CmdQueueFab,
     CmdWorkshopStatus,
 )
+from commands.crime import CmdCrime, CmdReloadCrime
 from commands.missions import CmdMissionAccept, CmdMissionChoose, CmdMissions
+from commands.quests import CmdQuestAccept, CmdQuestChoose, CmdQuests
 from commands.property_ops import (
     CmdBuildProperty,
     CmdBuyPropertyDeed,
@@ -73,6 +75,22 @@ from commands.challenges import CmdChallengeInfo, CmdGrantChallenge, CmdReloadCh
 from commands.progression import CmdGrantXP
 from commands.reload_ambient import CmdReloadAmbient
 from commands.reload_missions import CmdReloadMissions
+from commands.reload_quests import CmdReloadQuests
+from commands.battlespace import CmdReloadBattlespace
+from commands.space_combat import (
+    CmdEngage,
+    CmdDisengage,
+    CmdVStatus,
+    CmdBurn,
+    CmdColdCoast,
+    CmdJink,
+    CmdSpike,
+    CmdGhost,
+    CmdSeduction,
+    CmdFox,
+    CmdKinetic,
+    CmdPDC,
+)
 from commands.shop import CmdBuy, CmdShop
 from commands.vehicles import (
     CmdBoardVehicle,
@@ -163,8 +181,24 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdMissions())
         self.add(CmdMissionAccept())
         self.add(CmdMissionChoose())
+        self.add(CmdCrime())
+        self.add(CmdQuests())
+        self.add(CmdQuestAccept())
+        self.add(CmdQuestChoose())
         self.add(CmdChallengeClaim())
         self.add(CmdGrantXP())
+        self.add(CmdEngage())
+        self.add(CmdDisengage())
+        self.add(CmdVStatus())
+        self.add(CmdBurn())
+        self.add(CmdColdCoast())
+        self.add(CmdJink())
+        self.add(CmdSpike())
+        self.add(CmdGhost())
+        self.add(CmdSeduction())
+        self.add(CmdFox())
+        self.add(CmdKinetic())
+        self.add(CmdPDC())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
@@ -176,6 +210,9 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
         self.add(CmdCharCreate())
         self.add(CmdReloadAmbient())
         self.add(CmdReloadMissions())
+        self.add(CmdReloadCrime())
+        self.add(CmdReloadQuests())
+        self.add(CmdReloadBattlespace())
         self.add(CmdReloadChallenges())
         self.add(CmdChallengeInfo())
         self.add(CmdGrantChallenge())

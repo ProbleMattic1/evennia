@@ -167,7 +167,7 @@ function CadenceSection({
       <div className="flex min-w-0 flex-wrap items-start gap-x-1 gap-y-1 sm:items-center">
         <span className="min-w-0 flex-1 basis-[min(100%,10rem)] truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan sm:basis-auto">
           {label}
-          {completedCount > 0 ? (
+          {total > 0 ? (
             <span className="ml-1 font-mono font-normal normal-case tracking-normal">
               <span className="text-cyber-cyan">{completedCount}</span>
               <span className="text-ui-muted">/</span>
@@ -218,6 +218,8 @@ type Props = {
   challenges: ChallengesState;
   onClaimChallenge?: (challengeId: string, windowKey: string) => void | Promise<void>;
   onClaimCadence?: (cadence: string) => void | Promise<void>;
+  /** Claim every cadence that has at least one completed (unclaimed) challenge; ordered for stable UX. */
+  onClaimAll?: (cadences: string[]) => void | Promise<void>;
   claimBusy?: boolean;
 };
 
@@ -229,11 +231,16 @@ export function ChallengesPanel({
   challenges,
   onClaimChallenge,
   onClaimCadence,
+  onClaimAll,
   claimBusy,
 }: Props) {
   const active = challenges.active ?? [];
   const history = challenges.history ?? [];
   const [panelOpen, setPanelOpen] = useDashboardPanelOpen("challenges", true);
+
+  const cadencesToClaimAll = [...new Set(active.filter((e) => e.status === "complete").map((e) => e.cadence ?? "daily"))].sort(
+    (a, b) => (CADENCE_ORDER[a] ?? 99) - (CADENCE_ORDER[b] ?? 99),
+  );
 
   const grouped: CadenceGroup[] = Object.values(
     active.reduce<Record<string, CadenceGroup>>((acc, entry) => {
@@ -265,7 +272,7 @@ export function ChallengesPanel({
   return (
     <section className="mb-1">
       <div
-        className={`${PANEL_HEADER} max-sm:flex-col max-sm:items-stretch max-sm:gap-y-1 sm:items-center`}
+        className={`${PANEL_HEADER} flex-nowrap`}
       >
         <div className="flex min-w-0 items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-cyber-cyan">Challenges</span>
@@ -275,9 +282,9 @@ export function ChallengesPanel({
             </span>
           ) : null}
         </div>
-        <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 normal-case tracking-normal sm:ml-auto">
+        <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1 normal-case tracking-normal">
           {totalComplete > 0 || totalActive > 0 ? (
-            <span className="min-w-0 truncate text-right font-mono text-ui-caption font-normal">
+            <span className="min-w-0 truncate text-right font-mono text-ui-caption font-normal whitespace-nowrap">
               {totalComplete > 0 ? (
                 <>
                   <span className="text-cyber-cyan">{totalComplete}</span>
@@ -292,6 +299,16 @@ export function ChallengesPanel({
                 </>
               ) : null}
             </span>
+          ) : null}
+          {cadencesToClaimAll.length > 0 && onClaimAll ? (
+            <button
+              type="button"
+              disabled={claimBusy}
+              onClick={() => void onClaimAll(cadencesToClaimAll)}
+              className="shrink-0 rounded border border-amber-600/50 bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400 hover:bg-amber-900/30 disabled:opacity-40"
+            >
+              Claim all
+            </button>
           ) : null}
           <PanelExpandButton
             open={panelOpen}

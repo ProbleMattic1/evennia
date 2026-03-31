@@ -53,6 +53,12 @@ State schema (stored under Attribute key "_challenges", category="challenges"):
         "rooms_ever": [int, ...],           # capped list of first-seen room dbids
         "venues_ever": [str, ...],          # venue_ids visited
         "locator_zones_ever": [str, ...],   # locator zone ids ever visited
+    # space combat (daily reset via space_engagement_day_key)
+    "space_engagement_day_key": str,
+    "space_engagement_events_today": int,
+    "space_engagement_completions_today": int,
+    "space_under_fire_events_today": int,
+    "space_heat_stress_events_today": int,
     },
 }
 """
@@ -123,6 +129,11 @@ def _blank_state() -> dict[str, Any]:
             "rooms_ever": [],
             "venues_ever": [],
             "locator_zones_ever": [],
+            "space_engagement_day_key": "",
+            "space_engagement_events_today": 0,
+            "space_engagement_completions_today": 0,
+            "space_under_fire_events_today": 0,
+            "space_heat_stress_events_today": 0,
         },
     }
 
