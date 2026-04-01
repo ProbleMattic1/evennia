@@ -12,7 +12,9 @@ import {
   getRefineryState,
   postRefineryCollectRefined,
   postRefineryFeedSilo,
+  postRefineryQueueRecipe,
   type RefineryCollectPreview,
+  type RefiningRecipeRow,
   type RefineryState,
 } from "@/lib/ui-api";
 import { intervalMs, isUiPollPaused } from "@/lib/ui-refresh-policy";
@@ -119,6 +121,16 @@ function RefineryLoaded({ data, reload }: { data: RefineryState; reload: () => v
   const storageRows = useMemo(() => flattenPersonalStorage(personalStorage), [personalStorage]);
   const storageTons = useMemo(() => totalPersonalStorageTons(personalStorage), [personalStorage]);
   const canAct = Boolean(data.refineryWebActionsAllowed) && Boolean(venueId);
+  const plantSiloTonsByKey = data.plantSiloTonsByKey ?? {};
+
+  function canQueueOneBatch(rec: RefiningRecipeRow): boolean {
+    const entries = Object.entries(rec.inputs);
+    if (entries.length === 0) return false;
+    return entries.every(([k, need]) => {
+      const have = plantSiloTonsByKey[k] ?? 0;
+      return have + 1e-9 >= Number(need);
+    });
+  }
 
   const runAction = useCallback(
     async (fn: () => Promise<void>) => {
@@ -139,8 +151,8 @@ function RefineryLoaded({ data, reload }: { data: RefineryState; reload: () => v
   return (
     <CsPage>
       <CsHeader
-        title={data.refineryKey}
-        subtitle={data.roomName}
+        title={data.webPageTitle ?? "Refinery"}
+        subtitle={data.webPageSubtitle ?? ""}
         actions={
           <div className="flex flex-wrap gap-1">
             <CsButtonLink href="/processing">Processing plant</CsButtonLink>
@@ -381,6 +393,7 @@ function RefineryLoaded({ data, reload }: { data: RefineryState; reload: () => v
                     <th className="px-1.5 py-1 font-semibold text-right">Out u</th>
                     <th className="px-1.5 py-1 font-semibold text-right">CR/u</th>
                     <th className="px-1.5 py-1 font-semibold">Cat</th>
+                    <th className="px-1.5 py-1 font-semibold text-right"> </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -396,6 +409,22 @@ function RefineryLoaded({ data, reload }: { data: RefineryState; reload: () => v
                       <td className="px-1.5 py-1 text-right font-mono tabular-nums">{rec.outputUnits}</td>
                       <td className="px-1.5 py-1 text-right font-mono tabular-nums">{cr(rec.baseValueCrPerUnit)}</td>
                       <td className="px-1.5 py-1 text-ui-muted">{rec.category}</td>
+                      <td className="px-1.5 py-1 text-right">
+                        {data.myMinerOreQueueLines && canAct && canQueueOneBatch(rec) ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className={BTN}
+                            onClick={() =>
+                              void runAction(async () => {
+                                await postRefineryQueueRecipe({ venue: venueId, recipeKey: rec.key });
+                              })
+                            }
+                          >
+                            Buy
+                          </button>
+                        ) : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

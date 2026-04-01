@@ -29,6 +29,7 @@ from world.time import (
 )
 
 from world.bootstrap_hub import HUB_ROOM_KEY as CORE_HUB_ROOM_KEY
+from world.room_ambient import resolve_room_ambient, resolve_room_venue_id
 from world.venue_resolve import hub_for_object, processing_plant_room_for_object, treasury_bank_id_for_object, venue_id_for_object
 
 from .client_poll_hints import CLIENT_POLL_HINTS_MS
@@ -320,8 +321,18 @@ def _serialize_nav(char, resources):
     required_services = [
         {"key": "bank", "label": "Bank", "href": f"/bank{vqs}"},
         {"key": "real-estate", "label": "Real Estate Agency", "href": f"/real-estate{vqs}"},
-        {"key": "processing", "label": "Processor", "href": f"/processing{vqs}"},
-        {"key": "refinery", "label": "Refinery", "href": f"/refinery{vqs}"},
+        {
+            "key": "processing",
+            "label": "Processor",
+            "href": f"/processing{vqs}",
+            "preNavigate": "go_to_processing_plant",
+        },
+        {
+            "key": "refinery",
+            "label": "Refinery",
+            "href": f"/refinery{vqs}",
+            "preNavigate": "go_to_refinery",
+        },
         {"key": "locator", "label": "Universal Locator", "href": "/locator"},
         {"key": "economy", "label": "Economy", "href": "/economy"},
     ]
@@ -512,6 +523,8 @@ def control_surface_state(request):
         "quests": _EMPTY_QUESTS,
         "nav": _EMPTY_NAV,
         "roomExits": [],
+        "ambient": None,
+        "roomVenueId": None,
         "treasuryBalance": treasury_balance,
         "message": None,
         "minerPayoutLastCycleCr": miner_payout_last_cr,
@@ -592,7 +605,10 @@ def control_surface_state(request):
     properties, property_ref_total = _dashboard_property_portfolio(char)
     processing = _serialize_processing_summary(char)
     nav = _serialize_nav(char, resources)
-    room_exits = _room_exits(char.location) if getattr(char, "location", None) else []
+    loc = getattr(char, "location", None)
+    room_exits = _room_exits(loc) if loc else []
+    room_ambient = resolve_room_ambient(loc) if loc else None
+    room_venue_id = resolve_room_venue_id(loc) if loc else None
 
     return JsonResponse({
         "schemaVersion": SCHEMA_VERSION,
@@ -625,6 +641,8 @@ def control_surface_state(request):
         "challenges": challenges,
         "nav": nav,
         "roomExits": room_exits,
+        "ambient": room_ambient,
+        "roomVenueId": room_venue_id,
         "treasuryBalance": treasury_balance,
         "message": None,
         "minerPayoutLastCycleCr": miner_payout_last_cr,

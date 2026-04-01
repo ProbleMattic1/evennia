@@ -75,6 +75,12 @@ def _find_refinery_in_room(caller, target_fragment=None):
 
     candidates = _refinery_candidates_in_room(loc)
     if not candidates:
+        from world.venue_resolve import refinery_room_for_object
+
+        rroom = refinery_room_for_object(caller)
+        if rroom and getattr(rroom, "id", None) != getattr(loc, "id", None):
+            candidates = _refinery_candidates_in_room(rroom)
+    if not candidates:
         return None
 
     portables = [
@@ -111,13 +117,19 @@ def _find_refinery_in_room(caller, target_fragment=None):
 
 
 def _find_plant_refinery_in_room(caller):
-    """For collectrefined / plant miner queues only."""
+    """For collectrefined / plant miner queues only (current room or venue refinery chamber)."""
     loc = _effective_location(caller)
-    if not loc:
-        return None
-    for o in loc.contents:
-        if o.is_typeclass("typeclasses.refining.Refinery", exact=False):
-            return o
+    if loc:
+        for o in loc.contents:
+            if o.is_typeclass("typeclasses.refining.Refinery", exact=False):
+                return o
+    from world.venue_resolve import refinery_room_for_object
+
+    rroom = refinery_room_for_object(caller)
+    if rroom and (not loc or rroom.id != loc.id):
+        for o in rroom.contents:
+            if o.is_typeclass("typeclasses.refining.Refinery", exact=False):
+                return o
     return None
 
 
@@ -150,6 +162,7 @@ def _feed_refinery_shared_plant_only(caller, loc, ref, args):
     Station ``Refinery`` typeclass only.
     """
     from typeclasses.haulers import get_plant_ore_receiving_bay
+    from world.venue_resolve import processing_plant_room_for_object
 
     if not ref.is_typeclass("typeclasses.refining.Refinery", exact=False):
         caller.msg(
@@ -158,7 +171,8 @@ def _feed_refinery_shared_plant_only(caller, loc, ref, args):
         )
         return
 
-    bay = get_plant_ore_receiving_bay(loc)
+    plant_room = processing_plant_room_for_object(caller)
+    bay = get_plant_ore_receiving_bay(plant_room) if plant_room else None
     if not bay or not (bay.db.inventory or {}):
         caller.msg("The Ore Receiving Bay is empty.")
         return
@@ -212,6 +226,7 @@ def _feed_refinery_silo_only(caller, loc, ref, args):
     Assigned plant silo only → ``miner_ore_queue`` (attributed). No bay fallback.
     """
     from typeclasses.haulers import get_plant_player_storage
+    from world.venue_resolve import processing_plant_room_for_object
 
     if not ref.is_typeclass("typeclasses.refining.Refinery", exact=False):
         caller.msg(
@@ -220,7 +235,8 @@ def _feed_refinery_silo_only(caller, loc, ref, args):
         )
         return
 
-    plant_silo = get_plant_player_storage(loc, caller)
+    plant_room = processing_plant_room_for_object(caller)
+    plant_silo = get_plant_player_storage(plant_room, caller) if plant_room else None
     if not plant_silo:
         caller.msg("You have no assigned plant storage here.")
         return
@@ -231,7 +247,7 @@ def _feed_refinery_silo_only(caller, loc, ref, args):
         return
 
     if args == "all":
-        moved = ref.transfer_owner_plant_silo_to_miner_queue(caller)
+        moved = ref.transfer_owner_plant_silo_to_miner_queue(caller, plant_room=plant_room)
         if moved:
             lines = [f"|wQueued at {ref.key} from {plant_silo.key}:|n"]
             for key, tons in sorted(moved.items()):
@@ -277,15 +293,17 @@ def _feed_refinery_silo_only(caller, loc, ref, args):
 def _feed_refinery_auto_legacy(caller, loc, ref, args):
     """Legacy: silo-first at plant, then bay / room storage / vehicle → ``feed``."""
     from typeclasses.haulers import get_plant_ore_receiving_bay, get_plant_player_storage
+    from world.venue_resolve import processing_plant_room_for_object
 
     is_plant_refinery = ref.is_typeclass("typeclasses.refining.Refinery", exact=False)
-    plant_silo = get_plant_player_storage(loc, caller) if is_plant_refinery else None
-    bay = get_plant_ore_receiving_bay(loc) if is_plant_refinery else None
+    plant_room = processing_plant_room_for_object(caller) if is_plant_refinery else None
+    plant_silo = get_plant_player_storage(plant_room, caller) if plant_room else None
+    bay = get_plant_ore_receiving_bay(plant_room) if plant_room else None
 
     if is_plant_refinery and plant_silo:
         pinv = plant_silo.db.inventory or {}
         if args == "all" and pinv:
-            moved = ref.transfer_owner_plant_silo_to_miner_queue(caller)
+            moved = ref.transfer_owner_plant_silo_to_miner_queue(caller, plant_room=plant_room)
             if moved:
                 lines = [f"|wQueued at {ref.key} from {plant_silo.key}:|n"]
                 for key, tons in sorted(moved.items()):

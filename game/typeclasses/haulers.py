@@ -546,8 +546,8 @@ def hauler_process_one(hauler):
             return True, empty_msg
         space = cap - hauler.cargo_total_mass()
         if space <= 0:
-            set_hauler_next_cycle(hauler)
-            return True, "Cargo full — next cycle scheduled."
+            hauler.db.hauler_state = "transit_refinery"
+            return True, f"Full load — en route to {dest_room.key}."
         loaded = {}
         for key, avail in list(inv.items()):
             if space <= 0:

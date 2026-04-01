@@ -1,0 +1,16 @@
+---
+description: User preference — plain language first; consistent terms; code names only when discussing implementation.
+alwaysApply: true
+---
+
+# Communication
+
+- **Default:** Explain in normal English first (concrete).
+- **Jargon:** Do not mix vague technical labels; if a term is used, use it the same way every time—or avoid it.
+- **Code:** Use repo identifiers (paths, symbols, config keys like `refinery_room_key`) only when the topic is implementation, a specific file, or a step-by-step checklist.
+
+## When the user asks for fixes
+
+> You're not asking me to debate the design. You're saying the current code is wrong for what you want, and fixing it means changing the real game/server logic, not polishing the surface.
+
+Follow that: prefer **core** game/server changes over superficial polish unless they explicitly want UI-only work.

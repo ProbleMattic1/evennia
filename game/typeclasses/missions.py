@@ -183,6 +183,7 @@ class MissionHandler:
         opportunity = {
             "id": f"opp-{uuid.uuid4().hex[:12]}",
             "templateId": tid,
+            "missionKind": str(tmpl.get("missionKind") or "mission"),
             "title": tmpl.get("title") or tid,
             "summary": tmpl.get("summary") or "",
             "storylineId": tmpl.get("storylineId") or "",
@@ -269,6 +270,7 @@ class MissionHandler:
         mission = {
             "id": f"mis-{uuid.uuid4().hex[:12]}",
             "templateId": tmpl["id"],
+            "missionKind": str(tmpl.get("missionKind") or "mission"),
             "title": tmpl.get("title") or tmpl["id"],
             "summary": tmpl.get("summary") or "",
             "storylineId": tmpl.get("storylineId") or "",
@@ -473,12 +475,19 @@ class MissionHandler:
         return True, choice.get("outcome") or "Decision recorded.", mission
 
     def serialize_for_web(self) -> dict[str, Any]:
+        def mission_kind_for_template_id(template_id: str, row: dict) -> str:
+            if row.get("missionKind"):
+                return str(row["missionKind"])
+            tmpl = get_mission_template(template_id or "") or {}
+            return str(tmpl.get("missionKind") or "mission")
+
         def active_payload(row):
             tmpl = get_mission_template(row.get("templateId") or "") or {}
             objective = self._current_objective(row, tmpl) if tmpl else None
             return {
                 "id": row.get("id"),
                 "templateId": row.get("templateId"),
+                "missionKind": mission_kind_for_template_id(str(row.get("templateId") or ""), row),
                 "title": row.get("title"),
                 "summary": row.get("summary"),
                 "storylineId": row.get("storylineId"),
@@ -501,9 +510,21 @@ class MissionHandler:
                 "choices": list(row.get("choices") or []),
             }
 
+        opps = []
+        for row in list(self._state.get("opportunities") or [])[-20:]:
+            d = dict(row)
+            d["missionKind"] = mission_kind_for_template_id(str(row.get("templateId") or ""), d)
+            opps.append(d)
+
+        completed_out = []
+        for row in list(self._state.get("completed") or [])[-30:]:
+            d = dict(row)
+            d["missionKind"] = mission_kind_for_template_id(str(row.get("templateId") or ""), d)
+            completed_out.append(d)
+
         return {
             "morality": dict(self._state.get("morality") or {}),
-            "opportunities": [dict(row) for row in list(self._state.get("opportunities") or [])[-20:]],
+            "opportunities": opps,
             "active": [active_payload(row) for row in list(self._state.get("active") or [])[-20:]],
-            "completed": [dict(row) for row in list(self._state.get("completed") or [])[-30:]],
+            "completed": completed_out,
         }

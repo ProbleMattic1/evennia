@@ -8,6 +8,7 @@ import { GameLogPanel } from "@/components/game-log-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import type {
   ExitButton,
+  MsgStreamEntry,
   QuestActive,
   QuestChoice,
   QuestObjective,
@@ -16,13 +17,13 @@ import type {
   QuestsState,
 } from "@/lib/ui-api";
 import { acceptQuest, chooseQuest, playInteract, playTravel } from "@/lib/ui-api";
-import { useMsgStream } from "@/lib/use-msg-stream";
 
 type Props = {
   quests: QuestsState;
   /** ``_room_exits(char.location)`` from control surface; same facts as the room dialog / play/travel. */
   roomExits?: ExitButton[];
   onChanged: () => void;
+  gameLog: MsgStreamEntry[];
 };
 
 type ChoiceDialogState = {
@@ -60,9 +61,8 @@ function signalHintsFromResolvePaths(paths: QuestResolvePath[] | undefined): str
  * Dashboard-styled main quests panel (mirrors missions: travel / interact / choice).
  * No decline endpoint; resolve_situation lists interaction shortcuts and combat hints.
  */
-export function DashboardQuestsPanel({ quests, roomExits = [], onChanged }: Props) {
+export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLog }: Props) {
   const router = useRouter();
-  const { messages: gameLog } = useMsgStream();
 
   const opportunities = quests.opportunities ?? [];
   const active = quests.active ?? [];

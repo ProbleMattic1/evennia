@@ -7,7 +7,7 @@ Creates
 -------
 1. MiningEngine global script (if missing).
 2. SiteDiscoveryEngine periodic script (generates unclaimed sites over time).
-3. Refinery room(s) per venue, wired from each venue hub.
+3. Ore processing plant room + separate refinery chamber per venue (hub → plant; hub → refinery; no direct plant ↔ refinery).
 
 Mining sites are NOT pre-seeded.  They are created dynamically:
   - On package purchase (via claim_utils.generate_mining_site)
@@ -56,6 +56,21 @@ def _get_or_create_refinery(room, refinery_key, refinery_desc):
     )
     ref.db.desc = refinery_desc
     return ref
+
+
+def _ensure_main_refinery_in_chamber(refinery_room, plant_room, refinery_key, refinery_desc):
+    """
+    Venue main Refinery lives in ``refinery_room``; migrate from ``plant_room`` if needed.
+    """
+    for obj in refinery_room.contents:
+        if obj.tags.has("refinery", category="mining") and obj.key == refinery_key:
+            return obj
+    for obj in plant_room.contents:
+        if obj.tags.has("refinery", category="mining") and obj.key == refinery_key:
+            obj.move_to(refinery_room, quiet=True)
+            obj.home = refinery_room
+            return obj
+    return _get_or_create_refinery(refinery_room, refinery_key, refinery_desc)
 
 
 def bootstrap_mining():
@@ -190,21 +205,71 @@ def bootstrap_mining():
     for venue_id in all_venue_ids():
         vspec = get_venue(venue_id)
         proc = vspec["processing"]
-        room = _get_or_create_room(proc["plant_room_key"], desc=proc["plant_room_desc"])
-        apply_venue_metadata(room, venue_id)
-        ref = _get_or_create_refinery(room, proc["refinery_key"], proc["refinery_desc"])
+        plant_room = _get_or_create_room(proc["plant_room_key"], desc=proc["plant_room_desc"])
+        apply_venue_metadata(plant_room, venue_id)
+        plant_titles = {
+            "nanomega_core": (
+                "Ore Processing Plant",
+                "Heavy conveyors, smelting manifolds, treasury-linked receiving bays.",
+            ),
+            "frontier_outpost": (
+                "Frontier Ore Plant",
+                "Scaled conveyors and portable smelters; rim tariffs apply.",
+            ),
+        }
+        ptitle, ptag = plant_titles.get(
+            venue_id,
+            ("Ore Processing Plant", (proc.get("plant_room_desc") or "")[:160]),
+        )
+        plant_room.db.ui_ambient = {
+            "themeId": "industrial",
+            "label": ptitle,
+            "tagline": ptag,
+            "bannerSlides": [
+                {
+                    "id": "plant-hero",
+                    "title": ptitle,
+                    "body": ptag,
+                    "graphicKey": "refinery",
+                },
+            ],
+            "marqueeLines": [
+                "Yield to thermal load warnings.",
+                "Use the Processor kiosk for silo and hauler routing.",
+            ],
+            "chips": [{"id": "proc", "text": "PROCESS"}],
+        }
+        refinery_key = proc["refinery_room_key"]
+        refinery_desc = proc["refinery_room_desc"]
+        refinery_room = _get_or_create_room(refinery_key, desc=refinery_desc)
+        apply_venue_metadata(refinery_room, venue_id)
+        ref = _ensure_main_refinery_in_chamber(
+            refinery_room, plant_room, proc["refinery_key"], proc["refinery_desc"]
+        )
 
         hub = search_object(vspec["hub_key"])
         hub = hub[0] if hub else None
         if hub:
-            _get_or_create_exit(proc["hub_exit"], proc["hub_aliases"], hub, room)
+            _get_or_create_exit(proc["hub_exit"], proc["hub_aliases"], hub, plant_room)
+            _get_or_create_exit(
+                proc["refinery_hub_exit"],
+                proc["refinery_hub_aliases"],
+                hub,
+                refinery_room,
+            )
             _get_or_create_exit(
                 "promenade",
                 ["back", "exit", "out", "plex", "hub"],
-                room,
+                plant_room,
+                hub,
+            )
+            _get_or_create_exit(
+                "promenade",
+                ["back", "exit", "out", "plex", "hub"],
+                refinery_room,
                 hub,
             )
 
-        print(f"[mining] Refinery '{ref.key}' in '{proc['plant_room_key']}' ({venue_id}) ready.")
+        print(f"[mining] Refinery '{ref.key}' in '{refinery_key}' ({venue_id}) ready.")
 
     print("[mining] Bootstrap complete.")

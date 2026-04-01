@@ -390,3 +390,73 @@ body > * {
   max-width: 9px;
   max-height: 9px;
 }
+
+/* Room location banner — theme tokens (scoped under .location-banner; children use var()) */
+.location-banner {
+  --room-banner-accent: var(--accent-cyan);
+  --room-banner-accent-readable: var(--ui-text-accent-readable);
+  --room-banner-bg: rgba(9, 9, 11, 0.92);
+  --room-banner-border: rgba(34, 211, 238, 0.4);
+  --room-banner-muted: var(--ui-text-muted);
+  color: var(--room-banner-accent-readable);
+  border-color: var(--room-banner-border);
+  background: var(--room-banner-bg);
+}
+
+.location-banner[data-room-theme="industrial"] {
+  --room-banner-accent: #fbbf24;
+  --room-banner-accent-readable: #fde68a;
+  --room-banner-bg: rgba(28, 25, 23, 0.94);
+  --room-banner-border: rgba(251, 191, 36, 0.45);
+}
+
+.location-banner[data-room-theme="clinical"] {
+  --room-banner-accent: #a5b4fc;
+  --room-banner-accent-readable: #c7d2fe;
+  --room-banner-bg: rgba(15, 23, 42, 0.92);
+  --room-banner-border: rgba(129, 140, 248, 0.4);
+}
+
+.location-banner[data-room-theme="bazaar"] {
+  --room-banner-accent: #f472b6;
+  --room-banner-accent-readable: #fbcfe8;
+  --room-banner-bg: rgba(59, 7, 46, 0.25);
+  --room-banner-border: rgba(244, 114, 182, 0.45);
+}
+
+.location-banner[data-room-theme="promenade"] {
+  --room-banner-accent: #22d3ee;
+  --room-banner-accent-readable: #a5f3fc;
+  --room-banner-bg: rgba(8, 51, 68, 0.35);
+  --room-banner-border: rgba(34, 211, 238, 0.5);
+}
+
+@keyframes location-banner-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.location-banner-marquee-wrap {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+
+.location-banner-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: location-banner-marquee 48s linear infinite;
+}
+
+.location-banner:hover .location-banner-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .location-banner-marquee-track {
+    animation: none;
+  }
+}

@@ -6,19 +6,21 @@ queue ore without using the feedrefinery command.
 """
 
 from typeclasses.refining import Refinery
+from world.venue_resolve import processing_plant_room_for_object
 
 
-def submit_owner_plant_silo_at_refinery(owner, refinery):
+def submit_owner_plant_silo_at_refinery(owner, refinery, plant_room=None):
     """
-    Merge ``owner``'s assigned plant silo in ``refinery.location`` into that
-    refinery's miner_ore_queue. Use when the owner is not necessarily in the
-    plant room (e.g. NPC at a mine). Returns {resource_key: tons_moved} or {}.
+    Merge ``owner``'s assigned plant silo (on the ore-bay floor) into that
+    refinery's miner_ore_queue. Pass ``plant_room`` when the refinery object
+    lives in a separate refinery chamber.
     """
     if not owner or not refinery:
         return {}
     if not refinery.is_typeclass(Refinery, exact=False):
         return {}
-    return refinery.transfer_owner_plant_silo_to_miner_queue(owner) or {}
+    pr = plant_room or processing_plant_room_for_object(owner)
+    return refinery.transfer_owner_plant_silo_to_miner_queue(owner, plant_room=pr) or {}
 
 
 def submit_character_plant_silo_to_plant_refinery(character):

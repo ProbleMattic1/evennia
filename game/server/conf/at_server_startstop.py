@@ -5,7 +5,10 @@ Called by Evennia at various points during its startup, reload and shutdown
 sequence.
 
 at_server_cold_start  — every cold start (shutdown → restart, NOT reload)
-                        runs world bootstraps (hub, economy, ability baselines, marcus link, etc.).
+                        runs world bootstraps via ``_run_strict``; any failure aborts startup
+                        so deploy never leaves a half-built world without a loud error.
+
+at_server_start / reload hooks still use soft ``_run`` (log and continue) where used.
 """
 
 import traceback
@@ -19,6 +22,20 @@ def _run(label, fn):
     except Exception:
         print(f"[startup] FAIL — {label}")
         traceback.print_exc()
+
+
+def _run_strict(label, fn):
+    """
+    Like ``_run`` but re-raises after logging. Used from ``at_server_cold_start`` only so
+    bootstrap errors fail deploy/start instead of continuing with missing rooms or vendors.
+    """
+    try:
+        fn()
+        print(f"[startup] OK  — {label}")
+    except Exception:
+        print(f"[startup] FAIL — {label}")
+        traceback.print_exc()
+        raise
 
 
 def at_server_init():
@@ -259,70 +276,70 @@ def at_server_cold_start():
     from typeclasses.mission_seeds import get_mission_seeds_script
     from typeclasses.system_alerts import get_system_alerts_script
 
-    _run("frontier player arrival", bootstrap_frontier)
-    _run("NanoMegaPlex hub (#2 → Promenade)", bootstrap_hub)
-    _run("frontier ↔ hub exits", bootstrap_frontier_hub_links)
-    _run("global economy script", bootstrap_economy)
-    _run("economy automation controller", ensure_economy_automation)
+    _run_strict("frontier player arrival", bootstrap_frontier)
+    _run_strict("NanoMegaPlex hub (#2 → Promenade)", bootstrap_hub)
+    _run_strict("frontier ↔ hub exits", bootstrap_frontier_hub_links)
+    _run_strict("global economy script", bootstrap_economy)
+    _run_strict("economy automation controller", ensure_economy_automation)
     # Marcus before other admin-account NPC bootstraps so his Character id stays lowest after admin.
-    _run("Marcus Killstar (account link; credits on create only)", bootstrap_marcus_killstar)
-    _run("promenade guide NPC", bootstrap_promenade_guide)
-    _run("promenade room ambience", bootstrap_promenade_room_ambience)
-    _run("station service NPCs and contracts", bootstrap_station_services)
-    _run("character ability baselines (STR–CHA)", bootstrap_character_abilities)
-    _run(
+    _run_strict("Marcus Killstar (account link; credits on create only)", bootstrap_marcus_killstar)
+    _run_strict("promenade guide NPC", bootstrap_promenade_guide)
+    _run_strict("promenade room ambience", bootstrap_promenade_room_ambience)
+    _run_strict("station service NPCs and contracts", bootstrap_station_services)
+    _run_strict("character ability baselines (STR–CHA)", bootstrap_character_abilities)
+    _run_strict(
         "NanoMegaPlex Real Estate (account link; credits on create only)",
         bootstrap_nanomega_realty,
     )
-    _run(
+    _run_strict(
         "NanoMegaPlex Construction (account link; credits on create only)",
         bootstrap_nanomega_construction,
     )
-    _run(
+    _run_strict(
         "NanoMegaPlex Advertising Agent (agency room; credits on create)",
         bootstrap_nanomega_advertising,
     )
-    _run(
+    _run_strict(
         "Frontier service NPCs (realty, construction, advertising)",
         bootstrap_frontier_service_npcs,
     )
-    _run("Frontier advertising agency wiring + agent placement", bootstrap_frontier_advertising_wiring)
-    _run("NanoMegaPlex Real Estate Office room and base lots", bootstrap_realty_office)
+    _run_strict("Frontier advertising agency wiring + agent placement", bootstrap_frontier_advertising_wiring)
+    _run_strict("NanoMegaPlex Real Estate Office room and base lots", bootstrap_realty_office)
     from world.bootstrap_nmp_charter import bootstrap_nmp_charter
-    _run("NanoMegaPlex charter (broker-held flagship parcels)", bootstrap_nmp_charter)
-    _run("vehicle catalog CSV import", bootstrap_vehicle_catalog)
-    _run("shipyard rooms + stock templates", bootstrap_shipyard)
-    _run("general catalog shops (tech, mining, supply, toy)", bootstrap_shops)
-    _run("parcel mission NPCs", bootstrap_parcel_mission_npcs)
-    _run("mining engine + sample sites + Industrial Basin", bootstrap_mining)
-    _run("hauler engine + refinery engine + receiving bay", bootstrap_haulers)
-    _run("flora harvest engine", bootstrap_flora_engine)
-    _run("fauna harvest engine", bootstrap_fauna_engine)
-    _run("mining sale packages (Starter Pack, Pro Pack)", bootstrap_mining_packages)
-    _run("Marcus Killstar mining pads", bootstrap_marcus_mines)
-    _run("Marcus Killstar flora stands", bootstrap_marcus_flora)
-    _run("Marcus Killstar fauna ranges", bootstrap_marcus_fauna)
-    _run("NPC industrial miners (plant supply)", bootstrap_npc_industrial_miners)
-    _run(
+    _run_strict("NanoMegaPlex charter (broker-held flagship parcels)", bootstrap_nmp_charter)
+    _run_strict("vehicle catalog CSV import", bootstrap_vehicle_catalog)
+    _run_strict("shipyard rooms + stock templates", bootstrap_shipyard)
+    _run_strict("general catalog shops (tech, mining, supply, toy)", bootstrap_shops)
+    _run_strict("parcel mission NPCs", bootstrap_parcel_mission_npcs)
+    _run_strict("mining engine + sample sites + Industrial Basin", bootstrap_mining)
+    _run_strict("hauler engine + refinery engine + receiving bay", bootstrap_haulers)
+    _run_strict("flora harvest engine", bootstrap_flora_engine)
+    _run_strict("fauna harvest engine", bootstrap_fauna_engine)
+    _run_strict("mining sale packages (Starter Pack, Pro Pack)", bootstrap_mining_packages)
+    _run_strict("Marcus Killstar mining pads", bootstrap_marcus_mines)
+    _run_strict("Marcus Killstar flora stands", bootstrap_marcus_flora)
+    _run_strict("Marcus Killstar fauna ranges", bootstrap_marcus_fauna)
+    _run_strict("NPC industrial miners (plant supply)", bootstrap_npc_industrial_miners)
+    _run_strict(
         "NanoMegaPlex NPC industrial miners (plant supply)",
         bootstrap_npc_nanomega_industrial_miners,
     )
-    _run(
+    _run_strict(
         "Resource colony flora/fauna (venues + industrial grid)",
         bootstrap_npc_resource_colony_bio,
     )
-    _run("random mining claim deed at Mining Outfitters", bootstrap_mining_claim_sale)
-    _run("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)
-    _run("system alerts queue", lambda: get_system_alerts_script(create_missing=True))
-    _run("mission templates (JSON)", load_mission_templates)
-    _run("quest templates (JSON)", load_quest_templates)
-    _run("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
-    _run("crime registry (JSON)", bootstrap_crime_registry_at_startup)
-    _run("battlespace registry (JSON)", bootstrap_battlespace_registry_at_startup)
-    _run("ambient world engine", bootstrap_world_ambient)
-    _run("crime world engine", bootstrap_crime_world)
-    _run("battlespace world engine", bootstrap_battlespace_world)
-    _run("venue controller scripts", bootstrap_venue_controllers)
+    _run_strict("random mining claim deed at Mining Outfitters", bootstrap_mining_claim_sale)
+    _run_strict("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)
+    _run_strict("system alerts queue", lambda: get_system_alerts_script(create_missing=True))
+    _run_strict("mission templates (JSON)", load_mission_templates)
+    _run_strict("quest templates (JSON)", load_quest_templates)
+    _run_strict("mission seeds queue", lambda: get_mission_seeds_script(create_missing=True))
+    _run_strict("crime registry (JSON)", bootstrap_crime_registry_at_startup)
+    _run_strict("battlespace registry (JSON)", bootstrap_battlespace_registry_at_startup)
+    _run_strict("ambient world engine", bootstrap_world_ambient)
+    _run_strict("crime world engine", bootstrap_crime_world)
+    _run_strict("battlespace world engine", bootstrap_battlespace_world)
+    _run_strict("venue controller scripts", bootstrap_venue_controllers)
 
 
 def at_server_cold_stop():

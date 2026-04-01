@@ -188,9 +188,15 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         set_hauler_next_cycle,
     )
 
-    from world.venue_resolve import processing_plant_room_for_object
+    from world.venue_resolve import (
+        processing_plant_room_for_npc_autonomous_supply,
+        processing_plant_room_for_object,
+    )
 
-    refinery_room = processing_plant_room_for_object(site_room)
+    if getattr(buyer.db, "is_npc", False):
+        refinery_room = processing_plant_room_for_npc_autonomous_supply()
+    else:
+        refinery_room = processing_plant_room_for_object(site_room)
     if not refinery_room:
         return False, "No processing plant found. Contact an administrator."
 
@@ -271,9 +277,15 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
         set_hauler_next_cycle,
     )
 
-    from world.venue_resolve import processing_plant_room_for_object
+    from world.venue_resolve import (
+        processing_plant_room_for_npc_autonomous_supply,
+        processing_plant_room_for_object,
+    )
 
-    refinery_room = processing_plant_room_for_object(site_room)
+    if getattr(buyer.db, "is_npc", False):
+        refinery_room = processing_plant_room_for_npc_autonomous_supply()
+    else:
+        refinery_room = processing_plant_room_for_object(site_room)
     if not refinery_room:
         return False, "No processing plant found. Contact an administrator."
 

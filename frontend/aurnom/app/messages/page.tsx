@@ -52,6 +52,10 @@ export default function MessagesPage() {
                   <span className="shrink-0 text-ui-muted">eventType</span>
                   <span className="font-mono text-foreground">{disp(m.meta.eventType)}</span>
                 </div>
+                <div className="flex min-w-0 gap-1 sm:col-span-2">
+                  <span className="shrink-0 text-ui-muted">surface</span>
+                  <span className="font-mono text-foreground">{disp(m.meta.surface)}</span>
+                </div>
                 <div className="flex min-w-0 gap-1">
                   <span className="shrink-0 text-ui-muted">interactionKey</span>
                   <span className="min-w-0 break-words font-mono text-foreground">

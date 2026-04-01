@@ -6,27 +6,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { groupExits } from "@/components/exit-grid";
 import { PanelExpandButton } from "@/components/panel-expand-button";
-import type { ControlSurfaceNav, CsCharacter, NavKiosk } from "@/lib/control-surface-api";
-import { formatCr as cr } from "@/lib/format-units";
-import { finalizeServiceNavRows } from "@/lib/services-nav-merge";
-import { playTravel, type ExitButton } from "@/lib/ui-api";
-
-/** Web routes not guaranteed on older API payloads; append after server kiosks. */
-const WEB_ONLY_KIOSKS: NavKiosk[] = [{ key: "economy", label: "Economy", href: "/economy" }];
-
-function mergeNavKiosks(kiosks: NavKiosk[]): NavKiosk[] {
-  const seen = new Set(kiosks.map((k) => k.href));
-  const out = [...kiosks];
-  for (const k of WEB_ONLY_KIOSKS) {
-    if (!seen.has(k.href)) {
-      out.push(k);
-      seen.add(k.href);
-    }
-  }
-  return finalizeServiceNavRows(out);
-}
-import { clearWebActiveCharacter, setWebActiveCharacter } from "@/lib/control-surface-api";
 import { useControlSurface } from "@/components/control-surface-provider";
+import {
+  clearWebActiveCharacter,
+  setWebActiveCharacter,
+  type CsCharacter,
+} from "@/lib/control-surface-api";
+import { formatCr as cr } from "@/lib/format-units";
+import { playTravel, type ExitButton } from "@/lib/ui-api";
 
 function Panel({
   panelKey,
@@ -89,17 +76,6 @@ function Kv({ k, v }: { k: string; v: ReactNode }) {
 
 function Row({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`flex min-w-0 items-baseline gap-2 ${className}`}>{children}</div>;
-}
-
-function TinyLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40"
-    >
-      {children}
-    </Link>
-  );
 }
 
 function UtcClock() {
@@ -232,18 +208,17 @@ function NavDestinationRow({
 }
 
 function NavPanel({
-  nav,
   roomExits,
   onTravelComplete,
+  onPuppetLocationChanged,
 }: {
-  nav: ControlSurfaceNav;
   roomExits: ExitButton[];
   onTravelComplete: () => void;
+  onPuppetLocationChanged: () => void;
 }) {
   const router = useRouter();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const travelLock = useRef(false);
-  const kiosks = mergeNavKiosks(nav.kiosks);
 
   const filteredDestinations = useMemo(
     () => roomExits.filter((e): e is ExitButton & { destination: string } => Boolean(e.destination)),
@@ -259,8 +234,13 @@ function NavPanel({
       const k = `exit:${destination}`;
       setBusyKey(k);
       try {
-        await playTravel({ destination });
-        router.push("/");
+        const res = await playTravel({ destination });
+        onPuppetLocationChanged();
+        const path =
+          res.ok && typeof res.webNavigatePath === "string" && res.webNavigatePath.length > 0
+            ? res.webNavigatePath
+            : "/";
+        router.push(path);
         router.refresh();
         onTravelComplete();
       } finally {
@@ -268,65 +248,52 @@ function NavPanel({
         setBusyKey(null);
       }
     },
-    [onTravelComplete, router],
+    [onPuppetLocationChanged, onTravelComplete, router],
   );
 
+  if (filteredDestinations.length === 0) return null;
+
   return (
-    <>
-      {kiosks.length > 0 && (
-        <Panel panelKey="services" title="Services">
-          {kiosks.map((k) => (
-            <div key={`${k.key}-${k.href}`}>
-              <TinyLink href={k.href}>{k.label}</TinyLink>
+    <Panel panelKey="hub-exits" title="Destinations">
+      {destinationGroups.length <= 1 &&
+      (destinationGroups[0]?.title === "Destinations" || !destinationGroups[0]) ? (
+        <div className="space-y-0.5">
+          {filteredDestinations.map((ex) => (
+            <NavDestinationRow
+              key={`${ex.key}-${ex.destination}`}
+              exit={ex}
+              busyKey={busyKey}
+              onTravel={handleExitTravel}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {destinationGroups.map(({ title, items }) => (
+            <div key={title}>
+              <div className="mb-0.5 text-ui-caption font-semibold uppercase tracking-wide text-ui-muted">
+                {title}
+              </div>
+              <div className="space-y-0.5">
+                {items.map((ex) => (
+                  <NavDestinationRow
+                    key={`${ex.key}-${ex.destination}`}
+                    exit={ex as ExitButton & { destination: string }}
+                    busyKey={busyKey}
+                    onTravel={handleExitTravel}
+                  />
+                ))}
+              </div>
             </div>
           ))}
-        </Panel>
+        </div>
       )}
-      {nav.shops.length > 0 && (
-        <Panel panelKey="shops" title="Shops">
-          {nav.shops.map((s) => (
-            <div key={s.roomKey}>
-              <TinyLink href={`/shop?room=${encodeURIComponent(s.roomKey)}`}>{s.label}</TinyLink>
-            </div>
-          ))}
-        </Panel>
-      )}
-      {filteredDestinations.length > 0 && (
-        <Panel panelKey="hub-exits" title="Destinations">
-          {destinationGroups.length <= 1 &&
-          (destinationGroups[0]?.title === "Destinations" || !destinationGroups[0]) ? (
-            <div className="space-y-0.5">
-              {filteredDestinations.map((ex) => (
-                <NavDestinationRow key={`${ex.key}-${ex.destination}`} exit={ex} busyKey={busyKey} onTravel={handleExitTravel} />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {destinationGroups.map(({ title, items }) => (
-                <div key={title}>
-                  <div className="mb-0.5 text-ui-caption font-semibold uppercase tracking-wide text-ui-muted">{title}</div>
-                  <div className="space-y-0.5">
-                    {items.map((ex) => (
-                      <NavDestinationRow
-                        key={`${ex.key}-${ex.destination}`}
-                        exit={ex as ExitButton & { destination: string }}
-                        busyKey={busyKey}
-                        onTravel={handleExitTravel}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Panel>
-      )}
-    </>
+    </Panel>
   );
 }
 
 export function PersistentNavRail() {
-  const { data, loading, error, reload } = useControlSurface();
+  const { data, loading, error, reload, bumpPuppetLocationSeq } = useControlSurface();
   const [pickBusy, setPickBusy] = useState(false);
   const [pickErr, setPickErr] = useState<string | null>(null);
   const [switchBusy, setSwitchBusy] = useState(false);
@@ -431,20 +398,9 @@ export function PersistentNavRail() {
       {railBody}
 
       <NavPanel
-        nav={
-          data?.nav ?? {
-            hubRoomKey: "",
-            exits: [],
-            kiosks: [],
-            shops: [],
-            claims: [],
-            properties: [],
-            resources: [],
-            mines: [],
-          }
-        }
         roomExits={data?.roomExits ?? []}
         onTravelComplete={reload}
+        onPuppetLocationChanged={bumpPuppetLocationSeq}
       />
     </aside>
   );

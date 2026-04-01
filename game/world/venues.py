@@ -80,6 +80,7 @@ def _shop_specs_for_venue(venue_id: str, room_prefix: str):
                 "vendor_account": f"vendor:{vid}",
                 "hub_exit": row["hub_exit"],
                 "hub_aliases": list(row["hub_aliases"]),
+                "vendor_slug": slug,
             }
         )
     return tuple(out)
@@ -159,6 +160,30 @@ VENUES: dict = {
         "hub_key": "NanoMegaPlex Promenade",
         "arrival_room_key": None,
         "room_prefix": "Aurnom",
+        "ui_ambient": {
+            "themeId": "promenade",
+            "label": "NanoMegaPlex",
+            "tagline": "Coreward commerce and multiplex transit.",
+            "bannerSlides": [
+                {
+                    "id": "plex-1",
+                    "title": "NanoMegaPlex",
+                    "body": "Retail, banking, and port services on the sovereign standard.",
+                    "graphicKey": "promenade",
+                },
+                {
+                    "id": "plex-2",
+                    "title": "Transit",
+                    "body": "Mind the automated hauler lanes during peak shift.",
+                    "graphicKey": None,
+                },
+            ],
+            "marqueeLines": [
+                "Welcome to the multiplex.",
+                "Have your sovereign ID ready at banking kiosks.",
+            ],
+            "chips": [{"id": "open", "text": "OPEN"}],
+        },
         "bank": {
             "reserve_room_key": "Alpha Prime Central Reserve",
             "reserve_room_desc": (
@@ -174,10 +199,18 @@ VENUES: dict = {
                 "Conveyor systems, smelting units, and cutting bays handle everything "
                 "from iron ore to gem-grade kimberlite.  The air smells of flux and heat."
             ),
+            "refinery_room_key": "Aurnom Refinery Chamber",
+            "refinery_room_desc": (
+                "Dedicated refinery deck: attributed queue consoles, silo tie-ins, and "
+                "smelting manifolds apart from the open ore-processing floor."
+            ),
+            "refinery_web_title": "Refinery",
             "refinery_key": "Ore Processing Unit",
             "refinery_desc": "A multi-stage processing platform handling ore smelting and gem cutting.",
             "hub_exit": "processing plant",
-            "hub_aliases": ["processing", "refinery", "plant", "smelt"],
+            "hub_aliases": ["processing", "plant", "processor", "ore bay"],
+            "refinery_hub_exit": "refinery deck",
+            "refinery_hub_aliases": ["refinery", "refining", "deck", "smelt line", "smelt"],
         },
         "shipyard": {
             "showroom_key": "Meridian Civil Shipyard",
@@ -299,6 +332,24 @@ VENUES: dict = {
         "hub_key": "Frontier Promenade",
         "arrival_room_key": "Frontier Transit Shell",
         "room_prefix": "Frontier Aurnom",
+        "ui_ambient": {
+            "themeId": "clinical",
+            "label": "Frontier Station",
+            "tagline": "Rim economics, scaled plant, thinner margins.",
+            "bannerSlides": [
+                {
+                    "id": "fr-1",
+                    "title": "Frontier annex",
+                    "body": "Regional services tied to coreward clearance and ledgers.",
+                    "graphicKey": "bazaar",
+                },
+            ],
+            "marqueeLines": [
+                "Dust seals required beyond yellow line.",
+                "Alpha Prime Frontier branch on duty.",
+            ],
+            "chips": [{"id": "rim", "text": "RIM"}],
+        },
         "bank": {
             "reserve_room_key": "Frontier Alpha Prime Reserve",
             "reserve_room_desc": (
@@ -314,10 +365,17 @@ VENUES: dict = {
                 "A frontier-scale ore bay: scaled conveyors and portable smelters "
                 "handle regional feedstock under harsher lighting and thinner margins."
             ),
+            "refinery_room_key": "Frontier Refinery Chamber",
+            "refinery_room_desc": (
+                "Frontier refinery annex: compact queue consoles and silo feeds off the main ore bay."
+            ),
+            "refinery_web_title": "Refinery",
             "refinery_key": "Frontier Ore Processing Unit",
             "refinery_desc": "Regional processing stack for ore smelting and gem cutting.",
             "hub_exit": "processing plant",
-            "hub_aliases": ["processing", "refinery", "plant", "smelt"],
+            "hub_aliases": ["processing", "plant", "processor", "ore bay"],
+            "refinery_hub_exit": "refinery deck",
+            "refinery_hub_aliases": ["refinery", "refining", "deck", "smelt line", "smelt"],
         },
         "shipyard": {
             "showroom_key": "Frontier Meridian Civil Shipyard",

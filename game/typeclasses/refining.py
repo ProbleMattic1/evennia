@@ -715,14 +715,15 @@ class Refinery(ObjectParent, DefaultObject):
         self.db.miner_ore_queue = queues
         return tons
 
-    def transfer_owner_plant_silo_to_miner_queue(self, owner):
+    def transfer_owner_plant_silo_to_miner_queue(self, owner, plant_room=None):
         """
-        Merge this owner's tagged plant silo (in self.location) into miner_ore_queue,
-        then remove only the queued keys from the silo. Returns {resource_key: tons_moved}.
+        Merge this owner's tagged plant silo into miner_ore_queue, then remove only the
+        queued keys from the silo. ``plant_room`` is where the tagged silo lives (ore bay
+        floor); defaults to ``self.location`` when the refinery sits in the plant room.
         """
         from typeclasses.haulers import get_plant_player_storage
 
-        room = self.location
+        room = plant_room or self.location
         if not room or not owner:
             return {}
         silo = get_plant_player_storage(room, owner)

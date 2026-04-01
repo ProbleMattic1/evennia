@@ -8,6 +8,7 @@ import { ChallengesPanel } from "@/components/challenges-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { DashboardMissionsPanel } from "@/components/dashboard-missions-panel";
 import { DashboardQuestsPanel } from "@/components/dashboard-quests-panel";
+import { LocationBanner } from "@/components/location-banner";
 import type {
   ControlSurfaceState,
   CsInventory,
@@ -22,19 +23,21 @@ import type {
   DashboardShip,
   MarketCommodity,
 } from "@/lib/ui-api";
-import { formatCr as cr } from "@/lib/format-units";
-import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
-import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
-import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
 import {
   claimChallengeReward,
   claimChallengeRewardsAll,
   claimChallengeRewardsForCadence,
   dashboardAckAlert,
   dashboardAckAllAlerts,
+  EMPTY_ROOM_AMBIENT,
   mineDeploy,
   mineRepairRig,
 } from "@/lib/ui-api";
+import { formatCr as cr } from "@/lib/format-units";
+import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
+import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
+import { useMsgStream } from "@/lib/use-msg-stream";
+import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
 
 function Panel({
   panelKey,
@@ -1149,6 +1152,7 @@ function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims
 export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurfaceState; onReload: () => void }) {
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const { messages: gameLog } = useMsgStream();
 
   const run = useCallback(
     async (fn: () => Promise<unknown>) => {
@@ -1199,6 +1203,14 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           </button>
         </div>
       ) : null}
+      {data.character?.room ? (
+        <LocationBanner
+          ambient={data.ambient ?? EMPTY_ROOM_AMBIENT}
+          roomName={data.character.room}
+          variant="compact"
+          messages={gameLog}
+        />
+      ) : null}
       <div className="grid min-h-0 grid-cols-1 md:min-h-svh md:grid-cols-2">
         <div className="min-h-0 min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5 md:min-h-0">
           {data.challenges ? (
@@ -1213,10 +1225,20 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
             </div>
           ) : null}
           {data.missions ? (
-            <DashboardMissionsPanel missions={data.missions} roomExits={data.roomExits} onChanged={onReload} />
+            <DashboardMissionsPanel
+              missions={data.missions}
+              roomExits={data.roomExits}
+              onChanged={onReload}
+              gameLog={gameLog}
+            />
           ) : null}
           {data.quests ? (
-            <DashboardQuestsPanel quests={data.quests} roomExits={data.roomExits} onChanged={onReload} />
+            <DashboardQuestsPanel
+              quests={data.quests}
+              roomExits={data.roomExits}
+              onChanged={onReload}
+              gameLog={gameLog}
+            />
           ) : null}
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
         </div>

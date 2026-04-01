@@ -14,6 +14,7 @@ from world.bootstrap_hub import HUB_ROOM_KEY
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
 from world.time import VALID_CADENCES, next_mining_delivery_boundary_iso
 from world.nav_exit import nav_fields_for_exit
+from world.room_ambient import resolve_room_ambient, resolve_room_venue_id
 from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
@@ -339,6 +340,8 @@ def _serialize_room(room):
         "storyLines": _room_story_lines(room),
         "exits": _room_exits(room),
         "actions": _room_actions(room),
+        "venueId": resolve_room_venue_id(room),
+        "ambient": resolve_room_ambient(room),
     }
 
 
@@ -1363,6 +1366,28 @@ def _web_refresh_bundle(request, *, room_key=None):
     return {"dashboard": dashboard, "play": play_data}
 
 
+def _web_navigate_path_for_character(char):
+    """
+    Next.js path for the web surface that matches the puppet's current room.
+    Plant room -> /processing; refinery chamber -> /refinery; else None (client default).
+    """
+    from world.venue_resolve import (
+        processing_plant_room_for_object,
+        refinery_room_for_object,
+        venue_id_for_object,
+    )
+
+    loc = getattr(char, "location", None)
+    if not loc:
+        return None
+    vid = venue_id_for_object(char) or "nanomega_core"
+    plant = processing_plant_room_for_object(char)
+    if plant and loc == plant:
+        return f"/processing?venue={vid}"
+    ref_room = refinery_room_for_object(char)
+    if ref_room and loc == ref_room:
+        return f"/refinery?venue={vid}"
+    return None
 
 
 def _resolve_play_room_key(request):
@@ -1458,16 +1483,161 @@ def play_travel(request):
             WEB_STREAM_OPTIONS_KEY: normalize_web_stream_meta({
                 "eventType": "travel",
                 "destinationRoomKey": room_key,
+                "billboardHeadline": f"Arrived: {room_key}",
+                "billboardSeverity": "info",
+                "billboardTtlSec": 20,
+                "billboardRoomKey": room_key,
             })
         },
     )
     bundle = _web_refresh_bundle(request, room_key=room_key)
-    return JsonResponse(
-        {
-            "ok": True,
-            "message": f"Moved to {room_key}.",
-            **bundle,
-        }
+    payload = {
+        "ok": True,
+        "message": f"Moved to {room_key}.",
+        **bundle,
+    }
+    nav = _web_navigate_path_for_character(char)
+    if nav:
+        payload["webNavigatePath"] = nav
+    return JsonResponse(payload)
+
+
+# Web travel: ``play_go_to_processing_plant`` → plant room; ``play_go_to_refinery`` → refinery chamber.
+def _web_move_character_to_room(request, char, target_room, *, not_found_code: str, not_found_message: str):
+    """Move authenticated web character to ``target_room`` (sync missions/quests, refresh bundle)."""
+    if not target_room:
+        return JsonResponse(
+            {"ok": False, "code": not_found_code, "message": not_found_message},
+            status=404,
+        )
+
+    if not getattr(char, "location", None):
+        return JsonResponse(
+            {"ok": False, "code": "NO_LOCATION", "message": "Character has no current location."},
+            status=400,
+        )
+
+    if char.location == target_room:
+        room_key = target_room.key
+        char.msg(
+            f"Already at {room_key}.",
+            options={
+                WEB_STREAM_OPTIONS_KEY: normalize_web_stream_meta(
+                    {
+                        "eventType": "travel",
+                        "destinationRoomKey": room_key,
+                        "billboardHeadline": f"Here: {room_key}",
+                        "billboardSeverity": "info",
+                        "billboardTtlSec": 12,
+                        "billboardRoomKey": room_key,
+                    }
+                )
+            },
+        )
+        bundle = _web_refresh_bundle(request, room_key=room_key)
+        payload = {"ok": True, "message": f"Already at {room_key}.", **bundle}
+        nav = _web_navigate_path_for_character(char)
+        if nav:
+            payload["webNavigatePath"] = nav
+        return JsonResponse(payload)
+
+    try:
+        char.move_to(target_room)
+    except Exception as exc:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "MOVE_FAILED",
+                "message": f"Could not move: {exc}",
+            },
+            status=500,
+        )
+
+    try:
+        char.missions.sync_global_seeds()
+        if char.location:
+            char.missions.sync_room(char.location)
+            char.quests.sync_room(char.location)
+    except Exception:
+        pass
+
+    room_key = char.location.key if char.location else target_room.key
+    char.msg(
+        f"Moved to {room_key}.",
+        options={
+            WEB_STREAM_OPTIONS_KEY: normalize_web_stream_meta(
+                {
+                    "eventType": "travel",
+                    "destinationRoomKey": room_key,
+                    "billboardHeadline": f"Arrived: {room_key}",
+                    "billboardSeverity": "info",
+                    "billboardTtlSec": 20,
+                    "billboardRoomKey": room_key,
+                }
+            )
+        },
+    )
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    payload = {"ok": True, "message": f"Moved to {room_key}.", **bundle}
+    nav = _web_navigate_path_for_character(char)
+    if nav:
+        payload["webNavigatePath"] = nav
+    return JsonResponse(payload)
+
+
+@csrf_exempt
+@require_POST
+def play_go_to_processing_plant(request):
+    """POST ``play/go-to-processing-plant`` — Services → Processor (ore bay / plant floor)."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    from world.venue_resolve import processing_plant_room_for_venue
+    from world.venues import VENUES, venue_id_for_object
+
+    vid = venue_id_for_object(char)
+    if vid not in VENUES:
+        vid = "nanomega_core"
+
+    room = processing_plant_room_for_venue(vid)
+    return _web_move_character_to_room(
+        request,
+        char,
+        room,
+        not_found_code="PLANT_NOT_FOUND",
+        not_found_message=f"Processing plant for this station is not available (venue '{vid}').",
+    )
+
+
+@csrf_exempt
+@require_POST
+def play_go_to_refinery(request):
+    """POST ``play/go-to-refinery`` — Services → Refinery chamber (distinct Evennia room from plant)."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    from world.venue_resolve import refinery_room_for_venue
+    from world.venues import VENUES, venue_id_for_object
+
+    vid = venue_id_for_object(char)
+    if vid not in VENUES:
+        vid = "nanomega_core"
+
+    room = refinery_room_for_venue(vid)
+    return _web_move_character_to_room(
+        request,
+        char,
+        room,
+        not_found_code="REFINERY_ROOM_NOT_FOUND",
+        not_found_message=f"Refinery chamber for this station is not available (venue '{vid}').",
     )
 
 
@@ -1512,6 +1682,7 @@ def play_interact(request):
                 "eventType": "interaction",
                 "interactionKey": outcome.interaction_key,
                 "speakerKey": outcome.speaker_key,
+                "surface": "interaction",
             })
         },
     )
@@ -1616,13 +1787,14 @@ def nav_state(request):
         if key_lower in _SKIP_HUB_EXIT_KEYS:
             continue
         if key_lower in NAV_KIOSKS and ex.get("destination"):
-            kiosks.append(
-                {
-                    "key": ex["key"],
-                    "label": NAV_KIOSKS[key_lower]["label"],
-                    "href": NAV_KIOSKS[key_lower]["href"],
-                }
-            )
+            row = {
+                "key": ex["key"],
+                "label": NAV_KIOSKS[key_lower]["label"],
+                "href": NAV_KIOSKS[key_lower]["href"],
+            }
+            if key_lower in ("processing", "processing plant"):
+                row["preNavigate"] = "go_to_processing_plant"
+            kiosks.append(row)
         else:
             dest = _resolve_exit_destination(ex)
             is_site, _ = _is_mining_site_room(dest)
@@ -1643,7 +1815,15 @@ def nav_state(request):
             if "/processing" in h or lbl == "Processor":
                 insert_at = i + 1
                 break
-        kiosks.insert(insert_at, {"key": "refinery", "label": "Refinery", "href": refinery_href})
+        kiosks.insert(
+            insert_at,
+            {
+                "key": "refinery",
+                "label": "Refinery",
+                "href": refinery_href,
+                "preNavigate": "go_to_refinery",
+            },
+        )
 
     shops = [
         {"roomKey": entry["room_key"], "label": entry["vendor_name"], "venueId": entry["venue_id"]}
@@ -1977,28 +2157,29 @@ def processing_state(request):
 @require_GET
 def refinery_state(request):
     from web.ui.refinery_read_model import build_main_refinery_payload
+    from world.venue_resolve import refinery_room_for_venue
     from world.venues import get_venue
 
     char = None
     if request.user.is_authenticated:
         char, _ = _resolve_character_for_web(request.user)
     venue_id = _resolve_web_venue_id(request, char)
-    plant_key = get_venue(venue_id)["processing"]["plant_room_key"]
-    room = _first_object(plant_key)
+    room = refinery_room_for_venue(venue_id)
     if not room:
-        raise Http404(f"Room '{plant_key}' was not found.")
+        raise Http404(f"Refinery room for venue '{venue_id}' was not found.")
 
     payload = build_main_refinery_payload(room, char=char, venue_id=venue_id)
     if not payload:
-        raise Http404("No refinery in this plant room.")
+        raise Http404("No refinery in this refinery chamber.")
+
+    venue = get_venue(venue_id)
+    proc = venue.get("processing") or {}
+    web_page_title = str(proc.get("refinery_web_title") or "Refinery")
+    web_page_subtitle = str(venue.get("label") or venue_id)
 
     story_lines = [
-        {"id": "refinery-title", "text": payload.get("refineryKey") or "Refinery", "kind": "title"},
-        {
-            "id": "refinery-room",
-            "text": room.key,
-            "kind": "room",
-        },
+        {"id": "refinery-title", "text": web_page_title, "kind": "title"},
+        {"id": "refinery-room", "text": web_page_subtitle, "kind": "room"},
         {
             "id": "refinery-how",
             "text": (
@@ -2014,6 +2195,8 @@ def refinery_state(request):
         "roomName": room.key,
         "roomDescription": room.db.desc or "",
         "storyLines": story_lines,
+        "webPageTitle": web_page_title,
+        "webPageSubtitle": web_page_subtitle,
         "exits": _room_exits(room),
     })
 
@@ -2046,6 +2229,32 @@ def refinery_feed_silo(request):
         tons=float(tons) if tons is not None and not move_all else None,
         move_all=move_all,
     )
+    status = 200 if ok else 400
+    return JsonResponse({"ok": ok, "message": msg}, status=status)
+
+
+@csrf_exempt
+@require_POST
+def refinery_queue_recipe(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    venue_id = str(body.get("venue") or request.GET.get("venue") or "").strip()
+    if not venue_id:
+        venue_id = _resolve_web_venue_id(request, char)
+
+    recipe_key = body.get("recipeKey")
+    if not recipe_key or not isinstance(recipe_key, str):
+        return JsonResponse({"ok": False, "message": "Missing or invalid recipeKey."}, status=400)
+
+    from world.refinery_web_ops import feed_recipe_batch_to_miner_queue
+
+    ok, msg = feed_recipe_batch_to_miner_queue(char, venue_id, recipe_key.strip())
     status = 200 if ok else 400
     return JsonResponse({"ok": ok, "message": msg}, status=status)
 

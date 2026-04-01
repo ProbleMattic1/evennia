@@ -25,7 +25,7 @@ from typeclasses.characters import (
 )
 
 CHARACTER_TYPECLASS = "typeclasses.characters.Character"
-MARCUS_CREDITS = 1_000_000_000_000
+MARCUS_CREDITS = 500_000_000_000
 
 # Killstar autonomous haulers deliver to local raw reserve in this room (not the ore plant).
 MARCUS_LOCAL_RAW_WAREHOUSE_ROOM_KEY = "Marcus Killstar Mining Annex"

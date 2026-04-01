@@ -106,6 +106,32 @@ def bootstrap_shops():
         for spec in get_venue(venue_id)["shops"]:
             room = _get_or_create_room(spec["room_key"], desc=spec["room_desc"])
             apply_venue_metadata(room, venue_id)
+            if spec["vendor_slug"] == "mining-outfitters":
+                room.db.ui_ambient = {
+                    "themeId": "industrial",
+                    "label": spec["vendor_name"],
+                    "tagline": "Extraction gear, claims, and field-rated kit.",
+                    "bannerSlides": [
+                        {
+                            "id": "mo-1",
+                            "title": spec["vendor_name"],
+                            "body": spec["room_desc"],
+                            "graphicKey": "industrial",
+                        },
+                        {
+                            "id": "mo-2",
+                            "title": "Commodity desk",
+                            "body": "Spot rates echo from the multiplex exchange feed.",
+                            "graphicKey": "asteroid",
+                        },
+                    ],
+                    "marqueeLines": [
+                        "Certified drills and survey gear in stock.",
+                        "Deploy claims from the kiosk — haulers route to sovereign plants.",
+                    ],
+                    "chips": [{"id": "hazard", "text": "HAZMAT B"}],
+                    "layoutHints": {"rightColumn": "commodity_board"},
+                }
             _get_or_create_catalog_vendor(room, spec)
             if hub:
                 _get_or_create_exit(

@@ -10,11 +10,16 @@ from typeclasses.refining import (
     REFINING_RECIPES,
     Refinery,
     execute_refined_payout_from_treasury,
+    is_plant_raw_resource_key,
     plant_raw_resource_display_name,
     refined_payout_breakdown,
     restore_miner_output_for_payout,
 )
-from world.venue_resolve import processing_plant_room_for_object, processing_plant_room_for_venue
+from world.venue_resolve import (
+    processing_plant_room_for_venue,
+    refinery_room_for_object,
+    refinery_room_for_venue,
+)
 
 
 def _main_refinery(room):
@@ -24,17 +29,19 @@ def _main_refinery(room):
     return None
 
 
-def resolve_plant_room_for_web_action(char, venue_id: str):
+def resolve_refinery_web_context(char, venue_id: str):
     """
-    Character may only act on the processing plant for their resolved venue.
+    Refinery object lives in the refinery chamber; plant silos stay on the ore-bay floor.
+    Returns (refinery_room, plant_room, error_message).
     """
-    target = processing_plant_room_for_venue(venue_id)
-    allowed = processing_plant_room_for_object(char)
-    if not target or not allowed:
-        return None, "Not allowed for this character and venue."
-    if target.id != allowed.id:
-        return None, "Not allowed for this character and venue."
-    return target, None
+    ref_target = refinery_room_for_venue(venue_id)
+    ref_allowed = refinery_room_for_object(char)
+    if not ref_target or not ref_allowed:
+        return None, None, "Not allowed for this character and venue."
+    if ref_target.id != ref_allowed.id:
+        return None, None, "Not allowed for this character and venue."
+    plant_room = processing_plant_room_for_venue(venue_id)
+    return ref_target, plant_room, None  # plant_room may be None; callers that need silo must check
 
 
 def feed_silo_to_miner_queue(
@@ -45,16 +52,18 @@ def feed_silo_to_miner_queue(
     tons: float | None = None,
     move_all: bool = False,
 ) -> tuple[bool, str]:
-    room, err = resolve_plant_room_for_web_action(char, venue_id)
+    ref_room, plant_room, err = resolve_refinery_web_context(char, venue_id)
     if err:
         return False, err
 
-    ref = _main_refinery(room)
+    ref = _main_refinery(ref_room)
     if not ref:
         return False, "No refinery in this plant."
 
     if move_all:
-        moved = ref.transfer_owner_plant_silo_to_miner_queue(char)
+        if not plant_room:
+            return False, "Ore bay for this venue is not available."
+        moved = ref.transfer_owner_plant_silo_to_miner_queue(char, plant_room=plant_room)
         if not moved:
             return False, "Nothing valid to queue from your plant storage."
         lines = [f"Queued at {ref.key} from plant storage:"]
@@ -65,7 +74,10 @@ def feed_silo_to_miner_queue(
     if not resource_key or tons is None:
         return False, "Missing resourceKey or tons."
 
-    silo = get_plant_player_storage(room, char)
+    if not plant_room:
+        return False, "Ore bay for this venue is not available."
+
+    silo = get_plant_player_storage(plant_room, char)
     if not silo:
         return False, "You have no assigned plant storage here."
 
@@ -86,13 +98,89 @@ def feed_silo_to_miner_queue(
     return True, f"Queued {queued}t of {name} at {ref.key}."
 
 
-def collect_attributed_refined(char, venue_id: str) -> tuple[bool, str]:
-    """Mirror CmdCollectRefined payout path for web."""
-    room, err = resolve_plant_room_for_web_action(char, venue_id)
+def feed_recipe_batch_to_miner_queue(char, venue_id: str, recipe_key: str) -> tuple[bool, str]:
+    """
+    Queue one batch of ``recipe_key``: withdraw all recipe inputs from the character's
+    plant silo and enqueue them on the main refinery's miner queue.
+
+    Single request path avoids partial multi-POST state if one resourceKey fails mid-way.
+    """
+    ref_room, plant_room, err = resolve_refinery_web_context(char, venue_id)
     if err:
         return False, err
 
-    ref = _main_refinery(room)
+    ref = _main_refinery(ref_room)
+    if not ref:
+        return False, "No refinery in this plant."
+
+    rk = str(recipe_key or "").strip()
+    recipe = REFINING_RECIPES.get(rk)
+    if not recipe:
+        return False, "Unknown recipe."
+
+    inputs = recipe.get("inputs") or {}
+    if not inputs:
+        return False, "Recipe has no inputs."
+
+    if not plant_room:
+        return False, "Ore bay for this venue is not available."
+
+    silo = get_plant_player_storage(plant_room, char)
+    if not silo:
+        return False, "You have no assigned plant storage here."
+
+    inv = dict(silo.db.inventory or {})
+    need: dict[str, float] = {}
+    for k, v in inputs.items():
+        ks = str(k).strip()
+        if not is_plant_raw_resource_key(ks):
+            return False, f"Invalid plant raw key in recipe: {ks}."
+        try:
+            n = float(v)
+        except (TypeError, ValueError):
+            return False, "Invalid recipe input amount."
+        n = round(n, 2)
+        if n <= 0:
+            return False, "Invalid recipe input amount."
+        need[ks] = n
+
+    for ks, n in need.items():
+        avail = round(float(inv.get(ks, 0.0)), 2)
+        if avail + 1e-9 < n:
+            name = plant_raw_resource_display_name(ks)
+            return False, f"Not enough {name} in plant silo (need {n}t, have {avail}t)."
+
+    for ks, n in need.items():
+        avail = round(float(inv[ks]), 2)
+        rem = round(avail - n, 2)
+        if rem <= 0:
+            inv.pop(ks, None)
+        else:
+            inv[ks] = rem
+
+    silo.db.inventory = inv
+
+    oid = str(char.id)
+    queues = dict(ref.db.miner_ore_queue or {})
+    acc = dict(queues.get(oid, {}))
+    for ks, n in need.items():
+        acc[ks] = round(float(acc.get(ks, 0.0)) + n, 2)
+    queues[oid] = acc
+    ref.db.miner_ore_queue = queues
+
+    lines = [f"Queued 1× {recipe.get('name', rk)} at {ref.key}:"]
+    for ks, n in sorted(need.items()):
+        lines.append(f"  {plant_raw_resource_display_name(ks)}: {n}t")
+    return True, "\n".join(lines)
+
+
+def collect_attributed_refined(char, venue_id: str) -> tuple[bool, str]:
+    """Mirror CmdCollectRefined payout path for web."""
+    ref_room, _plant_room, err = resolve_refinery_web_context(char, venue_id)
+    if err:
+        return False, err
+
+    ref = _main_refinery(ref_room)
     if not ref:
         return False, "No refinery in this plant."
 

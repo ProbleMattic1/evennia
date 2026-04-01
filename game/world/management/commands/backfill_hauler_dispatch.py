@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from evennia import search_tag
+from evennia.utils.search import search_tag
 
 from typeclasses.haulers import set_hauler_next_cycle
 

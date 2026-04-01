@@ -1,7 +1,9 @@
 """
-Bootstrap NPC-owned mining ops per venue industrial subdeck.
+Bootstrap NPC-owned mining ops on the NanoMegaPlex industrial subdeck only.
 
-Idempotent: site tag from venue industrial spec (category world).
+Cold start calls ``bootstrap_industrial_miners_for_venue(\"nanomega_core\")`` so new
+contractor haulers target the core plant. Idempotent: site tag from venue industrial
+spec (category world).
 """
 
 import copy
@@ -17,7 +19,7 @@ from world.bootstrap_mining_packages import MINING_PACKAGES
 from world.mining_bootstrap_presets import catalog_wide_ore_deposit, retune_mining_rigs_on_site
 from world.npc_miner_registry import register_npc_miner_character_id
 from world.venue_resolve import hub_room_for_venue
-from world.venues import all_venue_ids, apply_venue_metadata, get_venue
+from world.venues import apply_venue_metadata, get_venue
 
 CELL_EXIT_PREFIX = "pad "
 
@@ -208,6 +210,5 @@ def bootstrap_industrial_miners_for_venue(venue_id: str):
 
 
 def bootstrap_npc_nanomega_industrial_miners():
-    """Cold-start entry: all venues with industrial specs."""
-    for venue_id in all_venue_ids():
-        bootstrap_industrial_miners_for_venue(venue_id)
+    """Cold-start entry: core processing plant only (NPC supply routes to nanomega_core plant)."""
+    bootstrap_industrial_miners_for_venue("nanomega_core")

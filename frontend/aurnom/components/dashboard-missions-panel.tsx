@@ -12,21 +12,26 @@ import type {
   MissionChoice,
   MissionOpportunity,
   MissionsState,
+  MsgStreamEntry,
 } from "@/lib/ui-api";
 import { acceptMission, chooseMission, declineMission, playInteract, playTravel } from "@/lib/ui-api";
-import { useMsgStream } from "@/lib/use-msg-stream";
 
 type Props = {
   missions: MissionsState;
   /** ``_room_exits(char.location)`` from control surface; same facts as the room dialog / play/travel. */
   roomExits?: ExitButton[];
   onChanged: () => void;
+  gameLog: MsgStreamEntry[];
 };
 
 type ChoiceDialogState = {
   mission: MissionActive;
   choice: MissionChoice;
 };
+
+function missionKindLabel(k: string | undefined) {
+  return (k || "mission").toUpperCase();
+}
 
 /**
  * Dashboard-styled missions panel with rich interactions (travel/interact/choice)
@@ -35,9 +40,8 @@ type ChoiceDialogState = {
  * Intentionally does not reuse `components/mission-board.tsx` since it hardcodes
  * older visual styles (<details>, fuchsia palette, light buttons).
  */
-export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: Props) {
+export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, gameLog }: Props) {
   const router = useRouter();
-  const { messages: gameLog } = useMsgStream();
 
   const opportunities = missions.opportunities ?? [];
   const active = missions.active ?? [];
@@ -245,6 +249,9 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                     return (
                       <div key={m.id} className="border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0">
                         <div className="flex min-w-0 items-baseline gap-2">
+                          <span className="shrink-0 rounded border border-cyan-800/50 px-1 font-mono text-[10px] text-cyber-cyan/90">
+                            {missionKindLabel(m.missionKind)}
+                          </span>
                           <button
                             type="button"
                             className="min-w-0 truncate text-left font-semibold text-foreground hover:text-cyber-cyan"
@@ -318,6 +325,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                   <div className="mt-0.5 max-h-[min(280px,45vh)] min-h-[48px] space-y-0.5 overflow-y-auto overflow-x-hidden border border-cyan-900/40 bg-zinc-950/80 p-1.5 pr-2 [scrollbar-gutter:stable]">
                     {opportunities.map((op) => (
                       <div key={op.id} className="flex min-w-0 items-baseline gap-2">
+                        <span className="shrink-0 font-mono text-[10px] text-ui-muted">{missionKindLabel(op.missionKind)}</span>
                         <button
                           type="button"
                           className="min-w-0 flex-1 truncate text-left text-ui-muted hover:text-cyber-cyan"
@@ -349,6 +357,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged }: 
                 <div className="mt-0.5 space-y-0.5">
                   {completed.slice(-6).map((m) => (
                     <div key={m.id} className="flex min-w-0 items-baseline gap-2">
+                      <span className="shrink-0 font-mono text-[10px] text-ui-muted">{missionKindLabel(m.missionKind)}</span>
                       <span className="min-w-0 flex-1 truncate text-ui-muted">{m.title}</span>
                       {m.completedAt ? (
                         <span className="shrink-0 text-ui-caption text-ui-soft">

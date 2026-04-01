@@ -13,6 +13,16 @@ urlpatterns = [
     path("economy-world", economy_world_state, name="ui-economy-world"),
     path("play", views.play_state, name="ui-play"),
     path("play/travel", views.play_travel, name="ui-play-travel"),
+    path(
+        "play/go-to-processing-plant",
+        views.play_go_to_processing_plant,
+        name="ui-play-go-to-processing-plant",
+    ),
+    path(
+        "play/go-to-refinery",
+        views.play_go_to_refinery,
+        name="ui-play-go-to-refinery",
+    ),
     path("play/interact", views.play_interact, name="ui-play-interact"),
     path("msg-stream", views.msg_stream, name="ui-msg-stream"),
     path("nav", views.nav_state, name="ui-nav"),
@@ -33,6 +43,7 @@ urlpatterns = [
     path("processing", views.processing_state, name="ui-processing"),
     path("refinery", views.refinery_state, name="ui-refinery"),
     path("refinery/feed-silo", views.refinery_feed_silo, name="ui-refinery-feed-silo"),
+    path("refinery/queue-recipe", views.refinery_queue_recipe, name="ui-refinery-queue-recipe"),
     path("refinery/collect-refined", views.refinery_collect_refined, name="ui-refinery-collect-refined"),
     path(
         "shipyard",

@@ -8,13 +8,18 @@ type Props = {
   compact?: boolean;
 };
 
+function streamTag(meta: MsgStreamEntry["meta"]): string | null {
+  const parts: string[] = [];
+  if (meta.surface) parts.push(String(meta.surface));
+  if (meta.interactionKey) parts.push(String(meta.interactionKey));
+  if (parts.length === 0) return null;
+  return `[${parts.join(":")}]`;
+}
+
 export function GameLogPanel({ messages, compact }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const newestFirst = useMemo(
-    () => [...messages].reverse(),
-    [messages],
-  );
+  const newestFirst = useMemo(() => [...messages].reverse(), [messages]);
 
   useEffect(() => {
     containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -34,13 +39,15 @@ export function GameLogPanel({ messages, compact }: Props) {
 
   return (
     <div ref={containerRef} className={listClass}>
-      {newestFirst.map((msg) => (
-        <div
-          key={msg.seq}
-          className="mb-1 break-words"
-          dangerouslySetInnerHTML={{ __html: msg.html }}
-        />
-      ))}
+      {newestFirst.map((msg) => {
+        const tag = streamTag(msg.meta);
+        return (
+          <div key={msg.seq} className="mb-1 break-words">
+            {tag ? <span className="mr-1 font-mono text-[10px] text-ui-muted">{tag}</span> : null}
+            <span dangerouslySetInnerHTML={{ __html: msg.html }} />
+          </div>
+        );
+      })}
     </div>
   );
 }

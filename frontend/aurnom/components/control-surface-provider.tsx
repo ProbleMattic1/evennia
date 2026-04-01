@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { PersistentNavRail } from "@/components/persistent-nav-rail";
 import { getControlSurfaceState, type ControlSurfaceState } from "@/lib/control-surface-api";
@@ -12,6 +12,9 @@ type ControlSurfaceContextValue = {
   loading: boolean;
   error: string | null;
   reload: () => void;
+  /** Increment after server-side puppet moves so room-scoped UIs refetch (e.g. play state). */
+  puppetLocationSeq: number;
+  bumpPuppetLocationSeq: () => void;
 };
 
 const ControlSurfaceContext = createContext<ControlSurfaceContextValue | null>(null);
@@ -28,6 +31,11 @@ export function ControlSurfaceProvider({ children }: { children: React.ReactNode
   const loader = useCallback(() => getControlSurfaceState(), []);
   const { data, error, loading, reload } = useUiResource(loader);
 
+  const [puppetLocationSeq, setPuppetLocationSeq] = useState(0);
+  const bumpPuppetLocationSeq = useCallback(() => {
+    setPuppetLocationSeq((n) => n + 1);
+  }, []);
+
   useEffect(() => {
     const ms = intervalMs("controlSurface", data?.clientPollHints);
     const id = setInterval(() => {
@@ -37,8 +45,15 @@ export function ControlSurfaceProvider({ children }: { children: React.ReactNode
   }, [reload, data?.clientPollHints]);
 
   const value = useMemo(
-    () => ({ data, loading, error, reload }),
-    [data, loading, error, reload],
+    () => ({
+      data,
+      loading,
+      error,
+      reload,
+      puppetLocationSeq,
+      bumpPuppetLocationSeq,
+    }),
+    [data, loading, error, reload, puppetLocationSeq, bumpPuppetLocationSeq],
   );
 
   return (

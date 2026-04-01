@@ -1,11 +1,13 @@
 "use client";
 
-import { Suspense, useCallback } from "react";
+import { Suspense, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { useControlSurface } from "@/components/control-surface-provider";
 import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
 import { ExitGrid } from "@/components/exit-grid";
+import { LocationBanner } from "@/components/location-banner";
 import {
   MineDetailsPanel,
   MinePlayRightColumn,
@@ -13,8 +15,9 @@ import {
   PlayQuestsPanel,
 } from "@/components/mine-details-panel";
 import { StoryPanel } from "@/components/story-panel";
-import { getPlayState } from "@/lib/ui-api";
+import { EMPTY_ROOM_AMBIENT, getPlayState } from "@/lib/ui-api";
 import { UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
+import { useMsgStream } from "@/lib/use-msg-stream";
 import { useReloadAfterIso } from "@/lib/use-reload-after-iso";
 import { useUiResource } from "@/lib/use-ui-resource";
 
@@ -25,6 +28,16 @@ function PlayPageInner() {
   const room = searchParams.get("room") ?? undefined;
   const loader = useCallback(() => getPlayState(room), [room]);
   const { data, error, loading, reload } = useUiResource(loader);
+  const { puppetLocationSeq } = useControlSurface();
+  const playBoot = useRef(false);
+  useEffect(() => {
+    if (!playBoot.current) {
+      playBoot.current = true;
+      return;
+    }
+    reload();
+  }, [puppetLocationSeq, reload]);
+  const { messages: streamMessages } = useMsgStream();
 
   const iso = data?.miningNextCycleAt ?? data?.site?.nextCycleAt ?? null;
   useReloadAfterIso(iso, reload, UI_REFRESH_MS.postDeadlinePoll);
@@ -45,8 +58,13 @@ function PlayPageInner() {
     );
   }
 
+  const ambient = data.ambient ?? EMPTY_ROOM_AMBIENT;
+  const useCommodityBoard =
+    data.site &&
+    (ambient.layoutHints?.rightColumn === "commodity_board" || data.roomName === MINING_OUTFITTERS_ROOM);
+
   const mineRight =
-    data.site && data.roomName === MINING_OUTFITTERS_ROOM ? (
+    useCommodityBoard ? (
       <>
         <CsPanel title="Market Snapshot">
           <CommodityTickerStrip />
@@ -75,6 +93,12 @@ function PlayPageInner() {
         title="Play"
         subtitle={`Current location: ${data.roomName}`}
         actions={<CsButtonLink href="/">Dashboard</CsButtonLink>}
+      />
+      <LocationBanner
+        ambient={ambient}
+        roomName={data.roomName}
+        variant="full"
+        messages={streamMessages}
       />
       <CsColumns
         left={

@@ -31,8 +31,12 @@ def deploy_flora_colony_site(owner, site, site_room, components: list, plant_roo
     """
     from typeclasses.haulers import HAULER_ENGINE_INTERVAL
     from world.time import FLORA_HAULER_PICKUP_OFFSET_SEC
+    from world.venue_resolve import processing_plant_room_for_npc_autonomous_supply
 
-    refinery_room = resolve_plant_room(plant_room_keys)
+    if getattr(owner.db, "is_npc", False):
+        refinery_room = processing_plant_room_for_npc_autonomous_supply()
+    else:
+        refinery_room = resolve_plant_room(plant_room_keys)
     if not refinery_room:
         return False, "No processing plant room found (flora plant key list exhausted)."
 
@@ -133,8 +137,12 @@ def deploy_fauna_colony_site(owner, site, site_room, components: list, plant_roo
     """
     from typeclasses.haulers import HAULER_ENGINE_INTERVAL
     from world.time import FLORA_HAULER_PICKUP_OFFSET_SEC
+    from world.venue_resolve import processing_plant_room_for_npc_autonomous_supply
 
-    refinery_room = resolve_plant_room(plant_room_keys)
+    if getattr(owner.db, "is_npc", False):
+        refinery_room = processing_plant_room_for_npc_autonomous_supply()
+    else:
+        refinery_room = resolve_plant_room(plant_room_keys)
     if not refinery_room:
         return False, "No processing plant room found (fauna plant key list exhausted)."
 
