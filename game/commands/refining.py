@@ -5,8 +5,9 @@ Commands
 --------
 refinelist       List all available refining recipes.
 refinestatus     Show input/output inventory of the refinery in the current room.
-feedrefinery     Transfer ore from a nearby mining storage or vehicle cargo
-                 into the refinery's input inventory.
+feedrefinery     Transfer raw into the refinery: optional |wshared|n/|wplant|n/|wbay|n
+                 (Ore Receiving Bay → shared bin), |wsilo|n/|wmine|n/|wpersonal|n
+                 (your plant silo → your queue), or default |wauto|n (legacy order).
 refine           Process ore into refined products.
 collectproduct   Sell refined products at base price and deposit to ledger.
 """
@@ -141,6 +142,255 @@ def _find_mining_storage_in_room_excluding(caller, exclude=None):
             continue
         return obj
     return None
+
+
+def _feed_refinery_shared_plant_only(caller, loc, ref, args):
+    """
+    Ore Receiving Bay only → ``ref.feed`` (shared ``input_inventory``).
+    Station ``Refinery`` typeclass only.
+    """
+    from typeclasses.haulers import get_plant_ore_receiving_bay
+
+    if not ref.is_typeclass("typeclasses.refining.Refinery", exact=False):
+        caller.msg(
+            "|wshared|n, |wplant|n, and |wbay|n apply only at the station refinery. "
+            "Omit the keyword for personal refining equipment."
+        )
+        return
+
+    bay = get_plant_ore_receiving_bay(loc)
+    if not bay or not (bay.db.inventory or {}):
+        caller.msg("The Ore Receiving Bay is empty.")
+        return
+
+    if args == "all":
+        contents = bay.withdraw_all()
+        if not contents:
+            caller.msg("The Ore Receiving Bay is empty.")
+            return
+        lines = [f"|wFed into {ref.key} (shared bin) from Ore Receiving Bay:|n"]
+        for key, tons in contents.items():
+            actual = ref.feed(key, tons)
+            name = plant_raw_resource_display_name(key)
+            lines.append(f"  {name}: {actual}t")
+        caller.msg("\n".join(lines))
+        return
+
+    parts = args.split(None, 1)
+    if len(parts) < 2:
+        caller.msg("Usage: feedrefinery shared <resource> <tons>  OR  feedrefinery shared all")
+        return
+    resource_query, tons_str = parts
+    try:
+        tons_req = float(tons_str)
+    except ValueError:
+        caller.msg("Tons must be a number.")
+        return
+
+    inventory = bay.db.inventory or {}
+    matched_key = None
+    for key in inventory:
+        name = plant_raw_resource_display_name(key)
+        if resource_query in name.lower() or resource_query in key.lower():
+            matched_key = key
+            break
+    if not matched_key:
+        caller.msg(f"No resource matching '{resource_query}' in the Ore Receiving Bay.")
+        return
+
+    actual_moved = bay.withdraw(matched_key, tons_req)
+    if actual_moved <= 0:
+        caller.msg("Nothing moved.")
+        return
+    actual = ref.feed(matched_key, actual_moved)
+    name = plant_raw_resource_display_name(matched_key)
+    caller.msg(f"Fed |w{actual}t|n of {name} into |w{ref.key}|n (shared bin, from bay).")
+
+
+def _feed_refinery_silo_only(caller, loc, ref, args):
+    """
+    Assigned plant silo only → ``miner_ore_queue`` (attributed). No bay fallback.
+    """
+    from typeclasses.haulers import get_plant_player_storage
+
+    if not ref.is_typeclass("typeclasses.refining.Refinery", exact=False):
+        caller.msg(
+            "|wsilo|n, |wmine|n, and |wpersonal|n apply only at the station refinery. "
+            "Omit the keyword for personal refining equipment."
+        )
+        return
+
+    plant_silo = get_plant_player_storage(loc, caller)
+    if not plant_silo:
+        caller.msg("You have no assigned plant storage here.")
+        return
+
+    pinv = plant_silo.db.inventory or {}
+    if not pinv:
+        caller.msg("Your assigned plant storage is empty.")
+        return
+
+    if args == "all":
+        moved = ref.transfer_owner_plant_silo_to_miner_queue(caller)
+        if moved:
+            lines = [f"|wQueued at {ref.key} from {plant_silo.key}:|n"]
+            for key, tons in sorted(moved.items()):
+                name = plant_raw_resource_display_name(key)
+                lines.append(f"  {name}: {tons}t")
+            caller.msg("\n".join(lines))
+            return
+        caller.msg("Nothing valid to queue in your assigned plant storage.")
+        return
+
+    parts = args.split(None, 1)
+    if len(parts) < 2:
+        caller.msg("Usage: feedrefinery silo <resource> <tons>  OR  feedrefinery silo all")
+        return
+    resource_query, tons_str = parts
+    try:
+        tons_req = float(tons_str)
+    except ValueError:
+        caller.msg("Tons must be a number.")
+        return
+
+    matched_plant = None
+    for key in pinv:
+        name = plant_raw_resource_display_name(key)
+        if resource_query in name.lower() or resource_query in key.lower():
+            matched_plant = key
+            break
+    if matched_plant is None:
+        caller.msg(f"No resource matching '{resource_query}' in your assigned plant storage.")
+        return
+
+    actual_moved = plant_silo.withdraw(matched_plant, tons_req)
+    if actual_moved <= 0:
+        caller.msg("Nothing moved.")
+        return
+    queued = ref.enqueue_miner_ore(caller.id, matched_plant, actual_moved)
+    name = plant_raw_resource_display_name(matched_plant)
+    caller.msg(
+        f"Queued |w{queued}t|n of {name} at |w{ref.key}|n (from assigned plant storage)."
+    )
+
+
+def _feed_refinery_auto_legacy(caller, loc, ref, args):
+    """Legacy: silo-first at plant, then bay / room storage / vehicle → ``feed``."""
+    from typeclasses.haulers import get_plant_ore_receiving_bay, get_plant_player_storage
+
+    is_plant_refinery = ref.is_typeclass("typeclasses.refining.Refinery", exact=False)
+    plant_silo = get_plant_player_storage(loc, caller) if is_plant_refinery else None
+    bay = get_plant_ore_receiving_bay(loc) if is_plant_refinery else None
+
+    if is_plant_refinery and plant_silo:
+        pinv = plant_silo.db.inventory or {}
+        if args == "all" and pinv:
+            moved = ref.transfer_owner_plant_silo_to_miner_queue(caller)
+            if moved:
+                lines = [f"|wQueued at {ref.key} from {plant_silo.key}:|n"]
+                for key, tons in sorted(moved.items()):
+                    name = plant_raw_resource_display_name(key)
+                    lines.append(f"  {name}: {tons}t")
+                caller.msg("\n".join(lines))
+                return
+            caller.msg("Nothing valid to queue in your assigned plant storage.")
+            return
+
+        if args != "all" and pinv:
+            parts_early = args.split(None, 1)
+            if len(parts_early) >= 2:
+                resource_query_early, tons_str_early = parts_early
+                try:
+                    tons_req_early = float(tons_str_early)
+                except ValueError:
+                    caller.msg("Tons must be a number.")
+                    return
+                matched_plant = None
+                for key in pinv:
+                    name = plant_raw_resource_display_name(key)
+                    if resource_query_early in name.lower() or resource_query_early in key.lower():
+                        matched_plant = key
+                        break
+                if matched_plant is not None:
+                    actual_moved = plant_silo.withdraw(matched_plant, tons_req_early)
+                    if actual_moved <= 0:
+                        caller.msg("Nothing moved.")
+                        return
+                    queued = ref.enqueue_miner_ore(caller.id, matched_plant, actual_moved)
+                    name = plant_raw_resource_display_name(matched_plant)
+                    caller.msg(
+                        f"Queued |w{queued}t|n of {name} at |w{ref.key}|n "
+                        f"(from assigned plant storage)."
+                    )
+                    return
+
+    silo_exclude = plant_silo if is_plant_refinery else None
+    storage = None
+    if is_plant_refinery and bay and (bay.db.inventory or {}):
+        storage = bay
+    if storage is None:
+        storage = _find_mining_storage_in_room_excluding(caller, exclude=silo_exclude)
+
+    vehicle_source = None
+    if not storage:
+        cloc = caller.location
+        if cloc and getattr(cloc.db, "is_vehicle", False):
+            vehicle_source = cloc
+
+    if not storage and not vehicle_source:
+        caller.msg("No mining storage or vehicle cargo found as a source.")
+        return
+
+    if args == "all":
+        if storage:
+            contents = storage.withdraw_all()
+        else:
+            contents = vehicle_source.unload_all_cargo()
+        if not contents:
+            caller.msg("Source is empty.")
+            return
+        lines = [f"|wFed into {ref.key}:|n"]
+        for key, tons in contents.items():
+            actual = ref.feed(key, tons)
+            name = plant_raw_resource_display_name(key)
+            lines.append(f"  {name}: {actual}t")
+        caller.msg("\n".join(lines))
+        return
+
+    parts = args.split(None, 1)
+    if len(parts) < 2:
+        caller.msg("Usage: feedrefinery <resource> <tons>  OR  feedrefinery all")
+        return
+    resource_query, tons_str = parts
+    try:
+        tons_req = float(tons_str)
+    except ValueError:
+        caller.msg("Tons must be a number.")
+        return
+
+    if storage:
+        inventory = storage.db.inventory or {}
+    else:
+        inventory = vehicle_source.db.cargo or {}
+
+    matched_key = None
+    for key in inventory:
+        name = plant_raw_resource_display_name(key)
+        if resource_query in name.lower() or resource_query in key.lower():
+            matched_key = key
+            break
+    if not matched_key:
+        caller.msg(f"No resource matching '{resource_query}' in source.")
+        return
+
+    if storage:
+        actual_moved = storage.withdraw(matched_key, tons_req)
+    else:
+        actual_moved = vehicle_source.unload_cargo(matched_key, tons_req)
+
+    ref.feed(matched_key, actual_moved)
+    name = plant_raw_resource_display_name(matched_key)
+    caller.msg(f"Fed |w{actual_moved}t|n of {name} into |w{ref.key}|n.")
 
 
 # ---------------------------------------------------------------------------
@@ -320,22 +570,31 @@ class CmdRefineStatus(Command):
 
 class CmdFeedRefinery(Command):
     """
-    Feed raw ore into the refinery from a nearby storage unit or vehicle.
+    Feed raw ore into the refinery from storage or vehicle cargo.
 
     Usage:
       feedrefinery <resource> <tons>
       feedrefinery all
-      ... at <target>
+      feedrefinery shared <resource> <tons>   (also |wplant|n or |wbay|n)
+      feedrefinery shared all
+      feedrefinery silo <resource> <tons>    (also |wmine|n or |wpersonal|n)
+      feedrefinery silo all
+      ... at <target refinery name or #dbref>
 
-    Transfers ore from a mining storage unit in the same room (or from the
-    vehicle you are aboard, if docked here) into the refinery. At the plant,
-    your assigned silo is used first (attributed queue); otherwise ore in the
-    Ore Receiving Bay (haul deliveries) feeds the shared input bin; then other
-    room storage or vehicle cargo.
+    |wshared|n / |wplant|n / |wbay|n — Ore Receiving Bay only → shared refinery bin
+    (station refinery only).
+
+    |wsilo|n / |wmine|n / |wpersonal|n — your assigned plant silo only → your
+    attributed queue (station refinery only).
+
+    Default (no keyword) — legacy order: at the plant, try your silo first, then
+    bay, then other room storage or vehicle. Silo matches go to your queue; other
+    sources use the shared refinery input bin.
 
     Examples:
       feedrefinery iron 100
-      feedrefinery all
+      feedrefinery shared iron 50
+      feedrefinery silo all
       feedrefinery iron 100 at ore processor
     """
 
@@ -344,7 +603,7 @@ class CmdFeedRefinery(Command):
     help_category = "Refining"
 
     def func(self):
-        from typeclasses.haulers import get_plant_ore_receiving_bay, get_plant_player_storage
+        from world.feedrefinery_source import parse_feedrefinery_source
 
         caller = self.caller
         main, target = _split_args_at_target(self.args)
@@ -358,122 +617,14 @@ class CmdFeedRefinery(Command):
             caller.msg("There is no refinery here.")
             return
 
-        is_plant_refinery = ref.is_typeclass("typeclasses.refining.Refinery", exact=False)
-        plant_silo = get_plant_player_storage(loc, caller) if is_plant_refinery else None
-        bay = get_plant_ore_receiving_bay(loc) if is_plant_refinery else None
-
-        args = main.strip().lower()
-
-        # Plant Refinery: attributed miner_ore_queue from assigned plant silo first
-        if is_plant_refinery and plant_silo:
-            pinv = plant_silo.db.inventory or {}
-            if args == "all" and pinv:
-                moved = ref.transfer_owner_plant_silo_to_miner_queue(caller)
-                if moved:
-                    lines = [f"|wQueued at {ref.key} from {plant_silo.key}:|n"]
-                    for key, tons in sorted(moved.items()):
-                        name = plant_raw_resource_display_name(key)
-                        lines.append(f"  {name}: {tons}t")
-                    caller.msg("\n".join(lines))
-                    return
-                caller.msg("Nothing valid to queue in your assigned plant storage.")
-                return
-
-            if args != "all" and pinv:
-                parts_early = args.split(None, 1)
-                if len(parts_early) >= 2:
-                    resource_query_early, tons_str_early = parts_early
-                    try:
-                        tons_req_early = float(tons_str_early)
-                    except ValueError:
-                        caller.msg("Tons must be a number.")
-                        return
-                    matched_plant = None
-                    for key in pinv:
-                        name = plant_raw_resource_display_name(key)
-                        if resource_query_early in name.lower() or resource_query_early in key.lower():
-                            matched_plant = key
-                            break
-                    if matched_plant is not None:
-                        actual_moved = plant_silo.withdraw(matched_plant, tons_req_early)
-                        if actual_moved <= 0:
-                            caller.msg("Nothing moved.")
-                            return
-                        queued = ref.enqueue_miner_ore(caller.id, matched_plant, actual_moved)
-                        name = plant_raw_resource_display_name(matched_plant)
-                        caller.msg(
-                            f"Queued |w{queued}t|n of {name} at |w{ref.key}|n "
-                            f"(from assigned plant storage)."
-                        )
-                        return
-
-        silo_exclude = plant_silo if is_plant_refinery else None
-        storage = None
-        if is_plant_refinery and bay and (bay.db.inventory or {}):
-            storage = bay
-        if storage is None:
-            storage = _find_mining_storage_in_room_excluding(caller, exclude=silo_exclude)
-
-        vehicle_source = None
-        if not storage:
-            cloc = caller.location
-            if cloc and getattr(cloc.db, "is_vehicle", False):
-                vehicle_source = cloc
-
-        if not storage and not vehicle_source:
-            caller.msg("No mining storage or vehicle cargo found as a source.")
+        mode, args = parse_feedrefinery_source(main)
+        if mode == "shared":
+            _feed_refinery_shared_plant_only(caller, loc, ref, args)
             return
-
-        if args == "all":
-            if storage:
-                contents = storage.withdraw_all()
-            else:
-                contents = vehicle_source.unload_all_cargo()
-            if not contents:
-                caller.msg("Source is empty.")
-                return
-            lines = [f"|wFed into {ref.key}:|n"]
-            for key, tons in contents.items():
-                actual = ref.feed(key, tons)
-                name = plant_raw_resource_display_name(key)
-                lines.append(f"  {name}: {actual}t")
-            caller.msg("\n".join(lines))
+        if mode == "silo":
+            _feed_refinery_silo_only(caller, loc, ref, args)
             return
-
-        parts = args.split(None, 1)
-        if len(parts) < 2:
-            caller.msg("Usage: feedrefinery <resource> <tons>  OR  feedrefinery all")
-            return
-        resource_query, tons_str = parts
-        try:
-            tons_req = float(tons_str)
-        except ValueError:
-            caller.msg("Tons must be a number.")
-            return
-
-        if storage:
-            inventory = storage.db.inventory or {}
-        else:
-            inventory = vehicle_source.db.cargo or {}
-
-        matched_key = None
-        for key in inventory:
-            name = plant_raw_resource_display_name(key)
-            if resource_query in name.lower() or resource_query in key.lower():
-                matched_key = key
-                break
-        if not matched_key:
-            caller.msg(f"No resource matching '{resource_query}' in source.")
-            return
-
-        if storage:
-            actual_moved = storage.withdraw(matched_key, tons_req)
-        else:
-            actual_moved = vehicle_source.unload_cargo(matched_key, tons_req)
-
-        ref.feed(matched_key, actual_moved)
-        name = plant_raw_resource_display_name(matched_key)
-        caller.msg(f"Fed |w{actual_moved}t|n of {name} into |w{ref.key}|n.")
+        _feed_refinery_auto_legacy(caller, loc, ref, args)
 
 
 class CmdRefine(Command):

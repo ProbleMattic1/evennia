@@ -272,8 +272,8 @@ def _serialize_market():
 
 _KIOSK_HREF = {
     "bank": ("Bank", "/bank"),
-    "processing": ("Processing", "/processing"),
-    "processing plant": ("Processing", "/processing"),
+    "processing": ("Processor", "/processing"),
+    "processing plant": ("Processor", "/processing"),
     "broker": ("Real Estate", "/real-estate"),
     "realty": ("Real Estate", "/real-estate"),
     "real estate": ("Real Estate", "/real-estate"),
@@ -308,26 +308,26 @@ def _serialize_nav(char, resources):
         kl = ex["key"].lower()
         if kl in _KIOSK_HREF:
             label, href = _KIOSK_HREF[kl]
-            if href in ("/bank", "/processing", "/real-estate"):
+            if href in ("/bank", "/processing", "/refinery", "/real-estate"):
                 href = f"{href}{vqs}"
             kiosk_from_exits.append({"key": ex["key"], "label": label, "href": href})
         else:
             exits.append(ex)
 
     # Services should always expose core utility destinations, independent of
-    # current hub exit naming/mapping. Merge with exit-derived rows (prefer exit
-    # labels), then emit in a stable order so web-only links (e.g. Economy) appear.
+    # current hub exit naming/mapping. Canonical labels/keys from required_services
+    # win for matching hrefs; exit-only hrefs are appended afterward.
     required_services = [
         {"key": "bank", "label": "Bank", "href": f"/bank{vqs}"},
         {"key": "real-estate", "label": "Real Estate Agency", "href": f"/real-estate{vqs}"},
-        {"key": "processing", "label": "Processing Plant", "href": f"/processing{vqs}"},
+        {"key": "processing", "label": "Processor", "href": f"/processing{vqs}"},
+        {"key": "refinery", "label": "Refinery", "href": f"/refinery{vqs}"},
         {"key": "locator", "label": "Universal Locator", "href": "/locator"},
         {"key": "economy", "label": "Economy", "href": "/economy"},
     ]
     by_href = {k["href"]: k for k in kiosk_from_exits}
     for svc in required_services:
-        if svc["href"] not in by_href:
-            by_href[svc["href"]] = svc
+        by_href[svc["href"]] = svc
     required_hrefs = {s["href"] for s in required_services}
     kiosks = [by_href[s["href"]] for s in required_services]
     for k in kiosk_from_exits:

@@ -121,7 +121,12 @@ function ProcessingPageInner() {
       <CsHeader
         title={data.plantName}
         subtitle={data.roomName}
-        actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
+        actions={
+          <div className="flex flex-wrap gap-1">
+            <CsButtonLink href="/refinery">Refinery</CsButtonLink>
+            <CsButtonLink href="/">Dashboard</CsButtonLink>
+          </div>
+        }
       />
       <div className="flex flex-col gap-1.5 p-1.5">
         <div className="min-w-0">

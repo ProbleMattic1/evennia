@@ -22,7 +22,8 @@ Economy integration:
 
 Transport integration:
     CmdFeedRefinery moves raw from the Ore Receiving Bay, plant silo, room storage, or
-    vehicle cargo into db.input_inventory or miner queues. Output is collected with CmdCollectProduct.
+    vehicle cargo into db.input_inventory or miner queues; use |wshared|n/|wsilo|n keywords
+    for explicit plant bay vs personal silo at the station refinery. Output is collected with CmdCollectProduct.
 """
 
 from evennia.objects.objects import DefaultObject

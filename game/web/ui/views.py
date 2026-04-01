@@ -1399,7 +1399,7 @@ def play_state(request):
         # Insert Processing link before Refresh View for mine rooms
         data["actions"].insert(
             -1,
-            {"key": "open_processing", "label": "Processing", "href": "/processing"},
+            {"key": "open_processing", "label": "Processor", "href": "/processing"},
         )
     return JsonResponse(data)
 
@@ -1581,7 +1581,8 @@ def msg_stream(request):
 
 NAV_KIOSKS = {
     "bank": {"label": "Bank", "href": "/bank"},
-    "processing plant": {"label": "Processing Pl.", "href": "/processing"},
+    "processing": {"label": "Processor", "href": "/processing"},
+    "processing plant": {"label": "Processor", "href": "/processing"},
     "real estate": {"label": "Real Estate", "href": "/real-estate"},
 }
 
@@ -1631,6 +1632,18 @@ def nav_state(request):
                 mines.append(ex)
             else:
                 exits.append(ex)
+
+    venue_id = _resolve_web_venue_id(request, char)
+    refinery_href = f"/refinery?venue={venue_id}"
+    if not any((k.get("href") or "").startswith("/refinery") for k in kiosks):
+        insert_at = len(kiosks)
+        for i, k in enumerate(kiosks):
+            h = k.get("href") or ""
+            lbl = k.get("label") or ""
+            if "/processing" in h or lbl == "Processor":
+                insert_at = i + 1
+                break
+        kiosks.insert(insert_at, {"key": "refinery", "label": "Refinery", "href": refinery_href})
 
     shops = [
         {"roomKey": entry["room_key"], "label": entry["vendor_name"], "venueId": entry["venue_id"]}
@@ -1959,6 +1972,111 @@ def processing_state(request):
         "storyLines": story_lines,
         "exits": _room_exits(room),
     })
+
+
+@require_GET
+def refinery_state(request):
+    from web.ui.refinery_read_model import build_main_refinery_payload
+    from world.venues import get_venue
+
+    char = None
+    if request.user.is_authenticated:
+        char, _ = _resolve_character_for_web(request.user)
+    venue_id = _resolve_web_venue_id(request, char)
+    plant_key = get_venue(venue_id)["processing"]["plant_room_key"]
+    room = _first_object(plant_key)
+    if not room:
+        raise Http404(f"Room '{plant_key}' was not found.")
+
+    payload = build_main_refinery_payload(room, char=char, venue_id=venue_id)
+    if not payload:
+        raise Http404("No refinery in this plant room.")
+
+    story_lines = [
+        {"id": "refinery-title", "text": payload.get("refineryKey") or "Refinery", "kind": "title"},
+        {
+            "id": "refinery-room",
+            "text": room.key,
+            "kind": "room",
+        },
+        {
+            "id": "refinery-how",
+            "text": (
+                "Raw is fed from the Processor (ore bay) or your personal plant storage "
+                "using feedrefinery in game (e.g. shared / silo keywords at the plant)."
+            ),
+            "kind": "system",
+        },
+    ]
+
+    return JsonResponse({
+        **payload,
+        "roomName": room.key,
+        "roomDescription": room.db.desc or "",
+        "storyLines": story_lines,
+        "exits": _room_exits(room),
+    })
+
+
+@csrf_exempt
+@require_POST
+def refinery_feed_silo(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    venue_id = str(body.get("venue") or request.GET.get("venue") or "").strip()
+    if not venue_id:
+        venue_id = _resolve_web_venue_id(request, char)
+
+    move_all = bool(body.get("all"))
+    resource_key = body.get("resourceKey")
+    tons = body.get("tons")
+
+    from world.refinery_web_ops import feed_silo_to_miner_queue
+
+    ok, msg = feed_silo_to_miner_queue(
+        char,
+        venue_id,
+        resource_key=str(resource_key).strip() if resource_key else None,
+        tons=float(tons) if tons is not None and not move_all else None,
+        move_all=move_all,
+    )
+    status = 200 if ok else 400
+    return JsonResponse({"ok": ok, "message": msg}, status=status)
+
+
+@csrf_exempt
+@require_POST
+def refinery_collect_refined(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    venue_id = str(body.get("venue") or request.GET.get("venue") or "").strip()
+    if not venue_id:
+        venue_id = _resolve_web_venue_id(request, char)
+
+    from world.refinery_web_ops import collect_attributed_refined
+
+    try:
+        ok, msg = collect_attributed_refined(char, venue_id)
+    except Exception as exc:
+        return JsonResponse(
+            {"ok": False, "message": f"Payout failed: {exc}. Please contact staff if this persists."},
+            status=500,
+        )
+
+    status = 200 if ok else 400
+    return JsonResponse({"ok": ok, "message": msg}, status=status)
 
 
 def _dashboard_inventory_item_for_obj(char, obj):

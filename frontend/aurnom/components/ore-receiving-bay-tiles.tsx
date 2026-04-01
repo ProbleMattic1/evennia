@@ -24,16 +24,11 @@ function BayResourceTile({
   r,
   section,
   commodity,
-  maxTons,
 }: {
   r: OreReceivingBayRow;
   section: BaySection;
   commodity: MarketCommodity | undefined;
-  maxTons: number;
 }) {
-  const ratio = maxTons > 0 ? Math.max(0, Math.min(1, r.tons / maxTons)) : 0;
-  const BAR_MAX = 55;
-  const pct = Math.sqrt(ratio) * BAR_MAX;
   const FEE = 0.03;
   const est = typeof r.estimatedValueCr === "number" && !Number.isNaN(r.estimatedValueCr) ? r.estimatedValueCr : null;
   const holdingCost = est == null ? null : Math.floor(est * (1 - FEE));
@@ -60,15 +55,9 @@ function BayResourceTile({
           </span>
         </div>
       </div>
-      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-zinc-500 dark:text-zinc-400">
-        <span className="min-w-0 flex-1 h-1 rounded-full bg-zinc-800/90 dark:bg-zinc-800">
-          <span
-            className="block h-1 rounded-full bg-emerald-500/85 transition-all dark:bg-emerald-400/80"
-            style={{ width: `${pct}%` }}
-          />
-        </span>
+      <div className="mt-1 flex justify-end text-[10px] text-zinc-500 dark:text-zinc-400">
         <span
-          className="shrink-0 font-mono tabular-nums text-zinc-700 dark:text-zinc-300"
+          className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300"
           title="Estimated value at local bids (credits)"
         >
           {cr(est)}
@@ -92,12 +81,10 @@ function BayTileSection({
   sectionKey,
   sectionRows,
   keyToCommodity,
-  globalMaxTons,
 }: {
   sectionKey: BaySection;
   sectionRows: OreReceivingBayRow[];
   keyToCommodity: Map<string, MarketCommodity>;
-  globalMaxTons: number;
 }) {
   const [open, setOpen] = useDashboardPanelOpen(`processing:ore-bay:${sectionKey}`, true);
   const headingLabel = bayTileSectionTitle(sectionKey);
@@ -118,13 +105,7 @@ function BayTileSection({
       {open ? (
         <div className="flex min-w-0 flex-wrap gap-2">
           {sectionRows.map((r) => (
-            <BayResourceTile
-              key={r.key}
-              r={r}
-              section={sectionKey}
-              commodity={keyToCommodity.get(r.key)}
-              maxTons={globalMaxTons}
-            />
+            <BayResourceTile key={r.key} r={r} section={sectionKey} commodity={keyToCommodity.get(r.key)} />
           ))}
         </div>
       ) : null}
@@ -192,8 +173,6 @@ export function OreReceivingBayTiles({ rows }: { rows: OreReceivingBayRow[] }) {
     return BAY_TILE_CATEGORY_ORDER.map((key) => ({ key, rows: by[key] })).filter((s) => s.rows.length > 0);
   }, [rows, keyToCommodity]);
 
-  const globalMaxTons = useMemo(() => rows.reduce((m, r) => Math.max(m, r.tons), 0), [rows]);
-
   if (!rows.length) return null;
 
   return (
@@ -204,7 +183,6 @@ export function OreReceivingBayTiles({ rows }: { rows: OreReceivingBayRow[] }) {
           sectionKey={sectionKey}
           sectionRows={sectionRows}
           keyToCommodity={keyToCommodity}
-          globalMaxTons={globalMaxTons}
         />
       ))}
     </div>

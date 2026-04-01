@@ -8,6 +8,7 @@ import { groupExits } from "@/components/exit-grid";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import type { ControlSurfaceNav, CsCharacter, NavKiosk } from "@/lib/control-surface-api";
 import { formatCr as cr } from "@/lib/format-units";
+import { finalizeServiceNavRows } from "@/lib/services-nav-merge";
 import { playTravel, type ExitButton } from "@/lib/ui-api";
 
 /** Web routes not guaranteed on older API payloads; append after server kiosks. */
@@ -22,7 +23,7 @@ function mergeNavKiosks(kiosks: NavKiosk[]): NavKiosk[] {
       seen.add(k.href);
     }
   }
-  return out;
+  return finalizeServiceNavRows(out);
 }
 import { clearWebActiveCharacter, setWebActiveCharacter } from "@/lib/control-surface-api";
 import { useControlSurface } from "@/components/control-surface-provider";
@@ -275,7 +276,7 @@ function NavPanel({
       {kiosks.length > 0 && (
         <Panel panelKey="services" title="Services">
           {kiosks.map((k) => (
-            <div key={k.href}>
+            <div key={`${k.key}-${k.href}`}>
               <TinyLink href={k.href}>{k.label}</TinyLink>
             </div>
           ))}

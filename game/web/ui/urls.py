@@ -31,6 +31,9 @@ urlpatterns = [
         name="ui-real-estate-purchase-random",
     ),
     path("processing", views.processing_state, name="ui-processing"),
+    path("refinery", views.refinery_state, name="ui-refinery"),
+    path("refinery/feed-silo", views.refinery_feed_silo, name="ui-refinery-feed-silo"),
+    path("refinery/collect-refined", views.refinery_collect_refined, name="ui-refinery-collect-refined"),
     path(
         "shipyard",
         RedirectView.as_view(

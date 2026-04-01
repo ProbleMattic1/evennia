@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { finalizeServiceNavRows } from "@/lib/services-nav-merge";
 import { getNavState, playTravel, type NavState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
@@ -204,6 +205,12 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
   } = useSiteNavContext();
 
   const afterNav = onNavigate ?? (() => {});
+
+  const serviceLinks = useMemo(
+    () => finalizeServiceNavRows(data?.kiosks ?? []),
+    [data?.kiosks],
+  );
+
   const handleTravel = useCallback(
     async (destination: string) => {
       try {
@@ -278,16 +285,16 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
         <span className="px-2 py-1 text-xs text-ui-muted">Loading…</span>
       ) : (
         <>
-          {(data.kiosks ?? []).length > 0 && (
+          {serviceLinks.length > 0 && (
             <>
               <NavSection
                 title="Services"
                 open={sections.kiosks}
                 onToggle={() => setSection("kiosks", !sections.kiosks)}
               >
-                {(data.kiosks ?? []).map((k) => (
+                {serviceLinks.map((k) => (
                   <Link
-                    key={k.key}
+                    key={`${k.key}-${k.href}`}
                     href={k.href}
                     className={linkClass}
                     title={k.label}
