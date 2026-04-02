@@ -161,7 +161,7 @@ function ProcessingPageInner() {
             </div>
           </div>
           {marketSnapshotOpen ? (
-            <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5">
+            <div className="border border-cyan-900/40 bg-zinc-950/80 p-1">
               <OreReceivingBayTiles rows={oreRows} />
             </div>
           ) : null}

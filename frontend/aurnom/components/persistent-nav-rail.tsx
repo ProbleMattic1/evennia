@@ -13,6 +13,7 @@ import {
   type CsCharacter,
 } from "@/lib/control-surface-api";
 import { formatCr as cr } from "@/lib/format-units";
+import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { playTravel, webNavigatePathFromPlayResult, type ExitButton } from "@/lib/ui-api";
 
 function Panel({
@@ -207,6 +208,54 @@ function NavDestinationRow({
   );
 }
 
+function navExitGroupStorageKey(title: string, index: number) {
+  const slug =
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "section";
+  return `nav-rail:exit-group:${slug}-${index}`;
+}
+
+function NavDestinationGroup({
+  title,
+  items,
+  groupIndex,
+  busyKey,
+  onTravel,
+}: {
+  title: string;
+  items: (ExitButton & { destination: string })[];
+  groupIndex: number;
+  busyKey: string | null;
+  onTravel: (destination: string) => void;
+}) {
+  const [open, setOpen] = useDashboardPanelOpen(navExitGroupStorageKey(title, groupIndex), true);
+
+  return (
+    <div>
+      <div className="mb-0.5 flex min-w-0 items-center gap-1">
+        <span className="min-w-0 flex-1 truncate text-ui-caption font-semibold uppercase tracking-wide text-ui-muted">
+          {title}
+        </span>
+        <PanelExpandButton
+          open={open}
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+          className="shrink-0"
+        />
+      </div>
+      {open ? (
+        <div className="space-y-0.5">
+          {items.map((ex) => (
+            <NavDestinationRow key={`${ex.key}-${ex.destination}`} exit={ex} busyKey={busyKey} onTravel={onTravel} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function NavPanel({
   roomExits,
   onTravelComplete,
@@ -274,22 +323,15 @@ function NavPanel({
         </div>
       ) : (
         <div className="space-y-1.5">
-          {destinationGroups.map(({ title, items }) => (
-            <div key={title}>
-              <div className="mb-0.5 text-ui-caption font-semibold uppercase tracking-wide text-ui-muted">
-                {title}
-              </div>
-              <div className="space-y-0.5">
-                {items.map((ex) => (
-                  <NavDestinationRow
-                    key={`${ex.key}-${ex.destination}`}
-                    exit={ex as ExitButton & { destination: string }}
-                    busyKey={busyKey}
-                    onTravel={handleExitTravel}
-                  />
-                ))}
-              </div>
-            </div>
+          {destinationGroups.map(({ title, items }, idx) => (
+            <NavDestinationGroup
+              key={title}
+              title={title}
+              items={items as (ExitButton & { destination: string })[]}
+              groupIndex={idx}
+              busyKey={busyKey}
+              onTravel={handleExitTravel}
+            />
           ))}
         </div>
       )}

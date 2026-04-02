@@ -38,37 +38,37 @@ function BayResourceTile({
 
   return (
     <div className={bayTileCardClass(section)} title={r.key}>
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex min-w-0 items-baseline justify-between gap-1 leading-tight">
         <span
-          className={`min-w-0 truncate text-xs font-semibold ${style?.text ?? "text-foreground"}`}
+          className={`min-w-0 flex-1 truncate text-[10px] font-semibold leading-snug ${style?.text ?? "text-foreground"}`}
         >
           {r.displayName}
         </span>
-        <div className="flex shrink-0 items-baseline gap-1.5">
+        <div className="flex shrink-0 items-baseline gap-1">
           {delta ? (
-            <span className={`font-mono text-[10px] font-bold tabular-nums ${delta.cls}`} title="Market vs base">
+            <span className={`font-mono text-[9px] font-bold tabular-nums leading-none ${delta.cls}`} title="Market vs base">
               {delta.icon} {delta.pct > 0 ? `${delta.pct}%` : "—"}
             </span>
           ) : null}
-          <span className="font-mono tabular-nums text-xs text-cyan-200 dark:text-cyber-cyan">
+          <span className="font-mono text-[10px] tabular-nums leading-none text-cyan-200 dark:text-cyber-cyan">
             {r.tons.toLocaleString(undefined, { maximumFractionDigits: 2 })}t
           </span>
         </div>
       </div>
-      <div className="mt-1 flex justify-end text-[10px] text-zinc-500 dark:text-zinc-400">
+      <div className="mt-0.5 flex justify-end leading-none">
         <span
-          className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300"
+          className="font-mono text-[10px] tabular-nums text-zinc-700 dark:text-zinc-300"
           title="Estimated value at local bids (credits)"
         >
           {cr(est)}
         </span>
       </div>
-      <div className="mt-1 grid min-w-0 grid-cols-2 gap-x-2 gap-y-0.5 border-t border-zinc-800/60 pt-1 text-[10px] dark:border-zinc-700/50">
-        <span className="truncate text-zinc-500 dark:text-zinc-400">hold cost</span>
+      <div className="mt-0.5 grid min-w-0 grid-cols-2 gap-x-1 gap-y-px border-t border-zinc-800/60 pt-0.5 text-[9px] leading-tight dark:border-zinc-700/50">
+        <span className="truncate text-zinc-500 dark:text-zinc-400">hold</span>
         <span className="text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
           {holdingCost == null ? "—" : cr(holdingCost)}
         </span>
-        <span className="truncate text-zinc-500 dark:text-zinc-400">sold (+3%)</span>
+        <span className="truncate text-zinc-500 dark:text-zinc-400">sold +3%</span>
         <span className="text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
           {soldWorth == null ? "—" : cr(soldWorth)}
         </span>
@@ -91,7 +91,7 @@ function BayTileSection({
 
   return (
     <div>
-      <div className="mb-2 flex min-w-0 items-center gap-1 border-b border-cyan-900/30 pb-1 dark:border-cyan-800/30">
+      <div className="mb-1 flex min-w-0 items-center gap-1 border-b border-cyan-900/30 pb-0.5 dark:border-cyan-800/30">
         <span className={`min-w-0 flex-1 truncate ${bayTileSectionHeadingClass(sectionKey)}`}>
           — {headingLabel} —
         </span>
@@ -104,9 +104,9 @@ function BayTileSection({
       </div>
       {open ? (
         <div
-          className="grid min-w-0 gap-2"
+          className="grid min-w-0 gap-1"
           style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 7rem), 1fr))",
           }}
         >
           {sectionRows.map((r) => (
@@ -181,7 +181,7 @@ export function OreReceivingBayTiles({ rows }: { rows: OreReceivingBayRow[] }) {
   if (!rows.length) return null;
 
   return (
-    <div className="mt-2 space-y-3">
+    <div className="mt-1 space-y-2">
       {sections.map(({ key: sectionKey, rows: sectionRows }) => (
         <BayTileSection
           key={sectionKey}

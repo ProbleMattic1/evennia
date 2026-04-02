@@ -81,15 +81,15 @@ export function bayTileSectionTitle(section: BayTileCategory): string {
 
 export function bayTileSectionHeadingClass(section: BayTileCategory): string {
   if (section === "flora" || section === "fauna" || section === "unknown") {
-    return `font-mono text-[11px] font-semibold uppercase tracking-widest ${BAY_EXTRA[section].heading}`;
+    return `font-mono text-[10px] font-semibold uppercase tracking-widest ${BAY_EXTRA[section].heading}`;
   }
-  return `font-mono text-[11px] font-semibold uppercase tracking-widest ${CAT[section].heading}`;
+  return `font-mono text-[10px] font-semibold uppercase tracking-widest ${CAT[section].heading}`;
 }
 
 /** Card shell aligned with Commodity Board category colors (left rail + subtle fill + ring). */
 export function bayTileCardClass(section: BayTileCategory): string {
   const base =
-    "min-w-0 w-full max-w-full rounded-md px-2 py-1.5 shadow-sm ring-1 transition-colors hover:bg-zinc-950/40";
+    "min-w-0 w-full max-w-full rounded px-1 py-1 ring-1 transition-colors hover:bg-zinc-950/40";
   switch (section) {
     case "standard_metal":
       return `${base} border-l-[3px] border-l-emerald-500/75 bg-gradient-to-br from-emerald-950/35 to-zinc-950/90 ring-emerald-900/35`;
