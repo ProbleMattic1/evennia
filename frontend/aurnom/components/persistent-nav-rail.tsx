@@ -1,11 +1,28 @@
 "use client";
 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { groupExits } from "@/components/exit-grid";
 import { PanelExpandButton } from "@/components/panel-expand-button";
+import { SortableNavDestinationGroup } from "@/components/sortable-nav-destination-group";
+import { SortableNavDestinationRow } from "@/components/sortable-nav-destination-row";
 import { useControlSurface } from "@/components/control-surface-provider";
 import {
   clearWebActiveCharacter,
@@ -13,8 +30,26 @@ import {
   type CsCharacter,
 } from "@/lib/control-surface-api";
 import { formatCr as cr } from "@/lib/format-units";
+import {
+  NAV_RAIL_EXIT_ROW_FLAT_SLUG,
+  normalizeExitRowOrder,
+  slugifyNavSectionTitle,
+} from "@/lib/nav-rail-exit-row-order";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
+import { useNavRailDestinationGroupOrder } from "@/lib/use-nav-rail-destination-group-order";
+import { useNavRailExitRowOrder } from "@/lib/use-nav-rail-exit-row-order";
 import { playTravel, webNavigatePathFromPlayResult, type ExitButton } from "@/lib/ui-api";
+
+function orderedExitKeys(
+  sectionSlug: string,
+  items: (ExitButton & { destination: string })[],
+  bySection: Record<string, string[]>,
+  rowOrderHydrated: boolean,
+): string[] {
+  const current = items.map((ex) => ex.key);
+  if (!rowOrderHydrated) return current;
+  return normalizeExitRowOrder(bySection[sectionSlug], current);
+}
 
 function Panel({
   panelKey,
@@ -208,29 +243,59 @@ function NavDestinationRow({
   );
 }
 
-function navExitGroupStorageKey(title: string, index: number) {
-  const slug =
-    title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "section";
-  return `nav-rail:exit-group:${slug}-${index}`;
+function navExitGroupStorageKey(title: string) {
+  return `nav-rail:exit-group:${slugifyNavSectionTitle(title)}`;
 }
 
 function NavDestinationGroup({
   title,
   items,
-  groupIndex,
   busyKey,
   onTravel,
+  rowOrder,
+  rowOrderHydrated,
+  onRowDragEnd,
+  sensors,
 }: {
   title: string;
   items: (ExitButton & { destination: string })[];
-  groupIndex: number;
   busyKey: string | null;
   onTravel: (destination: string) => void;
+  rowOrder: string[];
+  rowOrderHydrated: boolean;
+  onRowDragEnd: (event: DragEndEvent) => void;
+  sensors: ReturnType<typeof useSensors>;
 }) {
-  const [open, setOpen] = useDashboardPanelOpen(navExitGroupStorageKey(title, groupIndex), true);
+  const [open, setOpen] = useDashboardPanelOpen(navExitGroupStorageKey(title), true);
+
+  const exitByKey = useMemo(() => {
+    const m = new Map<string, ExitButton & { destination: string }>();
+    for (const ex of items) m.set(ex.key, ex);
+    return m;
+  }, [items]);
+
+  const listBody =
+    rowOrderHydrated && items.length > 1 ? (
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onRowDragEnd}>
+        <SortableContext items={rowOrder} strategy={verticalListSortingStrategy}>
+          {rowOrder.map((k) => {
+            const ex = exitByKey.get(k);
+            if (!ex) return null;
+            return (
+              <SortableNavDestinationRow key={k} id={k}>
+                <NavDestinationRow exit={ex} busyKey={busyKey} onTravel={onTravel} />
+              </SortableNavDestinationRow>
+            );
+          })}
+        </SortableContext>
+      </DndContext>
+    ) : (
+      <div className="space-y-0.5">
+        {items.map((ex) => (
+          <NavDestinationRow key={`${ex.key}-${ex.destination}`} exit={ex} busyKey={busyKey} onTravel={onTravel} />
+        ))}
+      </div>
+    );
 
   return (
     <div>
@@ -245,13 +310,7 @@ function NavDestinationGroup({
           className="shrink-0"
         />
       </div>
-      {open ? (
-        <div className="space-y-0.5">
-          {items.map((ex) => (
-            <NavDestinationRow key={`${ex.key}-${ex.destination}`} exit={ex} busyKey={busyKey} onTravel={onTravel} />
-          ))}
-        </div>
-      ) : null}
+      {open ? listBody : null}
     </div>
   );
 }
@@ -276,6 +335,57 @@ function NavPanel({
   );
 
   const destinationGroups = useMemo(() => groupExits(filteredDestinations), [filteredDestinations]);
+
+  const groupTitles = useMemo(() => destinationGroups.map((g) => g.title), [destinationGroups]);
+
+  const groupByTitle = useMemo(
+    () => new Map(destinationGroups.map((g) => [g.title, g] as const)),
+    [destinationGroups],
+  );
+
+  const { order, setOrder, hydrated } = useNavRailDestinationGroupOrder(groupTitles);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const { bySection, setRowOrder, hydrated: rowOrderHydrated } = useNavRailExitRowOrder();
+
+  const flatRowOrder = useMemo(
+    () => orderedExitKeys(NAV_RAIL_EXIT_ROW_FLAT_SLUG, filteredDestinations, bySection, rowOrderHydrated),
+    [filteredDestinations, bySection, rowOrderHydrated],
+  );
+
+  const flatExitByKey = useMemo(() => {
+    const m = new Map<string, ExitButton & { destination: string }>();
+    for (const ex of filteredDestinations) m.set(ex.key, ex);
+    return m;
+  }, [filteredDestinations]);
+
+  const makeOnRowDragEnd = useCallback(
+    (sectionSlug: string, rowOrder: string[]) => (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIndex = rowOrder.indexOf(String(active.id));
+      const newIndex = rowOrder.indexOf(String(over.id));
+      if (oldIndex < 0 || newIndex < 0) return;
+      setRowOrder(sectionSlug, arrayMove(rowOrder, oldIndex, newIndex));
+    },
+    [setRowOrder],
+  );
+
+  const onDestinationGroupsDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIndex = order.indexOf(String(active.id));
+      const newIndex = order.indexOf(String(over.id));
+      if (oldIndex < 0 || newIndex < 0) return;
+      setOrder(arrayMove(order, oldIndex, newIndex));
+    },
+    [order, setOrder],
+  );
 
   const handleExitTravel = useCallback(
     async (destination: string) => {
@@ -311,28 +421,82 @@ function NavPanel({
       ) : null}
       {destinationGroups.length <= 1 &&
       (destinationGroups[0]?.title === "Destinations" || !destinationGroups[0]) ? (
-        <div className="space-y-0.5">
-          {filteredDestinations.map((ex) => (
-            <NavDestinationRow
-              key={`${ex.key}-${ex.destination}`}
-              exit={ex}
-              busyKey={busyKey}
-              onTravel={handleExitTravel}
-            />
-          ))}
-        </div>
+        rowOrderHydrated && filteredDestinations.length > 1 ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={makeOnRowDragEnd(NAV_RAIL_EXIT_ROW_FLAT_SLUG, flatRowOrder)}
+          >
+            <SortableContext items={flatRowOrder} strategy={verticalListSortingStrategy}>
+              {flatRowOrder.map((k) => {
+                const ex = flatExitByKey.get(k);
+                if (!ex) return null;
+                return (
+                  <SortableNavDestinationRow key={k} id={k}>
+                    <NavDestinationRow exit={ex} busyKey={busyKey} onTravel={handleExitTravel} />
+                  </SortableNavDestinationRow>
+                );
+              })}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <div className="space-y-0.5">
+            {filteredDestinations.map((ex) => (
+              <NavDestinationRow
+                key={`${ex.key}-${ex.destination}`}
+                exit={ex}
+                busyKey={busyKey}
+                onTravel={handleExitTravel}
+              />
+            ))}
+          </div>
+        )
+      ) : hydrated ? (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDestinationGroupsDragEnd}>
+          <SortableContext items={order} strategy={verticalListSortingStrategy}>
+            {order.map((title) => {
+              const g = groupByTitle.get(title);
+              if (!g) return null;
+              const itemsTyped = g.items as (ExitButton & { destination: string })[];
+              const slug = slugifyNavSectionTitle(title);
+              const rowOrder = orderedExitKeys(slug, itemsTyped, bySection, rowOrderHydrated);
+              return (
+                <SortableNavDestinationGroup key={title} id={title}>
+                  <NavDestinationGroup
+                    title={title}
+                    items={itemsTyped}
+                    busyKey={busyKey}
+                    onTravel={handleExitTravel}
+                    rowOrder={rowOrder}
+                    rowOrderHydrated={rowOrderHydrated}
+                    onRowDragEnd={makeOnRowDragEnd(slug, rowOrder)}
+                    sensors={sensors}
+                  />
+                </SortableNavDestinationGroup>
+              );
+            })}
+          </SortableContext>
+        </DndContext>
       ) : (
         <div className="space-y-1.5">
-          {destinationGroups.map(({ title, items }, idx) => (
-            <NavDestinationGroup
-              key={title}
-              title={title}
-              items={items as (ExitButton & { destination: string })[]}
-              groupIndex={idx}
-              busyKey={busyKey}
-              onTravel={handleExitTravel}
-            />
-          ))}
+          {destinationGroups.map(({ title, items }) => {
+            const itemsTyped = items as (ExitButton & { destination: string })[];
+            const slug = slugifyNavSectionTitle(title);
+            const rowOrder = orderedExitKeys(slug, itemsTyped, bySection, rowOrderHydrated);
+            return (
+              <NavDestinationGroup
+                key={title}
+                title={title}
+                items={itemsTyped}
+                busyKey={busyKey}
+                onTravel={handleExitTravel}
+                rowOrder={rowOrder}
+                rowOrderHydrated={rowOrderHydrated}
+                onRowDragEnd={makeOnRowDragEnd(slug, rowOrder)}
+                sensors={sensors}
+              />
+            );
+          })}
         </div>
       )}
     </Panel>
