@@ -3,7 +3,8 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { VenueLocationBanner } from "@/components/venue-location-banner";
 import { ExitGrid } from "@/components/exit-grid";
 import { StoryPanel } from "@/components/story-panel";
 import { buyItem, getShopState, inspectItem } from "@/lib/ui-api";
@@ -131,6 +132,7 @@ function ShopPageInner() {
         subtitle={view.roomName}
         actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
+      <VenueLocationBanner roomName={view.roomName} ambient={view.ambient} />
 
       {actionError ? (
         <p className="mx-1.5 mt-1 rounded border border-red-800/40 bg-red-950/30 px-1.5 py-1 text-xs text-red-300">
@@ -138,19 +140,14 @@ function ShopPageInner() {
         </p>
       ) : null}
 
-      <CsColumns
-        left={
-          <>
-            <CsPanel title="Destinations">
-              <ExitGrid exits={view.exits} />
-            </CsPanel>
-            <CsPanel title={isShips ? "Shipyard Output" : "Shop Output"}>
-              <StoryPanel title={isShips ? "Shipyard Output" : "Shop Output"} lines={view.storyLines} />
-            </CsPanel>
-          </>
-        }
-        right={
-          <CsPanel title={isShips ? "Ships for Sale" : "Items for Sale"}>
+      <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
+        <CsPanel title="Destinations">
+          <ExitGrid exits={view.exits} />
+        </CsPanel>
+        <CsPanel title={isShips ? "Shipyard Output" : "Shop Output"}>
+          <StoryPanel title={isShips ? "Shipyard Output" : "Shop Output"} lines={view.storyLines} />
+        </CsPanel>
+        <CsPanel title={isShips ? "Ships for Sale" : "Items for Sale"}>
             <ul className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {catalog.map((entry) => {
                 const rowBusy = busyKey === entry.id;
@@ -212,9 +209,8 @@ function ShopPageInner() {
                 );
               })}
             </ul>
-          </CsPanel>
-        }
-      />
+        </CsPanel>
+      </div>
     </CsPage>
   );
 }

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { VenueLocationBanner } from "@/components/venue-location-banner";
 import { StoryPanel } from "@/components/story-panel";
 import {
   getClaimDetail,
@@ -92,14 +93,15 @@ export default function ClaimDetailPage() {
           </>
         }
       />
+      {data?.ok && data.roomName ? (
+        <VenueLocationBanner roomName={data.roomName} ambient={data.ambient} />
+      ) : null}
 
       {loading && <p className="px-2 py-3 font-mono text-sm text-ui-muted">Loading…</p>}
       {error && <p className="px-2 py-3 font-mono text-sm text-red-600">{error}</p>}
 
       {data?.ok && site ? (
-        <CsColumns
-          left={
-            <>
+        <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
               <CsPanel title="Claim Output">
                 <StoryPanel title="Claim Output" lines={data.storyLines ?? []} compact />
               </CsPanel>
@@ -143,10 +145,6 @@ export default function ClaimDetailPage() {
                 </Link>
               </p>
               </CsPanel>
-            </>
-          }
-          right={
-            <>
               {data.isOwner && !data.isListed ? (
                 <CsPanel title="Sell Deed">
                   <p className="mt-1 text-xs text-ui-muted">
@@ -192,9 +190,7 @@ export default function ClaimDetailPage() {
                   — deploy a mining package with this claim when you are ready.
                 </p>
               </CsPanel>
-            </>
-          }
-        />
+        </div>
       ) : null}
     </CsPage>
   );

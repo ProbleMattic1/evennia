@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { VenueLocationBanner } from "@/components/venue-location-banner";
 import { StoryPanel } from "@/components/story-panel";
 import { PropertyDeedListForm } from "@/components/property-deed-list-form";
 import {
@@ -416,14 +417,15 @@ export default function PropertyClaimDetailPage() {
           </>
         }
       />
+      {data?.ok && data.roomName ? (
+        <VenueLocationBanner roomName={data.roomName} ambient={data.ambient} />
+      ) : null}
 
       {loading && <p className="px-2 py-3 font-mono text-sm text-ui-muted">Loading…</p>}
       {error && <p className="px-2 py-3 font-mono text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {data?.ok && claim && (
-        <CsColumns
-          left={
-            <>
+        <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
               <CsPanel title="Deed Output">
                 <StoryPanel title="Deed Output" lines={data.storyLines ?? []} compact />
               </CsPanel>
@@ -543,10 +545,6 @@ export default function PropertyClaimDetailPage() {
                   </p>
                 </CsPanel>
               )}
-            </>
-          }
-          right={
-            <>
               <CsPanel title="Development">
             {!holding ? (
               <p className="mt-2 font-mono text-xs text-amber-800 dark:text-amber-400">
@@ -1093,9 +1091,7 @@ export default function PropertyClaimDetailPage() {
                   <PropertyDeedListForm defaultClaimId={claim.id} />
                 </CsPanel>
               </section>
-            </>
-          }
-        />
+        </div>
       )}
     </CsPage>
   );

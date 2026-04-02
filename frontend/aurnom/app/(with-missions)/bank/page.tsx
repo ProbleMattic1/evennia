@@ -3,7 +3,8 @@
 import { Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { CsButtonLink, CsColumns, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { VenueLocationBanner } from "@/components/venue-location-banner";
 import { ExitGrid } from "@/components/exit-grid";
 import { StoryPanel } from "@/components/story-panel";
 import { getBankState } from "@/lib/ui-api";
@@ -38,26 +39,21 @@ function BankPageInner() {
         subtitle={data.roomName}
         actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
-      <CsColumns
-        left={
-          <>
-            <CsPanel title="Destinations">
-              <ExitGrid exits={data.exits} />
-            </CsPanel>
-            <CsPanel title="Bank Output">
-              <StoryPanel title="Bank Output" lines={data.storyLines} />
-            </CsPanel>
-            <CsPanel title="Treasury">
-              <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-foreground">
-                {data.treasuryBalance.toLocaleString()}<span className="text-amber-400">cr</span>
-              </p>
-              <p className="mt-0.5 font-mono text-xs text-ui-muted">{data.treasuryAccount}</p>
-            </CsPanel>
-          </>
-        }
-        right={
-          <>
-            <CsPanel title="Treasury Activity">
+      <VenueLocationBanner roomName={data.roomName} ambient={data.ambient} />
+      <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
+        <CsPanel title="Destinations">
+          <ExitGrid exits={data.exits} />
+        </CsPanel>
+        <CsPanel title="Bank Output">
+          <StoryPanel title="Bank Output" lines={data.storyLines} />
+        </CsPanel>
+        <CsPanel title="Treasury">
+          <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-foreground">
+            {data.treasuryBalance.toLocaleString()}<span className="text-amber-400">cr</span>
+          </p>
+          <p className="mt-0.5 font-mono text-xs text-ui-muted">{data.treasuryAccount}</p>
+        </CsPanel>
+        <CsPanel title="Treasury Activity">
               <p className="mt-1 text-sm text-ui-muted">
                 Every ledger movement through {data.bankName} ({data.treasuryAccount}): taxes, license fees, repair tax,
                 and disbursements. Positive Δ is a credit to the treasury; negative is a debit.
@@ -192,10 +188,8 @@ function BankPageInner() {
               ) : data.credits != null ? (
                 <p className="mt-2 text-sm text-ui-muted">No personal ledger movements yet.</p>
               ) : null}
-            </CsPanel>
-          </>
-        }
-      />
+        </CsPanel>
+      </div>
     </CsPage>
   );
 }

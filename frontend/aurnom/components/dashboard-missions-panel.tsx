@@ -51,13 +51,8 @@ function missionKindLabel(k: string | undefined) {
 }
 
 /**
- * Dashboard-styled missions panel with rich interactions (travel/interact/choice)
- * and dialog overlays for accepting opportunities and confirming choices.
- *
- * Intentionally does not reuse `components/mission-board.tsx` since it hardcodes
- * older visual styles (<details>, fuchsia palette, light buttons).
- *
- * Embeds main quests (`DashboardQuestsEmbedded`) when `quests` is present; one game log and one Destinations list.
+ * Missions and quests panel (dashboard layout): travel/interact/choice flows,
+ * dialog overlays for opportunities and choices, embedded main quests, game log, destinations.
  */
 export function DashboardMissionsPanel({
   missions = EMPTY_MISSIONS,

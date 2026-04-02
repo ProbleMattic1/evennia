@@ -346,6 +346,16 @@ def _serialize_room(room):
     }
 
 
+def _ambient_bundle_for_room(room):
+    """Billboard/theme JSON for web venue pages; matches play_state ambient."""
+    if room is None:
+        return {}
+    return {
+        "roomName": room.key,
+        "ambient": resolve_room_ambient(room),
+    }
+
+
 def _serialize_mining_site(site, char=None):
     """
     Serialize a MiningSite with all available API data.
@@ -593,26 +603,28 @@ def claim_detail_state(request):
     allowed = list(getattr(claim.db, "allowed_purposes", None) or ["mining"])
 
     story_lines = []
+    banner_room = None
     if site and site.location:
-        story_lines = _room_story_lines(site.location)
+        banner_room = site.location
+        story_lines = _room_story_lines(banner_room)
 
-    return JsonResponse(
-        {
-            "ok": True,
-            "claim": {
-                "id": claim.id,
-                "key": claim.key,
-                "description": desc,
-                "isJackpot": bool(getattr(claim.db, "is_jackpot", False)),
-                "allowedPurposes": allowed,
-            },
-            "site": site_payload,
-            "storyLines": story_lines,
-            "inventoryPreview": preview,
-            "isOwner": is_owner,
-            "isListed": listed,
-        }
-    )
+    claim_payload = {
+        "ok": True,
+        "claim": {
+            "id": claim.id,
+            "key": claim.key,
+            "description": desc,
+            "isJackpot": bool(getattr(claim.db, "is_jackpot", False)),
+            "allowedPurposes": allowed,
+        },
+        "site": site_payload,
+        "storyLines": story_lines,
+        "inventoryPreview": preview,
+        "isOwner": is_owner,
+        "isListed": listed,
+    }
+    claim_payload.update(_ambient_bundle_for_room(banner_room))
+    return JsonResponse(claim_payload)
 
 
 @require_GET
@@ -666,30 +678,32 @@ def property_claim_detail_state(request):
     desc = getattr(claim.db, "desc", None) or ""
 
     story_lines = []
+    banner_room = None
     if lot and lot.location:
-        story_lines = _room_story_lines(lot.location)
+        banner_room = lot.location
+        story_lines = _room_story_lines(banner_room)
 
     from world.processor_web import portable_processors_carried_for_json
 
-    return JsonResponse(
-        {
-            "ok": True,
-            "claim": {
-                "id": claim.id,
-                "key": strip_property_claim_key_prefix(claim.key),
-                "description": desc,
-                "lotKey": getattr(claim.db, "lot_key", None) or "",
-                "lotTier": int(getattr(claim.db, "lot_tier", None) or 1),
-                "kind": kind,
-            },
-            "lot": lot_payload,
-            "holding": holding_payload,
-            "storyLines": story_lines,
-            "inventoryPreview": preview,
-            "isOwner": is_owner,
-            "portableProcessorsCarried": portable_processors_carried_for_json(char),
-        }
-    )
+    prop_payload = {
+        "ok": True,
+        "claim": {
+            "id": claim.id,
+            "key": strip_property_claim_key_prefix(claim.key),
+            "description": desc,
+            "lotKey": getattr(claim.db, "lot_key", None) or "",
+            "lotTier": int(getattr(claim.db, "lot_tier", None) or 1),
+            "kind": kind,
+        },
+        "lot": lot_payload,
+        "holding": holding_payload,
+        "storyLines": story_lines,
+        "inventoryPreview": preview,
+        "isOwner": is_owner,
+        "portableProcessorsCarried": portable_processors_carried_for_json(char),
+    }
+    prop_payload.update(_ambient_bundle_for_room(banner_room))
+    return JsonResponse(prop_payload)
 
 
 @csrf_exempt
@@ -1984,6 +1998,7 @@ def bank_state(request):
             payload["credits"] = credits
             payload["transactionLog"] = tx_log
 
+    payload.update(_ambient_bundle_for_room(room))
     return JsonResponse(payload)
 
 
@@ -2031,14 +2046,18 @@ def real_estate_state(request):
         if eta is not None:
             next_property_discovery_at = eta.isoformat()
 
-    return JsonResponse({
+    office_key = vspec["realty"]["office_key"]
+    office = _first_object(office_key)
+    re_payload = {
         "venueId": venue_id,
-        "officeRoomKey": vspec["realty"]["office_key"],
+        "officeRoomKey": office_key,
         "brokerName": broker_name,
         "storyLines": story_lines,
         "lots": lot_rows,
         "nextPropertyDiscoveryAt": next_property_discovery_at,
-    })
+    }
+    re_payload.update(_ambient_bundle_for_room(office))
+    return JsonResponse(re_payload)
 
 
 @csrf_exempt
@@ -2172,13 +2191,15 @@ def processing_state(request):
         },
     ]
 
-    return JsonResponse({
-        **payload,
-        "roomName": room.key,
-        "roomDescription": room.db.desc or "",
-        "storyLines": story_lines,
-        "exits": _room_exits(room),
-    })
+    return JsonResponse(
+        {
+            **payload,
+            "roomDescription": room.db.desc or "",
+            "storyLines": story_lines,
+            "exits": _room_exits(room),
+            **_ambient_bundle_for_room(room),
+        }
+    )
 
 
 @require_GET
@@ -2217,15 +2238,17 @@ def refinery_state(request):
         },
     ]
 
-    return JsonResponse({
-        **payload,
-        "roomName": room.key,
-        "roomDescription": room.db.desc or "",
-        "storyLines": story_lines,
-        "webPageTitle": web_page_title,
-        "webPageSubtitle": web_page_subtitle,
-        "exits": _room_exits(room),
-    })
+    return JsonResponse(
+        {
+            **payload,
+            "roomDescription": room.db.desc or "",
+            "storyLines": story_lines,
+            "webPageTitle": web_page_title,
+            "webPageSubtitle": web_page_subtitle,
+            "exits": _room_exits(room),
+            **_ambient_bundle_for_room(room),
+        }
+    )
 
 
 @csrf_exempt
@@ -2942,6 +2965,7 @@ def shop_state(request):
         raise Http404("No catalog shop or shipyard kiosk found in this room.")
 
     data = shop.get_shop_state_for_api(buyer=None)
+    data.update(_ambient_bundle_for_room(room))
     return JsonResponse(data)
 
 

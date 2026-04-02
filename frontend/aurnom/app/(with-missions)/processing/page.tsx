@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { VenueLocationBanner } from "@/components/venue-location-banner";
 import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
 import { OreReceivingBayTiles } from "@/components/ore-receiving-bay-tiles";
 import { StoryPanel } from "@/components/story-panel";
@@ -128,23 +129,22 @@ function ProcessingPageInner() {
           </div>
         }
       />
+      <VenueLocationBanner roomName={data.roomName} ambient={data.ambient} />
       <div className="flex flex-col gap-1.5 p-1.5">
         <div className="min-w-0">
           <CsPanel title="Live Pricing">
             <CommodityTickerStrip />
           </CsPanel>
         </div>
-        <div className="grid gap-1.5 lg:grid-cols-2">
-          <div className="min-w-0">
-            <CsPanel title="Plant Output">
-              <StoryPanel title="Plant Output" lines={data.storyLines} />
-            </CsPanel>
-          </div>
-          <div className="min-w-0">
-            <CsPanel title="Procurement board">
-              <ProcurementBoardPanel />
-            </CsPanel>
-          </div>
+        <div className="min-w-0">
+          <CsPanel title="Plant Output">
+            <StoryPanel title="Plant Output" lines={data.storyLines} />
+          </CsPanel>
+        </div>
+        <div className="min-w-0">
+          <CsPanel title="Procurement board">
+            <ProcurementBoardPanel />
+          </CsPanel>
         </div>
 
         <section className="mb-1 min-w-0">

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
+import { VenueLocationBanner } from "@/components/venue-location-banner";
 import { CommodityTickerStrip } from "@/components/commodity-ticker";
 import { StoryPanel } from "@/components/story-panel";
 import { formatCr as cr } from "@/lib/format-units";
@@ -160,6 +161,7 @@ function RefineryLoaded({ data, reload }: { data: RefineryState; reload: () => v
           </div>
         }
       />
+      <VenueLocationBanner roomName={data.roomName} ambient={data.ambient} />
       <div className="flex flex-col gap-1.5 p-1.5">
         <div className="min-w-0">
           <CsPanel title="Market strip">

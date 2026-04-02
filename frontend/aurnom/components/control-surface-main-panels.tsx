@@ -1212,15 +1212,13 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       ) : null}
       <div className="grid min-h-0 grid-cols-1 md:min-h-svh md:grid-cols-2">
         <div className="min-h-0 min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5 md:min-h-0">
-          {data.missions || data.quests ? (
-            <DashboardMissionsPanel
-              missions={data.missions ?? EMPTY_MISSIONS}
-              quests={data.quests ?? null}
-              roomExits={data.roomExits}
-              onChanged={onReload}
-              gameLog={gameLog}
-            />
-          ) : null}
+          <DashboardMissionsPanel
+            missions={data.missions ?? EMPTY_MISSIONS}
+            quests={data.quests ?? null}
+            roomExits={data.roomExits}
+            onChanged={onReload}
+            gameLog={gameLog}
+          />
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
         </div>
         <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">

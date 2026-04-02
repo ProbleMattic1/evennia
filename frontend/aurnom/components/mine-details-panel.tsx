@@ -4,11 +4,9 @@ import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { ActionGrid } from "@/components/action-grid";
-import { MissionBoard } from "@/components/mission-board";
-import { QuestBoard } from "@/components/quest-board";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { useControlSurface } from "@/components/control-surface-provider";
-import type { MineRigRow, MineSiteDetails, MissionsState, PlayAction, QuestsState } from "@/lib/ui-api";
+import type { MineRigRow, MineSiteDetails, PlayAction } from "@/lib/ui-api";
 import {
   listMinePropertyForClaims,
   mineReactivate,
@@ -22,20 +20,6 @@ import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 
 type PrimaryProps = {
   site: MineSiteDetails;
-};
-
-const EMPTY_MISSIONS: MissionsState = {
-  morality: { good: 0, evil: 0, lawful: 0, chaotic: 0 },
-  opportunities: [],
-  active: [],
-  completed: [],
-};
-
-const EMPTY_QUESTS: QuestsState = {
-  flags: {},
-  opportunities: [],
-  active: [],
-  completed: [],
 };
 
 function formatDate(s: string | null) {
@@ -277,46 +261,6 @@ type MinePlayRightColumnProps = {
   playActions: PlayAction[];
   onPlayReload: () => void;
 };
-
-/** Missions only — placed above Mine detail on Play. */
-export function PlayMissionsPanel({ onPlayReload }: { onPlayReload: () => void }) {
-  const router = useRouter();
-  const { data: csData, reload: reloadControlSurface } = useControlSurface();
-
-  const bump = useCallback(() => {
-    onPlayReload();
-    reloadControlSurface();
-    router.refresh();
-  }, [onPlayReload, reloadControlSurface, router]);
-
-  const missions = csData?.missions ?? EMPTY_MISSIONS;
-
-  return (
-    <div className="max-h-[min(420px,55vh)] min-h-0 overflow-y-auto overflow-x-hidden pr-0.5">
-      <MissionBoard missions={missions} onChanged={bump} />
-    </div>
-  );
-}
-
-/** Main storyline quests — same data as control surface ``quests``; Play surface only. */
-export function PlayQuestsPanel({ onPlayReload }: { onPlayReload: () => void }) {
-  const router = useRouter();
-  const { data: csData, reload: reloadControlSurface } = useControlSurface();
-
-  const bump = useCallback(() => {
-    onPlayReload();
-    reloadControlSurface();
-    router.refresh();
-  }, [onPlayReload, reloadControlSurface, router]);
-
-  const quests = csData?.quests ?? EMPTY_QUESTS;
-
-  return (
-    <div className="max-h-[min(420px,55vh)] min-h-0 overflow-y-auto overflow-x-hidden pr-0.5">
-      <QuestBoard quests={quests} onChanged={bump} />
-    </div>
-  );
-}
 
 /**
  * Right column on Play for mine rooms (inside Mine detail): actions, field service, then logs/rigs.

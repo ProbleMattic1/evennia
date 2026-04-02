@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
-import type { BillboardLibraryPreset, StaffBillboardCatalog } from "@/lib/ui-api";
+import { VenueLocationBanner } from "@/components/venue-location-banner";
+import type { BillboardLibraryPreset, RoomAmbient, StaffBillboardCatalog } from "@/lib/ui-api";
 import { getStaffBillboardState, postStaffBillboardApply } from "@/lib/ui-api";
 
 type SlidePick = "__default__" | "__none__" | string;
@@ -33,6 +34,8 @@ export default function StaffRoomBillboardPage() {
   const [applyErr, setApplyErr] = useState<string | null>(null);
   const [applyOk, setApplyOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bannerRoomKey, setBannerRoomKey] = useState("");
+  const [bannerAmbient, setBannerAmbient] = useState<RoomAmbient | undefined>(undefined);
 
   const activePreset = useMemo(
     () => catalog?.presets.find((p) => p.id === presetId) ?? null,
@@ -63,6 +66,8 @@ export default function StaffRoomBillboardPage() {
   const refreshRoom = useCallback(async (rk: string) => {
     if (!rk) {
       setRoomErr(null);
+      setBannerRoomKey("");
+      setBannerAmbient(undefined);
       return;
     }
     setRoomErr(null);
@@ -81,8 +86,12 @@ export default function StaffRoomBillboardPage() {
         }
       }
       setSlidePicks(next);
+      setBannerRoomKey(data.roomKey ?? rk);
+      setBannerAmbient(data.ambient);
     } catch (e) {
       setRoomErr(e instanceof Error ? e.message : "Failed to load room.");
+      setBannerRoomKey("");
+      setBannerAmbient(undefined);
     }
   }, []);
 
@@ -152,6 +161,7 @@ export default function StaffRoomBillboardPage() {
   return (
     <CsPage>
       <CsHeader title="Room billboard" subtitle="Staff only — selections only; copy and assets come from billboard_library.json" />
+      {bannerRoomKey ? <VenueLocationBanner roomName={bannerRoomKey} ambient={bannerAmbient} /> : null}
 
       <CsPanel title="Assignment">
         {roomErr ? <p className="mb-2 text-sm text-red-600 dark:text-red-400">{roomErr}</p> : null}
