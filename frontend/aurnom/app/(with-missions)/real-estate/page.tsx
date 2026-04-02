@@ -6,10 +6,10 @@ import { useSearchParams } from "next/navigation";
 import { ClaimsMarketPanel } from "@/components/claims-market-panel";
 import { PropertyDeedResaleBrowse } from "@/components/property-deed-resale-browse";
 import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
-import { VenueLocationBanner } from "@/components/venue-location-banner";
 import { Countdown } from "@/components/countdown";
-import { StoryPanel } from "@/components/story-panel";
+import { VenueBillboardStoryFrame } from "@/components/venue-billboard-story-frame";
 import {
+  EMPTY_ROOM_AMBIENT,
   getRealEstateState,
   purchasePropertyDeed,
   purchaseRandomPropertyDeed,
@@ -173,16 +173,18 @@ function RealEstatePageInner() {
         subtitle={data.officeRoomKey ?? "Real Estate office"}
         actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
-      <VenueLocationBanner
+      <VenueBillboardStoryFrame
+        panelTitle="Location & story"
         roomName={data.roomName ?? data.officeRoomKey ?? data.brokerName}
-        ambient={data.ambient}
+        ambient={data.ambient ?? EMPTY_ROOM_AMBIENT}
+        storyLines={data.storyLines}
+        storySubheading="Office output"
       />
       <div className="flex min-h-0 min-w-0 flex-col gap-1.5 overflow-y-auto p-1.5 md:min-h-0">
-        <CsPanel title="Real Estate Office">
-          <StoryPanel lines={data.storyLines} compact />
-          {feedback && (
+        {feedback ? (
+          <CsPanel title="Real Estate Office">
             <p
-              className={`mt-2 rounded border px-2 py-1.5 text-xs ${
+              className={`rounded border px-2 py-1.5 text-xs ${
                 feedback.ok
                   ? "border-emerald-800/50 text-emerald-400"
                   : "border-red-800/50 text-red-400"
@@ -190,8 +192,8 @@ function RealEstatePageInner() {
             >
               {feedback.message}
             </p>
-          )}
-        </CsPanel>
+          </CsPanel>
+        ) : null}
         <CsPanel title="Property Market">
             <div className={exchangePanelToolbarClass}>
               <h2 id="property-listings-heading" className={exchangePanelToolbarTitleClass}>

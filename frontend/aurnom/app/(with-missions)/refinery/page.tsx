@@ -4,12 +4,11 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
-import { VenueLocationBanner } from "@/components/venue-location-banner";
-import { CommodityTickerStrip } from "@/components/commodity-ticker";
-import { StoryPanel } from "@/components/story-panel";
+import { VenueBillboardStoryFrame } from "@/components/venue-billboard-story-frame";
 import { formatCr as cr } from "@/lib/format-units";
 import { displayResourceName } from "@/lib/resource-display";
 import {
+  EMPTY_ROOM_AMBIENT,
   getRefineryState,
   postRefineryCollectRefined,
   postRefineryFeedSilo,
@@ -161,18 +160,17 @@ function RefineryLoaded({ data, reload }: { data: RefineryState; reload: () => v
           </div>
         }
       />
-      <VenueLocationBanner roomName={data.roomName} ambient={data.ambient} />
+      <VenueBillboardStoryFrame
+        panelTitle="Location & story"
+        roomName={data.roomName}
+        ambient={data.ambient ?? EMPTY_ROOM_AMBIENT}
+        storyLines={data.storyLines}
+        storySubheading="Refinery output"
+      />
       <div className="flex flex-col gap-1.5 p-1.5">
         <div className="min-w-0">
-          <CsPanel title="Market strip">
-            <CommodityTickerStrip />
-          </CsPanel>
-        </div>
-
-        <div className="min-w-0">
           <CsPanel title="Overview">
-            <StoryPanel title="Refinery" lines={data.storyLines} />
-            <div className="mt-2 space-y-1 text-xs text-ui-accent-readable">
+            <div className="space-y-1 text-xs text-ui-accent-readable">
               {data.refineryCountInRoom > 1 ? (
                 <p>
                   This room has <span className="font-mono">{data.refineryCountInRoom}</span> refineries; UI shows the

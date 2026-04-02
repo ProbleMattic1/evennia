@@ -5,10 +5,10 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
-import { VenueLocationBanner } from "@/components/venue-location-banner";
-import { StoryPanel } from "@/components/story-panel";
+import { VenueBillboardStoryFrame } from "@/components/venue-billboard-story-frame";
 import { PropertyDeedListForm } from "@/components/property-deed-list-form";
 import {
+  EMPTY_ROOM_AMBIENT,
   getPropertyClaimDetail,
   installPropertyStructure,
   propertyProcessorDeploy,
@@ -418,7 +418,13 @@ export default function PropertyClaimDetailPage() {
         }
       />
       {data?.ok && data.roomName ? (
-        <VenueLocationBanner roomName={data.roomName} ambient={data.ambient} />
+        <VenueBillboardStoryFrame
+          panelTitle="Location & story"
+          roomName={data.roomName}
+          ambient={data.ambient ?? EMPTY_ROOM_AMBIENT}
+          storyLines={data.storyLines ?? []}
+          storySubheading="Deed output"
+        />
       ) : null}
 
       {loading && <p className="px-2 py-3 font-mono text-sm text-ui-muted">Loading…</p>}
@@ -426,9 +432,6 @@ export default function PropertyClaimDetailPage() {
 
       {data?.ok && claim && (
         <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
-              <CsPanel title="Deed Output">
-                <StoryPanel title="Deed Output" lines={data.storyLines ?? []} compact />
-              </CsPanel>
               <CsPanel title="Deed">
             <dl className="mt-2 grid gap-1 text-sm">
               <div className="flex justify-between gap-2">

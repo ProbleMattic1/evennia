@@ -89,7 +89,7 @@ export function bayTileSectionHeadingClass(section: BayTileCategory): string {
 /** Card shell aligned with Commodity Board category colors (left rail + subtle fill + ring). */
 export function bayTileCardClass(section: BayTileCategory): string {
   const base =
-    "min-w-0 basis-[220px] flex-1 rounded-md px-2 py-1.5 shadow-sm ring-1 transition-colors hover:bg-zinc-950/40";
+    "min-w-0 w-full max-w-full rounded-md px-2 py-1.5 shadow-sm ring-1 transition-colors hover:bg-zinc-950/40";
   switch (section) {
     case "standard_metal":
       return `${base} border-l-[3px] border-l-emerald-500/75 bg-gradient-to-br from-emerald-950/35 to-zinc-950/90 ring-emerald-900/35`;
@@ -135,74 +135,6 @@ function useMarket() {
   }, [reload]);
 
   return resource;
-}
-
-// ─── Scrolling strip (top of page) ───────────────────────────────────────────
-
-export function CommodityTickerStrip() {
-  const { data, loading } = useMarket();
-
-  if (loading && !data) {
-    return (
-      <div className="overflow-hidden rounded border border-cyan-900/40 bg-zinc-950/80 px-3 py-2">
-        <p className="animate-pulse font-mono text-sm text-ui-muted">
-          SYNCING MARKET FEED…
-        </p>
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  const items = [...data.commodities, ...data.commodities]; // duplicate for seamless loop
-
-  return (
-    <div className="overflow-hidden rounded border border-cyan-900/40 bg-zinc-950/80">
-      {/* Header row */}
-      <div className="flex min-w-0 items-center justify-between border-b border-cyan-900/50 bg-cyan-950/40 px-3 py-1.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500 dark:bg-cyan-400" />
-          <span className="min-w-0 truncate font-mono text-xs font-semibold uppercase tracking-widest text-cyber-cyan">
-            Aurnom Commodity Exchange · Live Pricing
-          </span>
-        </div>
-      </div>
-
-      {/* Scrolling strip */}
-      <div className="overflow-hidden py-1.5">
-        <div
-          className="flex w-max gap-10 whitespace-nowrap px-3"
-          style={{ animation: "ace-ticker 50s linear infinite" }}
-        >
-          {items.map((c, i) => {
-            const d = priceDelta(c.sellPriceCrPerTon, c.basePriceCrPerTon);
-            return (
-              <span
-                key={`${c.key}-${i}`}
-                className="inline-flex items-center gap-1.5 font-mono text-sm"
-              >
-                <span className={cat(c).text}>{c.name.toUpperCase()}</span>
-                <span className="text-ui-muted dark:text-foreground">
-                  {c.sellPriceCrPerTon.toLocaleString()}cr/t
-                </span>
-                <span className={d.cls}>
-                  {d.icon}
-                  {d.pct > 0 ? ` ${d.pct}%` : ""}
-                </span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes ace-ticker {
-          from { transform: translateX(0); }
-          to   { transform: translateX(-50%); }
-        }
-      `}</style>
-    </div>
-  );
 }
 
 // ─── Single commodity row ─────────────────────────────────────────────────────

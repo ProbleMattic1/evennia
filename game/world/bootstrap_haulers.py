@@ -14,7 +14,7 @@ Haulers are now bundled inside mining packages (bootstrap_mining_packages.py).
 from evennia import create_script, search_object, search_script
 
 # Vast storage for the global plant's shared receiving bay.
-ORE_RECEIVING_BAY_CAPACITY_TONS = 50_000.0
+ORE_RECEIVING_BAY_CAPACITY_TONS = 1_000_000.0
 
 
 def _get_or_create_refinery_receiving_storage(room):

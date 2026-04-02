@@ -4,10 +4,8 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
-import { VenueLocationBanner } from "@/components/venue-location-banner";
-import { ExitGrid } from "@/components/exit-grid";
-import { StoryPanel } from "@/components/story-panel";
-import { buyItem, getShopState, inspectItem } from "@/lib/ui-api";
+import { VenueBillboardStoryFrame } from "@/components/venue-billboard-story-frame";
+import { buyItem, EMPTY_ROOM_AMBIENT, getShopState, inspectItem } from "@/lib/ui-api";
 import type { ShopState } from "@/lib/ui-api";
 import type { StoryLine } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
@@ -132,7 +130,13 @@ function ShopPageInner() {
         subtitle={view.roomName}
         actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
       />
-      <VenueLocationBanner roomName={view.roomName} ambient={view.ambient} />
+      <VenueBillboardStoryFrame
+        panelTitle="Location & story"
+        roomName={view.roomName}
+        ambient={view.ambient ?? EMPTY_ROOM_AMBIENT}
+        storyLines={view.storyLines}
+        storySubheading={isShips ? "Shipyard output" : "Shop output"}
+      />
 
       {actionError ? (
         <p className="mx-1.5 mt-1 rounded border border-red-800/40 bg-red-950/30 px-1.5 py-1 text-xs text-red-300">
@@ -141,12 +145,6 @@ function ShopPageInner() {
       ) : null}
 
       <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
-        <CsPanel title="Destinations">
-          <ExitGrid exits={view.exits} />
-        </CsPanel>
-        <CsPanel title={isShips ? "Shipyard Output" : "Shop Output"}>
-          <StoryPanel title={isShips ? "Shipyard Output" : "Shop Output"} lines={view.storyLines} />
-        </CsPanel>
         <CsPanel title={isShips ? "Ships for Sale" : "Items for Sale"}>
             <ul className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {catalog.map((entry) => {

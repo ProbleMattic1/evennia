@@ -1,13 +1,29 @@
 "use client";
 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Countdown } from "@/components/countdown";
 import { ChallengesPanel } from "@/components/challenges-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { DashboardMissionsPanel, EMPTY_MISSIONS } from "@/components/dashboard-missions-panel";
 import { LocationBanner } from "@/components/location-banner";
+import { SortableRightColumnPanel } from "@/components/sortable-right-column-panel";
 import type {
   ControlSurfaceState,
   CsInventory,
@@ -34,7 +50,13 @@ import {
 } from "@/lib/ui-api";
 import { formatCr as cr } from "@/lib/format-units";
 import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
+import {
+  DEFAULT_RIGHT_COLUMN_ORDER,
+  type RightColumnPanelId,
+} from "@/lib/dashboard-right-column-ids";
+import { isRightColumnPanelVisible, INVENTORY_PANEL_HIDDEN_BUCKETS } from "@/lib/dashboard-right-column-visibility";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
+import { useDashboardRightColumnOrder } from "@/lib/use-dashboard-right-column-order";
 import { useMsgStream } from "@/lib/use-msg-stream";
 import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
 
@@ -262,9 +284,6 @@ function formatClaimOptionLabel(c: {
   if (c.claimSpecs?.resourceRarityTier) parts.push(c.claimSpecs.resourceRarityTier);
   return parts.length ? `${base} (${parts.join(" / ")})` : base;
 }
-
-/** Not listed in Inventory panel; Mine Operations still reads these buckets from the same payload. */
-const INVENTORY_PANEL_HIDDEN_BUCKETS = new Set(["mining_claim", "property_deed"]);
 
 /** Alerts only: original taller viewport (~10 rows), remainder scrolls. */
 const ALERTS_SCROLL_LIST_CLASS =
@@ -1192,6 +1211,103 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
     [run],
   );
 
+  const { order, setOrder, hydrated } = useDashboardRightColumnOrder();
+
+  const visiblePanelIds = useMemo(
+    () => order.filter((id) => isRightColumnPanelVisible(data, id)),
+    [order, data],
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const onRightColumnDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const present = visiblePanelIds;
+      const oldIndex = present.indexOf(active.id as RightColumnPanelId);
+      const newIndex = present.indexOf(over.id as RightColumnPanelId);
+      if (oldIndex < 0 || newIndex < 0) return;
+      const nextPresent = arrayMove(present, oldIndex, newIndex);
+      let i = 0;
+      setOrder(
+        order.map((id) =>
+          isRightColumnPanelVisible(data, id) ? (nextPresent[i++] as RightColumnPanelId) : id,
+        ),
+      );
+    },
+    [data, order, setOrder, visiblePanelIds],
+  );
+
+  const renderRightColumnPanel = useCallback(
+    (panelId: RightColumnPanelId): ReactNode => {
+      switch (panelId) {
+        case "challenges":
+          if (!data.challenges) return null;
+          return (
+            <ChallengesPanel
+              challenges={data.challenges}
+              onClaimChallenge={claimChallengeCb}
+              onClaimCadence={claimCadenceCb}
+              onClaimAll={claimAllChallengesCb}
+              claimBusy={busy}
+            />
+          );
+        case "alerts":
+          if (!data.groupedAlerts) return null;
+          return (
+            <AlertsPanel
+              grouped={data.groupedAlerts}
+              onAck={ackAlert}
+              onAckAll={ackAllAlerts}
+              busy={busy}
+            />
+          );
+        case "ships":
+          return <ShipsPanel ships={data.ships} />;
+        case "inventory":
+          return <InventoryPanel inventory={data.inventory} />;
+        case "resources":
+          return (
+            <ResourcesPanel
+              resources={data.resources ?? data.mines}
+              market={data.market}
+              miningNextCycleAt={data.miningNextCycleAt ?? ""}
+              mineStorageValueCr={data.productionTotalStoredValue ?? data.miningTotalStoredValue ?? 0}
+              onReload={onReload}
+              onRepairRig={repairRigCb}
+            />
+          );
+        case "personalStorage":
+          return (
+            <PersonalStoragePanel
+              buckets={data.personalStorage ?? { mine: {}, flora: {}, fauna: {} }}
+            />
+          );
+        case "properties":
+          return <PropertiesPanel properties={data.properties} />;
+        case "claimsNav":
+          return <ClaimsNavPanel claims={data.nav.claims} />;
+        default:
+          return null;
+      }
+    },
+    [
+      data,
+      busy,
+      onReload,
+      claimChallengeCb,
+      claimCadenceCb,
+      claimAllChallengesCb,
+      ackAlert,
+      ackAllAlerts,
+      repairRigCb,
+    ],
+  );
+
   return (
     <div className="dark min-h-svh bg-zinc-950 font-mono text-xs text-foreground">
       {flash ? (
@@ -1222,34 +1338,24 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
         </div>
         <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
-          {data.challenges ? (
-            <ChallengesPanel
-              challenges={data.challenges}
-              onClaimChallenge={claimChallengeCb}
-              onClaimCadence={claimCadenceCb}
-              onClaimAll={claimAllChallengesCb}
-              claimBusy={busy}
-            />
-          ) : null}
-          {data.groupedAlerts ? (
-            <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} onAckAll={ackAllAlerts} busy={busy} />
-          ) : null}
-          <ShipsPanel ships={data.ships} />
           {busy ? <div className="mb-1 text-xs text-ui-muted">Working...</div> : null}
-          <InventoryPanel inventory={data.inventory} />
-          <ResourcesPanel
-            resources={data.resources ?? data.mines}
-            market={data.market}
-            miningNextCycleAt={data.miningNextCycleAt ?? ""}
-            mineStorageValueCr={data.productionTotalStoredValue ?? data.miningTotalStoredValue ?? 0}
-            onReload={onReload}
-            onRepairRig={repairRigCb}
-          />
-          <PersonalStoragePanel
-            buckets={data.personalStorage ?? { mine: {}, flora: {}, fauna: {} }}
-          />
-          <PropertiesPanel properties={data.properties} />
-          <ClaimsNavPanel claims={data.nav.claims} />
+          {hydrated ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onRightColumnDragEnd}>
+              <SortableContext items={visiblePanelIds} strategy={verticalListSortingStrategy}>
+                {visiblePanelIds.map((panelId) => (
+                  <SortableRightColumnPanel key={panelId} id={panelId}>
+                    {renderRightColumnPanel(panelId)}
+                  </SortableRightColumnPanel>
+                ))}
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <>
+              {DEFAULT_RIGHT_COLUMN_ORDER.filter((id) => isRightColumnPanelVisible(data, id)).map((panelId) => (
+                <Fragment key={panelId}>{renderRightColumnPanel(panelId)}</Fragment>
+              ))}
+            </>
+          )}
         </div>
       </div>
     </div>

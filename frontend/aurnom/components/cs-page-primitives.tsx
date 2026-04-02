@@ -45,7 +45,7 @@ export function CsPanel({
       <div className="flex min-w-0 items-center gap-2 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest text-cyber-cyan">
         {title}
       </div>
-      <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5">{children}</div>
+      <div className="min-w-0 border border-cyan-900/40 bg-zinc-950/80 p-1.5">{children}</div>
     </section>
   );
 }

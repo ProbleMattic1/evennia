@@ -88,8 +88,16 @@ services:
       - HOSTNAME=0.0.0.0
       - EVENNIA_BASE_URL=http://evennia:4001
     volumes:
+      # Bind mount alone would reuse host node_modules (e.g. macOS); Tailwind v4 /
+      # lightningcss need Linux .node binaries inside this Debian image.
+      # If lightningcss still fails after an image/arch change: docker compose down, then
+      # docker volume rm <compose_project>_frontend_aurnom_node_modules_v2 (see docker volume ls).
       - ./frontend/aurnom:/app
+      - frontend_aurnom_node_modules_v2:/app/node_modules
     command: sh -c "npm install && HOST=0.0.0.0 npm run dev -- --hostname 0.0.0.0"
     ports:
       - "3000:3000"
     restart: unless-stopped
+
+volumes:
+  frontend_aurnom_node_modules_v2:

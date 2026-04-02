@@ -5,11 +5,9 @@ import { useSearchParams } from "next/navigation";
 
 import { useControlSurface } from "@/components/control-surface-provider";
 import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
-import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
-import { ExitGrid } from "@/components/exit-grid";
+import { CommodityTickerTable } from "@/components/commodity-ticker";
 import { MineDetailsPanel, MinePlayRightColumn } from "@/components/mine-details-panel";
-import { StoryPanel } from "@/components/story-panel";
-import { VenueLocationBanner } from "@/components/venue-location-banner";
+import { VenueBillboardStoryFrame } from "@/components/venue-billboard-story-frame";
 import { EMPTY_ROOM_AMBIENT, getPlayState } from "@/lib/ui-api";
 import { UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
 import { useReloadAfterIso } from "@/lib/use-reload-after-iso";
@@ -80,14 +78,9 @@ function PlayPageInner() {
     (ambient.layoutHints?.rightColumn === "commodity_board" || data.roomName === MINING_OUTFITTERS_ROOM);
 
   const stackTail = useCommodityBoard ? (
-    <>
-      <CsPanel title="Market Snapshot">
-        <CommodityTickerStrip />
-      </CsPanel>
-      <CsPanel title="Commodity Board">
-        <CommodityTickerTable />
-      </CsPanel>
-    </>
+    <CsPanel title="Commodity Board">
+      <CommodityTickerTable />
+    </CsPanel>
   ) : data.site ? (
     <CsPanel title="Mine detail">
       <MinePlayRightColumn site={data.site} playActions={data.actions} onPlayReload={reload} />
@@ -101,14 +94,13 @@ function PlayPageInner() {
         subtitle={`Current location: ${data.roomName}`}
         actions={<CsButtonLink href="/">Dashboard</CsButtonLink>}
       />
-      <VenueLocationBanner roomName={data.roomName} ambient={ambient} />
+      <VenueBillboardStoryFrame
+        panelTitle="Location & story"
+        roomName={data.roomName}
+        ambient={ambient}
+        storyLines={data.storyLines}
+      />
       <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
-        <CsPanel title="Story Output">
-          <StoryPanel lines={data.storyLines} compact />
-        </CsPanel>
-        <CsPanel title="Destinations">
-          <ExitGrid exits={data.exits} />
-        </CsPanel>
         {data.site ? (
           <CsPanel title="Mine Site">
             <MineDetailsPanel site={data.site} />

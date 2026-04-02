@@ -438,8 +438,8 @@ export function DashboardQuestsEmbedded({
           </div>
 
           {includeDestinations && roomExits.some((e) => e.destination) ? (
-            <div className="mt-1.5">
-              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-violet-300/90">
+            <div className="mt-1.5 rounded border border-cyan-900/40 bg-zinc-950/80 p-1.5">
+              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-cyber-cyan">
                 <span>Destinations</span>
                 <PanelExpandButton
                   open={exitsOpen}
@@ -457,6 +457,7 @@ export function DashboardQuestsEmbedded({
                       return (
                         <TinyButton
                           key={`${ex.key}-${ex.destination}`}
+                          variant="cyan"
                           onClick={() => handleExitTravel(ex.destination)}
                           disabled={busyKey === k}
                         >
@@ -469,13 +470,14 @@ export function DashboardQuestsEmbedded({
                   <div className="mt-0.5 flex flex-col gap-2">
                     {destinationGroups.map(({ title, items }) => (
                       <div key={title}>
-                        <div className="mb-0.5 text-xs uppercase tracking-wide text-violet-300/90">{title}</div>
+                        <div className="mb-0.5 text-xs uppercase tracking-wide text-cyber-cyan">{title}</div>
                         <div className="flex flex-wrap gap-1">
                           {items.map((ex) => {
                             const k = `q:exit:${ex.destination}`;
                             return (
                               <TinyButton
                                 key={`${ex.key}-${ex.destination}`}
+                                variant="cyan"
                                 onClick={() => handleExitTravel(ex.destination!)}
                                 disabled={busyKey === k}
                               >
@@ -594,18 +596,20 @@ export function DashboardQuestsEmbedded({
 function TinyButton({
   onClick,
   disabled,
-  variant = "cyan",
+  variant = "violet",
   children,
 }: {
   onClick: () => void;
   disabled?: boolean;
-  variant?: "cyan" | "pink";
+  variant?: "cyan" | "pink" | "violet";
   children: React.ReactNode;
 }) {
   const cls =
     variant === "pink"
       ? "shrink-0 rounded border border-pink-500/80 px-1 py-0 text-xs text-pink-400 hover:bg-pink-950/50 disabled:opacity-40"
-      : "shrink-0 rounded border border-violet-800/60 px-1 py-0 text-xs text-violet-300 hover:bg-violet-950/40 disabled:opacity-40";
+      : variant === "cyan"
+        ? "shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40"
+        : "shrink-0 rounded border border-violet-800/60 px-1 py-0 text-xs text-violet-300 hover:bg-violet-950/40 disabled:opacity-40";
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={cls}>
       {children}

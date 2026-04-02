@@ -5,9 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
-import { VenueLocationBanner } from "@/components/venue-location-banner";
-import { StoryPanel } from "@/components/story-panel";
+import { VenueBillboardStoryFrame } from "@/components/venue-billboard-story-frame";
 import {
+  EMPTY_ROOM_AMBIENT,
   getClaimDetail,
   listClaimForSale,
   type ClaimDetailState,
@@ -94,7 +94,13 @@ export default function ClaimDetailPage() {
         }
       />
       {data?.ok && data.roomName ? (
-        <VenueLocationBanner roomName={data.roomName} ambient={data.ambient} />
+        <VenueBillboardStoryFrame
+          panelTitle="Location & story"
+          roomName={data.roomName}
+          ambient={data.ambient ?? EMPTY_ROOM_AMBIENT}
+          storyLines={data.storyLines ?? []}
+          storySubheading="Claim output"
+        />
       ) : null}
 
       {loading && <p className="px-2 py-3 font-mono text-sm text-ui-muted">Loading…</p>}
@@ -102,9 +108,6 @@ export default function ClaimDetailPage() {
 
       {data?.ok && site ? (
         <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
-              <CsPanel title="Claim Output">
-                <StoryPanel title="Claim Output" lines={data.storyLines ?? []} compact />
-              </CsPanel>
               <CsPanel title="Deposit">
               <dl className="mt-2 grid gap-1 text-sm">
                 <div className="flex justify-between gap-2">

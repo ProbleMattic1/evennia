@@ -103,7 +103,12 @@ function BayTileSection({
         />
       </div>
       {open ? (
-        <div className="flex min-w-0 flex-wrap gap-2">
+        <div
+          className="grid min-w-0 gap-2"
+          style={{
+            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr))",
+          }}
+        >
           {sectionRows.map((r) => (
             <BayResourceTile key={r.key} r={r} section={sectionKey} commodity={keyToCommodity.get(r.key)} />
           ))}

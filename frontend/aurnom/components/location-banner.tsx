@@ -35,9 +35,20 @@ type Props = {
   variant?: "full" | "compact";
   /** When provided, billboard lines are derived from the same stream as the game log. */
   messages?: MsgStreamEntry[];
+  /** Extra bottom padding for full variant only (e.g. venue column billboard height). */
+  extraBottomPx?: number;
+  /** Inside a combined venue panel; omit bottom border so story sits flush below. */
+  embedded?: boolean;
 };
 
-export function LocationBanner({ ambient, roomName, variant = "full", messages }: Props) {
+export function LocationBanner({
+  ambient,
+  roomName,
+  variant = "full",
+  messages,
+  extraBottomPx,
+  embedded = false,
+}: Props) {
   const reducedMotion = usePrefersReducedMotion();
   const themeId = ambient.themeId || "default";
   const displayTitle = ambient.label?.trim() || roomName;
@@ -88,11 +99,17 @@ export function LocationBanner({ ambient, roomName, variant = "full", messages }
 
   const compact = variant === "compact";
   const chipLimit = compact ? 2 : 6;
+  const rootStyle =
+    !compact && !embedded && extraBottomPx != null && extraBottomPx > 0
+      ? { paddingBottom: extraBottomPx }
+      : undefined;
+  const bottomRule = !embedded ? "border-b" : "";
 
   return (
     <div
-      className={`location-banner border-b ${compact ? "px-1.5 py-1" : "px-2 py-2"}`}
+      className={`location-banner ${bottomRule} ${compact ? "px-1.5 py-1" : "px-2 py-2"}`}
       data-room-theme={themeId === "default" ? undefined : themeId}
+      style={rootStyle}
     >
       {billboardItems.length > 0 ? (
         <div className={`mb-1.5 flex flex-col gap-1 ${compact ? "text-[10px]" : "text-xs"}`}>

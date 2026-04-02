@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DashboardQuestsEmbedded } from "@/components/dashboard-quests-panel";
 import { groupExits } from "@/components/exit-grid";
@@ -17,6 +17,7 @@ import type {
   MsgStreamEntry,
   QuestsState,
 } from "@/lib/ui-api";
+import { useMissionsChromeHeightActions } from "@/lib/missions-chrome-height-context";
 import {
   acceptMission,
   chooseMission,
@@ -40,6 +41,8 @@ type Props = {
   roomExits?: ExitButton[];
   onChanged: () => void;
   gameLog: MsgStreamEntry[];
+  /** Processing route: portal target below this panel (Market Snapshot, etc.). */
+  setProcessingBelowMissionsHost?: (el: HTMLDivElement | null) => void;
 };
 
 type ChoiceDialogState = {
@@ -61,6 +64,7 @@ export function DashboardMissionsPanel({
   roomExits = [],
   onChanged,
   gameLog,
+  setProcessingBelowMissionsHost,
 }: Props) {
   const router = useRouter();
 
@@ -124,6 +128,23 @@ export function DashboardMissionsPanel({
 
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const missionsChromeMeasureRef = useRef<HTMLDivElement>(null);
+  const { setHeightPx: setMissionsChromeHeightPx } = useMissionsChromeHeightActions();
+
+  useLayoutEffect(() => {
+    const el = missionsChromeMeasureRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height;
+      if (h != null && h > 0) {
+        setMissionsChromeHeightPx(Math.round(h));
+      }
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+    };
+  }, [setMissionsChromeHeightPx]);
 
   const [acceptOpp, setAcceptOpp] = useState<MissionOpportunity | null>(null);
   const [choiceDialog, setChoiceDialog] = useState<ChoiceDialogState | null>(null);
@@ -254,48 +275,55 @@ export function DashboardMissionsPanel({
 
   return (
     <section className="mb-1">
+      <div ref={missionsChromeMeasureRef} className="min-w-0">
       <HitekMissionsChrome>
       <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
         <span className="min-w-0 truncate text-cyber-cyan">Missions and Quests</span>
-        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
-          <span className="font-mono text-ui-caption font-normal">
-            <span className="text-ui-muted">(</span>
-            <span className="text-cyber-cyan">{active.length}</span>
-            <span className="text-ui-muted"> active / </span>
-            <span className="text-amber-400">{opportunities.length}</span>
-            <span className="text-ui-muted"> avail)</span>
-            <span className="text-ui-muted"> · </span>
-            <span className="text-ui-muted">decisions pending: </span>
-            <span className={decisionsPending > 0 ? "text-amber-400" : "text-cyber-cyan"}>{decisionsPending}</span>
-          </span>
-          <PanelExpandButton
-            open={open}
-            onClick={toggleOpen}
-            aria-label={`${open ? "Collapse" : "Expand"} Missions and Quests`}
-          />
-        </div>
+        <PanelExpandButton
+          open={open}
+          onClick={toggleOpen}
+          aria-label={`${open ? "Collapse" : "Expand"} Missions and Quests`}
+          className="ml-auto shrink-0"
+        />
       </div>
 
       {open ? (
         <div className="bg-zinc-950/80 p-1.5 text-xs">
-          {flash ? (
-            <div className="mb-1 rounded border border-cyan-900/40 bg-zinc-950 px-1.5 py-1 text-xs text-foreground">
-              <span className="text-cyber-cyan">»</span> {flash}
-              <button type="button" className="ml-2 text-ui-muted hover:text-foreground" onClick={() => setFlash(null)}>
-                ×
-              </button>
-            </div>
-          ) : null}
-
           <div className="mb-1.5">
-            <div className="mb-0.5 text-xs uppercase tracking-wide text-ui-muted">Game log</div>
             <GameLogPanel messages={gameLog} compact />
           </div>
 
-          <div className="space-y-1">
+          <div className="mt-1.5">
+            <div className="flex min-w-0 items-center gap-1 rounded-t border border-b-0 border-rose-900/40 bg-rose-950/40 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
+              <span className="min-w-0 truncate text-rose-300">Missions</span>
+              <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
+                <span className="font-mono text-ui-caption font-normal">
+                  <span className="text-ui-muted">(</span>
+                  <span className="text-rose-300">{active.length}</span>
+                  <span className="text-ui-muted"> active / </span>
+                  <span className="text-amber-400">{opportunities.length}</span>
+                  <span className="text-ui-muted"> avail)</span>
+                  <span className="text-ui-muted"> · </span>
+                  <span className="text-ui-muted">decisions pending: </span>
+                  <span className={decisionsPending > 0 ? "text-amber-400" : "text-rose-300"}>{decisionsPending}</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-b border border-rose-900/40 bg-zinc-950/80 p-1.5 text-xs">
+              {flash ? (
+                <div className="mb-1 rounded border border-rose-900/40 bg-zinc-950 px-1.5 py-1 text-xs text-foreground">
+                  <span className="text-rose-300">»</span> {flash}
+                  <button type="button" className="ml-2 text-ui-muted hover:text-foreground" onClick={() => setFlash(null)}>
+                    ×
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="space-y-1">
             {active.length > 0 ? (
               <div>
-                <div className="text-xs uppercase text-ui-muted">Active</div>
+                <div className="text-xs uppercase text-rose-300/90">Active</div>
                 <div className="mt-0.5 space-y-1">
                   {active.map((m) => {
                     const obj = m.currentObjective ?? null;
@@ -305,12 +333,12 @@ export function DashboardMissionsPanel({
                     return (
                       <div key={m.id} className="border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0">
                         <div className="flex min-w-0 items-baseline gap-2">
-                          <span className="shrink-0 rounded border border-cyan-800/50 px-1 font-mono text-[10px] text-cyber-cyan/90">
+                          <span className="shrink-0 rounded border border-rose-800/50 px-1 font-mono text-[10px] text-rose-300/90">
                             {missionKindLabel(m.missionKind)}
                           </span>
                           <button
                             type="button"
-                            className="min-w-0 truncate text-left font-semibold text-foreground hover:text-cyber-cyan"
+                            className="min-w-0 truncate text-left font-semibold text-foreground hover:text-rose-300"
                             onClick={() => setDetailMission(m)}
                           >
                             {m.title}
@@ -368,7 +396,7 @@ export function DashboardMissionsPanel({
 
             {opportunities.length > 0 ? (
               <div>
-                <div className="flex items-center text-xs uppercase text-ui-muted">
+                <div className="flex items-center text-xs uppercase text-rose-300/90">
                   <span>Available</span>
                   <PanelExpandButton
                     open={availableOpen}
@@ -378,13 +406,13 @@ export function DashboardMissionsPanel({
                   />
                 </div>
                 {availableOpen ? (
-                  <div className="mt-0.5 max-h-[min(280px,45vh)] min-h-[48px] space-y-0.5 overflow-y-auto overflow-x-hidden border border-cyan-900/40 bg-zinc-950/80 p-1.5 pr-2 [scrollbar-gutter:stable]">
+                  <div className="mt-0.5 max-h-[min(280px,45vh)] min-h-[48px] space-y-0.5 overflow-y-auto overflow-x-hidden border border-rose-900/40 bg-zinc-950/80 p-1.5 pr-2 [scrollbar-gutter:stable]">
                     {opportunities.map((op) => (
                       <div key={op.id} className="flex min-w-0 items-baseline gap-2">
                         <span className="shrink-0 font-mono text-[10px] text-ui-muted">{missionKindLabel(op.missionKind)}</span>
                         <button
                           type="button"
-                          className="min-w-0 flex-1 truncate text-left text-ui-muted hover:text-cyber-cyan"
+                          className="min-w-0 flex-1 truncate text-left text-ui-muted hover:text-rose-300"
                           onClick={() => setAcceptOpp(op)}
                           title={op.summary}
                         >
@@ -409,7 +437,7 @@ export function DashboardMissionsPanel({
 
             {completed.length > 0 ? (
               <div>
-                <div className="flex items-center text-xs uppercase text-ui-muted">
+                <div className="flex items-center text-xs uppercase text-rose-300/90">
                   <span>{`Completed (${completed.length})`}</span>
                   <PanelExpandButton
                     open={completedOpen}
@@ -419,7 +447,7 @@ export function DashboardMissionsPanel({
                   />
                 </div>
                 {completedOpen ? (
-                  <div className="mt-0.5 max-h-[min(8.75rem,30vh)] min-h-[36px] space-y-0.5 overflow-y-auto overflow-x-hidden border border-cyan-900/40 bg-zinc-950/80 p-1.5 pr-2 [scrollbar-gutter:stable]">
+                  <div className="mt-0.5 max-h-[min(8.75rem,30vh)] min-h-[36px] space-y-0.5 overflow-y-auto overflow-x-hidden border border-rose-900/40 bg-zinc-950/80 p-1.5 pr-2 [scrollbar-gutter:stable]">
                     {completed.map((m) => (
                       <div key={m.id} className="flex min-w-0 items-baseline gap-2">
                         <span className="shrink-0 font-mono text-[10px] text-ui-muted">{missionKindLabel(m.missionKind)}</span>
@@ -437,6 +465,8 @@ export function DashboardMissionsPanel({
             ) : null}
 
             {active.length === 0 && opportunities.length === 0 ? <div className="text-ui-muted">No missions available.</div> : null}
+              </div>
+            </div>
           </div>
 
           {quests ? (
@@ -449,8 +479,8 @@ export function DashboardMissionsPanel({
           ) : null}
 
           {roomExits.some((e) => e.destination) ? (
-            <div className="mt-1.5 rounded border border-violet-900/40 bg-zinc-950/80 p-1.5">
-              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-violet-300/90">
+            <div className="mt-1.5 rounded border border-cyan-900/40 bg-zinc-950/80 p-1.5">
+              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-cyber-cyan">
                 <span>Destinations</span>
                 <PanelExpandButton
                   open={exitsOpen}
@@ -468,7 +498,6 @@ export function DashboardMissionsPanel({
                       return (
                         <TinyButton
                           key={`${ex.key}-${ex.destination}`}
-                          variant="violet"
                           onClick={() => handleExitTravel(ex.destination)}
                           disabled={busyKey === k}
                         >
@@ -481,14 +510,13 @@ export function DashboardMissionsPanel({
                   <div className="mt-0.5 flex flex-col gap-2">
                     {destinationGroups.map(({ title, items }) => (
                       <div key={title}>
-                        <div className="mb-0.5 text-xs uppercase tracking-wide text-violet-300/90">{title}</div>
+                        <div className="mb-0.5 text-xs uppercase tracking-wide text-cyber-cyan">{title}</div>
                         <div className="flex flex-wrap gap-1">
                           {items.map((ex) => {
                             const k = `m:exit:${ex.destination}`;
                             return (
                               <TinyButton
                                 key={`${ex.key}-${ex.destination}`}
-                                variant="violet"
                                 onClick={() => handleExitTravel(ex.destination!)}
                                 disabled={busyKey === k}
                               >
@@ -507,6 +535,11 @@ export function DashboardMissionsPanel({
         </div>
       ) : null}
       </HitekMissionsChrome>
+      </div>
+
+      {setProcessingBelowMissionsHost ? (
+        <div ref={setProcessingBelowMissionsHost} className="mt-1.5 hidden min-w-0 md:block" />
+      ) : null}
 
       {acceptOpp ? (
         <OverlayDialog title="Accept mission" onClose={() => setAcceptOpp(null)}>
@@ -609,15 +642,13 @@ function TinyButton({
 }: {
   onClick: () => void;
   disabled?: boolean;
-  variant?: "cyan" | "pink" | "violet";
+  variant?: "cyan" | "pink";
   children: React.ReactNode;
 }) {
   const cls =
     variant === "pink"
       ? "shrink-0 rounded border border-pink-500/80 px-1 py-0 text-xs text-pink-400 hover:bg-pink-950/50 disabled:opacity-40"
-      : variant === "violet"
-        ? "shrink-0 rounded border border-violet-800/60 px-1 py-0 text-xs text-violet-300 hover:bg-violet-950/40 disabled:opacity-40"
-        : "shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40";
+      : "shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40";
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={cls}>
       {children}

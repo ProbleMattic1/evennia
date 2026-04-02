@@ -5,24 +5,19 @@ import { useSearchParams } from "next/navigation";
 
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { CsButtonLink, CsHeader, CsPage, CsPanel } from "@/components/cs-page-primitives";
-import { VenueLocationBanner } from "@/components/venue-location-banner";
-import { CommodityTickerStrip, CommodityTickerTable } from "@/components/commodity-ticker";
+import { CommodityTickerTable } from "@/components/commodity-ticker";
 import { OreReceivingBayTiles } from "@/components/ore-receiving-bay-tiles";
-import { StoryPanel } from "@/components/story-panel";
+import { VenueBillboardStoryFrame } from "@/components/venue-billboard-story-frame";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { formatCr as cr } from "@/lib/format-units";
-import { getProcessingState, playInteract } from "@/lib/ui-api";
+import { EMPTY_ROOM_AMBIENT, getProcessingState, playInteract } from "@/lib/ui-api";
 import { intervalMs, isUiPollPaused } from "@/lib/ui-refresh-policy";
 import { useUiResource } from "@/lib/use-ui-resource";
-
-function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2 border-b border-zinc-100 py-1.5 last:border-0 dark:border-cyan-900/30">
-      <span className="text-xs text-ui-muted">{label}</span>
-      <span className="font-mono text-sm font-semibold tabular-nums text-zinc-800 dark:text-foreground">{value}</span>
-    </div>
-  );
-}
+import {
+  WithMissionsProcessingBelowMissionsSlot,
+  WithMissionsProcessingTopSlot,
+  WithMissionsProcessingWideSlot,
+} from "@/lib/with-missions-processing-split";
 
 function ProcurementBoardPanel() {
   const [busy, setBusy] = useState(false);
@@ -47,13 +42,13 @@ function ProcurementBoardPanel() {
   }
 
   return (
-    <div className="mt-1 space-y-1">
-      <p className="text-xs text-ui-accent-readable">
+    <div className="mt-1 min-w-0 space-y-1">
+      <p className="break-words text-xs text-ui-accent-readable">
         Requires your character to be at the plant in-game. Accept or complete contracts via{" "}
-        <code className="font-mono text-xs">play/interact</code> with{" "}
-        <code className="font-mono text-xs">contractboard</code> and payload{" "}
-        <code className="font-mono text-xs">action: accept | complete</code>,{" "}
-        <code className="font-mono text-xs">contractId</code>.
+        <code className="break-all font-mono text-xs">play/interact</code> with{" "}
+        <code className="break-all font-mono text-xs">contractboard</code> and payload{" "}
+        <code className="break-all font-mono text-xs">action: accept | complete</code>,{" "}
+        <code className="break-all font-mono text-xs">contractId</code>.
       </p>
       <button
         type="button"
@@ -119,39 +114,32 @@ function ProcessingPageInner() {
 
   return (
     <CsPage>
-      <CsHeader
-        title={data.plantName}
-        subtitle={data.roomName}
-        actions={
-          <div className="flex flex-wrap gap-1">
-            <CsButtonLink href="/refinery">Refinery</CsButtonLink>
-            <CsButtonLink href="/">Dashboard</CsButtonLink>
-          </div>
-        }
-      />
-      <VenueLocationBanner roomName={data.roomName} ambient={data.ambient} />
-      <div className="flex flex-col gap-1.5 p-1.5">
-        <div className="min-w-0">
-          <CsPanel title="Live Pricing">
-            <CommodityTickerStrip />
-          </CsPanel>
-        </div>
-        <div className="min-w-0">
-          <CsPanel title="Plant Output">
-            <StoryPanel title="Plant Output" lines={data.storyLines} />
-          </CsPanel>
-        </div>
-        <div className="min-w-0">
-          <CsPanel title="Procurement board">
-            <ProcurementBoardPanel />
-          </CsPanel>
-        </div>
+      <WithMissionsProcessingTopSlot>
+        <CsHeader
+          title={data.plantName}
+          subtitle={data.roomName}
+          actions={
+            <div className="flex flex-wrap gap-1">
+              <CsButtonLink href="/refinery">Refinery</CsButtonLink>
+              <CsButtonLink href="/">Dashboard</CsButtonLink>
+            </div>
+          }
+        />
+        <VenueBillboardStoryFrame
+          panelTitle="Location & story"
+          roomName={data.roomName}
+          ambient={data.ambient ?? EMPTY_ROOM_AMBIENT}
+          storyLines={data.storyLines}
+          storySubheading="Plant output"
+        />
+      </WithMissionsProcessingTopSlot>
 
+      <WithMissionsProcessingBelowMissionsSlot>
         <section className="mb-1 min-w-0">
-          <div className="flex min-w-0 flex-nowrap items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest text-cyber-cyan">
-            <span className="min-w-0 truncate text-cyber-cyan">Market Snapshot</span>
-            <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
-              <span className="min-w-0 truncate text-right font-mono text-ui-caption font-normal whitespace-nowrap">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest text-cyber-cyan">
+            <span className="min-w-0 break-words text-cyber-cyan">Market Snapshot</span>
+            <div className="ml-auto flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-1 normal-case tracking-normal">
+              <span className="min-w-0 max-w-full text-right font-mono text-ui-caption font-normal break-words [overflow-wrap:anywhere] sm:whitespace-nowrap">
                 <span className="text-ui-muted">spent </span>
                 <span className="text-cyber-cyan/90">{cr(rollup.spent)}</span>
                 <span className="text-ui-muted"> · </span>
@@ -178,12 +166,22 @@ function ProcessingPageInner() {
             </div>
           ) : null}
         </section>
+      </WithMissionsProcessingBelowMissionsSlot>
 
-        <div className="min-w-0">
-          <CsPanel title="Commodity Board">
-            <CommodityTickerTable />
-          </CsPanel>
+      <WithMissionsProcessingWideSlot>
+        <div className="flex flex-col gap-1.5">
+          <div className="min-w-0">
+            <CsPanel title="Procurement board">
+              <ProcurementBoardPanel />
+            </CsPanel>
+          </div>
         </div>
+      </WithMissionsProcessingWideSlot>
+
+      <div className="min-w-0">
+        <CsPanel title="Commodity Board">
+          <CommodityTickerTable />
+        </CsPanel>
       </div>
     </CsPage>
   );
