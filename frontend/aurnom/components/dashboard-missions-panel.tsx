@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { DashboardQuestsEmbedded } from "@/components/dashboard-quests-panel";
 import { groupExits } from "@/components/exit-grid";
 import { GameLogPanel } from "@/components/game-log-panel";
+import { HitekMissionsChrome } from "@/components/hitek-missions-chrome";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import type {
   ExitButton,
@@ -253,6 +254,7 @@ export function DashboardMissionsPanel({
 
   return (
     <section className="mb-1">
+      <HitekMissionsChrome>
       <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
         <span className="min-w-0 truncate text-cyber-cyan">Missions and Quests</span>
         <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
@@ -275,7 +277,7 @@ export function DashboardMissionsPanel({
       </div>
 
       {open ? (
-        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">
+        <div className="bg-zinc-950/80 p-1.5 text-xs">
           {flash ? (
             <div className="mb-1 rounded border border-cyan-900/40 bg-zinc-950 px-1.5 py-1 text-xs text-foreground">
               <span className="text-cyber-cyan">»</span> {flash}
@@ -504,6 +506,7 @@ export function DashboardMissionsPanel({
           ) : null}
         </div>
       ) : null}
+      </HitekMissionsChrome>
 
       {acceptOpp ? (
         <OverlayDialog title="Accept mission" onClose={() => setAcceptOpp(null)}>
