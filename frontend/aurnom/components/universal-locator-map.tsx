@@ -9,7 +9,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LocatorFlattenedView } from "@/components/locator-flattened-view";
 import { LocatorGraphView } from "@/components/locator-graph-view";
 import { LocatorGridView } from "@/components/locator-grid-view";
-import { fetchWorldGraph, getPlayState, playTravel, type WorldGraphState } from "@/lib/ui-api";
+import {
+  fetchWorldGraph,
+  getPlayState,
+  playTravel,
+  webNavigatePathFromPlayResult,
+  type WorldGraphState,
+} from "@/lib/ui-api";
 import { isUiPollPaused, UI_REFRESH_MS } from "@/lib/ui-refresh-policy";
 
 const LOCATOR_MODE_STORAGE_KEY = "aurnom:locator-view-mode";
@@ -107,16 +113,18 @@ export function UniversalLocatorMap() {
       setTravelBusy(true);
       setError(null);
       try {
-        await playTravel({ destination: roomKey });
-        const goHome = () => router.push("/");
+        const res = await playTravel({ destination: roomKey });
+        const path = webNavigatePathFromPlayResult(res);
+        const go = () => router.push(path);
         if (!reduceMotion && typeof document !== "undefined" && document.startViewTransition) {
-          document.startViewTransition(goHome);
+          document.startViewTransition(go);
         } else {
-          goHome();
+          go();
         }
       } catch (e) {
-        setTravelBusy(false);
         setError(e instanceof Error ? e.message : "Travel failed");
+      } finally {
+        setTravelBusy(false);
       }
     },
     [adjacentSet, travelBusy, reduceMotion, router],

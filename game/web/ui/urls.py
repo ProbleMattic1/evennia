@@ -2,6 +2,7 @@ from django.urls import path
 from django.views.generic import RedirectView
 
 from . import views
+from . import staff_room_billboard
 from . import world_graph
 from .control_surface import control_surface_state
 from .economy_world import economy_world_state
@@ -160,4 +161,10 @@ urlpatterns = [
     path("challenges/claim-cadence", views.challenges_claim_cadence, name="ui-challenges-claim-cadence"),
     path("challenges/claim-all", views.challenges_claim_all, name="ui-challenges-claim-all"),
     path("debug/msg-buffer", views.debug_msg_buffer, name="ui-debug-msg-buffer"),
+    path("staff/room-billboard", staff_room_billboard.staff_room_billboard, name="ui-staff-room-billboard"),
+    path(
+        "staff/room-billboard/apply",
+        staff_room_billboard.staff_room_billboard_apply,
+        name="ui-staff-room-billboard-apply",
+    ),
 ]

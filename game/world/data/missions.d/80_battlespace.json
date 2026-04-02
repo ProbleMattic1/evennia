@@ -14,7 +14,7 @@
         "id": "visit_dock",
         "kind": "visit_room",
         "text": "Head to the dock and check the approach traffic board for the beacon vector.",
-        "roomKeysAny": ["promenade_dock_gate"]
+        "roomTagsAny": ["dock_public"]
       },
       {
         "id": "decide_response",
@@ -114,7 +114,7 @@
         "id": "visit_dock",
         "kind": "visit_room",
         "text": "Go to the dock to pick up the tug's last telemetry packet from the dispatch terminal.",
-        "roomKeysAny": ["promenade_dock_gate"]
+        "roomTagsAny": ["dock_dispatch"]
       },
       {
         "id": "rescue_choice",
@@ -164,7 +164,7 @@
         "id": "visit_dock",
         "kind": "visit_room",
         "text": "Visit the dock gate where the ghost hull was logged. Someone on shift will remember the approach.",
-        "roomKeysAny": ["promenade_dock_gate"]
+        "roomTagsAny": ["dock_public"]
       },
       {
         "id": "iff_choice",

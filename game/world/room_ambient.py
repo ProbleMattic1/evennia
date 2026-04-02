@@ -53,6 +53,14 @@ def resolve_room_ambient(room) -> dict[str, Any]:
         elif merged[key] is not None:
             merged[key] = str(merged[key])
 
+    mc = merged.get("marqueeClass")
+    if mc not in ("normal", "slow", "fast", None):
+        merged["marqueeClass"] = None
+    elif mc is None:
+        merged["marqueeClass"] = None
+    else:
+        merged["marqueeClass"] = str(mc)
+
     for key in ("bannerSlides", "marqueeLines", "chips"):
         val = merged.get(key)
         if not isinstance(val, list):
@@ -72,6 +80,7 @@ def resolve_room_ambient(room) -> dict[str, Any]:
 def _default_ambient_shell() -> dict[str, Any]:
     return {
         "themeId": "default",
+        "marqueeClass": None,
         "label": None,
         "tagline": None,
         "bannerSlides": [],
@@ -83,12 +92,15 @@ def _default_ambient_shell() -> dict[str, Any]:
 
 def _slide_json(x: Any) -> dict[str, Any]:
     if not isinstance(x, dict):
-        return {"id": "slide", "title": None, "body": None, "graphicKey": None}
+        return {"id": "slide", "title": None, "body": None, "graphicKey": None, "imageKey": None}
+    ik = x.get("imageKey")
+    image_key = str(ik).strip() if ik is not None and str(ik).strip() else None
     return {
         "id": str(x.get("id") or "slide"),
         "title": (str(x["title"]) if x.get("title") is not None else None),
         "body": (str(x["body"]) if x.get("body") is not None else None),
         "graphicKey": (str(x["graphicKey"]) if x.get("graphicKey") else None),
+        "imageKey": image_key,
     }
 
 

@@ -1,0 +1,65 @@
+{
+  "rooms": ["NanoMegaPlex Promenade"],
+  "images": [],
+  "styles": [
+    {
+      "id": "promenade",
+      "themeId": "promenade",
+      "marqueeClass": "normal"
+    },
+    {
+      "id": "industrial",
+      "themeId": "industrial",
+      "marqueeClass": "slow"
+    },
+    {
+      "id": "promenade-fast",
+      "themeId": "promenade",
+      "marqueeClass": "fast"
+    }
+  ],
+  "presets": [
+    {
+      "id": "plex-default",
+      "label": "NanoMegaPlex",
+      "tagline": "Coreward commerce and multiplex transit.",
+      "bannerSlides": [
+        {
+          "id": "plex-1",
+          "title": "NanoMegaPlex",
+          "body": "Retail, banking, and port services on the sovereign standard.",
+          "graphicKey": "promenade",
+          "imageKey": null
+        },
+        {
+          "id": "plex-2",
+          "title": "Transit",
+          "body": "Mind the automated hauler lanes during peak shift.",
+          "graphicKey": null,
+          "imageKey": null
+        }
+      ],
+      "marqueeLines": [
+        "Welcome to the NanoMegaPlex.",
+        "Have your sovereign ID ready at banking kiosks."
+      ],
+      "chips": [{ "id": "open", "text": "OPEN" }]
+    },
+    {
+      "id": "plex-minimal",
+      "label": null,
+      "tagline": null,
+      "bannerSlides": [
+        {
+          "id": "single",
+          "title": "Station",
+          "body": "Authorized personnel only beyond this point.",
+          "graphicKey": "industrial",
+          "imageKey": null
+        }
+      ],
+      "marqueeLines": ["Stand clear of closing doors."],
+      "chips": []
+    }
+  ]
+}

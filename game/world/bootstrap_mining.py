@@ -30,17 +30,22 @@ def _get_or_create_room(key, desc=""):
     return room
 
 
-def _get_or_create_exit(key, aliases, location, destination):
+def _get_or_create_exit(key, aliases, location, destination, nav_order=None):
     for obj in location.contents:
         if getattr(obj, "destination", None) == destination and obj.key == key:
+            if nav_order is not None:
+                obj.db.nav_order = int(nav_order)
             return obj
-    return create_object(
+    exit_obj = create_object(
         "typeclasses.exits.Exit",
         key=key,
         aliases=aliases,
         location=location,
         destination=destination,
     )
+    if nav_order is not None:
+        exit_obj.db.nav_order = int(nav_order)
+    return exit_obj
 
 
 def _get_or_create_refinery(room, refinery_key, refinery_desc):
@@ -250,12 +255,15 @@ def bootstrap_mining():
         hub = search_object(vspec["hub_key"])
         hub = hub[0] if hub else None
         if hub:
-            _get_or_create_exit(proc["hub_exit"], proc["hub_aliases"], hub, plant_room)
+            _get_or_create_exit(
+                proc["hub_exit"], proc["hub_aliases"], hub, plant_room, nav_order=-2
+            )
             _get_or_create_exit(
                 proc["refinery_hub_exit"],
                 proc["refinery_hub_aliases"],
                 hub,
                 refinery_room,
+                nav_order=-1,
             )
             _get_or_create_exit(
                 "promenade",

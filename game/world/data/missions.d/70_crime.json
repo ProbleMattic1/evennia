@@ -14,7 +14,7 @@
         "id": "visit_docks",
         "kind": "visit_room",
         "text": "Walk the main dock customs line and watch how holds are routed.",
-        "roomKeysAny": ["promenade_dock_gate"]
+        "roomTagsAny": ["dock_public"]
       },
       {
         "id": "decide_tip",

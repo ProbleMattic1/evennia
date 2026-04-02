@@ -14,7 +14,7 @@ import {
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { finalizeServiceNavRows } from "@/lib/services-nav-merge";
-import { getNavState, playTravel, type NavState } from "@/lib/ui-api";
+import { getNavState, playTravel, webNavigatePathFromPlayResult, type NavState } from "@/lib/ui-api";
 import { useUiResource } from "@/lib/use-ui-resource";
 
 const linkClass =
@@ -205,6 +205,7 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
   } = useSiteNavContext();
 
   const afterNav = onNavigate ?? (() => {});
+  const [travelError, setTravelError] = useState<string | null>(null);
 
   const serviceLinks = useMemo(
     () => finalizeServiceNavRows(data?.kiosks ?? []),
@@ -213,12 +214,13 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
 
   const handleTravel = useCallback(
     async (destination: string) => {
+      setTravelError(null);
       try {
-        await playTravel({ destination });
-      } catch {
-        // Best-effort bridge call; still route so UI remains usable.
+        const res = await playTravel({ destination });
+        router.push(webNavigatePathFromPlayResult(res));
+      } catch (e) {
+        setTravelError(e instanceof Error ? e.message : "Travel failed.");
       } finally {
-        router.push("/");
         afterNav();
       }
     },
@@ -276,6 +278,10 @@ export function SiteNavBody({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <NavDivider />
+
+      {travelError ? (
+        <span className="mb-1 block px-2 py-1 text-xs text-red-600 dark:text-red-400">{travelError}</span>
+      ) : null}
 
       {error ? (
         <span className="px-2 py-1 text-xs text-red-600 dark:text-red-400">

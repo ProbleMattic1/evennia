@@ -328,6 +328,9 @@ def at_server_cold_start():
         "Resource colony flora/fauna (venues + industrial grid)",
         bootstrap_npc_resource_colony_bio,
     )
+    from world.mission_place_roles import tag_rooms_for_roles_from_registry
+
+    _run_strict("mission place tags on rooms", tag_rooms_for_roles_from_registry)
     _run_strict("random mining claim deed at Mining Outfitters", bootstrap_mining_claim_sale)
     _run_strict("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)
     _run_strict("system alerts queue", lambda: get_system_alerts_script(create_missing=True))

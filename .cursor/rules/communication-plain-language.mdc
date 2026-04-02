@@ -14,3 +14,21 @@ alwaysApply: true
 > You're not asking me to debate the design. You're saying the current code is wrong for what you want, and fixing it means changing the real game/server logic, not polishing the surface.
 
 Follow that: prefer **core** game/server changes over superficial polish unless they explicitly want UI-only work.
+
+## When analyzing or explaining bugs
+
+- **Avoid glossing over core issues** and focus on identifying the **actual** bugs rather than listing secondary concerns.
+- **Lead with the failure** that makes the product wrong (e.g. an API that allows an undecided state, or a contract that contradicts the intended UX). Do not soften it by leading with “what still works” in a way that implies the loop is fine.
+- When something in the codebase is both **factually true** and **wrong for the goal**, treat it as the issue — not as a neutral aside. Often the fact we reported is exactly what needs to change.
+
+## Engineering stance
+
+> We don’t patch errors, we prevent them.
+
+Prefer designs and changes that **remove the class of failure** (clear contracts, validation, defaults, tests) over one-off fixes that only paper over a symptom.
+
+## No fallbacks or “defensive” hiding
+
+- **“No fallback” is literal:** no catch-all route, no silent default, no re-labeling it as a “stricter” or “weaker” reading. Unmapped or invalid cases **fail visibly** (raise, clear API error) or you **fix the mapping / data**—not `/play`, not “best effort.”
+- Do **not** invent parallel policies (e.g. “Policy A vs B”) for a single instruction. One ask → one behavior.
+- Extra defensive `try/except` or swallowed errors only when the user asked or the file already does that at that boundary; otherwise prefer **loud** failure.

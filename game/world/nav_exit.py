@@ -7,14 +7,12 @@ cannot infer a section. Defaults derive from destination.db.venue_id and room ke
 
 from __future__ import annotations
 
-from world.venues import VENUES, get_venue
 
 NAV_SECTION_CATEGORY = "nav_section"
 
 # Canonical section keys → display label (stable API for the web UI).
 SECTION_LABELS: dict[str, str] = {
     "plex_services": "Station & services",
-    "plex_refinery": "Refinery deck",
     "nanomega_industrial": "Nanomega industrial",
     "nanomega_bio": "Nanomega resource colony",
     "frontier_industrial": "Frontier industrial",
@@ -28,7 +26,6 @@ SECTION_LABELS: dict[str, str] = {
 SECTION_ORDER: dict[str, int] = {
     "transit": 0,
     "plex_services": 10,
-    "plex_refinery": 11,
     "killstar": 20,
     "nanomega_industrial": 30,
     "nanomega_bio": 35,
@@ -66,12 +63,6 @@ def _infer_section_key(exit_obj) -> str:
         return "other"
 
     vid = str(vid)
-
-    if vid in VENUES:
-        proc = get_venue(vid).get("processing") or {}
-        rrk = proc.get("refinery_room_key")
-        if rrk and dl == str(rrk).strip().lower():
-            return "plex_refinery"
 
     if vid == "nanomega_core":
         if "industrial" in dl or "resource colony" in dl:

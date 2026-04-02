@@ -9,7 +9,7 @@
     "version": 1,
     "trigger": {
       "kind": "room",
-      "roomKeysAny": ["promenade_dock_gate"]
+      "roomTagsAny": ["dock_public"]
     },
     "prerequisites": {
       "completedQuestIdsAny": [],
@@ -54,8 +54,8 @@
       {
         "id": "debrief",
         "kind": "visit_room",
-        "text": "Report to your contact.",
-        "roomKeysAny": ["office_station_liaison"]
+        "text": "Report to your contact on the promenade.",
+        "roomTagsAny": ["station_liaison_contact"]
       }
     ]
   },
@@ -86,8 +86,8 @@
       {
         "id": "await_contact",
         "kind": "visit_room",
-        "text": "Check in when content is wired.",
-        "roomKeysAny": ["promenade_dock_gate"]
+        "text": "Check in on the promenade when follow-up content is wired.",
+        "roomTagsAny": ["station_liaison_contact"]
       }
     ]
   }

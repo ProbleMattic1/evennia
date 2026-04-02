@@ -451,6 +451,14 @@ body > * {
   animation: location-banner-marquee 48s linear infinite;
 }
 
+.location-banner-marquee-track.location-banner-marquee--slow {
+  animation-duration: 72s;
+}
+
+.location-banner-marquee-track.location-banner-marquee--fast {
+  animation-duration: 32s;
+}
+
 .location-banner:hover .location-banner-marquee-track {
   animation-play-state: paused;
 }

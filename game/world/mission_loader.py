@@ -6,6 +6,7 @@ from typing import Any
 from evennia.utils import logger
 
 from world.json_bulk_loader import discover_chunk_paths, merge_validated_rows
+from world.mission_place_roles import known_place_role_ids, merge_visit_room_keys
 
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 _DEFAULT_JSON = _DATA_DIR / "mission_templates.json"
@@ -55,9 +56,15 @@ def _normalize_mission_row(raw: dict, _ref: str) -> tuple[dict | None, str | Non
             "text": str(obj.get("text") or ""),
         }
         if kind == "visit_room":
-            new_obj["roomKeysAny"] = [
-                str(v) for v in list(obj.get("roomKeysAny") or []) if str(v).strip()
-            ]
+            explicit = [str(v) for v in list(obj.get("roomKeysAny") or []) if str(v).strip()]
+            role_ids = [str(v) for v in list(obj.get("roomTagsAny") or []) if str(v).strip()]
+            unknown = [r for r in role_ids if r not in known_place_role_ids()]
+            if unknown:
+                return None, f"objective {obj_index} unknown roomTagsAny: {unknown!r}"
+            merged = merge_visit_room_keys(explicit_keys=explicit, role_ids=role_ids)
+            if not merged:
+                return None, f"objective {obj_index} visit_room needs roomKeysAny or roomTagsAny"
+            new_obj["roomKeysAny"] = merged
         elif kind == "interaction":
             new_obj["interactionKeysAny"] = [
                 str(v) for v in list(obj.get("interactionKeysAny") or []) if str(v).strip()
@@ -97,6 +104,15 @@ def _normalize_mission_row(raw: dict, _ref: str) -> tuple[dict | None, str | Non
             new_obj["rewards"] = dict(obj.get("rewards") or {})
         objectives.append(new_obj)
 
+    trig_rk = [str(v) for v in list(trigger.get("roomKeysAny") or []) if str(v).strip()]
+    trig_rt = [str(v) for v in list(trigger.get("roomTagsAny") or []) if str(v).strip()]
+    unknown_trig = [r for r in trig_rt if r not in known_place_role_ids()]
+    if unknown_trig:
+        return None, f"trigger unknown roomTagsAny: {unknown_trig!r}"
+    trig_merged = merge_visit_room_keys(explicit_keys=trig_rk, role_ids=trig_rt)
+    if trigger_kind == "room" and not trig_merged:
+        return None, "room trigger requires roomKeysAny or roomTagsAny"
+
     row = {
         "id": tid,
         "title": str(raw.get("title") or tid),
@@ -108,7 +124,7 @@ def _normalize_mission_row(raw: dict, _ref: str) -> tuple[dict | None, str | Non
         "trigger": {
             "kind": trigger_kind,
             "seedIdsAny": [str(v) for v in list(trigger.get("seedIdsAny") or []) if str(v).strip()],
-            "roomKeysAny": [str(v) for v in list(trigger.get("roomKeysAny") or []) if str(v).strip()],
+            "roomKeysAny": trig_merged,
             "interactionKeysAny": [
                 str(v) for v in list(trigger.get("interactionKeysAny") or []) if str(v).strip()
             ],

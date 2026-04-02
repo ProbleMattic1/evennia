@@ -53,6 +53,7 @@ export function LocationBanner({ ambient, roomName, variant = "full", messages }
         title: displayTitle,
         body: ambient.tagline,
         graphicKey: null,
+        imageKey: null,
       },
     ];
   }, [ambient.bannerSlides, ambient.tagline, displayTitle]);
@@ -74,6 +75,10 @@ export function LocationBanner({ ambient, roomName, variant = "full", messages }
     (themeId === "industrial" || themeId === "promenade"
       ? BANNER_GRAPHIC_REGISTRY[themeId === "industrial" ? "industrial" : "promenade"]
       : null);
+  const slideImageSrc = slide.imageKey?.trim()
+    ? `/billboards/${encodeURIComponent(slide.imageKey.trim())}`
+    : null;
+  const marqueeSpeed = ambient.marqueeClass === "slow" || ambient.marqueeClass === "fast" ? ambient.marqueeClass : "normal";
 
   const marqueeText = useMemo(() => {
     const lines = ambient.marqueeLines.filter((l) => l.trim());
@@ -111,7 +116,11 @@ export function LocationBanner({ ambient, roomName, variant = "full", messages }
       ) : null}
 
       <div className={`flex gap-2 ${compact ? "items-center" : "items-start"}`}>
-        {!compact && graphic ? (
+        {!compact && slideImageSrc ? (
+          <div className="size-14 shrink-0 overflow-hidden rounded border border-[var(--room-banner-border)] bg-black/30 md:size-16" aria-hidden>
+            <img src={slideImageSrc} alt="" className="size-full object-contain" />
+          </div>
+        ) : !compact && graphic ? (
           <div className="text-[var(--room-banner-accent)]" aria-hidden>
             {graphic}
           </div>
@@ -159,7 +168,9 @@ export function LocationBanner({ ambient, roomName, variant = "full", messages }
             <p className="truncate text-[var(--room-banner-muted)]">{marqueeText}</p>
           ) : (
             <div className="location-banner-marquee-wrap">
-              <div className="location-banner-marquee-track font-mono text-[var(--room-banner-muted)]">
+              <div
+                className={`location-banner-marquee-track font-mono text-[var(--room-banner-muted)] location-banner-marquee--${marqueeSpeed}`}
+              >
                 <span className="pr-8">{marqueeText}</span>
                 <span className="pr-8" aria-hidden>
                   {marqueeText}

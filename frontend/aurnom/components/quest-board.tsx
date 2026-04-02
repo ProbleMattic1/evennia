@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { acceptQuest, chooseQuest, playInteract, playTravel } from "@/lib/ui-api";
+import { acceptQuest, chooseQuest, playInteract, playTravel, webNavigatePathFromPlayResult } from "@/lib/ui-api";
 import type { QuestObjective, QuestResolvePath, QuestsState } from "@/lib/ui-api";
 
 type Props = {
@@ -106,6 +106,9 @@ export function QuestBoard({ quests, onChanged }: Props) {
     if (key.startsWith("parcel:")) {
       return `Parcel: ${key.split(":")[1] ?? "npc"}`;
     }
+    if (key === "dock_crew_rumor") return "Listen to dock crew";
+    if (key === "dock_shakedown_pay") return "Pay the shakedown";
+    if (key === "dock_sneak_service_tunnel") return "Use service tunnel";
     return key;
   }
 
@@ -117,7 +120,7 @@ export function QuestBoard({ quests, onChanged }: Props) {
     try {
       const res = await playTravel({ destination: roomKey });
       setNotice(res.message ?? `Moved to ${roomKey}.`);
-      router.push("/");
+      router.push(webNavigatePathFromPlayResult(res));
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Travel failed.");

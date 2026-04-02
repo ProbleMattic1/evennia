@@ -40,6 +40,32 @@ class ResolveRoomAmbientTests(SimpleTestCase):
         self.assertEqual(len(out["bannerSlides"]), 1)
         self.assertEqual(out["bannerSlides"][0]["id"], "v")
 
+    def test_slide_image_key_and_marquee_class_merge(self):
+        room = MagicMock()
+        room.key = "Test Room"
+        room.db.venue_id = None
+        room.db.ui_ambient = {
+            "marqueeClass": "slow",
+            "bannerSlides": [{"id": "x", "title": "A", "body": None, "graphicKey": None, "imageKey": " ad.webp "}],
+        }
+
+        with patch("world.room_ambient.resolve_room_venue_id", return_value=None):
+            out = resolve_room_ambient(room)
+
+        self.assertEqual(out["marqueeClass"], "slow")
+        self.assertEqual(out["bannerSlides"][0]["imageKey"], "ad.webp")
+
+    def test_invalid_marquee_class_normalized_to_none(self):
+        room = MagicMock()
+        room.key = "Test Room"
+        room.db.venue_id = None
+        room.db.ui_ambient = {"marqueeClass": "bogus"}
+
+        with patch("world.room_ambient.resolve_room_venue_id", return_value=None):
+            out = resolve_room_ambient(room)
+
+        self.assertIsNone(out["marqueeClass"])
+
     def test_resolve_room_venue_id_prefers_db(self):
         room = SimpleNamespace(db=SimpleNamespace(venue_id="frontier_outpost"))
         self.assertEqual(resolve_room_venue_id(room), "frontier_outpost")

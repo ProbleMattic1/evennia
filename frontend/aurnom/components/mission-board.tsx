@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { acceptMission, chooseMission, playInteract, playTravel } from "@/lib/ui-api";
+import { acceptMission, chooseMission, playInteract, playTravel, webNavigatePathFromPlayResult } from "@/lib/ui-api";
 import type { MissionsState } from "@/lib/ui-api";
 
 type Props = {
@@ -78,6 +78,9 @@ export function MissionBoard({ missions, onChanged }: Props) {
     if (key === "frontier:kiosk") {
       return "Transit kiosk";
     }
+    if (key === "dock_crew_rumor") return "Listen to dock crew";
+    if (key === "dock_shakedown_pay") return "Pay the shakedown";
+    if (key === "dock_sneak_service_tunnel") return "Use service tunnel";
     return key;
   }
 
@@ -89,7 +92,7 @@ export function MissionBoard({ missions, onChanged }: Props) {
     try {
       const res = await playTravel({ destination: roomKey });
       setNotice(res.message ?? `Moved to ${roomKey}.`);
-      router.push("/");
+      router.push(webNavigatePathFromPlayResult(res));
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Travel failed.");

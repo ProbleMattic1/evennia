@@ -1213,17 +1213,6 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       ) : null}
       <div className="grid min-h-0 grid-cols-1 md:min-h-svh md:grid-cols-2">
         <div className="min-h-0 min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5 md:min-h-0">
-          {data.challenges ? (
-            <div className="mb-2">
-              <ChallengesPanel
-                challenges={data.challenges}
-                onClaimChallenge={claimChallengeCb}
-                onClaimCadence={claimCadenceCb}
-                onClaimAll={claimAllChallengesCb}
-                claimBusy={busy}
-              />
-            </div>
-          ) : null}
           {data.missions ? (
             <DashboardMissionsPanel
               missions={data.missions}
@@ -1243,6 +1232,15 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
         </div>
         <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
+          {data.challenges ? (
+            <ChallengesPanel
+              challenges={data.challenges}
+              onClaimChallenge={claimChallengeCb}
+              onClaimCadence={claimCadenceCb}
+              onClaimAll={claimAllChallengesCb}
+              claimBusy={busy}
+            />
+          ) : null}
           {data.groupedAlerts ? (
             <AlertsPanel grouped={data.groupedAlerts} onAck={ackAlert} onAckAll={ackAllAlerts} busy={busy} />
           ) : null}

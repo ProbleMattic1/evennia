@@ -18,6 +18,7 @@ from world.room_ambient import resolve_room_ambient, resolve_room_venue_id
 from world.web_interactions import WEB_INTERACTION_HANDLERS, InteractionError
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
+from .web_navigate_path import WebNavigatePathError, web_navigate_path_for_room
 from .dashboard_ships import dashboard_ship_row
 from .room_nav_utils import (
     is_mining_site_room as _is_mining_site_room,
@@ -1366,30 +1367,6 @@ def _web_refresh_bundle(request, *, room_key=None):
     return {"dashboard": dashboard, "play": play_data}
 
 
-def _web_navigate_path_for_character(char):
-    """
-    Next.js path for the web surface that matches the puppet's current room.
-    Plant room -> /processing; refinery chamber -> /refinery; else None (client default).
-    """
-    from world.venue_resolve import (
-        processing_plant_room_for_object,
-        refinery_room_for_object,
-        venue_id_for_object,
-    )
-
-    loc = getattr(char, "location", None)
-    if not loc:
-        return None
-    vid = venue_id_for_object(char) or "nanomega_core"
-    plant = processing_plant_room_for_object(char)
-    if plant and loc == plant:
-        return f"/processing?venue={vid}"
-    ref_room = refinery_room_for_object(char)
-    if ref_room and loc == ref_room:
-        return f"/refinery?venue={vid}"
-    return None
-
-
 def _resolve_play_room_key(request):
     """
     Default Play view to the character's Evennia location; ?room= overrides
@@ -1463,8 +1440,17 @@ def play_travel(request):
             status=400,
         )
 
+    dest_room = exit_obj.destination
     try:
-        exit_obj.at_traverse(char, exit_obj.destination)
+        nav_path = web_navigate_path_for_room(dest_room, viewer=char)
+    except WebNavigatePathError as exc:
+        return JsonResponse(
+            {"ok": False, "code": "WEB_NAVIGATE_PATH", "message": str(exc)},
+            status=400,
+        )
+
+    try:
+        exit_obj.at_traverse(char, dest_room)
     except Exception as exc:
         return JsonResponse({"ok": False, "code": "TRAVEL_FAILED", "message": f"Travel failed: {exc}"}, status=500)
 
@@ -1496,10 +1482,16 @@ def play_travel(request):
         "message": f"Moved to {room_key}.",
         **bundle,
     }
-    nav = _web_navigate_path_for_character(char)
-    if nav:
-        payload["webNavigatePath"] = nav
+    payload["webNavigatePath"] = nav_path
     return JsonResponse(payload)
+
+
+def _web_navigate_path_for_character_location(char) -> str:
+    """Path for ``char.location`` after a direct move (plant/refinery helpers)."""
+    loc = getattr(char, "location", None)
+    if not loc:
+        raise WebNavigatePathError("Character has no location after move.")
+    return web_navigate_path_for_room(loc, viewer=char)
 
 
 # Web travel: ``play_go_to_processing_plant`` → plant room; ``play_go_to_refinery`` → refinery chamber.
@@ -1536,9 +1528,13 @@ def _web_move_character_to_room(request, char, target_room, *, not_found_code: s
         )
         bundle = _web_refresh_bundle(request, room_key=room_key)
         payload = {"ok": True, "message": f"Already at {room_key}.", **bundle}
-        nav = _web_navigate_path_for_character(char)
-        if nav:
-            payload["webNavigatePath"] = nav
+        try:
+            payload["webNavigatePath"] = _web_navigate_path_for_character_location(char)
+        except WebNavigatePathError as exc:
+            return JsonResponse(
+                {"ok": False, "code": "WEB_NAVIGATE_PATH", "message": str(exc)},
+                status=500,
+            )
         return JsonResponse(payload)
 
     try:
@@ -1579,9 +1575,13 @@ def _web_move_character_to_room(request, char, target_room, *, not_found_code: s
     )
     bundle = _web_refresh_bundle(request, room_key=room_key)
     payload = {"ok": True, "message": f"Moved to {room_key}.", **bundle}
-    nav = _web_navigate_path_for_character(char)
-    if nav:
-        payload["webNavigatePath"] = nav
+    try:
+        payload["webNavigatePath"] = _web_navigate_path_for_character_location(char)
+    except WebNavigatePathError as exc:
+        return JsonResponse(
+            {"ok": False, "code": "WEB_NAVIGATE_PATH", "message": str(exc)},
+            status=500,
+        )
     return JsonResponse(payload)
 
 
@@ -2114,15 +2114,42 @@ def real_estate_purchase_random(request):
 
 @require_GET
 def processing_state(request):
+    from world.venue_resolve import venue_id_for_object
+    from world.venues import VENUES, get_venue
+
     from web.ui.processing_read_model import build_processing_plant_payload
-    from world.venues import get_venue
+    from web.ui.web_navigate_path import allowed_processing_plant_keys_for_venue
 
     char = None
     if request.user.is_authenticated:
         char, _ = _resolve_character_for_web(request.user)
-    venue_id = _resolve_web_venue_id(request, char)
-    plant_key = get_venue(venue_id)["processing"]["plant_room_key"]
-    room = _first_object(plant_key)
+
+    q = (request.GET.get("venue") or "").strip()
+    char_vid = venue_id_for_object(char) if char else None
+    if char and char_vid and char_vid in VENUES:
+        if q and q in VENUES and q != char_vid:
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "code": "VENUE_MISMATCH",
+                    "message": f"Query venue {q!r} does not match character venue {char_vid!r}.",
+                },
+                status=400,
+            )
+        venue_id = char_vid
+    elif q in VENUES:
+        venue_id = q
+    else:
+        venue_id = "nanomega_core"
+
+    spec = get_venue(venue_id)
+    plant_key = spec["processing"]["plant_room_key"]
+    allowed = allowed_processing_plant_keys_for_venue(venue_id)
+    room = None
+    if char and getattr(char, "location", None) and char.location.key in allowed:
+        room = char.location
+    if room is None:
+        room = _first_object(plant_key)
     if not room:
         raise Http404(f"Room '{plant_key}' was not found.")
 

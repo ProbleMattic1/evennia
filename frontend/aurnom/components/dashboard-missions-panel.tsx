@@ -14,7 +14,14 @@ import type {
   MissionsState,
   MsgStreamEntry,
 } from "@/lib/ui-api";
-import { acceptMission, chooseMission, declineMission, playInteract, playTravel } from "@/lib/ui-api";
+import {
+  acceptMission,
+  chooseMission,
+  declineMission,
+  playInteract,
+  playTravel,
+  webNavigatePathFromPlayResult,
+} from "@/lib/ui-api";
 
 type Props = {
   missions: MissionsState;
@@ -62,6 +69,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
 
   const storageKey = "aurnom:dashboard-panel:missions";
   const availableStorageKey = "aurnom:dashboard-panel:missions:available";
+  const completedStorageKey = "aurnom:dashboard-panel:missions:completed";
   const exitsStorageKey = "aurnom:dashboard-panel:missions:exits";
   const [open, setOpen] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -76,6 +84,15 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
     if (typeof window === "undefined") return true;
     try {
       const raw = window.sessionStorage.getItem(availableStorageKey);
+      return raw == null ? true : raw === "1";
+    } catch {
+      return true;
+    }
+  });
+  const [completedOpen, setCompletedOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.sessionStorage.getItem(completedStorageKey);
       return raw == null ? true : raw === "1";
     } catch {
       return true;
@@ -122,6 +139,18 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
     });
   }
 
+  function toggleCompletedOpen() {
+    setCompletedOpen((v) => {
+      const next = !v;
+      try {
+        window.sessionStorage.setItem(completedStorageKey, next ? "1" : "0");
+      } catch {
+        // ignore storage failures
+      }
+      return next;
+    });
+  }
+
   function toggleExitsOpen() {
     setExitsOpen((v) => {
       const next = !v;
@@ -134,16 +163,21 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
     });
   }
 
-  async function run(key: string, fn: () => Promise<{ message?: string }>) {
-    if (busyKey) return;
+  async function run<R extends { message?: string }>(
+    key: string,
+    fn: () => Promise<R>
+  ): Promise<R | undefined> {
+    if (busyKey) return undefined;
     setBusyKey(key);
     setFlash(null);
     try {
       const res = await fn();
       setFlash(res.message ?? "OK");
       onChanged();
+      return res;
     } catch (e) {
       setFlash(e instanceof Error ? e.message : "Action failed");
+      return undefined;
     } finally {
       setBusyKey(null);
     }
@@ -163,6 +197,9 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
     if (key === "frontier:kiosk") {
       return "Transit kiosk";
     }
+    if (key === "dock_crew_rumor") return "Listen to dock crew";
+    if (key === "dock_shakedown_pay") return "Pay the shakedown";
+    if (key === "dock_sneak_service_tunnel") return "Use service tunnel";
     return key;
   }
 
@@ -181,15 +218,19 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
   }
 
   async function handleTravel(m: MissionActive, roomKey: string) {
-    await run(`travel:${m.id}:${roomKey}`, async () => playTravel({ destination: roomKey }));
-    router.push("/");
-    router.refresh();
+    const res = await run(`travel:${m.id}:${roomKey}`, async () => playTravel({ destination: roomKey }));
+    if (res) {
+      router.push(webNavigatePathFromPlayResult(res));
+      router.refresh();
+    }
   }
 
   async function handleExitTravel(destination: string) {
-    await run(`exit:${destination}`, async () => playTravel({ destination }));
-    router.push("/");
-    router.refresh();
+    const res = await run(`exit:${destination}`, async () => playTravel({ destination }));
+    if (res) {
+      router.push(webNavigatePathFromPlayResult(res));
+      router.refresh();
+    }
   }
 
   async function handleInteract(m: MissionActive, interactionKey: string) {
@@ -353,20 +394,30 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
 
             {completed.length > 0 ? (
               <div>
-                <div className="text-xs uppercase text-ui-muted">{`Completed (${completed.length})`}</div>
-                <div className="mt-0.5 space-y-0.5">
-                  {completed.slice(-6).map((m) => (
-                    <div key={m.id} className="flex min-w-0 items-baseline gap-2">
-                      <span className="shrink-0 font-mono text-[10px] text-ui-muted">{missionKindLabel(m.missionKind)}</span>
-                      <span className="min-w-0 flex-1 truncate text-ui-muted">{m.title}</span>
-                      {m.completedAt ? (
-                        <span className="shrink-0 text-ui-caption text-ui-soft">
-                          {new Date(m.completedAt).toLocaleString()}
-                        </span>
-                      ) : null}
-                    </div>
-                  ))}
+                <div className="flex items-center text-xs uppercase text-ui-muted">
+                  <span>{`Completed (${completed.length})`}</span>
+                  <PanelExpandButton
+                    open={completedOpen}
+                    onClick={toggleCompletedOpen}
+                    aria-label={`${completedOpen ? "Collapse" : "Expand"} Completed missions`}
+                    className="ml-auto shrink-0"
+                  />
                 </div>
+                {completedOpen ? (
+                  <div className="mt-0.5 max-h-[min(8.75rem,30vh)] min-h-[36px] space-y-0.5 overflow-y-auto overflow-x-hidden border border-cyan-900/40 bg-zinc-950/80 p-1.5 pr-2 [scrollbar-gutter:stable]">
+                    {completed.map((m) => (
+                      <div key={m.id} className="flex min-w-0 items-baseline gap-2">
+                        <span className="shrink-0 font-mono text-[10px] text-ui-muted">{missionKindLabel(m.missionKind)}</span>
+                        <span className="min-w-0 flex-1 truncate text-ui-muted">{m.title}</span>
+                        {m.completedAt ? (
+                          <span className="shrink-0 text-ui-caption text-ui-soft">
+                            {new Date(m.completedAt).toLocaleString()}
+                          </span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

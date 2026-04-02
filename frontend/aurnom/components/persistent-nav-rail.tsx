@@ -13,7 +13,7 @@ import {
   type CsCharacter,
 } from "@/lib/control-surface-api";
 import { formatCr as cr } from "@/lib/format-units";
-import { playTravel, type ExitButton } from "@/lib/ui-api";
+import { playTravel, webNavigatePathFromPlayResult, type ExitButton } from "@/lib/ui-api";
 
 function Panel({
   panelKey,
@@ -218,6 +218,7 @@ function NavPanel({
 }) {
   const router = useRouter();
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [travelError, setTravelError] = useState<string | null>(null);
   const travelLock = useRef(false);
 
   const filteredDestinations = useMemo(
@@ -233,16 +234,15 @@ function NavPanel({
       travelLock.current = true;
       const k = `exit:${destination}`;
       setBusyKey(k);
+      setTravelError(null);
       try {
         const res = await playTravel({ destination });
         onPuppetLocationChanged();
-        const path =
-          res.ok && typeof res.webNavigatePath === "string" && res.webNavigatePath.length > 0
-            ? res.webNavigatePath
-            : "/";
-        router.push(path);
+        router.push(webNavigatePathFromPlayResult(res));
         router.refresh();
         onTravelComplete();
+      } catch (e) {
+        setTravelError(e instanceof Error ? e.message : "Travel failed.");
       } finally {
         travelLock.current = false;
         setBusyKey(null);
@@ -255,6 +255,11 @@ function NavPanel({
 
   return (
     <Panel panelKey="hub-exits" title="Destinations">
+      {travelError ? (
+        <p className="mb-1 text-xs text-red-400" role="alert">
+          {travelError}
+        </p>
+      ) : null}
       {destinationGroups.length <= 1 &&
       (destinationGroups[0]?.title === "Destinations" || !destinationGroups[0]) ? (
         <div className="space-y-0.5">

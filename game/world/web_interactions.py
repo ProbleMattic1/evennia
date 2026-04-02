@@ -18,6 +18,7 @@ from typeclasses.characters import (
 )
 from world.bootstrap_frontier import START_ROOM_KEY
 from world.bootstrap_hub import HUB_ROOM_KEY
+from world.mission_place_roles import dock_public_room_keys
 from world.venue_resolve import processing_plant_room_for_object
 
 
@@ -233,6 +234,55 @@ def handle_contract_board(char, payload=None):
 
 
 # ---------------------------------------------------------------------------
+# Dock arc (civil shipyard face)
+# ---------------------------------------------------------------------------
+
+
+def _require_dock_public_yard(char, payload=None):
+    loc = char.location
+    if not loc or str(loc.key) not in dock_public_room_keys():
+        raise InteractionError(
+            "Nothing like that is available here — try the civil shipyard dock."
+        )
+
+
+def handle_dock_crew_rumor(char, payload=None):
+    _require_dock_public_yard(char)
+    return InteractionLine(
+        dialogue=(
+            "You catch a loader crew between shifts. One mutters about a squeezed handoff window; "
+            "another jokes that the yard master 'tax' is not on any posted tariff."
+        ),
+        interaction_key="dock_crew_rumor",
+        speaker_key=None,
+    )
+
+
+def handle_dock_shakedown_pay(char, payload=None):
+    _require_dock_public_yard(char)
+    return InteractionLine(
+        dialogue=(
+            "You palm a modest credit chip. The blockers melt back into the crowd — "
+            "cheap for quiet today, expensive for your pride."
+        ),
+        interaction_key="dock_shakedown_pay",
+        speaker_key=None,
+    )
+
+
+def handle_dock_sneak_service_tunnel(char, payload=None):
+    _require_dock_public_yard(char)
+    return InteractionLine(
+        dialogue=(
+            "You slip through a maintenance hatch while hauler traffic masks the gap. "
+            "The tunnel spits you out past the choke point — no receipt, no witnesses."
+        ),
+        interaction_key="dock_sneak_service_tunnel",
+        speaker_key=None,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Registry — maps interaction keys to handlers
 # ---------------------------------------------------------------------------
 
@@ -253,4 +303,7 @@ WEB_INTERACTION_HANDLERS = {
     "contractboard:complete": lambda char, payload: handle_contract_board(
         char, {**(payload or {}), "action": "complete"}
     ),
+    "dock_crew_rumor": handle_dock_crew_rumor,
+    "dock_shakedown_pay": handle_dock_shakedown_pay,
+    "dock_sneak_service_tunnel": handle_dock_sneak_service_tunnel,
 }
