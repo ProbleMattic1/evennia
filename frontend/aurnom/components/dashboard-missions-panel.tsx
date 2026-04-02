@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { DashboardQuestsEmbedded } from "@/components/dashboard-quests-panel";
 import { groupExits } from "@/components/exit-grid";
 import { GameLogPanel } from "@/components/game-log-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
@@ -13,6 +14,7 @@ import type {
   MissionOpportunity,
   MissionsState,
   MsgStreamEntry,
+  QuestsState,
 } from "@/lib/ui-api";
 import {
   acceptMission,
@@ -23,8 +25,16 @@ import {
   webNavigatePathFromPlayResult,
 } from "@/lib/ui-api";
 
+export const EMPTY_MISSIONS: MissionsState = {
+  morality: { good: 0, evil: 0, lawful: 0, chaotic: 0 },
+  opportunities: [],
+  active: [],
+  completed: [],
+};
+
 type Props = {
-  missions: MissionsState;
+  missions?: MissionsState;
+  quests?: QuestsState | null;
   /** ``_room_exits(char.location)`` from control surface; same facts as the room dialog / play/travel. */
   roomExits?: ExitButton[];
   onChanged: () => void;
@@ -46,8 +56,16 @@ function missionKindLabel(k: string | undefined) {
  *
  * Intentionally does not reuse `components/mission-board.tsx` since it hardcodes
  * older visual styles (<details>, fuchsia palette, light buttons).
+ *
+ * Embeds main quests (`DashboardQuestsEmbedded`) when `quests` is present; one game log and one Destinations list.
  */
-export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, gameLog }: Props) {
+export function DashboardMissionsPanel({
+  missions = EMPTY_MISSIONS,
+  quests = null,
+  roomExits = [],
+  onChanged,
+  gameLog,
+}: Props) {
   const router = useRouter();
 
   const opportunities = missions.opportunities ?? [];
@@ -67,10 +85,10 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
 
   const destinationGroups = useMemo(() => groupExits(filteredRoomDestinations), [filteredRoomDestinations]);
 
-  const storageKey = "aurnom:dashboard-panel:missions";
+  const storageKey = "aurnom:dashboard-panel:missions-and-quests";
   const availableStorageKey = "aurnom:dashboard-panel:missions:available";
   const completedStorageKey = "aurnom:dashboard-panel:missions:completed";
-  const exitsStorageKey = "aurnom:dashboard-panel:missions:exits";
+  const exitsStorageKey = "aurnom:dashboard-panel:missions-and-quests:exits";
   const [open, setOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
@@ -204,21 +222,21 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
   }
 
   async function handleAccept(op: MissionOpportunity) {
-    await run(`accept:${op.id}`, async () => acceptMission({ opportunityId: op.id }));
+    await run(`m:accept:${op.id}`, async () => acceptMission({ opportunityId: op.id }));
     setAcceptOpp(null);
   }
 
   async function handleDecline(op: MissionOpportunity) {
-    await run(`decline:${op.id}`, async () => declineMission({ opportunityId: op.id }));
+    await run(`m:decline:${op.id}`, async () => declineMission({ opportunityId: op.id }));
   }
 
   async function handleChoose(m: MissionActive, c: MissionChoice) {
-    await run(`choose:${m.id}:${c.id}`, async () => chooseMission({ missionId: m.id, choiceId: c.id }));
+    await run(`m:choose:${m.id}:${c.id}`, async () => chooseMission({ missionId: m.id, choiceId: c.id }));
     setChoiceDialog(null);
   }
 
   async function handleTravel(m: MissionActive, roomKey: string) {
-    const res = await run(`travel:${m.id}:${roomKey}`, async () => playTravel({ destination: roomKey }));
+    const res = await run(`m:travel:${m.id}:${roomKey}`, async () => playTravel({ destination: roomKey }));
     if (res) {
       router.push(webNavigatePathFromPlayResult(res));
       router.refresh();
@@ -226,7 +244,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
   }
 
   async function handleExitTravel(destination: string) {
-    const res = await run(`exit:${destination}`, async () => playTravel({ destination }));
+    const res = await run(`m:exit:${destination}`, async () => playTravel({ destination }));
     if (res) {
       router.push(webNavigatePathFromPlayResult(res));
       router.refresh();
@@ -234,14 +252,14 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
   }
 
   async function handleInteract(m: MissionActive, interactionKey: string) {
-    await run(`interact:${m.id}:${interactionKey}`, async () => playInteract({ interactionKey }));
+    await run(`m:interact:${m.id}:${interactionKey}`, async () => playInteract({ interactionKey }));
     router.refresh();
   }
 
   return (
     <section className="mb-1">
       <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
-        <span className="min-w-0 truncate text-cyber-cyan">Missions</span>
+        <span className="min-w-0 truncate text-cyber-cyan">Missions and Quests</span>
         <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
           <span className="font-mono text-ui-caption font-normal">
             <span className="text-ui-muted">(</span>
@@ -256,7 +274,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
           <PanelExpandButton
             open={open}
             onClick={toggleOpen}
-            aria-label={`${open ? "Collapse" : "Expand"} Missions`}
+            aria-label={`${open ? "Collapse" : "Expand"} Missions and Quests`}
           />
         </div>
       </div>
@@ -308,7 +326,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
                         {obj?.kind === "visit_room" && (obj.roomKeysAny?.length ?? 0) > 0 ? (
                           <div className="mt-0.5 flex flex-wrap gap-1">
                             {obj.roomKeysAny!.map((roomKey) => {
-                              const k = `travel:${m.id}:${roomKey}`;
+                              const k = `m:travel:${m.id}:${roomKey}`;
                               return (
                                 <TinyButton key={k} onClick={() => handleTravel(m, roomKey)} disabled={busyKey === k}>
                                   {busyKey === k ? "Traveling…" : `Go: ${roomKey}`}
@@ -321,7 +339,7 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
                         {obj?.kind === "interaction" && (obj.interactionKeysAny?.length ?? 0) > 0 ? (
                           <div className="mt-0.5 flex flex-wrap gap-1">
                             {obj.interactionKeysAny!.map((interactionKey) => {
-                              const k = `interact:${m.id}:${interactionKey}`;
+                              const k = `m:interact:${m.id}:${interactionKey}`;
                               return (
                                 <TinyButton
                                   key={k}
@@ -381,9 +399,9 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
                         <TinyButton
                           variant="cyan"
                           onClick={() => handleDecline(op)}
-                          disabled={busyKey === `decline:${op.id}`}
+                          disabled={busyKey === `m:decline:${op.id}`}
                         >
-                          {busyKey === `decline:${op.id}` ? "…" : "X"}
+                          {busyKey === `m:decline:${op.id}` ? "…" : "X"}
                         </TinyButton>
                       </div>
                     ))}
@@ -424,9 +442,18 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
             {active.length === 0 && opportunities.length === 0 ? <div className="text-ui-muted">No missions available.</div> : null}
           </div>
 
+          {quests ? (
+            <DashboardQuestsEmbedded
+              quests={quests}
+              roomExits={roomExits}
+              onChanged={onChanged}
+              includeDestinations={false}
+            />
+          ) : null}
+
           {roomExits.some((e) => e.destination) ? (
-            <div className="mt-1.5">
-              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-ui-muted">
+            <div className="mt-1.5 rounded border border-violet-900/40 bg-zinc-950/80 p-1.5">
+              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-violet-300/90">
                 <span>Destinations</span>
                 <PanelExpandButton
                   open={exitsOpen}
@@ -440,10 +467,11 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
                 (destinationGroups[0]?.title === "Destinations" || !destinationGroups[0]) ? (
                   <div className="mt-0.5 flex flex-wrap gap-1">
                     {filteredRoomDestinations.map((ex) => {
-                      const k = `exit:${ex.destination}`;
+                      const k = `m:exit:${ex.destination}`;
                       return (
                         <TinyButton
                           key={`${ex.key}-${ex.destination}`}
+                          variant="violet"
                           onClick={() => handleExitTravel(ex.destination)}
                           disabled={busyKey === k}
                         >
@@ -456,15 +484,14 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
                   <div className="mt-0.5 flex flex-col gap-2">
                     {destinationGroups.map(({ title, items }) => (
                       <div key={title}>
-                        <div className="mb-0.5 text-xs uppercase tracking-wide text-ui-muted">
-                          {title}
-                        </div>
+                        <div className="mb-0.5 text-xs uppercase tracking-wide text-violet-300/90">{title}</div>
                         <div className="flex flex-wrap gap-1">
                           {items.map((ex) => {
-                            const k = `exit:${ex.destination}`;
+                            const k = `m:exit:${ex.destination}`;
                             return (
                               <TinyButton
                                 key={`${ex.key}-${ex.destination}`}
+                                variant="violet"
                                 onClick={() => handleExitTravel(ex.destination!)}
                                 disabled={busyKey === k}
                               >
@@ -492,9 +519,9 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
             <div className="mt-2 flex items-center gap-1">
               <TinyButton
                 onClick={() => handleAccept(acceptOpp)}
-                disabled={busyKey === `accept:${acceptOpp.id}`}
+                disabled={busyKey === `m:accept:${acceptOpp.id}`}
               >
-                {busyKey === `accept:${acceptOpp.id}` ? "Accepting…" : "Confirm accept"}
+                {busyKey === `m:accept:${acceptOpp.id}` ? "Accepting…" : "Confirm accept"}
               </TinyButton>
               <TinyButton onClick={() => setAcceptOpp(null)}>Cancel</TinyButton>
             </div>
@@ -532,9 +559,13 @@ export function DashboardMissionsPanel({ missions, roomExits = [], onChanged, ga
             <div className="mt-2 flex items-center gap-1">
               <TinyButton
                 onClick={() => handleChoose(choiceDialog.mission, choiceDialog.choice)}
-                disabled={busyKey === `choose:${choiceDialog.mission.id}:${choiceDialog.choice.id}`}
+                disabled={
+                  busyKey === `m:choose:${choiceDialog.mission.id}:${choiceDialog.choice.id}`
+                }
               >
-                {busyKey === `choose:${choiceDialog.mission.id}:${choiceDialog.choice.id}` ? "Submitting…" : "Confirm"}
+                {busyKey === `m:choose:${choiceDialog.mission.id}:${choiceDialog.choice.id}`
+                  ? "Submitting…"
+                  : "Confirm"}
               </TinyButton>
               <TinyButton onClick={() => setChoiceDialog(null)}>Cancel</TinyButton>
             </div>
@@ -580,13 +611,15 @@ function TinyButton({
 }: {
   onClick: () => void;
   disabled?: boolean;
-  variant?: "cyan" | "pink";
+  variant?: "cyan" | "pink" | "violet";
   children: React.ReactNode;
 }) {
   const cls =
     variant === "pink"
       ? "shrink-0 rounded border border-pink-500/80 px-1 py-0 text-xs text-pink-400 hover:bg-pink-950/50 disabled:opacity-40"
-      : "shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40";
+      : variant === "violet"
+        ? "shrink-0 rounded border border-violet-800/60 px-1 py-0 text-xs text-violet-300 hover:bg-violet-950/40 disabled:opacity-40"
+        : "shrink-0 rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40";
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={cls}>
       {children}

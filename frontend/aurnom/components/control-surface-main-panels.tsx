@@ -6,8 +6,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { Countdown } from "@/components/countdown";
 import { ChallengesPanel } from "@/components/challenges-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
-import { DashboardMissionsPanel } from "@/components/dashboard-missions-panel";
-import { DashboardQuestsPanel } from "@/components/dashboard-quests-panel";
+import { DashboardMissionsPanel, EMPTY_MISSIONS } from "@/components/dashboard-missions-panel";
 import { LocationBanner } from "@/components/location-banner";
 import type {
   ControlSurfaceState,
@@ -1213,17 +1212,10 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       ) : null}
       <div className="grid min-h-0 grid-cols-1 md:min-h-svh md:grid-cols-2">
         <div className="min-h-0 min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5 md:min-h-0">
-          {data.missions ? (
+          {data.missions || data.quests ? (
             <DashboardMissionsPanel
-              missions={data.missions}
-              roomExits={data.roomExits}
-              onChanged={onReload}
-              gameLog={gameLog}
-            />
-          ) : null}
-          {data.quests ? (
-            <DashboardQuestsPanel
-              quests={data.quests}
+              missions={data.missions ?? EMPTY_MISSIONS}
+              quests={data.quests ?? null}
               roomExits={data.roomExits}
               onChanged={onReload}
               gameLog={gameLog}

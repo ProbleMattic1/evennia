@@ -4,11 +4,9 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { groupExits } from "@/components/exit-grid";
-import { GameLogPanel } from "@/components/game-log-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import type {
   ExitButton,
-  MsgStreamEntry,
   QuestActive,
   QuestChoice,
   QuestObjective,
@@ -18,12 +16,13 @@ import type {
 } from "@/lib/ui-api";
 import { acceptQuest, chooseQuest, playInteract, playTravel, webNavigatePathFromPlayResult } from "@/lib/ui-api";
 
-type Props = {
+export type DashboardQuestsEmbeddedProps = {
   quests: QuestsState;
   /** ``_room_exits(char.location)`` from control surface; same facts as the room dialog / play/travel. */
   roomExits?: ExitButton[];
   onChanged: () => void;
-  gameLog: MsgStreamEntry[];
+  /** When false, parent renders a single shared Destinations block. */
+  includeDestinations?: boolean;
 };
 
 type ChoiceDialogState = {
@@ -58,10 +57,15 @@ function signalHintsFromResolvePaths(paths: QuestResolvePath[] | undefined): str
 }
 
 /**
- * Dashboard-styled main quests panel (mirrors missions: travel / interact / choice).
- * No decline endpoint; resolve_situation lists interaction shortcuts and combat hints.
+ * Main-quest lists and dialogs for embedding inside the combined Missions and Quests dashboard panel.
+ * Omits game log and (by default) duplicates no room exit list — parent supplies shared Destinations.
  */
-export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLog }: Props) {
+export function DashboardQuestsEmbedded({
+  quests,
+  roomExits = [],
+  onChanged,
+  includeDestinations = false,
+}: DashboardQuestsEmbeddedProps) {
   const router = useRouter();
 
   const opportunities = quests.opportunities ?? [];
@@ -81,19 +85,9 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
 
   const destinationGroups = useMemo(() => groupExits(filteredRoomDestinations), [filteredRoomDestinations]);
 
-  const storageKey = "aurnom:dashboard-panel:quests";
   const availableStorageKey = "aurnom:dashboard-panel:quests:available";
   const completedStorageKey = "aurnom:dashboard-panel:quests:completed";
   const exitsStorageKey = "aurnom:dashboard-panel:quests:exits";
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      const raw = window.sessionStorage.getItem(storageKey);
-      return raw == null ? true : raw === "1";
-    } catch {
-      return true;
-    }
-  });
   const [availableOpen, setAvailableOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
@@ -128,18 +122,6 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
   const [acceptOpp, setAcceptOpp] = useState<QuestOpportunity | null>(null);
   const [choiceDialog, setChoiceDialog] = useState<ChoiceDialogState | null>(null);
   const [detailQuest, setDetailQuest] = useState<QuestActive | null>(null);
-
-  function toggleOpen() {
-    setOpen((v) => {
-      const next = !v;
-      try {
-        window.sessionStorage.setItem(storageKey, next ? "1" : "0");
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  }
 
   function toggleAvailableOpen() {
     setAvailableOpen((v) => {
@@ -221,17 +203,17 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
   }
 
   async function handleAccept(op: QuestOpportunity) {
-    await run(`accept:${op.id}`, async () => acceptQuest({ opportunityId: op.id }));
+    await run(`q:accept:${op.id}`, async () => acceptQuest({ opportunityId: op.id }));
     setAcceptOpp(null);
   }
 
   async function handleChoose(q: QuestActive, c: QuestChoice) {
-    await run(`choose:${q.id}:${c.id}`, async () => chooseQuest({ questId: q.id, choiceId: c.id }));
+    await run(`q:choose:${q.id}:${c.id}`, async () => chooseQuest({ questId: q.id, choiceId: c.id }));
     setChoiceDialog(null);
   }
 
   async function handleTravel(q: QuestActive, roomKey: string) {
-    const res = await run(`travel:${q.id}:${roomKey}`, async () => playTravel({ destination: roomKey }));
+    const res = await run(`q:travel:${q.id}:${roomKey}`, async () => playTravel({ destination: roomKey }));
     if (res) {
       router.push(webNavigatePathFromPlayResult(res));
       router.refresh();
@@ -239,7 +221,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
   }
 
   async function handleExitTravel(destination: string) {
-    const res = await run(`exit:${destination}`, async () => playTravel({ destination }));
+    const res = await run(`q:exit:${destination}`, async () => playTravel({ destination }));
     if (res) {
       router.push(webNavigatePathFromPlayResult(res));
       router.refresh();
@@ -247,7 +229,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
   }
 
   async function handleInteract(q: QuestActive, interactionKey: string) {
-    await run(`interact:${q.id}:${interactionKey}`, async () => playInteract({ interactionKey }));
+    await run(`q:interact:${q.id}:${interactionKey}`, async () => playInteract({ interactionKey }));
     router.refresh();
   }
 
@@ -259,7 +241,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
         {obj.kind === "visit_room" && (obj.roomKeysAny?.length ?? 0) > 0 ? (
           <div className="mt-0.5 flex flex-wrap gap-1">
             {obj.roomKeysAny!.map((roomKey) => {
-              const k = `travel:${q.id}:${roomKey}`;
+              const k = `q:travel:${q.id}:${roomKey}`;
               return (
                 <TinyButton key={k} onClick={() => handleTravel(q, roomKey)} disabled={busyKey === k}>
                   {busyKey === k ? "Traveling…" : `Go: ${roomKey}`}
@@ -272,7 +254,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
         {obj.kind === "interaction" && (obj.interactionKeysAny?.length ?? 0) > 0 ? (
           <div className="mt-0.5 flex flex-wrap gap-1">
             {obj.interactionKeysAny!.map((interactionKey) => {
-              const k = `interact:${q.id}:${interactionKey}`;
+              const k = `q:interact:${q.id}:${interactionKey}`;
               return (
                 <TinyButton
                   key={k}
@@ -299,7 +281,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
             {interactionKeysFromResolvePaths(obj.paths).length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {interactionKeysFromResolvePaths(obj.paths).map((interactionKey) => {
-                  const k = `interact:${q.id}:${interactionKey}`;
+                  const k = `q:interact:${q.id}:${interactionKey}`;
                   return (
                     <TinyButton
                       key={k}
@@ -329,30 +311,25 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
   }
 
   return (
-    <section className="mb-1">
-      <div className="flex min-w-0 items-center gap-1 bg-violet-900/25 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
-        <span className="min-w-0 truncate text-violet-300">Main quests</span>
-        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
-          <span className="font-mono text-ui-caption font-normal">
-            <span className="text-ui-muted">(</span>
-            <span className="text-violet-300">{active.length}</span>
-            <span className="text-ui-muted"> active / </span>
-            <span className="text-amber-400">{opportunities.length}</span>
-            <span className="text-ui-muted"> avail)</span>
-            <span className="text-ui-muted"> · </span>
-            <span className="text-ui-muted">decisions pending: </span>
-            <span className={decisionsPending > 0 ? "text-amber-400" : "text-violet-300"}>{decisionsPending}</span>
-          </span>
-          <PanelExpandButton
-            open={open}
-            onClick={toggleOpen}
-            aria-label={`${open ? "Collapse" : "Expand"} Main quests`}
-          />
+    <>
+      <div className="mt-1.5">
+        <div className="flex min-w-0 items-center gap-1 rounded-t border border-b-0 border-violet-900/40 bg-violet-900/25 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
+          <span className="min-w-0 truncate text-violet-300">Main quests</span>
+          <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 normal-case tracking-normal">
+            <span className="font-mono text-ui-caption font-normal">
+              <span className="text-ui-muted">(</span>
+              <span className="text-violet-300">{active.length}</span>
+              <span className="text-ui-muted"> active / </span>
+              <span className="text-amber-400">{opportunities.length}</span>
+              <span className="text-ui-muted"> avail)</span>
+              <span className="text-ui-muted"> · </span>
+              <span className="text-ui-muted">decisions pending: </span>
+              <span className={decisionsPending > 0 ? "text-amber-400" : "text-violet-300"}>{decisionsPending}</span>
+            </span>
+          </div>
         </div>
-      </div>
 
-      {open ? (
-        <div className="border border-violet-900/40 bg-zinc-950/80 p-1.5 text-xs">
+        <div className="rounded-b border border-violet-900/40 bg-zinc-950/80 p-1.5 text-xs">
           {flash ? (
             <div className="mb-1 rounded border border-violet-900/40 bg-zinc-950 px-1.5 py-1 text-xs text-foreground">
               <span className="text-violet-300">»</span> {flash}
@@ -362,15 +339,10 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
             </div>
           ) : null}
 
-          <div className="mb-1.5">
-            <div className="mb-0.5 text-xs uppercase tracking-wide text-ui-muted">Game log</div>
-            <GameLogPanel messages={gameLog} compact />
-          </div>
-
           <div className="space-y-1">
             {active.length > 0 ? (
               <div>
-                <div className="text-xs uppercase text-ui-muted">Active</div>
+                <div className="text-xs uppercase text-violet-300/90">Active</div>
                 <div className="mt-0.5 space-y-1">
                   {active.map((q) => {
                     const obj = q.currentObjective ?? null;
@@ -401,7 +373,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
 
             {opportunities.length > 0 ? (
               <div>
-                <div className="flex items-center text-xs uppercase text-ui-muted">
+                <div className="flex items-center text-xs uppercase text-violet-300/90">
                   <span>Available</span>
                   <PanelExpandButton
                     open={availableOpen}
@@ -434,7 +406,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
 
             {completed.length > 0 ? (
               <div>
-                <div className="flex items-center text-xs uppercase text-ui-muted">
+                <div className="flex items-center text-xs uppercase text-violet-300/90">
                   <span>{`Completed (${completed.length})`}</span>
                   <PanelExpandButton
                     open={completedOpen}
@@ -465,9 +437,9 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
             ) : null}
           </div>
 
-          {roomExits.some((e) => e.destination) ? (
+          {includeDestinations && roomExits.some((e) => e.destination) ? (
             <div className="mt-1.5">
-              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-ui-muted">
+              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-violet-300/90">
                 <span>Destinations</span>
                 <PanelExpandButton
                   open={exitsOpen}
@@ -481,7 +453,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
                 (destinationGroups[0]?.title === "Destinations" || !destinationGroups[0]) ? (
                   <div className="mt-0.5 flex flex-wrap gap-1">
                     {filteredRoomDestinations.map((ex) => {
-                      const k = `exit:${ex.destination}`;
+                      const k = `q:exit:${ex.destination}`;
                       return (
                         <TinyButton
                           key={`${ex.key}-${ex.destination}`}
@@ -497,10 +469,10 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
                   <div className="mt-0.5 flex flex-col gap-2">
                     {destinationGroups.map(({ title, items }) => (
                       <div key={title}>
-                        <div className="mb-0.5 text-xs uppercase tracking-wide text-ui-muted">{title}</div>
+                        <div className="mb-0.5 text-xs uppercase tracking-wide text-violet-300/90">{title}</div>
                         <div className="flex flex-wrap gap-1">
                           {items.map((ex) => {
-                            const k = `exit:${ex.destination}`;
+                            const k = `q:exit:${ex.destination}`;
                             return (
                               <TinyButton
                                 key={`${ex.key}-${ex.destination}`}
@@ -520,7 +492,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
             </div>
           ) : null}
         </div>
-      ) : null}
+      </div>
 
       {acceptOpp ? (
         <OverlayDialog title="Accept quest" onClose={() => setAcceptOpp(null)}>
@@ -531,9 +503,9 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
             <div className="mt-2 flex items-center gap-1">
               <TinyButton
                 onClick={() => handleAccept(acceptOpp)}
-                disabled={busyKey === `accept:${acceptOpp.id}`}
+                disabled={busyKey === `q:accept:${acceptOpp.id}`}
               >
-                {busyKey === `accept:${acceptOpp.id}` ? "Accepting…" : "Confirm accept"}
+                {busyKey === `q:accept:${acceptOpp.id}` ? "Accepting…" : "Confirm accept"}
               </TinyButton>
               <TinyButton onClick={() => setAcceptOpp(null)}>Cancel</TinyButton>
             </div>
@@ -563,9 +535,9 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
             <div className="mt-2 flex items-center gap-1">
               <TinyButton
                 onClick={() => handleChoose(choiceDialog.quest, choiceDialog.choice)}
-                disabled={busyKey === `choose:${choiceDialog.quest.id}:${choiceDialog.choice.id}`}
+                disabled={busyKey === `q:choose:${choiceDialog.quest.id}:${choiceDialog.choice.id}`}
               >
-                {busyKey === `choose:${choiceDialog.quest.id}:${choiceDialog.choice.id}`
+                {busyKey === `q:choose:${choiceDialog.quest.id}:${choiceDialog.choice.id}`
                   ? "Submitting…"
                   : "Confirm"}
               </TinyButton>
@@ -615,7 +587,7 @@ export function DashboardQuestsPanel({ quests, roomExits = [], onChanged, gameLo
           </div>
         </OverlayDialog>
       ) : null}
-    </section>
+    </>
   );
 }
 
