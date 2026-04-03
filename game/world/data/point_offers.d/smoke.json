@@ -1,0 +1,101 @@
+[
+  {
+    "id": "point_smoke_prerequisite",
+    "category": "trait_step",
+    "title": "Baseline Conditioning",
+    "summary": "A small permanent adjustment to your athletics register.",
+    "costLifetime": 2,
+    "costSeason": 0,
+    "effect": {
+      "type": "trait_bump",
+      "handler": "skills",
+      "traitKey": "athletics",
+      "baseDelta": 1
+    }
+  },
+  {
+    "id": "point_smoke_tag_demo",
+    "category": "unlock_tag",
+    "title": "Vault Tag Stamp",
+    "summary": "Registers an internal clearance marker (used for mission gating tests).",
+    "costLifetime": 1,
+    "costSeason": 0,
+    "effect": {
+      "type": "unlock_tags",
+      "tags": ["point_demo"]
+    }
+  },
+  {
+    "id": "point_smoke_mission_dispatch",
+    "category": "mission_access",
+    "title": "Sealed Dispatch",
+    "summary": "Opens a contract that does not spawn from ordinary station traffic.",
+    "costLifetime": 1,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_smoke_prerequisite"],
+    "effect": {
+      "type": "mission_offer",
+      "templateId": "point_store_smoke_dispatch"
+    }
+  },
+  {
+    "id": "point_smoke_perk_slot",
+    "category": "perk_slot",
+    "title": "Auxiliary Perk Socket",
+    "summary": "Adds one passive perk slot.",
+    "costLifetime": 3,
+    "costSeason": 0,
+    "effect": {
+      "type": "perk_slot",
+      "delta": 1
+    }
+  },
+  {
+    "id": "point_smoke_perk_yield",
+    "category": "perk_grant",
+    "title": "Yield Pin (smoke)",
+    "summary": "Grants a passive that slightly adjusts mining output (server-side).",
+    "costLifetime": 2,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_smoke_perk_slot"],
+    "effect": {
+      "type": "grant_perk",
+      "perkId": "smoke_yield_pin"
+    }
+  },
+  {
+    "id": "point_smoke_compound_refine",
+    "category": "compound",
+    "title": "Arc Clearance + Synth Charter",
+    "summary": "Industrial clearance and a classified refinery recipe charter.",
+    "costLifetime": 4,
+    "costSeason": 0,
+    "effect": {
+      "type": "compound",
+      "steps": [
+        {
+          "type": "license_tier",
+          "licenseKey": "arc_clearance",
+          "tier": 1
+        },
+        {
+          "type": "refining_recipe_unlock",
+          "recipeKeys": ["synth_lubricant_base"]
+        }
+      ]
+    }
+  },
+  {
+    "id": "point_smoke_season_flair",
+    "category": "unlock_tag",
+    "title": "Season Flair (test)",
+    "summary": "Costs seasonal points only when a season is active.",
+    "costLifetime": 0,
+    "costSeason": 1,
+    "seasonId": "alpha_test",
+    "effect": {
+      "type": "unlock_tags",
+      "tags": ["season_alpha_flair"]
+    }
+  }
+]

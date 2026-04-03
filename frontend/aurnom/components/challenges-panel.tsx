@@ -1,7 +1,12 @@
 "use client";
 
 import { PanelExpandButton } from "@/components/panel-expand-button";
-import type { ChallengeActive, ChallengesState } from "@/lib/ui-api";
+import type {
+  ChallengeActive,
+  ChallengeHistoryRow,
+  ChallengesState,
+  PointOfferWeb,
+} from "@/lib/ui-api";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 
 // ---------------------------------------------------------------------------
@@ -211,6 +216,109 @@ function CadenceSection({
 }
 
 // ---------------------------------------------------------------------------
+// Point store (challenge points only; no credits)
+// ---------------------------------------------------------------------------
+
+function PointStoreBlock(props: {
+  offers: PointOfferWeb[];
+  onPurchase?: (offerId: string) => void | Promise<void>;
+  purchaseBusy?: boolean;
+}) {
+  const { offers, onPurchase, purchaseBusy } = props;
+  const [open, setOpen] = useDashboardPanelOpen("challenges-point-store", true);
+  if (!offers.length) return null;
+  return (
+    <div className="mt-2 border-t border-cyan-900/25 pt-1.5">
+      <div className="flex min-w-0 flex-wrap items-start gap-x-1 gap-y-1 sm:items-center">
+        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan">
+          Point store
+        </span>
+        <div className="ml-auto flex shrink-0 items-center">
+          <PanelExpandButton
+            open={open}
+            onClick={() => setOpen((v) => !v)}
+            aria-label={`${open ? "Collapse" : "Expand"} Point store`}
+            className="shrink-0"
+          />
+        </div>
+      </div>
+      {open ? (
+        <ul className="mt-1 flex flex-col gap-1">
+          {offers.map((o) => (
+            <li
+              key={o.id}
+              className="flex flex-col gap-0.5 border-b border-zinc-800/50 pb-1 last:border-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-2"
+            >
+              <div className="min-w-0">
+                <div className="font-mono text-cyber-cyan/90">{o.title}</div>
+                {o.summary ? <p className="text-ui-muted">{o.summary}</p> : null}
+                <div className="mt-0.5 font-mono text-[10px] text-ui-caption">
+                  LT {o.costLifetime}
+                  {o.costSeason > 0 ? ` · SS ${o.costSeason}` : ""}
+                  {o.purchasedCount > 0 ? ` · owned ×${o.purchasedCount}` : ""}
+                  {!o.prerequisitesMet ? " · locked (prereq)" : null}
+                  {!o.seasonOk ? " · wrong season" : null}
+                  {o.soldOut ? " · maxed" : null}
+                </div>
+              </div>
+              {onPurchase ? (
+                <button
+                  type="button"
+                  disabled={purchaseBusy || !o.canPurchase}
+                  onClick={() => void onPurchase(o.id)}
+                  className="shrink-0 self-end rounded border border-cyan-700/40 bg-cyan-950/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyber-cyan hover:bg-cyan-900/25 disabled:opacity-40 sm:self-start"
+                >
+                  Buy
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function RecentCompletionsBlock({ history }: { history: ChallengeHistoryRow[] }) {
+  const [open, setOpen] = useDashboardPanelOpen("challenges-recent-completions", true);
+  if (!history.length) return null;
+  return (
+    <div className="mt-2 border-t border-cyan-900/25 pt-1.5">
+      <div className="flex min-w-0 flex-wrap items-start gap-x-1 gap-y-1 sm:items-center">
+        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan">
+          Recent completions
+        </span>
+        <div className="ml-auto flex shrink-0 items-center">
+          <PanelExpandButton
+            open={open}
+            onClick={() => setOpen((v) => !v)}
+            aria-label={`${open ? "Collapse" : "Expand"} Recent completions`}
+            className="shrink-0"
+          />
+        </div>
+      </div>
+      {open ? (
+        <div className="mt-1 flex flex-col gap-0.5">
+          {history.slice(0, 5).map((row) => (
+            <div
+              key={`${row.challengeId}-${row.windowKey}`}
+              className="flex min-w-0 flex-col gap-0.5 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2 sm:pb-0.5"
+            >
+              <span className="min-w-0 break-words font-mono text-cyber-cyan/90 sm:truncate">
+                {row.title}
+              </span>
+              <span className="shrink-0 self-end font-mono text-xs tabular-nums text-ui-muted sm:self-auto">
+                {row.cadence} · {row.windowKey}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main panel
 // ---------------------------------------------------------------------------
 
@@ -221,6 +329,8 @@ type Props = {
   /** Claim every cadence that has at least one completed (unclaimed) challenge; ordered for stable UX. */
   onClaimAll?: (cadences: string[]) => void | Promise<void>;
   claimBusy?: boolean;
+  onPurchaseOffer?: (offerId: string) => void | Promise<void>;
+  purchaseBusy?: boolean;
 };
 
 const PANEL_HEADER =
@@ -233,9 +343,12 @@ export function ChallengesPanel({
   onClaimCadence,
   onClaimAll,
   claimBusy,
+  onPurchaseOffer,
+  purchaseBusy,
 }: Props) {
   const active = challenges.active ?? [];
   const history = challenges.history ?? [];
+  const pointOffers = challenges.pointOffers ?? [];
   const [panelOpen, setPanelOpen] = useDashboardPanelOpen("challenges", true);
 
   const cadencesToClaimAll = [...new Set(active.filter((e) => e.status === "complete").map((e) => e.cadence ?? "daily"))].sort(
@@ -256,7 +369,7 @@ export function ChallengesPanel({
   ).length;
   const totalActive = active.filter((e) => e.status === "in_progress").length;
 
-  if (active.length === 0 && history.length === 0) {
+  if (active.length === 0 && history.length === 0 && pointOffers.length === 0) {
     return (
       <section className="mb-1">
         <div className={PANEL_HEADER}>
@@ -278,7 +391,13 @@ export function ChallengesPanel({
           <span className="min-w-0 flex-1 truncate text-cyber-cyan">Challenges</span>
           {typeof challenges.pointsLifetime === "number" ? (
             <span className="shrink-0 font-mono text-ui-caption font-normal normal-case tracking-normal text-amber-400/90">
-              {challenges.pointsLifetime.toLocaleString()} pts
+              LT {challenges.pointsLifetime.toLocaleString()}
+              {typeof challenges.pointsSeason === "number" && challenges.pointsSeason >= 0 ? (
+                <>
+                  {" "}
+                  · SS {challenges.pointsSeason.toLocaleString()}
+                </>
+              ) : null}
             </span>
           ) : null}
         </div>
@@ -319,38 +438,31 @@ export function ChallengesPanel({
       </div>
       {panelOpen ? (
         <div className={PANEL_BODY}>
-          <div className="flex flex-col gap-0">
-            {grouped.map((group) => (
-              <CadenceSection
-                key={group.cadence}
-                group={group}
-                onClaim={onClaimChallenge}
-                onClaimCadence={onClaimCadence}
-                claimBusy={claimBusy}
-              />
-            ))}
-          </div>
-
-          {history.length > 0 ? (
-            <div className="mt-2 border-t border-cyan-900/25 pt-1.5">
-              <div className="mb-1 text-xs font-bold uppercase tracking-widest text-cyber-cyan">Recent completions</div>
-              <div className="flex flex-col gap-0.5">
-                {history.slice(0, 5).map((row) => (
-                  <div
-                    key={`${row.challengeId}-${row.windowKey}`}
-                    className="flex min-w-0 flex-col gap-0.5 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2 sm:pb-0.5"
-                  >
-                    <span className="min-w-0 break-words font-mono text-cyber-cyan/90 sm:truncate">
-                      {row.title}
-                    </span>
-                    <span className="shrink-0 self-end font-mono text-xs tabular-nums text-ui-muted sm:self-auto">
-                      {row.cadence} · {row.windowKey}
-                    </span>
-                  </div>
-                ))}
-              </div>
+          {active.length > 0 ? (
+            <div className="flex flex-col gap-0">
+              {grouped.map((group) => (
+                <CadenceSection
+                  key={group.cadence}
+                  group={group}
+                  onClaim={onClaimChallenge}
+                  onClaimCadence={onClaimCadence}
+                  claimBusy={claimBusy}
+                />
+              ))}
             </div>
-          ) : null}
+          ) : (
+            <p className="mb-2 text-ui-muted">
+              No active cadence challenges right now. Complete tasks to earn lifetime and seasonal points.
+            </p>
+          )}
+
+          <PointStoreBlock
+            offers={pointOffers}
+            onPurchase={onPurchaseOffer}
+            purchaseBusy={purchaseBusy}
+          />
+
+          <RecentCompletionsBlock history={history} />
         </div>
       ) : null}
     </section>

@@ -17,6 +17,12 @@ from world.challenges.challenge_loader import (
     challenge_registry_version,
     load_challenge_templates,
 )
+from world.point_store import (
+    load_perk_defs,
+    load_point_offers,
+    perk_def_registry_errors,
+    point_offer_registry_errors,
+)
 from world.time import window_key_for_cadence
 
 
@@ -45,6 +51,16 @@ class CmdReloadChallenges(Command):
             self.caller.msg(f"  ! {e}")
         if len(errs) > 12:
             self.caller.msg(f"  ... and {len(errs) - 12} more.")
+        pov = load_point_offers()
+        poe = point_offer_registry_errors()
+        self.caller.msg(f"Point offers registry v{pov}: errors={len(poe)}.")
+        for e in poe[:8]:
+            self.caller.msg(f"  ! {e}")
+        pkv = load_perk_defs()
+        pke = perk_def_registry_errors()
+        self.caller.msg(f"Perk defs registry v{pkv}: errors={len(pke)}.")
+        for e in pke[:8]:
+            self.caller.msg(f"  ! {e}")
 
 
 class CmdChallengeInfo(Command):

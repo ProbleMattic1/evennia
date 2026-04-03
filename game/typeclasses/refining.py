@@ -648,7 +648,51 @@ REFINING_RECIPES = {
         "base_value_cr": 18150,
         "category": "refined_fauna",
     },
+    "synth_lubricant_base": {
+        "name": "Synth Lubricant Base",
+        "desc": "Classified blend stock; vault recipe charter and clearance required.",
+        "inputs": {"iron_ore": 2.0},
+        "output_units": 1,
+        "base_value_cr": 400,
+        "category": "synthetic",
+        "requiresRecipeUnlock": True,
+        "requiresLicenseKey": "arc_clearance",
+        "requiresLicenseMin": 1,
+    },
 }
+
+
+def refining_recipe_requires_player_gate(recipe: dict | None) -> bool:
+    if not recipe:
+        return False
+    if recipe.get("requiresRecipeUnlock"):
+        return True
+    if str(recipe.get("requiresLicenseKey") or "").strip():
+        return True
+    return False
+
+
+def refining_recipe_allowed_for_character(character, recipe_key: str) -> tuple[bool, str]:
+    recipe = REFINING_RECIPES.get(recipe_key)
+    if not recipe:
+        return False, f"Unknown recipe '{recipe_key}'."
+    ch = getattr(character, "challenges", None)
+    if ch is None:
+        if refining_recipe_requires_player_gate(recipe):
+            return False, "Challenge state unavailable."
+        return True, ""
+    if recipe.get("requiresRecipeUnlock"):
+        if not ch.has_refining_recipe_unlock(recipe_key):
+            return (
+                False,
+                f"You have not unlocked recipe '{recipe_key}' (challenge point store).",
+            )
+    lk = str(recipe.get("requiresLicenseKey") or "").strip()
+    if lk:
+        need = int(recipe.get("requiresLicenseMin") or 1)
+        if ch.license_tier(lk) < need:
+            return False, "Insufficient industrial clearance for this recipe."
+    return True, ""
 
 
 # ---------------------------------------------------------------------------
@@ -756,12 +800,14 @@ class Refinery(ObjectParent, DefaultObject):
         silo.db.inventory = remaining
         return moved
 
-    def process_recipe(self, recipe_key, batches=1):
+    def process_recipe(self, recipe_key, batches=1, *, operator=None):
         """
         Process `batches` runs of recipe_key.
 
         Returns (batches_processed, message).
         Partial processing: runs as many full batches as inputs allow.
+
+        ``operator`` — puppeting character for gated recipes; None skips gates (engine tick).
         """
         from typeclasses.commodity_demand import get_commodity_demand_engine
 
@@ -769,6 +815,13 @@ class Refinery(ObjectParent, DefaultObject):
         recipe = REFINING_RECIPES.get(recipe_key)
         if not recipe:
             return 0, f"Unknown recipe '{recipe_key}'."
+
+        if operator is not None:
+            ok, err = refining_recipe_allowed_for_character(operator, recipe_key)
+            if not ok:
+                return 0, err
+        elif refining_recipe_requires_player_gate(recipe):
+            return 0, ""
 
         batches = max(1, int(batches))
         inv = self.db.input_inventory or {}

@@ -22,19 +22,19 @@ function streamTag(meta: MsgStreamEntry["meta"]): string | null {
 function feedRowClass(meta: MsgStreamEntry["meta"]): string {
   const inherit = "[&_*]:text-inherit";
   if (meta.billboardSeverity === "alert") {
-    return `text-red-300 [text-shadow:0_0_12px_rgba(248,113,113,0.55)] ${inherit}`;
+    return `text-red-300 [text-shadow:0_0_8px_rgba(248,113,113,0.4)] ${inherit}`;
   }
   if (meta.billboardSeverity === "warn") {
-    return `text-orange-300 [text-shadow:0_0_10px_rgba(251,146,60,0.5)] ${inherit}`;
+    return `text-orange-300 [text-shadow:0_0_7px_rgba(251,146,60,0.36)] ${inherit}`;
   }
   if (meta.eventType === "travel") {
-    return `text-amber-200 [text-shadow:0_0_11px_rgba(252,211,77,0.45)] ${inherit}`;
+    return `text-amber-200 [text-shadow:0_0_8px_rgba(252,211,77,0.34)] ${inherit}`;
   }
   if (meta.eventType === "interaction") {
-    return `text-fuchsia-300 [text-shadow:0_0_11px_rgba(232,121,249,0.42)] ${inherit}`;
+    return `text-fuchsia-300 [text-shadow:0_0_8px_rgba(232,121,249,0.32)] ${inherit}`;
   }
   /* Default room / narrative “emit” stream — classic green phosphor + faint RGB fringe */
-  return `text-emerald-400 [text-shadow:0_0_10px_rgba(52,211,153,0.42),-0.4px_0_0_rgba(220,255,235,0.35),0.4px_0_0_rgba(100,255,160,0.3)] ${inherit}`;
+  return `text-emerald-400 [text-shadow:0_0_7px_rgba(52,211,153,0.22),-0.4px_0_0_rgba(220,255,235,0.18),0.4px_0_0_rgba(100,255,160,0.15)] ${inherit}`;
 }
 
 function feedTagClass(meta: MsgStreamEntry["meta"]): string {
@@ -55,12 +55,12 @@ export function GameLogPanel({ messages, compact }: Props) {
   }, [messages]);
 
   const emptyClass = compact
-    ? "min-h-[72px] bg-zinc-950/95 pl-2.5 pr-1.5 pt-1.5 pb-1.5 font-mono text-xs leading-snug text-emerald-500/70 [text-shadow:0_0_12px_rgba(52,211,153,0.35),0_1px_2px_rgba(0,0,0,0.95)]"
-    : "min-h-[120px] bg-zinc-950/95 p-2 pl-3 font-mono text-xs leading-5 text-emerald-500/70 [text-shadow:0_0_14px_rgba(52,211,153,0.38),0_1px_2px_rgba(0,0,0,0.95)]";
+    ? "min-h-[72px] bg-transparent pl-2.5 pr-1.5 pt-1.5 pb-1.5 font-mono text-xs leading-snug text-emerald-500/70 [text-shadow:0_0_8px_rgba(52,211,153,0.18),0_1px_2px_rgba(0,0,0,0.95)]"
+    : "min-h-[120px] bg-transparent p-2 pl-3 font-mono text-xs leading-5 text-emerald-500/70 [text-shadow:0_0_9px_rgba(52,211,153,0.19),0_1px_2px_rgba(0,0,0,0.95)]";
 
   const listClass = compact
-    ? "max-h-[min(200px,35vh)] min-h-[72px] overflow-y-auto bg-zinc-950/95 pl-2.5 pr-1.5 pt-1.5 pb-1.5 font-mono text-xs leading-snug [scrollbar-color:rgba(52,211,153,0.45)_rgba(0,0,0,0.4)]"
-    : "max-h-[min(320px,50vh)] min-h-[120px] overflow-y-auto bg-zinc-950/95 p-2 pl-3 font-mono text-xs leading-5 [scrollbar-color:rgba(52,211,153,0.45)_rgba(0,0,0,0.4)]";
+    ? "max-h-[min(200px,35vh)] min-h-[72px] overflow-y-auto bg-transparent pl-2.5 pr-1.5 pt-1.5 pb-1.5 font-mono text-xs leading-snug [scrollbar-color:rgba(52,211,153,0.45)_rgba(0,0,0,0.4)]"
+    : "max-h-[min(320px,50vh)] min-h-[120px] overflow-y-auto bg-transparent p-2 pl-3 font-mono text-xs leading-5 [scrollbar-color:rgba(52,211,153,0.45)_rgba(0,0,0,0.4)]";
 
   if (messages.length === 0) {
     return (

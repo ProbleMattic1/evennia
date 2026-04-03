@@ -89,15 +89,27 @@ class PortableProcessor(ObjectParent, DefaultObject):
         self.db.input_inventory = inv
         return actual
 
-    def process_recipe(self, recipe_key, batches=1):
+    def process_recipe(self, recipe_key, batches=1, *, operator=None):
         """
         Same contract as typeclasses.refining.Refinery.process_recipe.
         Applies db.efficiency to produced units (portable Mk bonus).
         """
+        from typeclasses.refining import (
+            refining_recipe_allowed_for_character,
+            refining_recipe_requires_player_gate,
+        )
+
         demand_eng = get_commodity_demand_engine(create_missing=False)
         recipe = REFINING_RECIPES.get(recipe_key)
         if not recipe:
             return 0, f"Unknown recipe '{recipe_key}'."
+
+        if operator is not None:
+            ok, err = refining_recipe_allowed_for_character(operator, recipe_key)
+            if not ok:
+                return 0, err
+        elif refining_recipe_requires_player_gate(recipe):
+            return 0, ""
 
         batches = max(1, int(batches))
         inv = self.db.input_inventory or {}

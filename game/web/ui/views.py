@@ -4210,3 +4210,67 @@ def challenges_claim_all(request):
             "challenges": char.challenges.serialize_for_web(),
         }
     )
+
+
+@csrf_exempt
+@require_POST
+def challenges_purchase(request):
+    """
+    POST /ui/challenges/purchase — spend challenge points on one catalog offer (body: offerId).
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."},
+            status=401,
+        )
+
+    body = _json_body(request)
+    offer_id = str(body.get("offerId") or "").strip()
+    if not offer_id:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing offerId."},
+            status=400,
+        )
+
+    if not cache.add(f"point_purchase:{request.user.id}", 1, timeout=2):
+        return JsonResponse(
+            {"ok": False, "code": "RATE_LIMIT", "message": "Too many requests; try again shortly."},
+            status=429,
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        char.challenges.sync_all_windows()
+        char.challenges.evaluate_window()
+        ok, result_msg = char.challenges.purchase_offer(offer_id)
+    except Exception as exc:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "POINT_PURCHASE_FAILED",
+                "message": f"Could not complete purchase: {exc}",
+            },
+            status=500,
+        )
+
+    if not ok:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "POINT_PURCHASE_REJECTED",
+                "message": result_msg or "Purchase rejected.",
+            },
+            status=400,
+        )
+
+    return JsonResponse({
+        "ok": True,
+        "message": result_msg,
+        "challenges": char.challenges.serialize_for_web(),
+    })

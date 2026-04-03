@@ -831,7 +831,15 @@ class MiningSite(ObjectParent, DefaultObject):
             1.0 if npc_owned else (1.0 - (wear * WEAR_OUTPUT_PENALTY))
         )
 
-        total_tons = base_tons * richness * rig_rating * mode_out * power_out * wear_out
+        point_mult = 1.0
+        if _owner and _owner.is_typeclass("typeclasses.characters.Character", exact=False):
+            from world.point_store.perk_resolver import mining_output_multiplier
+
+            point_mult = mining_output_multiplier(_owner)
+
+        total_tons = (
+            base_tons * richness * rig_rating * mode_out * power_out * wear_out * point_mult
+        )
 
         # -- Composition filtering (target_family + purity_cutoff) --
         composition = deposit["composition"]

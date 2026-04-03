@@ -47,6 +47,7 @@ import {
   EMPTY_ROOM_AMBIENT,
   mineDeploy,
   mineRepairRig,
+  purchaseChallengeOffer,
 } from "@/lib/ui-api";
 import { formatCr as cr } from "@/lib/format-units";
 import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
@@ -1211,6 +1212,11 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
     [run],
   );
 
+  const purchaseOfferCb = useCallback(
+    (offerId: string) => run(() => purchaseChallengeOffer({ offerId })),
+    [run],
+  );
+
   const { order, setOrder, hydrated } = useDashboardRightColumnOrder();
 
   const visiblePanelIds = useMemo(
@@ -1254,6 +1260,8 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
               onClaimCadence={claimCadenceCb}
               onClaimAll={claimAllChallengesCb}
               claimBusy={busy}
+              onPurchaseOffer={purchaseOfferCb}
+              purchaseBusy={busy}
             />
           );
         case "alerts":
@@ -1302,6 +1310,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       claimChallengeCb,
       claimCadenceCb,
       claimAllChallengesCb,
+      purchaseOfferCb,
       ackAlert,
       ackAllAlerts,
       repairRigCb,

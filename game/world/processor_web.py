@@ -205,7 +205,7 @@ def web_processor_refine(char, claim_id: int, processor_id: int, recipe_key: str
     key = str(recipe_key).strip()
     if key not in REFINING_RECIPES:
         raise ProcessorWebError("Unknown recipe.")
-    n, msg = proc.process_recipe(key, max(1, int(batches)))
+    n, msg = proc.process_recipe(key, max(1, int(batches)), operator=char)
     if n <= 0:
         raise ProcessorWebError(msg)
     char.msg(msg)

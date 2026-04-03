@@ -72,6 +72,7 @@ from commands.npc_promenade import CmdAskGuide
 from commands.station_npc import CmdStation
 from commands.challenge_claim import CmdChallengeClaim
 from commands.challenges import CmdChallengeInfo, CmdGrantChallenge, CmdReloadChallenges
+from commands.point_store import CmdPointBuy, CmdReloadPointOffers, CmdSetChallengeSeason
 from commands.progression import CmdGrantXP
 from commands.reload_ambient import CmdReloadAmbient
 from commands.reload_missions import CmdReloadMissions
@@ -186,6 +187,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdQuestAccept())
         self.add(CmdQuestChoose())
         self.add(CmdChallengeClaim())
+        self.add(CmdPointBuy())
         self.add(CmdGrantXP())
         self.add(CmdEngage())
         self.add(CmdDisengage())
@@ -214,8 +216,10 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
         self.add(CmdReloadQuests())
         self.add(CmdReloadBattlespace())
         self.add(CmdReloadChallenges())
+        self.add(CmdReloadPointOffers())
         self.add(CmdChallengeInfo())
         self.add(CmdGrantChallenge())
+        self.add(CmdSetChallengeSeason())
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

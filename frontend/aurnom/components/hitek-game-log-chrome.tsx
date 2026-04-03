@@ -1,5 +1,6 @@
 "use client";
 
+import { CrtGlassSpecularLayer } from "@/components/crt-pipeline-glass-layers";
 import { motion, useReducedMotion } from "motion/react";
 import { useId, type ReactNode } from "react";
 
@@ -26,12 +27,12 @@ export function HitekGameLogChrome({ children, compact }: Props) {
         className="pointer-events-none absolute inset-0 rounded-sm"
         style={{
           boxShadow: [
-            "0 0 0 2px rgba(200, 255, 220, 0.35)",
+            "0 0 0 2px rgba(200, 255, 220, 0.28)",
             "0 0 0 1px rgba(255, 255, 255, 0.12) inset",
-            "0 0 32px rgba(57, 255, 120, 0.22)",
-            "0 0 56px rgba(180, 255, 200, 0.08)",
+            "0 0 36px rgba(57, 255, 120, 0.15)",
+            "0 0 56px rgba(180, 255, 200, 0.065)",
             "inset 0 0 48px rgba(0, 0, 0, 0.82)",
-            "inset 0 0 72px rgba(0, 35, 22, 0.45)",
+            "inset 0 0 72px rgba(0, 35, 22, 0.4)",
           ].join(", "),
         }}
       />
@@ -42,25 +43,25 @@ export function HitekGameLogChrome({ children, compact }: Props) {
           background:
             "linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 22%, rgba(180, 255, 200, 0.95) 48%, rgba(180, 255, 200, 0.95) 52%, rgba(255, 255, 255, 0.2) 78%, transparent 100%)",
           boxShadow:
-            "0 0 14px rgba(120, 255, 160, 0.55), 0 0 28px rgba(57, 255, 120, 0.25), 0 1px 0 rgba(255, 255, 255, 0.15)",
+            "0 0 10px rgba(120, 255, 160, 0.28), 0 0 22px rgba(57, 255, 120, 0.11), 0 1px 0 rgba(255, 255, 255, 0.12)",
         }}
       />
 
       <div
-        className={`${corner} left-0 top-0 border-l-2 border-t-2 border-emerald-300/70 shadow-[0_0_14px_rgba(110,255,160,0.5)]`}
+        className={`${corner} left-0 top-0 border-l-2 border-t-2 border-emerald-300/70 shadow-[0_0_10px_rgba(110,255,160,0.22)]`}
       />
       <div
-        className={`${corner} right-0 top-0 border-r-2 border-t-2 border-emerald-400/85 shadow-[0_0_14px_rgba(74,255,140,0.45)]`}
+        className={`${corner} right-0 top-0 border-r-2 border-t-2 border-emerald-400/85 shadow-[0_0_10px_rgba(74,255,140,0.19)]`}
       />
       <div
-        className={`${corner} bottom-0 right-0 border-b-2 border-r-2 border-emerald-300/75 shadow-[0_0_12px_rgba(110,255,160,0.4)]`}
+        className={`${corner} bottom-0 right-0 border-b-2 border-r-2 border-emerald-300/75 shadow-[0_0_9px_rgba(110,255,160,0.18)]`}
       />
       <div
-        className={`${corner} bottom-0 left-0 border-b-2 border-l-2 border-white/25 shadow-[0_0_10px_rgba(255,255,255,0.12)]`}
+        className={`${corner} bottom-0 left-0 border-b-2 border-l-2 border-white/25 shadow-[0_0_8px_rgba(255,255,255,0.08)]`}
       />
 
       <div
-        className="pointer-events-none absolute bottom-2 left-0 top-8 z-[2] w-0.5 rounded-full bg-gradient-to-b from-emerald-300/85 via-emerald-400/30 to-transparent opacity-90 shadow-[0_0_12px_rgba(100,255,150,0.45)]"
+        className="pointer-events-none absolute bottom-2 left-0 top-8 z-[2] w-0.5 rounded-full bg-gradient-to-b from-emerald-300/85 via-emerald-400/30 to-transparent opacity-75 shadow-[0_0_9px_rgba(100,255,150,0.19)]"
         aria-hidden
       />
 
@@ -69,7 +70,7 @@ export function HitekGameLogChrome({ children, compact }: Props) {
           className={`${eyeSize} rounded-full border border-white/40 bg-emerald-400`}
           style={{
             boxShadow:
-              "0 0 12px 3px rgba(120, 255, 180, 0.65), 0 0 24px rgba(57, 255, 120, 0.35), inset 0 0 5px rgba(255, 255, 255, 0.75)",
+              "0 0 9px 2px rgba(120, 255, 180, 0.32), 0 0 18px rgba(57, 255, 120, 0.15), inset 0 0 4px rgba(255, 255, 255, 0.6)",
           }}
           animate={
             reduce
@@ -80,26 +81,37 @@ export function HitekGameLogChrome({ children, compact }: Props) {
         />
       </div>
 
-      {/* CRT face: clip + stacked glass effects */}
-      <div className="relative z-10 min-h-0 overflow-hidden rounded-[3px]">
-        <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
+      {/* CRT face: clip + stacked glass effects (solid base so log children can stay transparent and show layers) */}
+      <div className="relative z-10 min-h-0 overflow-hidden rounded-[3px] bg-zinc-950">
+        {/* z-0: green sweep (::after). z-1+: must sit above this or the full-bleed layers hide it. */}
+        <div
+          className={`pipeline-matrix-sweep-host pointer-events-none absolute inset-0 z-0 rounded-[3px] ${reduce ? "" : "pipeline-matrix-fill--motion"}`}
+          aria-hidden
+        />
+
+        {/* Dark horizontal bands — CSS keyframes (see globals .crt-log-dark-scanlines) */}
+        <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden rounded-[3px]">
+          <div className="crt-log-dark-scanlines" aria-hidden />
+        </div>
+
+        <div className="pointer-events-none absolute inset-0 z-[2] overflow-hidden rounded-[3px]">
           {!reduce ? (
             <motion.div
-              className="absolute inset-0 opacity-[0.1]"
+              className="absolute inset-0 opacity-[0.16]"
               style={{
                 backgroundImage:
-                  "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(120, 255, 170, 0.55) 2px, rgba(120, 255, 170, 0.55) 3px)",
+                  "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(120, 255, 170, 0.72) 2px, rgba(120, 255, 170, 0.72) 3px)",
                 backgroundSize: "100% 3px",
               }}
               animate={{ backgroundPosition: ["0px 0px", "0px 3px"] }}
-              transition={{ duration: 0.18, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
             />
           ) : (
             <div
-              className="absolute inset-0 opacity-[0.07]"
+              className="absolute inset-0 opacity-[0.11]"
               style={{
                 backgroundImage:
-                  "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(120, 255, 170, 0.45) 2px, rgba(120, 255, 170, 0.45) 3px)",
+                  "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(120, 255, 170, 0.58) 2px, rgba(120, 255, 170, 0.58) 3px)",
               }}
             />
           )}
@@ -107,7 +119,7 @@ export function HitekGameLogChrome({ children, compact }: Props) {
 
         {/* Tube curvature + edge falloff */}
         <div
-          className="pointer-events-none absolute inset-0 z-[2]"
+          className="pointer-events-none absolute inset-0 z-[3]"
           style={{
             background: [
               "radial-gradient(ellipse 96% 88% at 50% 48%, transparent 55%, rgba(0, 0, 0, 0.5) 100%)",
@@ -119,16 +131,16 @@ export function HitekGameLogChrome({ children, compact }: Props) {
 
         {/* P1-style phosphor cast */}
         <div
-          className="pointer-events-none absolute inset-0 z-[3] mix-blend-screen"
+          className="pointer-events-none absolute inset-0 z-[4] mix-blend-screen"
           style={{
-            background: "radial-gradient(ellipse 85% 70% at 50% 45%, rgba(80, 255, 120, 0.14) 0%, transparent 65%)",
-            opacity: 0.85,
+            background: "radial-gradient(ellipse 85% 70% at 50% 45%, rgba(80, 255, 120, 0.11) 0%, transparent 65%)",
+            opacity: 0.78,
           }}
         />
 
         {/* Film grain */}
         <svg
-          className="pointer-events-none absolute inset-0 z-[4] h-full w-full opacity-[0.045]"
+          className="pointer-events-none absolute inset-0 z-[5] h-full w-full opacity-[0.045]"
           aria-hidden
         >
           <defs>
@@ -143,14 +155,16 @@ export function HitekGameLogChrome({ children, compact }: Props) {
         {/* Occasional CRT brightness waver */}
         {!reduce ? (
           <motion.div
-            className="pointer-events-none absolute inset-0 z-[5] rounded-[2px] bg-black"
+            className="pointer-events-none absolute inset-0 z-[6] rounded-[2px] bg-black"
             initial={false}
-            animate={{ opacity: [0, 0.045, 0.01, 0.06, 0, 0.02, 0] }}
+            animate={{ opacity: [0, 0.055, 0.015, 0.085, 0, 0.03, 0] }}
             transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
           />
         ) : null}
 
-        <div className="relative z-[6] min-h-0 [filter:saturate(1.08)_contrast(1.04)]">{children}</div>
+        <CrtGlassSpecularLayer zIndex={7} />
+
+        <div className="relative z-[8] min-h-0 [filter:saturate(1.08)_contrast(1.04)]">{children}</div>
       </div>
     </div>
   );

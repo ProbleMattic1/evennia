@@ -160,6 +160,18 @@ class MissionHandler:
         )
         if current_active >= max_active:
             return False
+        need_offers = list(elig.get("requiresOfferIds") or [])
+        need_tags = list(elig.get("requiresUnlockTags") or [])
+        if need_offers or need_tags:
+            ch = getattr(self.obj, "challenges", None)
+            if ch is None:
+                return False
+            for oid in need_offers:
+                if ch.purchase_count(oid) < 1:
+                    return False
+            for tag in need_tags:
+                if not ch.has_unlock_tag(tag):
+                    return False
         return True
 
     def _offer_template(self, tmpl: dict, *, source: dict[str, Any]) -> dict[str, Any] | None:

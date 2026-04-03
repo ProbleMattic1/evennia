@@ -160,6 +160,7 @@ urlpatterns = [
     path("challenges/claim", views.challenges_claim, name="ui-challenges-claim"),
     path("challenges/claim-cadence", views.challenges_claim_cadence, name="ui-challenges-claim-cadence"),
     path("challenges/claim-all", views.challenges_claim_all, name="ui-challenges-claim-all"),
+    path("challenges/purchase", views.challenges_purchase, name="ui-challenges-purchase"),
     path("debug/msg-buffer", views.debug_msg_buffer, name="ui-debug-msg-buffer"),
     path("staff/room-billboard", staff_room_billboard.staff_room_billboard, name="ui-staff-room-billboard"),
     path(

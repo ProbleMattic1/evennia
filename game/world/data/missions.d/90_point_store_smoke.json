@@ -1,0 +1,34 @@
+[
+  {
+    "id": "point_store_smoke_dispatch",
+    "title": "Vaulted Dispatch Authorisation",
+    "summary": "A sealed contract released through challenge equity, not station traffic.",
+    "missionKind": "mission",
+    "giver": { "kind": "faction", "id": "vault_ops", "name": "Vault Operations" },
+    "trigger": {
+      "kind": "interaction",
+      "interactionKeysAny": ["__point_store_only_no_spawn__"]
+    },
+    "eligibility": {
+      "cooldownSeconds": 0,
+      "maxActive": 1,
+      "requiresOfferIds": ["point_smoke_prerequisite"]
+    },
+    "objectives": [
+      {
+        "id": "ack_contract",
+        "kind": "choice",
+        "text": "Review the sealed terms.",
+        "prompt": "The terms are minimal. Sign or decline.",
+        "choices": [
+          {
+            "id": "ack",
+            "label": "Acknowledge receipt.",
+            "outcome": "Recorded.",
+            "completeMission": true
+          }
+        ]
+      }
+    ]
+  }
+]

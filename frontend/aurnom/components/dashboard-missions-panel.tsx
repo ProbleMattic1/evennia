@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DashboardQuestsEmbedded } from "@/components/dashboard-quests-panel";
-import { groupExits } from "@/components/exit-grid";
 import { GameLogPanel } from "@/components/game-log-panel";
 import { HitekMissionsChrome } from "@/components/hitek-missions-chrome";
 import { PanelExpandButton } from "@/components/panel-expand-button";
+import { PipelineMatrixOverlay } from "@/components/pipeline-matrix-overlay";
 import type {
   ExitButton,
   MissionActive,
@@ -56,7 +56,7 @@ function missionKindLabel(k: string | undefined) {
 
 /**
  * Missions and quests panel (dashboard layout): travel/interact/choice flows,
- * dialog overlays for opportunities and choices, embedded main quests, game log, destinations.
+ * dialog overlays for opportunities and choices, embedded main quests, game log.
  */
 export function DashboardMissionsPanel({
   missions = EMPTY_MISSIONS,
@@ -77,18 +77,9 @@ export function DashboardMissionsPanel({
     [active],
   );
 
-  const filteredRoomDestinations = useMemo(
-    () =>
-      roomExits.filter((e): e is ExitButton & { destination: string } => Boolean(e.destination)),
-    [roomExits],
-  );
-
-  const destinationGroups = useMemo(() => groupExits(filteredRoomDestinations), [filteredRoomDestinations]);
-
   const storageKey = "aurnom:dashboard-panel:missions-and-quests";
   const availableStorageKey = "aurnom:dashboard-panel:missions:available";
   const completedStorageKey = "aurnom:dashboard-panel:missions:completed";
-  const exitsStorageKey = "aurnom:dashboard-panel:missions-and-quests:exits";
   const [open, setOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
@@ -116,16 +107,6 @@ export function DashboardMissionsPanel({
       return true;
     }
   });
-  const [exitsOpen, setExitsOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      const raw = window.sessionStorage.getItem(exitsStorageKey);
-      return raw == null ? true : raw === "1";
-    } catch {
-      return true;
-    }
-  });
-
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const missionsChromeMeasureRef = useRef<HTMLDivElement>(null);
@@ -179,18 +160,6 @@ export function DashboardMissionsPanel({
       const next = !v;
       try {
         window.sessionStorage.setItem(completedStorageKey, next ? "1" : "0");
-      } catch {
-        // ignore storage failures
-      }
-      return next;
-    });
-  }
-
-  function toggleExitsOpen() {
-    setExitsOpen((v) => {
-      const next = !v;
-      try {
-        window.sessionStorage.setItem(exitsStorageKey, next ? "1" : "0");
       } catch {
         // ignore storage failures
       }
@@ -254,14 +223,6 @@ export function DashboardMissionsPanel({
 
   async function handleTravel(m: MissionActive, roomKey: string) {
     const res = await run(`m:travel:${m.id}:${roomKey}`, async () => playTravel({ destination: roomKey }));
-    if (res) {
-      router.push(webNavigatePathFromPlayResult(res));
-      router.refresh();
-    }
-  }
-
-  async function handleExitTravel(destination: string) {
-    const res = await run(`m:exit:${destination}`, async () => playTravel({ destination }));
     if (res) {
       router.push(webNavigatePathFromPlayResult(res));
       router.refresh();
@@ -477,61 +438,6 @@ export function DashboardMissionsPanel({
               includeDestinations={false}
             />
           ) : null}
-
-          {roomExits.some((e) => e.destination) ? (
-            <div className="mt-1.5 rounded border border-cyan-900/40 bg-zinc-950/80 p-1.5">
-              <div className="mb-0.5 flex items-center text-xs uppercase tracking-wide text-cyber-cyan">
-                <span>Destinations</span>
-                <PanelExpandButton
-                  open={exitsOpen}
-                  onClick={toggleExitsOpen}
-                  aria-label={`${exitsOpen ? "Collapse" : "Expand"} Destinations`}
-                  className="ml-auto shrink-0"
-                />
-              </div>
-              {exitsOpen ? (
-                destinationGroups.length <= 1 &&
-                (destinationGroups[0]?.title === "Destinations" || !destinationGroups[0]) ? (
-                  <div className="mt-0.5 flex flex-wrap gap-1">
-                    {filteredRoomDestinations.map((ex) => {
-                      const k = `m:exit:${ex.destination}`;
-                      return (
-                        <TinyButton
-                          key={`${ex.key}-${ex.destination}`}
-                          onClick={() => handleExitTravel(ex.destination)}
-                          disabled={busyKey === k}
-                        >
-                          {busyKey === k ? "Moving…" : ex.label}
-                        </TinyButton>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="mt-0.5 flex flex-col gap-2">
-                    {destinationGroups.map(({ title, items }) => (
-                      <div key={title}>
-                        <div className="mb-0.5 text-xs uppercase tracking-wide text-cyber-cyan">{title}</div>
-                        <div className="flex flex-wrap gap-1">
-                          {items.map((ex) => {
-                            const k = `m:exit:${ex.destination}`;
-                            return (
-                              <TinyButton
-                                key={`${ex.key}-${ex.destination}`}
-                                onClick={() => handleExitTravel(ex.destination!)}
-                                disabled={busyKey === k}
-                              >
-                                {busyKey === k ? "Moving…" : ex.label}
-                              </TinyButton>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              ) : null}
-            </div>
-          ) : null}
         </div>
       ) : null}
       </HitekMissionsChrome>
@@ -675,7 +581,9 @@ function OverlayDialog({
             ×
           </button>
         </div>
-        {children}
+        <PipelineMatrixOverlay className="mt-1 min-h-[6rem] border border-cyan-900/35 bg-black/25">
+          {children}
+        </PipelineMatrixOverlay>
       </div>
     </div>
   );

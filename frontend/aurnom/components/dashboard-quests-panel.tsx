@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { groupExits } from "@/components/exit-grid";
 import { PanelExpandButton } from "@/components/panel-expand-button";
+import { PipelineMatrixOverlay } from "@/components/pipeline-matrix-overlay";
 import type {
   ExitButton,
   QuestActive,
@@ -636,7 +637,9 @@ function OverlayDialog({
             ×
           </button>
         </div>
-        {children}
+        <PipelineMatrixOverlay className="mt-1 min-h-[6rem] border border-violet-900/40 bg-black/25">
+          {children}
+        </PipelineMatrixOverlay>
       </div>
     </div>
   );

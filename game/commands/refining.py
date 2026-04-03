@@ -20,6 +20,7 @@ from typeclasses.refining import (
     execute_refined_payout_from_treasury,
     plant_raw_resource_display_name,
     refined_payout_breakdown,
+    refining_recipe_allowed_for_character,
     restore_miner_output_for_payout,
 )
 
@@ -541,6 +542,9 @@ class CmdRefineList(Command):
         lines = ["|wAvailable Refining Recipes|n"]
         by_category = {}
         for key, recipe in REFINING_RECIPES.items():
+            ok, _ = refining_recipe_allowed_for_character(caller, key)
+            if not ok:
+                continue
             cat = recipe.get("category", "other")
             by_category.setdefault(cat, []).append((key, recipe))
 
@@ -704,7 +708,7 @@ class CmdRefine(Command):
             )
             return
 
-        processed, msg = ref.process_recipe(matched_key, batches)
+        processed, msg = ref.process_recipe(matched_key, batches, operator=caller)
         if processed:
             caller.msg(f"|g{msg}|n\nUse |wcollectproduct {matched_key}|n to sell the output.")
         else:

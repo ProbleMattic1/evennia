@@ -123,12 +123,52 @@ html {
     opacity: 0.2;
   }
   45% {
-    opacity: 0.55;
+    opacity: 0.58;
   }
   100% {
     transform: translateY(130%);
     opacity: 0.2;
   }
+}
+
+/* Dark horizontal CRT bands: shift by one 3px repeat (seamless with repeating-linear-gradient) */
+@keyframes pipeline-matrix-scanline-drift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 3px;
+  }
+}
+
+/* Missions game log: dark bands — Motion does not reliably animate backgroundPosition here (v12). */
+@keyframes crt-log-dark-scan-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 3px;
+  }
+}
+
+.crt-log-dark-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.5;
+  background-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(0, 0, 0, 0.38) 2px,
+    rgba(0, 0, 0, 0.38) 3px
+  );
+  background-size: 100% 3px;
+  background-repeat: repeat;
+  /* One 3px band per cycle: slow but noticeable (~1px drift every ~13s) */
+  animation: crt-log-dark-scan-drift 40s linear infinite;
+  will-change: background-position;
 }
 
 .pipeline-matrix-frame {
@@ -139,6 +179,7 @@ html {
   box-shadow: none;
 }
 
+/* Tiled 3px strip — repeating-linear-gradient ignores background-position in most engines */
 .pipeline-matrix-frame::before {
   content: "";
   position: absolute;
@@ -147,13 +188,17 @@ html {
   pointer-events: none;
   z-index: 0;
   opacity: 0.4;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
+  background-image: linear-gradient(
+    to bottom,
+    transparent 0,
     transparent 2px,
     rgba(0, 0, 0, 0.2) 2px,
     rgba(0, 0, 0, 0.2) 3px
   );
+  background-size: 100% 3px;
+  background-repeat: repeat;
+  animation: pipeline-matrix-scanline-drift 240s linear infinite;
+  will-change: background-position;
 }
 
 .pipeline-matrix-frame--motion::after {
@@ -169,24 +214,72 @@ html {
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(57, 255, 20, 0.14) 45%,
+    rgba(57, 255, 20, 0.1) 42%,
+    rgba(120, 255, 90, 0.055) 50%,
     transparent 100%
   );
-  animation: pipeline-matrix-sweep 3.8s ease-in-out infinite;
+  box-shadow: 0 0 22px rgba(57, 255, 20, 0.11), 0 0 40px rgba(34, 197, 94, 0.055);
+  animation: pipeline-matrix-sweep 72s ease-in-out infinite;
 }
 
 .pipeline-matrix-readout {
   color: #39ff14;
   text-shadow:
-    0 0 8px rgba(57, 255, 20, 0.9),
-    0 0 22px rgba(34, 197, 94, 0.55),
-    0 0 46px rgba(22, 163, 74, 0.28);
+    0 0 8px rgba(57, 255, 20, 0.68),
+    0 0 22px rgba(34, 197, 94, 0.4),
+    0 0 46px rgba(22, 163, 74, 0.2);
+}
+
+/**
+ * Green sweep (::after) for game log. Z-order comes from Tailwind on the element (keep at z-0).
+ */
+.pipeline-matrix-sweep-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.pipeline-matrix-sweep-host.pipeline-matrix-fill--motion::after {
+  content: "";
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  top: 0;
+  height: 42%;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(57, 255, 20, 0.14) 42%,
+    rgba(120, 255, 90, 0.085) 50%,
+    transparent 100%
+  );
+  box-shadow: 0 0 28px rgba(57, 255, 20, 0.15), 0 0 48px rgba(34, 197, 94, 0.085);
+  animation: pipeline-matrix-sweep 72s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pipeline-matrix-frame--motion::after {
     animation: none;
     opacity: 0;
+  }
+
+  .pipeline-matrix-sweep-host.pipeline-matrix-fill--motion::after {
+    animation: none;
+    opacity: 0;
+  }
+
+  .pipeline-matrix-frame::before {
+    animation: none;
+  }
+
+  .crt-log-dark-scanlines {
+    animation: none;
   }
 }
 

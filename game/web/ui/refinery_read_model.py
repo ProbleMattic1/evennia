@@ -18,6 +18,7 @@ from typeclasses.refining import (
     Refinery,
     plant_raw_resource_display_name,
     refined_payout_breakdown,
+    refining_recipe_allowed_for_character,
 )
 from typeclasses.haulers import get_plant_player_storage
 from web.ui.control_surface import _empty_personal_storage_payload, _serialize_personal_storage
@@ -47,11 +48,15 @@ def _plant_silo_tons_by_key(room, char) -> dict[str, float]:
     return out
 
 
-def serialize_refining_recipes_catalog() -> list[dict[str, Any]]:
-    """Full ``REFINING_RECIPES`` as JSON rows for the UI."""
+def serialize_refining_recipes_catalog(char=None) -> list[dict[str, Any]]:
+    """``REFINING_RECIPES`` as JSON rows for the UI; filters gated rows per character."""
     rows: list[dict[str, Any]] = []
     for key in sorted(REFINING_RECIPES.keys(), key=str):
         recipe = REFINING_RECIPES[key]
+        if char is not None:
+            ok, _ = refining_recipe_allowed_for_character(char, key)
+            if not ok:
+                continue
         rows.append(
             {
                 "key": key,
@@ -125,7 +130,7 @@ def build_main_refinery_payload(room, *, char=None, venue_id: str | None = None)
         return None
 
     ref = refineries[0]
-    recipes = serialize_refining_recipes_catalog()
+    recipes = serialize_refining_recipes_catalog(char)
 
     out: dict[str, Any] = {
         "plantName": room.key,

@@ -17,7 +17,15 @@ class FeedRecipeBatchToMinerQueueTests(SimpleTestCase):
         self.mock_ref.key = "test-refinery"
         self.mock_silo = SimpleNamespace()
         self.mock_silo.db = SimpleNamespace(inventory={})
-        self.char = SimpleNamespace(id=99, key="tester")
+
+        class _Ch:
+            def has_refining_recipe_unlock(self, _k):
+                return True
+
+            def license_tier(self, _k):
+                return 99
+
+        self.char = SimpleNamespace(id=99, key="tester", challenges=_Ch())
 
     def _patch_deps(self):
         return patch.multiple(

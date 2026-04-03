@@ -9,6 +9,7 @@ from typeclasses.refining import (
     PROCESSING_PLANT_VENDOR_ACCOUNT,
     REFINING_RECIPES,
     Refinery,
+    refining_recipe_allowed_for_character,
     execute_refined_payout_from_treasury,
     is_plant_raw_resource_key,
     plant_raw_resource_display_name,
@@ -117,6 +118,10 @@ def feed_recipe_batch_to_miner_queue(char, venue_id: str, recipe_key: str) -> tu
     recipe = REFINING_RECIPES.get(rk)
     if not recipe:
         return False, "Unknown recipe."
+
+    ok_gate, gate_msg = refining_recipe_allowed_for_character(char, rk)
+    if not ok_gate:
+        return False, gate_msg
 
     inputs = recipe.get("inputs") or {}
     if not inputs:

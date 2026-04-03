@@ -81,6 +81,11 @@ from world.time import (
     utc_now,
     window_key_for_cadence,
 )
+from world.point_store.point_store_loader import (
+    all_point_offers,
+    get_point_offer,
+    serialize_offer_for_web,
+)
 
 CHALLENGE_ATTR_KEY = "_challenges"
 CHALLENGE_ATTR_CATEGORY = "challenges"
@@ -96,6 +101,12 @@ PIPELINES_CAP = 20
 # Sanity cap for staff-editable JSON (single grant).
 MAX_SINGLE_CHALLENGE_CREDITS_GRANT = 1_000_000
 
+# Default perk slots before point-store bonuses.
+DEFAULT_PERK_SLOT_TOTAL = 2
+
+# When reading license tier, if character has no explicit value use this floor.
+LICENSE_READ_BASELINE: dict[str, int] = {}
+
 
 def _blank_state() -> dict[str, Any]:
     return {
@@ -106,6 +117,13 @@ def _blank_state() -> dict[str, Any]:
         "points_lifetime": 0,
         "points_season": 0,
         "season_id": "",
+        "pointPurchases": {},
+        "unlockTags": [],
+        "perkSlotTotal": DEFAULT_PERK_SLOT_TOTAL,
+        "ownedPerks": [],
+        "equippedPerks": [],
+        "licenseTiers": {},
+        "unlockedRefiningRecipes": [],
         "telemetry": {
             "zones_today": [],
             "rooms_today": [],
@@ -169,6 +187,13 @@ class ChallengeHandler:
         state.setdefault("points_lifetime", 0)
         state.setdefault("points_season", 0)
         state.setdefault("season_id", "")
+        state.setdefault("pointPurchases", {})
+        state.setdefault("unlockTags", [])
+        state.setdefault("perkSlotTotal", DEFAULT_PERK_SLOT_TOTAL)
+        state.setdefault("ownedPerks", [])
+        state.setdefault("equippedPerks", [])
+        state.setdefault("licenseTiers", {})
+        state.setdefault("unlockedRefiningRecipes", [])
 
     def _save(self) -> None:
         self.obj.attributes.add(
@@ -545,6 +570,156 @@ class ChallengeHandler:
         self._state.setdefault("windows", {})[cadence] = new_key
 
     # ------------------------------------------------------------------
+    # Challenge point store
+    # ------------------------------------------------------------------
+
+    def purchase_count(self, offer_id: str) -> int:
+        oid = str(offer_id or "").strip()
+        if not oid:
+            return 0
+        row = (self._state.get("pointPurchases") or {}).get(oid) or {}
+        return max(0, int(row.get("count") or 0))
+
+    def has_unlock_tag(self, tag: str) -> bool:
+        return str(tag).strip() in set(self._state.get("unlockTags") or [])
+
+    def equipped_perk_ids(self) -> list[str]:
+        return [str(x).strip() for x in (self._state.get("equippedPerks") or []) if str(x).strip()]
+
+    def perk_slot_total(self) -> int:
+        return max(0, int(self._state.get("perkSlotTotal") or DEFAULT_PERK_SLOT_TOTAL))
+
+    def license_tier(self, key: str) -> int:
+        k = str(key or "").strip()
+        if not k:
+            return 0
+        stored = (self._state.get("licenseTiers") or {}).get(k)
+        if stored is not None:
+            return max(0, int(stored))
+        return max(0, int(LICENSE_READ_BASELINE.get(k, 0)))
+
+    def has_refining_recipe_unlock(self, recipe_key: str) -> bool:
+        rk = str(recipe_key or "").strip()
+        if not rk:
+            return False
+        return rk in set(self._state.get("unlockedRefiningRecipes") or [])
+
+    def _increment_purchase_record(self, offer_id: str) -> None:
+        pp = dict(self._state.get("pointPurchases") or {})
+        prev = pp.get(offer_id) or {}
+        pp[offer_id] = {
+            "count": int(prev.get("count") or 0) + 1,
+            "lastAt": to_iso(utc_now()),
+        }
+        self._state["pointPurchases"] = pp
+
+    def _decrement_purchase_record(self, offer_id: str) -> None:
+        pp = dict(self._state.get("pointPurchases") or {})
+        prev = pp.get(offer_id) or {}
+        n = int(prev.get("count") or 0) - 1
+        if n <= 0:
+            pp.pop(offer_id, None)
+        else:
+            pp[offer_id] = {**prev, "count": n}
+        self._state["pointPurchases"] = pp
+
+    def _bump_perk_slots(self, delta: int) -> None:
+        self._state["perkSlotTotal"] = self.perk_slot_total() + int(delta)
+
+    def _grant_and_try_equip_perk(self, perk_id: str) -> None:
+        owned = list(self._state.get("ownedPerks") or [])
+        if perk_id not in owned:
+            owned.append(perk_id)
+            self._state["ownedPerks"] = owned[-200:]
+        eq = [str(x) for x in (self._state.get("equippedPerks") or []) if str(x).strip()]
+        if perk_id not in eq and len(eq) < self.perk_slot_total():
+            eq.append(perk_id)
+        self._state["equippedPerks"] = eq[-50:]
+
+    def _add_unlock_tags(self, tags: list[str]) -> None:
+        cur = list(self._state.get("unlockTags") or [])
+        s = set(cur)
+        for t in tags:
+            if t and t not in s:
+                cur.append(t)
+                s.add(t)
+        self._state["unlockTags"] = cur[-500:]
+
+    def _set_license_tier_floor(self, license_key: str, tier: int) -> None:
+        lt = dict(self._state.get("licenseTiers") or {})
+        cur = lt.get(license_key)
+        if cur is None:
+            cur = LICENSE_READ_BASELINE.get(license_key, 0)
+        else:
+            cur = int(cur)
+        lt[license_key] = max(cur, int(tier))
+        self._state["licenseTiers"] = lt
+
+    def _unlock_refining_recipes(self, keys: list[str]) -> None:
+        cur = list(self._state.get("unlockedRefiningRecipes") or [])
+        s = set(cur)
+        for k in keys:
+            if k and k not in s:
+                cur.append(k)
+                s.add(k)
+        self._state["unlockedRefiningRecipes"] = cur[-500:]
+
+    def purchase_offer(self, offer_id: str) -> tuple[bool, str]:
+        """
+        Spend challenge points for a catalog offer. Credits are never used.
+        On effect failure, points and purchase count are rolled back.
+        """
+        from world.point_store.effects import apply_effect
+
+        oid = str(offer_id or "").strip()
+        row = get_point_offer(oid)
+        if not row or not row.get("enabled", True):
+            return False, "Unknown or disabled offer."
+
+        for pr in row.get("prerequisiteOfferIds") or []:
+            if self.purchase_count(pr) < 1:
+                return False, f"Requires prerequisite offer {pr!r}."
+
+        max_p = row.get("maxPurchasesPerCharacter")
+        if max_p is not None and self.purchase_count(oid) >= int(max_p):
+            return False, "Maximum purchases for this offer reached."
+
+        cl = int(row["costLifetime"] or 0)
+        cs = int(row["costSeason"] or 0)
+        season_need = row.get("seasonId")
+        char_season = str(self._state.get("season_id") or "")
+        if cs > 0:
+            if not char_season.strip():
+                return False, "Season is not active; seasonal offers are unavailable."
+            if season_need and str(season_need).strip() != char_season.strip():
+                return False, "This offer is not available in the current season."
+
+        pl = int(self._state.get("points_lifetime") or 0)
+        ps = int(self._state.get("points_season") or 0)
+        if pl < cl or ps < cs:
+            return False, "Not enough challenge points."
+
+        self._state["points_lifetime"] = pl - cl
+        self._state["points_season"] = ps - cs
+        self._increment_purchase_record(oid)
+        setattr(self, "_effect_offer_id", oid)
+        try:
+            apply_effect(self, dict(row["effect"]))
+        except Exception as exc:
+            self._state["points_lifetime"] = pl
+            self._state["points_season"] = ps
+            self._decrement_purchase_record(oid)
+            logger.log_err(f"[point_store] purchase_offer effect failed {self.obj.key} {oid}: {exc}")
+            return False, f"Purchase failed: {exc}"
+        finally:
+            if hasattr(self, "_effect_offer_id"):
+                delattr(self, "_effect_offer_id")
+
+        self._save()
+        logger.log_info(f"[point_store] purchase {self.obj.key} offer={oid} -{cl}LT -{cs}SS")
+        return True, "Purchased."
+
+    # ------------------------------------------------------------------
     # Web serialization
     # ------------------------------------------------------------------
 
@@ -572,6 +747,50 @@ class ChallengeHandler:
             tmpl = get_challenge_template(cid) or {}
             out["title"] = str(tmpl.get("title") or "")
             recent_history.append(out)
+        offers_pub = []
+        for off in all_point_offers():
+            if not off.get("enabled", True):
+                continue
+            ser = serialize_offer_for_web(off)
+            cid = ser["id"]
+            ser["purchasedCount"] = self.purchase_count(cid)
+            plb = int(self._state.get("points_lifetime") or 0)
+            psb = int(self._state.get("points_season") or 0)
+            ser["canAfford"] = plb >= int(off.get("costLifetime") or 0) and psb >= int(
+                off.get("costSeason") or 0
+            )
+            prereq_ok = True
+            for pr in off.get("prerequisiteOfferIds") or []:
+                if self.purchase_count(pr) < 1:
+                    prereq_ok = False
+                    break
+            ser["prerequisitesMet"] = prereq_ok
+            max_p = off.get("maxPurchasesPerCharacter")
+            if max_p is not None and self.purchase_count(cid) >= int(max_p):
+                ser["soldOut"] = True
+            else:
+                ser["soldOut"] = False
+            cseason = int(off.get("costSeason") or 0)
+            char_season = str(self._state.get("season_id") or "").strip()
+            need_season = str(off.get("seasonId") or "").strip()
+            season_ok = True
+            if cseason > 0:
+                season_ok = bool(char_season) and (not need_season or need_season == char_season)
+            ser["seasonOk"] = season_ok
+            ser["canPurchase"] = (
+                bool(off.get("enabled", True))
+                and ser["prerequisitesMet"]
+                and not ser["soldOut"]
+                and ser["canAfford"]
+                and season_ok
+            )
+            offers_pub.append(ser)
+
+        purchase_summary = {
+            k: int((v or {}).get("count") or 0)
+            for k, v in (self._state.get("pointPurchases") or {}).items()
+        }
+
         return {
             "active": active_payload,
             "history": recent_history,
@@ -579,4 +798,8 @@ class ChallengeHandler:
             "pointsLifetime": int(self._state.get("points_lifetime") or 0),
             "pointsSeason": int(self._state.get("points_season") or 0),
             "seasonId": str(self._state.get("season_id") or ""),
+            "pointOffers": offers_pub,
+            "pointPurchases": purchase_summary,
+            "perkSlotTotal": self.perk_slot_total(),
+            "equippedPerks": self.equipped_perk_ids(),
         }

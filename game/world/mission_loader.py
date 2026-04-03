@@ -133,6 +133,16 @@ def _normalize_mission_row(raw: dict, _ref: str) -> tuple[dict | None, str | Non
             "cooldownSeconds": int((raw.get("eligibility") or {}).get("cooldownSeconds") or 0),
             "maxActive": int((raw.get("eligibility") or {}).get("maxActive") or 1),
             "once": bool((raw.get("eligibility") or {}).get("once", False)),
+            "requiresOfferIds": [
+                str(v).strip()
+                for v in list((raw.get("eligibility") or {}).get("requiresOfferIds") or [])
+                if str(v).strip()
+            ],
+            "requiresUnlockTags": [
+                str(v).strip()
+                for v in list((raw.get("eligibility") or {}).get("requiresUnlockTags") or [])
+                if str(v).strip()
+            ],
         },
         "rewards": dict(raw.get("rewards") or {}),
         "objectives": objectives,
