@@ -284,7 +284,7 @@ _KIOSK_HREF = {
 }
 
 
-def _serialize_nav(char, resources):
+def _serialize_nav(char, resources, *, room_exit_rows=None):
     from world.bootstrap_shops import all_item_shop_specs
     from world.venues import all_venue_ids, get_venue
 
@@ -295,13 +295,16 @@ def _serialize_nav(char, resources):
     # room key is "NanoMegaPlex Promenade"; shops connect to it via a "promenade"
     # exit, but that exit lives only on the shop room — not on the hub object.
     # Using only hub exits here would hide the Promenade button when inside shops.
-    room_for_exits = None
-    if char and getattr(char, "location", None):
-        room_for_exits = char.location
-    elif hub:
-        room_for_exits = hub
+    if room_exit_rows is not None:
+        all_exits = room_exit_rows
+    else:
+        room_for_exits = None
+        if char and getattr(char, "location", None):
+            room_for_exits = char.location
+        elif hub:
+            room_for_exits = hub
 
-    all_exits = _room_exits(room_for_exits) if room_for_exits else []
+        all_exits = _room_exits(room_for_exits) if room_for_exits else []
 
     kiosk_from_exits = []
     exits = []
@@ -604,9 +607,13 @@ def control_surface_state(request):
     personal_storage = _serialize_personal_storage(char)
     properties, property_ref_total = _dashboard_property_portfolio(char)
     processing = _serialize_processing_summary(char)
-    nav = _serialize_nav(char, resources)
     loc = getattr(char, "location", None)
-    room_exits = _room_exits(loc) if loc else []
+    if loc:
+        room_exits = _room_exits(loc)
+        nav = _serialize_nav(char, resources, room_exit_rows=room_exits)
+    else:
+        room_exits = []
+        nav = _serialize_nav(char, resources)
     room_ambient = resolve_room_ambient(loc) if loc else None
     room_venue_id = resolve_room_venue_id(loc) if loc else None
 

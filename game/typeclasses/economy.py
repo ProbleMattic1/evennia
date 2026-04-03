@@ -205,7 +205,7 @@ class EconomyEngine(Script):
         )
         return new_balance
 
-    def transfer(self, from_account, to_account, amount, memo=""):
+    def transfer(self, from_account, to_account, amount, memo="", *, tx_type=None, extra=None):
         amount = int(amount or 0)
         if amount < 0:
             raise ValueError("transfer amount must be >= 0")
@@ -220,11 +220,12 @@ class EconomyEngine(Script):
         self.set_balance(from_account, current - amount)
         self.set_balance(to_account, self.get_balance(to_account) + amount)
         self.record_transaction(
-            tx_type="transfer",
+            tx_type=tx_type or "transfer",
             amount=amount,
             from_account=from_account,
             to_account=to_account,
             memo=memo,
+            extra=extra,
         )
         return {
             "from_balance": self.get_balance(from_account),

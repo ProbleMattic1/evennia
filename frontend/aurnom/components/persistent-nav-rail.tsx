@@ -410,10 +410,13 @@ function NavPanel({
       setTravelError(null);
       try {
         const res = await playTravel({ destination });
-        onPuppetLocationChanged();
-        router.push(webNavigatePathFromPlayResult(res));
+        const path = webNavigatePathFromPlayResult(res);
+        router.push(path);
         router.refresh();
         onTravelComplete();
+        queueMicrotask(() => {
+          onPuppetLocationChanged();
+        });
       } catch (e) {
         setTravelError(e instanceof Error ? e.message : "Travel failed.");
       } finally {

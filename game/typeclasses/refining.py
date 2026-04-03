@@ -171,7 +171,14 @@ def settle_plant_raw_purchase_from_treasury(
     total_gross = sum(int(b.get("gross") or 0) for b in breakdown)
     total_fee = sum(int(b.get("fee") or 0) for b in breakdown)
 
-    econ.transfer(treasury_acct, miner_acct, total_net, memo=memo)
+    econ.transfer(
+        treasury_acct,
+        miner_acct,
+        total_net,
+        memo=memo,
+        tx_type="plant_raw_intake",
+        extra={"breakdown": breakdown, "bank_id": bank_id},
+    )
     owner.db.credits = econ.get_balance(miner_acct)
     econ.db.tax_pool = econ.get_balance(treasury_acct)
     econ.record_miner_treasury_payout(total_net, gross=total_gross, fee=total_fee)
@@ -181,15 +188,6 @@ def settle_plant_raw_purchase_from_treasury(
         _c_emit(owner, "mine_deposit" if raw_pipeline == "mining" else f"{raw_pipeline}_deposit", {})
     except Exception:
         pass
-
-    econ.record_transaction(
-        tx_type="plant_raw_intake",
-        amount=total_net,
-        from_account=treasury_acct,
-        to_account=miner_acct,
-        memo=memo,
-        extra={"breakdown": breakdown, "bank_id": bank_id},
-    )
     return total_net
 
 

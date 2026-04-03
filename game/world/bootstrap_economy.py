@@ -14,7 +14,7 @@ SCRIPT_PATH = "typeclasses.economy.EconomyEngine"
 SCRIPT_KEY = "global_economy"
 
 # Seeded on first ledger creation for treasury:alpha-prime only (see bootstrap loop).
-INITIAL_ALPHA_PRIME_TREASURY_CR = 10_000_000_000
+INITIAL_ALPHA_PRIME_TREASURY_CR = 100_000_000_000
 
 COMMODITY_DEMAND_PATH = "typeclasses.commodity_demand.CommodityDemandEngine"
 COMMODITY_DEMAND_KEY = "commodity_demand"
