@@ -825,7 +825,12 @@ class CmdCollectRefined(Command):
             )
             return
 
-        bd_pre = refined_payout_breakdown(gross_pre, PROCESSING_FEE_RATE)
+        from world.point_store.perk_resolver import clamped_fee_rate, processing_fee_multiplier
+
+        eff_fee = clamped_fee_rate(
+            PROCESSING_FEE_RATE, processing_fee_multiplier(caller)
+        )
+        bd_pre = refined_payout_breakdown(gross_pre, eff_fee)
 
         from typeclasses.economy import get_economy
 
@@ -846,8 +851,8 @@ class CmdCollectRefined(Command):
             )
             return
 
-        products, gross, fee = ref.collect_miner_output(caller.id, fee_rate=PROCESSING_FEE_RATE)
-        bd = refined_payout_breakdown(gross, PROCESSING_FEE_RATE)
+        products, gross, fee = ref.collect_miner_output(caller.id, fee_rate=eff_fee)
+        bd = refined_payout_breakdown(gross, eff_fee)
 
         if econ.get_balance(treasury_acct) < bd["required_from_treasury"]:
             restore_miner_output_for_payout(ref, str(caller.id), products)
@@ -865,7 +870,7 @@ class CmdCollectRefined(Command):
             lines.append(f"  {name:<30} {units:>8.2f} units   |y{val:>10,}|n cr")
         lines.append(f"  {'Gross value':<30}            |y{gross:>10,}|n cr")
         lines.append(
-            f"  {'Processing fee ({:.0%}, retained by treasury)'.format(PROCESSING_FEE_RATE):<30}"
+            f"  {'Processing fee ({:.0%}, retained by treasury)'.format(eff_fee):<30}"
             f"            |r{fee:>10,}|n cr"
         )
         lines.append(f"  {'Net from treasury':<30}            |g{bd['net']:>10,}|n cr")

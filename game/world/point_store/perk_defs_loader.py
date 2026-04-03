@@ -12,6 +12,25 @@ from world.json_bulk_loader import discover_chunk_paths, merge_validated_rows
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 _LEGACY = _DATA_DIR / "perk_defs.json"
 
+# (json_key, min_inclusive, max_inclusive)
+_MECHANIC_FLOAT_KEYS: tuple[tuple[str, float, float], ...] = (
+    ("miningOutputMult", 0.05, 5.0),
+    ("processingFeeMult", 0.05, 2.0),
+    ("rawSaleFeeMult", 0.05, 2.0),
+    ("extractionTaxMult", 0.05, 2.0),
+    ("miningDepletionMult", 0.05, 1.0),
+    ("hazardRaidStealMult", 0.05, 1.0),
+    ("hazardGeoFloorMult", 0.05, 1.0),
+    ("rigWearGainMult", 0.05, 1.0),
+    ("missionCreditsMult", 0.05, 5.0),
+    ("challengePointsMult", 0.05, 5.0),
+    ("challengeCreditsMult", 0.05, 5.0),
+    ("refiningBatchOutputMult", 0.05, 5.0),
+    ("rigRepairCostMult", 0.05, 2.0),
+    ("propertyIncidentBonusMult", 0.05, 5.0),
+    ("miningLicenseFeeMult", 0.05, 2.0),
+)
+
 _registry: dict[str, Any] = {
     "version": 0,
     "by_id": {},
@@ -19,14 +38,34 @@ _registry: dict[str, Any] = {
 }
 
 
-def _normalize_perk_row(raw: dict, _ref: str) -> tuple[dict | None, str | None]:
+def _float_field(raw: dict, key: str, lo: float, hi: float, ref: str) -> tuple[float | None, str | None]:
+    if key not in raw:
+        return 1.0, None
+    try:
+        v = float(raw[key])
+    except (TypeError, ValueError):
+        return None, f"{ref}: {key} must be a number"
+    if v < lo or v > hi:
+        return None, f"{ref}: {key} must be between {lo} and {hi}, got {v}"
+    return v, None
+
+
+def _normalize_perk_row(raw: dict, ref: str) -> tuple[dict | None, str | None]:
     pid = str(raw.get("id") or "").strip()
     if not pid:
         return None, "empty id"
+    title = str(raw.get("title") or "").strip()
+    summary = str(raw.get("summary") or "").strip()
     row: dict[str, Any] = {
         "id": pid,
-        "miningOutputMult": float(raw.get("miningOutputMult") or 1.0),
+        "title": title or pid,
+        "summary": summary,
     }
+    for key, lo, hi in _MECHANIC_FLOAT_KEYS:
+        val, err = _float_field(raw, key, lo, hi, ref)
+        if err:
+            return None, err
+        row[key] = float(val)
     return row, None
 
 
@@ -77,4 +116,4 @@ def get_perk_def(perk_id: str) -> dict | None:
 
 def perk_def_registry_errors() -> tuple[str, ...]:
     _ensure_loaded()
-    return tuple(_registry.get("errors") or ())
+    return tuple(_registry.get("errors") or [])

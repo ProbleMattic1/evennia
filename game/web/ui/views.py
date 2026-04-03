@@ -4274,3 +4274,70 @@ def challenges_purchase(request):
         "message": result_msg,
         "challenges": char.challenges.serialize_for_web(),
     })
+
+
+@csrf_exempt
+@require_POST
+def challenges_perk_loadout(request):
+    """
+    POST /ui/challenges/perk-loadout — set equipped perk order (body: equippedPerkIds).
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"ok": False, "code": "AUTH_REQUIRED", "message": "Authentication required."},
+            status=401,
+        )
+
+    body = _json_body(request)
+    raw_list = body.get("equippedPerkIds")
+    if not isinstance(raw_list, list):
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "equippedPerkIds must be a list."},
+            status=400,
+        )
+    ordered = [str(x).strip() for x in raw_list if str(x).strip()]
+
+    if not cache.add(f"perk_loadout:{request.user.id}", 1, timeout=2):
+        return JsonResponse(
+            {"ok": False, "code": "RATE_LIMIT", "message": "Too many requests; try again shortly."},
+            status=429,
+        )
+
+    char, msg = _resolve_character_for_web(request.user)
+    if char is None:
+        return JsonResponse(
+            {"ok": False, "code": "CHARACTER_UNAVAILABLE", "message": msg or "Character unavailable."},
+            status=400,
+        )
+
+    try:
+        char.challenges.sync_all_windows()
+        char.challenges.evaluate_window()
+        ok, result_msg = char.challenges.set_equipped_perks(ordered)
+    except Exception as exc:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "PERK_LOADOUT_FAILED",
+                "message": f"Could not update loadout: {exc}",
+            },
+            status=500,
+        )
+
+    if not ok:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "PERK_LOADOUT_REJECTED",
+                "message": result_msg or "Loadout rejected.",
+            },
+            status=400,
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": result_msg,
+            "challenges": char.challenges.serialize_for_web(),
+        }
+    )

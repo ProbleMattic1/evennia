@@ -185,6 +185,7 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
     from typeclasses.haulers import (
         HAULER_ENGINE_INTERVAL,
         HAULER_PICKUP_OFFSET_SEC,
+        effective_haul_local_plant_fill_fraction,
         set_hauler_next_cycle,
     )
 
@@ -245,9 +246,16 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         owned_vehicles.append(hauler)
     buyer.db.owned_vehicles = owned_vehicles
 
-    if getattr(buyer.db, "haul_delivers_to_local_raw_storage", False) and getattr(
-        buyer.db, "haul_destination_room", None
-    ):
+    use_local = bool(getattr(buyer.db, "haul_delivers_to_local_raw_storage", False))
+    split = bool(getattr(buyer.db, "haul_local_reserve_then_plant", False))
+    if use_local and hdr and split:
+        pct = int(round(effective_haul_local_plant_fill_fraction(buyer) * 100))
+        dest_note = (
+            f"  Autonomous hauls fill your local raw reserve at {buyer.db.haul_destination_room.key} "
+            f"to {pct}% of its capacity, then sell the remainder to the Ore Receiving Bay at {refinery_room.key} "
+            f"(plant raw purchase on the bay portion).\n"
+        )
+    elif use_local and hdr:
         dest_note = (
             f"  Autonomous hauls deliver to your local raw reserve "
             f"at {buyer.db.haul_destination_room.key} (no plant payout on unload).\n"
@@ -274,6 +282,7 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
     from typeclasses.haulers import (
         HAULER_ENGINE_INTERVAL,
         HAULER_PICKUP_OFFSET_SEC,
+        effective_haul_local_plant_fill_fraction,
         set_hauler_next_cycle,
     )
 
@@ -330,9 +339,16 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
         owned_vehicles.append(hauler)
     buyer.db.owned_vehicles = owned_vehicles
 
-    if getattr(buyer.db, "haul_delivers_to_local_raw_storage", False) and getattr(
-        buyer.db, "haul_destination_room", None
-    ):
+    use_local = bool(getattr(buyer.db, "haul_delivers_to_local_raw_storage", False))
+    split = bool(getattr(buyer.db, "haul_local_reserve_then_plant", False))
+    if use_local and hdr and split:
+        pct = int(round(effective_haul_local_plant_fill_fraction(buyer) * 100))
+        dest_note = (
+            f"  Autonomous hauls fill your local raw reserve at {buyer.db.haul_destination_room.key} "
+            f"to {pct}% of its capacity, then sell the remainder to the Ore Receiving Bay at {refinery_room.key} "
+            f"(plant raw purchase on the bay portion)."
+        )
+    elif use_local and hdr:
         dest_note = (
             f"  Autonomous hauls deliver to your local raw reserve "
             f"at {buyer.db.haul_destination_room.key} (no plant payout on unload)."

@@ -5,7 +5,8 @@ Four FloraSite and four FaunaSite per colony. Owners: first four NPC mine employ
 each unit list; the fifth employee remains mining-only.
 
 Cold start: after bootstrap_flora_engine, bootstrap_fauna_engine, bootstrap_haulers,
-bootstrap_npc_industrial_miners, bootstrap_npc_nanomega_industrial_miners.
+bootstrap_npc_industrial_miners, bootstrap_npc_nanomega_industrial_miners,
+bootstrap_npc_hybrid_buffer_colony, bootstrap_npc_tiered_split_colonies.
 """
 
 from __future__ import annotations
@@ -415,8 +416,67 @@ def _bootstrap_bio_core_industrial_grid():
     _bootstrap_fauna_track(venue_id, bio, owners, log_prefix)
 
 
+def _bootstrap_bio_split_buffer_colony_grid(
+    units: list,
+    bio: dict,
+    log_prefix: str,
+    local_plant_fill_fraction,
+):
+    from world.bootstrap_npc_split_buffer_colony import (
+        apply_split_buffer_colony_haul_attrs,
+        sync_split_buffer_hauler_destinations,
+    )
+
+    venue_id = CORE_RESOURCE_BIO_VENUE_ID
+    account = _target_account()
+    if not account:
+        print(f"{log_prefix} No admin/superuser account; skip.")
+        return
+    if len(units) < 4:
+        print(f"{log_prefix} need >=4 mine employees for flora/fauna; skip.")
+        return
+    owners = _owners_for_units(account, units, log_prefix)
+    if not owners:
+        return
+    for o in owners:
+        try:
+            if apply_split_buffer_colony_haul_attrs(o, local_plant_fill_fraction):
+                sync_split_buffer_hauler_destinations(o)
+        except ValueError as e:
+            print(f"{log_prefix} haul attrs for {o.key!r}: {e}; skip owner sync.")
+    _bootstrap_flora_track(venue_id, bio, owners, log_prefix)
+    _bootstrap_fauna_track(venue_id, bio, owners, log_prefix)
+
+
+def _bootstrap_bio_hybrid_buffer_colony_grid():
+    from world.hybrid_colony_constants import HYBRID_SPLIT_BUFFER_BOOTSTRAP
+
+    s = HYBRID_SPLIT_BUFFER_BOOTSTRAP
+    _bootstrap_bio_split_buffer_colony_grid(
+        s["npc_units"],
+        s["resource_bio"],
+        "[resource-colony-bio:hybrid-buffer]",
+        s["local_plant_fill_fraction"],
+    )
+
+
+def _bootstrap_bio_tiered_split_colonies():
+    from world.tiered_split_colony_constants import TIERED_SPLIT_COLONY_SPECS
+
+    for spec in TIERED_SPLIT_COLONY_SPECS:
+        slug = spec["tier_log_slug"]
+        _bootstrap_bio_split_buffer_colony_grid(
+            spec["npc_units"],
+            spec["resource_bio"],
+            f"[resource-colony-bio:tiered-split:{slug}]",
+            spec["local_plant_fill_fraction"],
+        )
+
+
 def bootstrap_npc_resource_colony_bio():
     for venue_id in all_venue_ids():
         _bootstrap_bio_for_venue(venue_id)
     _bootstrap_bio_core_industrial_grid()
+    _bootstrap_bio_hybrid_buffer_colony_grid()
+    _bootstrap_bio_tiered_split_colonies()
     print("[resource-colony-bio] Bootstrap complete.")

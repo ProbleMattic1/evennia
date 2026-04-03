@@ -81,11 +81,12 @@ from world.time import (
     utc_now,
     window_key_for_cadence,
 )
-from world.point_store.point_store_loader import (
+from world.point_store import (
     all_point_offers,
     get_point_offer,
     serialize_offer_for_web,
 )
+from world.point_store.perk_defs_loader import get_perk_def
 
 CHALLENGE_ATTR_KEY = "_challenges"
 CHALLENGE_ATTR_CATEGORY = "challenges"
@@ -422,6 +423,18 @@ class ChallengeHandler:
         pts = max(0, int(rewards.get("challengePoints") or 0))
         cr = max(0, min(int(rewards.get("credits") or 0), MAX_SINGLE_CHALLENGE_CREDITS_GRANT))
 
+        from world.point_store.perk_resolver import (
+            challenge_credits_multiplier,
+            challenge_points_multiplier,
+        )
+
+        if pts:
+            m = challenge_points_multiplier(self.obj)
+            pts = max(0, int(round(pts * m)))
+        if cr:
+            m = challenge_credits_multiplier(self.obj)
+            cr = max(0, min(int(round(cr * m)), MAX_SINGLE_CHALLENGE_CREDITS_GRANT))
+
         if pts:
             self._state["points_lifetime"] = int(self._state.get("points_lifetime") or 0) + pts
             self._state["points_season"] = int(self._state.get("points_season") or 0) + pts
@@ -585,6 +598,34 @@ class ChallengeHandler:
 
     def equipped_perk_ids(self) -> list[str]:
         return [str(x).strip() for x in (self._state.get("equippedPerks") or []) if str(x).strip()]
+
+    def owned_perk_ids(self) -> list[str]:
+        return [str(x).strip() for x in (self._state.get("ownedPerks") or []) if str(x).strip()]
+
+    def set_equipped_perks(self, ordered_ids: list[str]) -> tuple[bool, str]:
+        """
+        Replace equipped loadout order. Each id must be owned; no duplicates;
+        length at most perk_slot_total().
+        """
+        seen: set[str] = set()
+        clean: list[str] = []
+        for raw in ordered_ids or []:
+            pid = str(raw or "").strip()
+            if not pid:
+                return False, "Empty perk id in loadout."
+            if pid in seen:
+                return False, f"Duplicate perk id {pid!r} in loadout."
+            seen.add(pid)
+            clean.append(pid)
+        owned = set(self.owned_perk_ids())
+        for pid in clean:
+            if pid not in owned:
+                return False, f"Perk {pid!r} is not owned."
+        if len(clean) > self.perk_slot_total():
+            return False, "Too many perks for available slots."
+        self._state["equippedPerks"] = clean
+        self._save()
+        return True, "Loadout updated."
 
     def perk_slot_total(self) -> int:
         return max(0, int(self._state.get("perkSlotTotal") or DEFAULT_PERK_SLOT_TOTAL))
@@ -791,6 +832,21 @@ class ChallengeHandler:
             for k, v in (self._state.get("pointPurchases") or {}).items()
         }
 
+        owned_ids = self.owned_perk_ids()
+        perk_catalog: list[dict[str, str]] = []
+        for pid in owned_ids:
+            d = get_perk_def(pid)
+            if not d:
+                perk_catalog.append({"id": pid, "title": pid, "summary": ""})
+            else:
+                perk_catalog.append(
+                    {
+                        "id": pid,
+                        "title": str(d.get("title") or pid),
+                        "summary": str(d.get("summary") or ""),
+                    }
+                )
+
         return {
             "active": active_payload,
             "history": recent_history,
@@ -801,5 +857,7 @@ class ChallengeHandler:
             "pointOffers": offers_pub,
             "pointPurchases": purchase_summary,
             "perkSlotTotal": self.perk_slot_total(),
+            "ownedPerks": owned_ids,
             "equippedPerks": self.equipped_perk_ids(),
+            "perkCatalog": perk_catalog,
         }

@@ -1,6 +1,8 @@
 [
   {
     "id": "smoke_yield_pin",
+    "title": "Yield Pin (smoke)",
+    "summary": "Slight mining cycle output adjustment (server-side).",
     "miningOutputMult": 1.02
   }
 ]

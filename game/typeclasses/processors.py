@@ -140,9 +140,14 @@ class PortableProcessor(ObjectParent, DefaultObject):
         self.db.input_inventory = inv
 
         efficiency = float(self.db.efficiency or 1.0)
+        perk_m = 1.0
+        if operator is not None:
+            from world.point_store.perk_resolver import refining_batch_output_multiplier
+
+            perk_m = refining_batch_output_multiplier(operator)
         out_inv = self.db.output_inventory or {}
         base_units = recipe.get("output_units", 1) * possible
-        units_produced = round(float(base_units) * efficiency, 2)
+        units_produced = round(float(base_units) * efficiency * perk_m, 2)
         out_inv[recipe_key] = round(float(out_inv.get(recipe_key, 0.0)) + units_produced, 2)
         self.db.output_inventory = out_inv
 

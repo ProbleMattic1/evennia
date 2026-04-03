@@ -481,6 +481,9 @@ class CmdLicenseSite(Command):
 
         target_level = current_level + 1
         cost = LICENSE_COST.get(target_level, 0)
+        from world.point_store.perk_resolver import mining_license_fee_multiplier
+
+        cost = max(1, int(round(cost * mining_license_fee_multiplier(caller))))
 
         econ = get_economy(create_missing=True)
         acct = econ.get_character_account(caller)

@@ -16,7 +16,7 @@ export function SortableNavDestinationGroup({ id, children }: { id: string; chil
       <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-1">
         <button
           type="button"
-          className="mt-1 shrink-0 cursor-grab touch-none text-ui-muted hover:text-cyber-cyan active:cursor-grabbing"
+          className="mt-1 shrink-0 cursor-grab touch-none p-0 text-ui-muted hover:text-cyber-cyan active:cursor-grabbing"
           aria-label="Drag to reorder destination section"
           {...listeners}
           {...attributes}

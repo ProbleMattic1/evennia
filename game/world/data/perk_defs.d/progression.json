@@ -1,0 +1,92 @@
+[
+  {
+    "id": "yield_pin",
+    "title": "Yield Pin",
+    "summary": "Slightly more raw tonnage each mining delivery cycle.",
+    "miningOutputMult": 1.03
+  },
+  {
+    "id": "plant_auditor",
+    "title": "Plant Auditor",
+    "summary": "Slightly lower processing fee when you collect refined output.",
+    "processingFeeMult": 0.95
+  },
+  {
+    "id": "intake_broker",
+    "title": "Intake Broker",
+    "summary": "Slightly lower hassle fee when the plant buys your raw cargo.",
+    "rawSaleFeeMult": 0.95
+  },
+  {
+    "id": "crown_waiver",
+    "title": "Crown Waiver",
+    "summary": "Slightly lower extraction tax on licensed mining cycles.",
+    "extractionTaxMult": 0.92
+  },
+  {
+    "id": "reserve_geologist",
+    "title": "Reserve Geologist",
+    "summary": "Claim richness depletes a little more slowly over time.",
+    "miningDepletionMult": 0.92
+  },
+  {
+    "id": "convoy_escort",
+    "title": "Convoy Escort",
+    "summary": "Raid hazards skim a little less ore from your site storage.",
+    "hazardRaidStealMult": 0.85
+  },
+  {
+    "id": "geo_stabilizer",
+    "title": "Geo Stabilizer",
+    "summary": "Geological shocks cut output a bit less severely.",
+    "hazardGeoFloorMult": 0.88
+  },
+  {
+    "id": "pit_crew",
+    "title": "Pit Crew",
+    "summary": "Rigs accumulate wear a little more slowly each cycle.",
+    "rigWearGainMult": 0.9
+  },
+  {
+    "id": "contract_stipend",
+    "title": "Contract Stipend",
+    "summary": "Mission credit payouts are slightly higher.",
+    "missionCreditsMult": 1.05
+  },
+  {
+    "id": "cadence_analyst",
+    "title": "Cadence Analyst",
+    "summary": "Challenge point grants from claims are slightly higher.",
+    "challengePointsMult": 1.05
+  },
+  {
+    "id": "claims_adjuster",
+    "title": "Claims Adjuster",
+    "summary": "Credit grants bundled with challenge rewards are slightly higher.",
+    "challengeCreditsMult": 1.05
+  },
+  {
+    "id": "refinery_hand",
+    "title": "Refinery Hand",
+    "summary": "Each refining batch yields slightly more output for the same inputs.",
+    "refiningBatchOutputMult": 1.04
+  },
+  {
+    "id": "field_mechanic",
+    "title": "Field Mechanic",
+    "summary": "Field rig repair bills are slightly cheaper.",
+    "rigRepairCostMult": 0.9
+  },
+  {
+    "id": "property_rider",
+    "title": "Property Rider",
+    "summary": "Credit bonuses from property incidents are slightly higher.",
+    "propertyIncidentBonusMult": 1.08
+  },
+  {
+    "id": "registry_clerk",
+    "title": "Registry Clerk",
+    "summary": "In-game mining license registration costs slightly less.",
+    "miningLicenseFeeMult": 0.92
+  }
+]

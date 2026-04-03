@@ -26,11 +26,16 @@ def _apply_spawn_bonus(holding, amount: int) -> None:
     if not owner or amount <= 0:
         return
     from typeclasses.economy import get_economy
+    from world.point_store.perk_resolver import property_incident_bonus_multiplier
+
+    amt = max(0, int(round(amount * property_incident_bonus_multiplier(owner))))
+    if amt <= 0:
+        return
 
     econ = get_economy(create_missing=True)
     acct = econ.get_character_account(owner)
     econ.ensure_account(acct, opening_balance=int(owner.db.credits or 0))
-    econ.deposit(acct, int(amount), memo=f"Property incident bonus ({holding.key})")
+    econ.deposit(acct, amt, memo=f"Property incident bonus ({holding.key})")
     owner.db.credits = econ.get_balance(acct)
 
 

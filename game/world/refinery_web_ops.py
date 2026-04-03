@@ -193,7 +193,10 @@ def collect_attributed_refined(char, venue_id: str) -> tuple[bool, str]:
     if gross_pre <= 0:
         return False, "You have no refined output waiting at this plant."
 
-    bd_pre = refined_payout_breakdown(gross_pre, PROCESSING_FEE_RATE)
+    from world.point_store.perk_resolver import clamped_fee_rate, processing_fee_multiplier
+
+    eff_fee = clamped_fee_rate(PROCESSING_FEE_RATE, processing_fee_multiplier(char))
+    bd_pre = refined_payout_breakdown(gross_pre, eff_fee)
 
     econ = get_economy(create_missing=True)
     treasury_acct = econ.get_treasury_account("alpha-prime")
@@ -211,8 +214,8 @@ def collect_attributed_refined(char, venue_id: str) -> tuple[bool, str]:
             "Try again later."
         )
 
-    products, gross, fee = ref.collect_miner_output(char.id, fee_rate=PROCESSING_FEE_RATE)
-    bd = refined_payout_breakdown(gross, PROCESSING_FEE_RATE)
+    products, gross, fee = ref.collect_miner_output(char.id, fee_rate=eff_fee)
+    bd = refined_payout_breakdown(gross, eff_fee)
 
     if econ.get_balance(treasury_acct) < bd["required_from_treasury"]:
         restore_miner_output_for_payout(ref, str(char.id), products)

@@ -136,6 +136,11 @@ class MissionHandler:
         credits = int(rewards.get("credits") or 0)
         if credits <= 0:
             return
+        from world.point_store.perk_resolver import mission_credits_multiplier
+
+        credits = max(0, int(round(credits * mission_credits_multiplier(self.obj))))
+        if credits <= 0:
+            return
         try:
             from typeclasses.economy import get_economy
 

@@ -56,11 +56,14 @@ function Panel({
   title,
   children,
   className = "",
+  bodyClassName = "border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs",
 }: {
   panelKey: string;
   title: string;
   children: ReactNode;
   className?: string;
+  /** Panel body wrapper; default includes even padding. Use pl-0 when drag handles should sit flush left. */
+  bodyClassName?: string;
 }) {
   const storageKey = `aurnom:nav-panel:${panelKey}`;
   const [open, setOpen] = useState(true);
@@ -96,7 +99,7 @@ function Panel({
           className="ml-auto shrink-0"
         />
       </div>
-      {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">{children}</div> : null}
+      {open ? <div className={bodyClassName}>{children}</div> : null}
     </section>
   );
 }
@@ -247,6 +250,13 @@ function navExitGroupStorageKey(title: string) {
   return `nav-rail:exit-group:${slugifyNavSectionTitle(title)}`;
 }
 
+/** Matches SortableNavDestinationGroup: 1.25rem drag track + gap-x-1. Nested list outdent (fraction of that gutter). */
+const NAV_SECTION_NESTED_OUTDENT_FRAC = 0.6;
+const navSectionNestedOutdentStyles = {
+  marginLeft: `calc((1.25rem + 0.25rem) * ${-NAV_SECTION_NESTED_OUTDENT_FRAC})`,
+  width: `calc(100% + (1.25rem + 0.25rem) * ${NAV_SECTION_NESTED_OUTDENT_FRAC})`,
+} as const;
+
 function NavDestinationGroup({
   title,
   items,
@@ -310,7 +320,11 @@ function NavDestinationGroup({
           className="shrink-0"
         />
       </div>
-      {open ? listBody : null}
+      {open ? (
+        <div className="min-w-0" style={navSectionNestedOutdentStyles}>
+          {listBody}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -413,9 +427,13 @@ function NavPanel({
   if (filteredDestinations.length === 0) return null;
 
   return (
-    <Panel panelKey="hub-exits" title="Destinations">
+    <Panel
+      panelKey="hub-exits"
+      title="Destinations"
+      bodyClassName="border border-cyan-900/40 bg-zinc-950/80 py-1.5 pr-1.5 pl-0 text-xs"
+    >
       {travelError ? (
-        <p className="mb-1 text-xs text-red-400" role="alert">
+        <p className="mb-1 px-1.5 text-xs text-red-400" role="alert">
           {travelError}
         </p>
       ) : null}

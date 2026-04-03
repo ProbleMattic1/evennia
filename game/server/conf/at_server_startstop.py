@@ -252,6 +252,8 @@ def at_server_cold_start():
     from world.bootstrap_fauna import bootstrap_fauna_engine
     from world.bootstrap_flora import bootstrap_flora_engine
     from world.bootstrap_npc_industrial_miners import bootstrap_npc_industrial_miners
+    from world.bootstrap_npc_hybrid_buffer_colony import bootstrap_npc_hybrid_buffer_colony
+    from world.bootstrap_npc_split_buffer_colony import bootstrap_npc_tiered_split_colonies
     from world.bootstrap_npc_nanomega_industrial_miners import (
         bootstrap_npc_nanomega_industrial_miners,
     )
@@ -323,6 +325,14 @@ def at_server_cold_start():
     _run_strict(
         "NanoMegaPlex NPC industrial miners (plant supply)",
         bootstrap_npc_nanomega_industrial_miners,
+    )
+    _run_strict(
+        "Hybrid Buffer Colony NPC miners (split local / plant)",
+        bootstrap_npc_hybrid_buffer_colony,
+    )
+    _run_strict(
+        "Tiered split Resource Colonies (10/25/75/100%)",
+        bootstrap_npc_tiered_split_colonies,
     )
     _run_strict(
         "Resource colony flora/fauna (venues + industrial grid)",

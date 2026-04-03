@@ -48,6 +48,7 @@ import {
   mineDeploy,
   mineRepairRig,
   purchaseChallengeOffer,
+  setChallengePerkLoadout,
 } from "@/lib/ui-api";
 import { formatCr as cr } from "@/lib/format-units";
 import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
@@ -1217,6 +1218,11 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
     [run],
   );
 
+  const setPerkLoadoutCb = useCallback(
+    (equippedPerkIds: string[]) => run(() => setChallengePerkLoadout({ equippedPerkIds })),
+    [run],
+  );
+
   const { order, setOrder, hydrated } = useDashboardRightColumnOrder();
 
   const visiblePanelIds = useMemo(
@@ -1262,6 +1268,8 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
               claimBusy={busy}
               onPurchaseOffer={purchaseOfferCb}
               purchaseBusy={busy}
+              onSetPerkLoadout={setPerkLoadoutCb}
+              perkLoadoutBusy={busy}
             />
           );
         case "alerts":
@@ -1311,6 +1319,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       claimCadenceCb,
       claimAllChallengesCb,
       purchaseOfferCb,
+      setPerkLoadoutCb,
       ackAlert,
       ackAllAlerts,
       repairRigCb,

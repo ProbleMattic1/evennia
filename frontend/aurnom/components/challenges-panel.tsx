@@ -1,10 +1,30 @@
 "use client";
 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useMemo } from "react";
+
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import type {
   ChallengeActive,
   ChallengeHistoryRow,
   ChallengesState,
+  PerkCatalogEntry,
   PointOfferWeb,
 } from "@/lib/ui-api";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
@@ -216,6 +236,199 @@ function CadenceSection({
 }
 
 // ---------------------------------------------------------------------------
+// Perk loadout (opaque; titles from server catalog only)
+// ---------------------------------------------------------------------------
+
+function SortableEquippedPerkRow({
+  id,
+  title,
+  onUnequip,
+  disabled,
+}: {
+  id: string;
+  title: string;
+  onUnequip: () => void;
+  disabled?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex min-w-0 items-stretch gap-1 rounded border border-cyan-800/35 bg-zinc-900/55 py-0.5 pl-0.5 pr-1"
+    >
+      <button
+        type="button"
+        className="mt-0.5 h-fit shrink-0 cursor-grab touch-none p-0.5 text-ui-muted hover:text-cyber-cyan active:cursor-grabbing disabled:opacity-30"
+        aria-label="Drag to reorder perk"
+        disabled={disabled}
+        {...listeners}
+        {...attributes}
+      >
+        ⋮⋮
+      </button>
+      <div className="min-w-0 flex-1 py-0.5 font-mono text-[11px] text-cyber-cyan/90">{title}</div>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onUnequip()}
+        className="shrink-0 self-center rounded border border-zinc-600/50 px-1 py-0.5 text-[10px] uppercase tracking-wide text-ui-muted hover:border-amber-700/40 hover:text-amber-400 disabled:opacity-40"
+      >
+        Bench
+      </button>
+    </div>
+  );
+}
+
+function PerkLoadoutBlock(props: {
+  challenges: ChallengesState;
+  onSetLoadout?: (equippedPerkIds: string[]) => void | Promise<void>;
+  loadoutBusy?: boolean;
+}) {
+  const { challenges, onSetLoadout, loadoutBusy } = props;
+  const [open, setOpen] = useDashboardPanelOpen("challenges-perk-loadout", true);
+  const slots = challenges.perkSlotTotal ?? 2;
+  const equipped = challenges.equippedPerks ?? [];
+  const owned = challenges.ownedPerks ?? [];
+
+  const catalogById = useMemo(() => {
+    const m = new Map<string, PerkCatalogEntry>();
+    for (const row of challenges.perkCatalog ?? []) {
+      m.set(row.id, row);
+    }
+    return m;
+  }, [challenges.perkCatalog]);
+
+  const titleFor = (id: string) => catalogById.get(id)?.title ?? id;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const benchIds = owned.filter((id) => !equipped.includes(id));
+  const busy = Boolean(loadoutBusy);
+
+  function handleDragEnd(event: DragEndEvent) {
+    if (!onSetLoadout || busy) return;
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = equipped.indexOf(String(active.id));
+    const newIndex = equipped.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(equipped, oldIndex, newIndex);
+    void onSetLoadout(next);
+  }
+
+  function equip(id: string) {
+    if (!onSetLoadout || busy) return;
+    if (equipped.length >= slots) return;
+    if (equipped.includes(id)) return;
+    void onSetLoadout([...equipped, id]);
+  }
+
+  function unequip(id: string) {
+    if (!onSetLoadout || busy) return;
+    void onSetLoadout(equipped.filter((x) => x !== id));
+  }
+
+  return (
+    <div className="mt-2 border-t border-cyan-900/25 pt-1.5">
+      <div className="flex min-w-0 flex-wrap items-start gap-x-1 gap-y-1 sm:items-center">
+        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan">
+          Passive perks
+        </span>
+        <span className="shrink-0 font-mono text-[10px] text-ui-caption text-ui-muted">
+          {equipped.length}/{slots} equipped
+        </span>
+        <div className="ml-auto flex shrink-0 items-center">
+          <PanelExpandButton
+            open={open}
+            onClick={() => setOpen((v) => !v)}
+            aria-label={`${open ? "Collapse" : "Expand"} Passive perks`}
+            className="shrink-0"
+          />
+        </div>
+      </div>
+      {open ? (
+        <div className="mt-1 space-y-2">
+          {owned.length === 0 ? (
+            <p className="text-ui-muted">
+              No passives owned yet. Unlock grants in the point store, then equip up to {slots} at a time.
+            </p>
+          ) : null}
+
+          {equipped.length > 0 && onSetLoadout ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={equipped} strategy={verticalListSortingStrategy}>
+                <div className="flex flex-col gap-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-ui-muted">Equipped (drag to reorder)</p>
+                  {equipped.map((id) => (
+                    <SortableEquippedPerkRow
+                      key={id}
+                      id={id}
+                      title={titleFor(id)}
+                      disabled={busy}
+                      onUnequip={() => unequip(id)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : equipped.length > 0 ? (
+            <ul className="flex flex-col gap-0.5">
+              {equipped.map((id) => (
+                <li key={id} className="font-mono text-[11px] text-cyber-cyan/85">
+                  {titleFor(id)}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {benchIds.length > 0 ? (
+            <div>
+              <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-ui-muted">Bench</p>
+              <ul className="flex flex-col gap-1">
+                {benchIds.map((id) => {
+                  const row = catalogById.get(id);
+                  const canEquip = Boolean(onSetLoadout) && equipped.length < slots && !busy;
+                  return (
+                    <li
+                      key={id}
+                      className="flex flex-col gap-0.5 border-b border-zinc-800/50 pb-1 last:border-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-mono text-cyber-cyan/85">{row?.title ?? id}</div>
+                        {row?.summary ? <p className="text-ui-muted">{row.summary}</p> : null}
+                      </div>
+                      {onSetLoadout ? (
+                        <button
+                          type="button"
+                          disabled={!canEquip}
+                          onClick={() => equip(id)}
+                          className="shrink-0 self-end rounded border border-cyan-700/40 bg-cyan-950/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyber-cyan hover:bg-cyan-900/25 disabled:opacity-40 sm:self-start"
+                        >
+                          Equip
+                        </button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Point store (challenge points only; no credits)
 // ---------------------------------------------------------------------------
 
@@ -331,6 +544,8 @@ type Props = {
   claimBusy?: boolean;
   onPurchaseOffer?: (offerId: string) => void | Promise<void>;
   purchaseBusy?: boolean;
+  onSetPerkLoadout?: (equippedPerkIds: string[]) => void | Promise<void>;
+  perkLoadoutBusy?: boolean;
 };
 
 const PANEL_HEADER =
@@ -345,6 +560,8 @@ export function ChallengesPanel({
   claimBusy,
   onPurchaseOffer,
   purchaseBusy,
+  onSetPerkLoadout,
+  perkLoadoutBusy,
 }: Props) {
   const active = challenges.active ?? [];
   const history = challenges.history ?? [];
@@ -369,7 +586,9 @@ export function ChallengesPanel({
   ).length;
   const totalActive = active.filter((e) => e.status === "in_progress").length;
 
-  if (active.length === 0 && history.length === 0 && pointOffers.length === 0) {
+  const ownedPerksCount = challenges.ownedPerks?.length ?? 0;
+
+  if (active.length === 0 && history.length === 0 && pointOffers.length === 0 && ownedPerksCount === 0) {
     return (
       <section className="mb-1">
         <div className={PANEL_HEADER}>
@@ -460,6 +679,12 @@ export function ChallengesPanel({
             offers={pointOffers}
             onPurchase={onPurchaseOffer}
             purchaseBusy={purchaseBusy}
+          />
+
+          <PerkLoadoutBlock
+            challenges={challenges}
+            onSetLoadout={onSetPerkLoadout}
+            loadoutBusy={perkLoadoutBusy}
           />
 
           <RecentCompletionsBlock history={history} />

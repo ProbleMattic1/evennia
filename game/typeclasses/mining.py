@@ -870,10 +870,21 @@ class MiningSite(ObjectParent, DefaultObject):
             hazard_log = self.db.hazard_log
 
             if hazard_type == "raid":
+                raid_frac = HAZARD_RAID_STEAL_FRAC
+                if (
+                    _owner
+                    and _owner.is_typeclass("typeclasses.characters.Character", exact=False)
+                ):
+                    from world.point_store.perk_resolver import hazard_raid_steal_multiplier
+
+                    raid_frac = max(
+                        0.0,
+                        min(1.0, HAZARD_RAID_STEAL_FRAC * hazard_raid_steal_multiplier(_owner)),
+                    )
                 inv = storage.db.inventory
                 stolen = {}
                 for k, v in inv.items():
-                    amount = round(float(v) * HAZARD_RAID_STEAL_FRAC, 2)
+                    amount = round(float(v) * raid_frac, 2)
                     if amount > 0:
                         stolen[k] = amount
                         inv[k] = round(float(v) - amount, 2)
@@ -886,7 +897,18 @@ class MiningSite(ObjectParent, DefaultObject):
                 hazard_log.append(f"[{_fmt_ts(_now())[:16].replace('T', ' ')}] Raid: {parts_stolen}")
 
             elif hazard_type == "geological":
-                geo_mod = random.uniform(HAZARD_GEO_OUTPUT_MIN, HAZARD_GEO_OUTPUT_MAX)
+                if (
+                    _owner
+                    and _owner.is_typeclass("typeclasses.characters.Character", exact=False)
+                ):
+                    from world.point_store.perk_resolver import hazard_geo_floor_params
+
+                    gmin, gmax = hazard_geo_floor_params(
+                        _owner, HAZARD_GEO_OUTPUT_MIN, HAZARD_GEO_OUTPUT_MAX
+                    )
+                    geo_mod = random.uniform(gmin, gmax)
+                else:
+                    geo_mod = random.uniform(HAZARD_GEO_OUTPUT_MIN, HAZARD_GEO_OUTPUT_MAX)
                 output = {k: round(v * geo_mod, 2) for k, v in output.items() if round(v * geo_mod, 2) > 0}
                 geo_pct = int(geo_mod * 100)
                 hazard_note = f" |y[GEOLOGICAL EVENT — output reduced to {geo_pct}%]|n"
@@ -911,7 +933,12 @@ class MiningSite(ObjectParent, DefaultObject):
         # -- Depletion --
         dep_rate = float(deposit["depletion_rate"])
         dep_floor = float(deposit["richness_floor"])
-        new_richness = max(dep_floor, richness - dep_rate)
+        dep_mult = 1.0
+        if _owner and _owner.is_typeclass("typeclasses.characters.Character", exact=False):
+            from world.point_store.perk_resolver import mining_depletion_multiplier
+
+            dep_mult = mining_depletion_multiplier(_owner)
+        new_richness = max(dep_floor, richness - dep_rate * dep_mult)
         deposit["richness"] = round(new_richness, 4)
         self.db.deposit = deposit
 
@@ -923,8 +950,14 @@ class MiningSite(ObjectParent, DefaultObject):
             power_wear = POWER_WEAR_MODIFIERS[wear_power]
             maint_key = maintenance if maintenance in MAINTENANCE_WEAR_MODIFIERS else "standard"
             maint_wear = MAINTENANCE_WEAR_MODIFIERS[maint_key]
+            wg = 1.0
+            if _owner and _owner.is_typeclass("typeclasses.characters.Character", exact=False):
+                from world.point_store.perk_resolver import rig_wear_gain_multiplier
+
+                wg = rig_wear_gain_multiplier(_owner)
             new_wear = min(
-                1.0, wear + WEAR_PER_CYCLE_BASE * mode_wear * power_wear * maint_wear
+                1.0,
+                wear + WEAR_PER_CYCLE_BASE * mode_wear * power_wear * maint_wear * wg,
             )
 
             breakdown_base = BREAKDOWN_BASE[maint_key]
@@ -952,7 +985,15 @@ class MiningSite(ObjectParent, DefaultObject):
                 int(float(tons) * RESOURCE_CATALOG.get(k, {}).get("base_price_cr_per_ton", 0))
                 for k, tons in output.items()
             )
-            tax_amount = int(output_value * tax_rate)
+            eff_rate = tax_rate
+            if _owner and _owner.is_typeclass("typeclasses.characters.Character", exact=False):
+                from world.point_store.perk_resolver import (
+                    clamped_fee_rate,
+                    extraction_tax_multiplier,
+                )
+
+                eff_rate = clamped_fee_rate(tax_rate, extraction_tax_multiplier(_owner))
+            tax_amount = int(output_value * eff_rate)
             if tax_amount > 0:
                 owner = self.db.owner
                 from .economy import get_economy
@@ -1386,6 +1427,13 @@ def pay_rig_repair(owner, rig, site=None):
         return False, "That rig does not need repair.", None
 
     total = compute_rig_repair_charge(rig)
+    if owner and owner.is_typeclass("typeclasses.characters.Character", exact=False):
+        from world.point_store.perk_resolver import rig_repair_cost_multiplier
+
+        total = max(
+            RIG_REPAIR_MIN_TOTAL_CR,
+            int(round(total * rig_repair_cost_multiplier(owner))),
+        )
     vendor_amt, tax_amt = split_rig_repair_revenue(total)
 
     econ = get_economy(create_missing=True)

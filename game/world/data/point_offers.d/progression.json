@@ -1,0 +1,161 @@
+[
+  {
+    "id": "point_prog_socket",
+    "category": "perk_slot",
+    "title": "Auxiliary perk socket",
+    "summary": "Adds one passive perk slot (repeatable up to cap).",
+    "costLifetime": 18,
+    "costSeason": 0,
+    "maxPurchasesPerCharacter": 8,
+    "effect": { "type": "perk_slot", "delta": 1 }
+  },
+  {
+    "id": "point_prog_grant_yield_pin",
+    "category": "perk_grant",
+    "title": "Grant: Yield Pin",
+    "summary": "Unlocks the Yield Pin passive (mining cycle output).",
+    "costLifetime": 10,
+    "costSeason": 0,
+    "effect": { "type": "grant_perk", "perkId": "yield_pin" }
+  },
+  {
+    "id": "point_prog_grant_plant_auditor",
+    "category": "perk_grant",
+    "title": "Grant: Plant Auditor",
+    "summary": "Unlocks lower processing fees on refined collection.",
+    "costLifetime": 10,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_yield_pin"],
+    "effect": { "type": "grant_perk", "perkId": "plant_auditor" }
+  },
+  {
+    "id": "point_prog_grant_intake_broker",
+    "category": "perk_grant",
+    "title": "Grant: Intake Broker",
+    "summary": "Unlocks lower hassle fees when the plant buys your raw cargo.",
+    "costLifetime": 10,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_plant_auditor"],
+    "effect": { "type": "grant_perk", "perkId": "intake_broker" }
+  },
+  {
+    "id": "point_prog_grant_crown_waiver",
+    "category": "perk_grant",
+    "title": "Grant: Crown Waiver",
+    "summary": "Unlocks lower extraction tax on licensed cycles.",
+    "costLifetime": 11,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_intake_broker"],
+    "effect": { "type": "grant_perk", "perkId": "crown_waiver" }
+  },
+  {
+    "id": "point_prog_grant_reserve_geologist",
+    "category": "perk_grant",
+    "title": "Grant: Reserve Geologist",
+    "summary": "Unlocks slower claim richness depletion.",
+    "costLifetime": 11,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_crown_waiver"],
+    "effect": { "type": "grant_perk", "perkId": "reserve_geologist" }
+  },
+  {
+    "id": "point_prog_grant_convoy_escort",
+    "category": "perk_grant",
+    "title": "Grant: Convoy Escort",
+    "summary": "Unlocks reduced raid losses at mining sites.",
+    "costLifetime": 12,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_reserve_geologist"],
+    "effect": { "type": "grant_perk", "perkId": "convoy_escort" }
+  },
+  {
+    "id": "point_prog_grant_geo_stabilizer",
+    "category": "perk_grant",
+    "title": "Grant: Geo Stabilizer",
+    "summary": "Unlocks milder geological hazard output cuts.",
+    "costLifetime": 12,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_convoy_escort"],
+    "effect": { "type": "grant_perk", "perkId": "geo_stabilizer" }
+  },
+  {
+    "id": "point_prog_grant_pit_crew",
+    "category": "perk_grant",
+    "title": "Grant: Pit Crew",
+    "summary": "Unlocks slower rig wear accumulation.",
+    "costLifetime": 12,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_geo_stabilizer"],
+    "effect": { "type": "grant_perk", "perkId": "pit_crew" }
+  },
+  {
+    "id": "point_prog_grant_contract_stipend",
+    "category": "perk_grant",
+    "title": "Grant: Contract Stipend",
+    "summary": "Unlocks higher mission credit payouts.",
+    "costLifetime": 13,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_pit_crew"],
+    "effect": { "type": "grant_perk", "perkId": "contract_stipend" }
+  },
+  {
+    "id": "point_prog_grant_cadence_analyst",
+    "category": "perk_grant",
+    "title": "Grant: Cadence Analyst",
+    "summary": "Unlocks higher challenge point grants.",
+    "costLifetime": 13,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_contract_stipend"],
+    "effect": { "type": "grant_perk", "perkId": "cadence_analyst" }
+  },
+  {
+    "id": "point_prog_grant_claims_adjuster",
+    "category": "perk_grant",
+    "title": "Grant: Claims Adjuster",
+    "summary": "Unlocks higher challenge bundle credits.",
+    "costLifetime": 13,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_cadence_analyst"],
+    "effect": { "type": "grant_perk", "perkId": "claims_adjuster" }
+  },
+  {
+    "id": "point_prog_grant_refinery_hand",
+    "category": "perk_grant",
+    "title": "Grant: Refinery Hand",
+    "summary": "Unlocks higher refining batch output.",
+    "costLifetime": 14,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_claims_adjuster"],
+    "effect": { "type": "grant_perk", "perkId": "refinery_hand" }
+  },
+  {
+    "id": "point_prog_grant_field_mechanic",
+    "category": "perk_grant",
+    "title": "Grant: Field Mechanic",
+    "summary": "Unlocks cheaper field rig repairs.",
+    "costLifetime": 14,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_refinery_hand"],
+    "effect": { "type": "grant_perk", "perkId": "field_mechanic" }
+  },
+  {
+    "id": "point_prog_grant_property_rider",
+    "category": "perk_grant",
+    "title": "Grant: Property Rider",
+    "summary": "Unlocks higher property incident credit bonuses.",
+    "costLifetime": 14,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_field_mechanic"],
+    "effect": { "type": "grant_perk", "perkId": "property_rider" }
+  },
+  {
+    "id": "point_prog_grant_registry_clerk",
+    "category": "perk_grant",
+    "title": "Grant: Registry Clerk",
+    "summary": "Unlocks cheaper mining license registration.",
+    "costLifetime": 15,
+    "costSeason": 0,
+    "prerequisiteOfferIds": ["point_prog_grant_property_rider"],
+    "effect": { "type": "grant_perk", "perkId": "registry_clerk" }
+  }
+]

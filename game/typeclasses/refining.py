@@ -84,11 +84,14 @@ def iter_plant_raw_resource_keys():
         yield k
 
 
-def split_raw_sale_payout(gross_cr, fee_rate=None):
+def split_raw_sale_payout(gross_cr, fee_rate=None, *, fee_mult: float = 1.0):
     if fee_rate is None:
         fee_rate = RAW_SALE_FEE_RATE
+    from world.point_store.perk_resolver import clamped_fee_rate
+
+    eff = clamped_fee_rate(float(fee_rate), float(fee_mult))
     gross_cr = max(0, int(gross_cr))
-    fee = max(0, int(round(gross_cr * float(fee_rate))))
+    fee = max(0, int(round(gross_cr * eff)))
     net = max(0, gross_cr - fee)
     return net, fee
 
@@ -139,7 +142,12 @@ def settle_plant_raw_purchase_from_treasury(
         else:
             bid = int(get_commodity_bid(str(resource_key), location=plant_room))
         gross = int(round(t * bid))
-        net, fee = split_raw_sale_payout(gross)
+        fee_m = 1.0
+        if owner and owner.is_typeclass("typeclasses.characters.Character", exact=False):
+            from world.point_store.perk_resolver import raw_sale_fee_multiplier
+
+            fee_m = raw_sale_fee_multiplier(owner)
+        net, fee = split_raw_sale_payout(gross, fee_mult=fee_m)
         total_net += net
         breakdown.append(
             {
@@ -855,7 +863,12 @@ class Refinery(ObjectParent, DefaultObject):
 
         # Produce outputs
         out_inv = self.db.output_inventory or {}
-        units_produced = recipe.get("output_units", 1) * possible
+        out_mult = 1.0
+        if operator is not None:
+            from world.point_store.perk_resolver import refining_batch_output_multiplier
+
+            out_mult = refining_batch_output_multiplier(operator)
+        units_produced = round(recipe.get("output_units", 1) * possible * out_mult, 2)
         out_inv[recipe_key] = round(float(out_inv.get(recipe_key, 0.0)) + units_produced, 2)
         self.db.output_inventory = out_inv
 

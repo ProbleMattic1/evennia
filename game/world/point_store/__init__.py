@@ -10,6 +10,7 @@ from world.point_store.point_store_loader import (
     load_point_offers,
     point_offer_registry_errors,
     point_offer_registry_version,
+    serialize_offer_for_web,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "perk_def_registry_errors",
     "point_offer_registry_errors",
     "point_offer_registry_version",
+    "serialize_offer_for_web",
 ]

@@ -15,7 +15,7 @@ export function SortableNavDestinationRow({ id, children }: { id: string; childr
     <div ref={setNodeRef} style={style} className="flex min-w-0 items-stretch gap-1">
       <button
         type="button"
-        className="mt-0.5 h-fit shrink-0 cursor-grab touch-none text-ui-muted hover:text-cyber-cyan active:cursor-grabbing"
+        className="mt-0.5 h-fit shrink-0 cursor-grab touch-none p-0 text-ui-muted hover:text-cyber-cyan active:cursor-grabbing"
         aria-label="Drag to reorder destination"
         {...listeners}
         {...attributes}

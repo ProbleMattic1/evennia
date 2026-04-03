@@ -6,13 +6,13 @@ Challenge point store (character): spend lifetime/season points from cadence cha
 
 from commands.command import Command
 from world.point_store import (
+    all_point_offers,
     load_perk_defs,
     load_point_offers,
     perk_def_registry_errors,
     point_offer_registry_errors,
     serialize_offer_for_web,
 )
-from world.point_store.point_store_loader import all_point_offers
 
 
 class CmdPointBuy(Command):
