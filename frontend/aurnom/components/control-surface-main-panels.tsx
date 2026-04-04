@@ -22,6 +22,7 @@ import { Countdown } from "@/components/countdown";
 import { ChallengesPanel } from "@/components/challenges-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { DashboardMissionsPanel, EMPTY_MISSIONS } from "@/components/dashboard-missions-panel";
+import { DashboardWorldSimulationPanel } from "@/components/dashboard-world-simulation-panel";
 import { LocationBanner } from "@/components/location-banner";
 import { SortableRightColumnPanel } from "@/components/sortable-right-column-panel";
 import type {
@@ -1352,6 +1353,13 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
             roomExits={data.roomExits}
             onChanged={onReload}
             gameLog={gameLog}
+          />
+          <DashboardWorldSimulationPanel
+            worldSimulation={data.worldSimulation ?? null}
+            roomVenueId={data.roomVenueId ?? null}
+            partyId={data.partyId ?? null}
+            activeInstanceId={data.activeInstanceId ?? null}
+            factionStanding={data.character?.factionStanding ?? null}
           />
           <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
         </div>

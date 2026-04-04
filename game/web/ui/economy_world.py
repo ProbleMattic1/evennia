@@ -1,3 +1,5 @@
+from collections.abc import Mapping, Sequence
+
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from evennia import search_script
@@ -13,20 +15,19 @@ from world.time import (
 
 def _to_json_plain(value):
     """
-    Recursively convert Evennia db-backed dict-like objects (_SaverDict, etc.)
-    into plain dict/list/primitives for JsonResponse.
+    Recursively convert Evennia db-backed dict/list wrappers (_SaverDict, _SaverList, …)
+    and other Mapping/Sequence values into plain dict/list/primitives for JsonResponse.
     """
     if value is None:
         return None
     if isinstance(value, (bool, int, float, str)):
         return value
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    if isinstance(value, Mapping):
+        return {str(k): _to_json_plain(v) for k, v in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return [_to_json_plain(v) for v in value]
-    if isinstance(value, dict):
-        return {k: _to_json_plain(v) for k, v in value.items()}
-    items = getattr(value, "items", None)
-    if callable(items):
-        return {str(k): _to_json_plain(v) for k, v in items()}
     raise TypeError(f"economy-world JSON: unsupported type {type(value).__name__}")
 
 

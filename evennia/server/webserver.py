@@ -22,7 +22,7 @@ from twisted.application import internet
 from twisted.internet import defer, reactor
 from twisted.python import threadpool
 from twisted.web import http, resource, server, static
-from twisted.web.proxy import ReverseProxyResource
+from twisted.web.proxy import ProxyClient, ProxyClientFactory, ReverseProxyResource
 from twisted.web.server import NOT_DONE_YET
 from twisted.web.wsgi import WSGIResource
 
@@ -85,7 +85,36 @@ class HTTPChannelWithXForwardedFor(http.HTTPChannel):
 http.HTTPFactory.protocol = HTTPChannelWithXForwardedFor
 
 
+class EvenniaProxyClient(ProxyClient):
+    """
+    Avoid Request.finish() after the browser has closed the connection.
+
+    Twisted's ProxyClient.handleResponseEnd always calls father.finish(); Request.finish
+    raises RuntimeError if the inbound connection was already lost. The upstream may
+    complete after the client disconnects (common with navigation away / tab close).
+    """
+
+    def handleResponseEnd(self):
+        if self._finished:
+            return
+        self._finished = True
+        if not getattr(self.father, "_disconnected", False):
+            self.father.finish()
+        self.transport.loseConnection()
+
+
+class EvenniaProxyClientFactory(ProxyClientFactory):
+    protocol = EvenniaProxyClient  # type: ignore[assignment]
+
+    def clientConnectionFailed(self, connector, reason):
+        if getattr(self.father, "_disconnected", False):
+            return
+        super().clientConnectionFailed(connector, reason)
+
+
 class EvenniaReverseProxyResource(ReverseProxyResource):
+    proxyClientFactoryClass = EvenniaProxyClientFactory
+
     def getChild(self, path, request):
         """
         Create and return a proxy resource with the same proxy configuration

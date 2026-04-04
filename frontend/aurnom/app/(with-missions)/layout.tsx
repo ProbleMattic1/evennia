@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { DashboardMissionsPanel, EMPTY_MISSIONS } from "@/components/dashboard-missions-panel";
+import { DashboardWorldSimulationPanel } from "@/components/dashboard-world-simulation-panel";
 import { useControlSurface } from "@/components/control-surface-provider";
 import { MissionsChromeHeightProvider } from "@/lib/missions-chrome-height-context";
 import { WithMissionsProcessingSplitHostsProvider } from "@/lib/with-missions-processing-split";
@@ -45,6 +46,16 @@ export default function WithMissionsLayout({ children }: { children: React.React
     );
   }
 
+  const worldPanel = (
+    <DashboardWorldSimulationPanel
+      worldSimulation={data.worldSimulation ?? null}
+      roomVenueId={data.roomVenueId ?? null}
+      partyId={data.partyId ?? null}
+      activeInstanceId={data.activeInstanceId ?? null}
+      factionStanding={data.character?.factionStanding ?? null}
+    />
+  );
+
   return (
     <MissionsChromeHeightProvider>
       <WithMissionsProcessingSplitHostsProvider active={isProcessingRoute}>
@@ -60,6 +71,7 @@ export default function WithMissionsLayout({ children }: { children: React.React
                   gameLog={gameLog}
                   setProcessingBelowMissionsHost={setBelowMissionsHost}
                 />
+                {worldPanel}
               </div>
               <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col md:min-h-0">
                 <div
@@ -83,6 +95,7 @@ export default function WithMissionsLayout({ children }: { children: React.React
                   onChanged={onChanged}
                   gameLog={gameLog}
                 />
+                {worldPanel}
               </div>
               <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">{children}</div>
             </div>

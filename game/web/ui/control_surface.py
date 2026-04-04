@@ -10,8 +10,6 @@ Most blocks compose helpers imported from views.py or world.*; production-site
 rows use ``world.mining_site_metrics.owned_production_sites_for_dashboard``.
 """
 
-import json
-
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from evennia import GLOBAL_SCRIPTS, search_object, search_script
@@ -33,6 +31,7 @@ from world.room_ambient import resolve_room_ambient, resolve_room_venue_id
 from world.venue_resolve import hub_for_object, processing_plant_room_for_object, treasury_bank_id_for_object, venue_id_for_object
 
 from .client_poll_hints import CLIENT_POLL_HINTS_MS
+from .economy_world import _to_json_plain
 from .dashboard_ships import dashboard_ship_row
 from .views import (
     _can_web_switch_character,
@@ -563,7 +562,7 @@ def control_surface_state(request):
     }
 
     if not request.user.is_authenticated:
-        return JsonResponse(base_sparse)
+        return JsonResponse(_to_json_plain(base_sparse))
 
     alerts = []
     grouped_alerts = _EMPTY_ALERTS
@@ -577,15 +576,17 @@ def control_surface_state(request):
     if char is None:
         playable = _playable_characters(request.user)
         picker = [{"id": c.id, "key": c.key} for c in playable]
-        return JsonResponse({
-            **base_sparse,
-            "authenticated": True,
-            "alerts": alerts,
-            "groupedAlerts": grouped_alerts,
-            "message": msg,
-            "playableCharacters": picker,
-            "canWebSwitchCharacter": _can_web_switch_character(request.user),
-        })
+        return JsonResponse(
+            _to_json_plain({
+                **base_sparse,
+                "authenticated": True,
+                "alerts": alerts,
+                "groupedAlerts": grouped_alerts,
+                "message": msg,
+                "playableCharacters": picker,
+                "canWebSwitchCharacter": _can_web_switch_character(request.user),
+            })
+        )
 
     credits = econ.get_character_balance(char)
 
@@ -641,54 +642,56 @@ def control_surface_state(request):
     party_id = preg.party_id_for(char) if preg else None
     active_instance = getattr(char.db, "active_instance_id", None)
 
-    return JsonResponse({
-        "schemaVersion": SCHEMA_VERSION,
-        "clientPollHints": CLIENT_POLL_HINTS_MS,
-        "authenticated": True,
-        "canWebSwitchCharacter": _can_web_switch_character(request.user),
-        "character": character_block,
-        "credits": credits,
-        "inventory": inventory,
-        "ships": ships,
-        "resources": resources,
-        "mines": resources,
-        "miningAccrualValuePerCycle": mining_accrual_cycle,
-        "floraAccrualValuePerCycle": flora_accrual_cycle,
-        "faunaAccrualValuePerCycle": fauna_accrual_cycle,
-        "productionEstimatedValuePerCycle": mining_value_per_cycle,
-        "productionTotalStoredValue": mining_total_stored,
-        "miningEstimatedValuePerCycle": mining_value_per_cycle,
-        "miningTotalStoredValue": mining_total_stored,
-        "miningPersonalStoredValue": mining_personal_stored,
-        "miningLocalRawStoredValue": mining_local_raw_stored,
-        "personalStorage": personal_storage,
-        "properties": properties,
-        "propertyReferenceListValueTotalCr": property_ref_total,
-        "processing": processing,
-        "market": market,
-        "alerts": alerts,
-        "groupedAlerts": grouped_alerts,
-        "missions": missions,
-        "quests": quests,
-        "challenges": challenges,
-        "nav": nav,
-        "roomExits": room_exits,
-        "ambient": room_ambient,
-        "roomVenueId": room_venue_id,
-        "treasuryBalance": treasury_balance,
-        "message": None,
-        "minerPayoutLastCycleCr": miner_payout_last_cr,
-        "minerPayoutTotalCr": miner_payout_total_cr,
-        "minerSettlementLastCycleGrossCr": miner_settlement_last_gross,
-        "minerSettlementLastCycleFeesCr": miner_settlement_last_fees,
-        "minerSettlementTotalGrossCr": miner_settlement_total_gross,
-        "minerSettlementTotalFeesCr": miner_settlement_total_fees,
-        "minerSettlementThisSlotNetCr": miner_settlement_this_net,
-        "minerSettlementThisSlotGrossCr": miner_settlement_this_gross,
-        "minerSettlementThisSlotFeesCr": miner_settlement_this_fees,
-        "worldProductionPipeline": world_production_pipeline,
-        "worldSimulation": world_simulation,
-        "partyId": party_id,
-        "activeInstanceId": active_instance,
-        **clock_payload,
-    })
+    return JsonResponse(
+        _to_json_plain({
+            "schemaVersion": SCHEMA_VERSION,
+            "clientPollHints": CLIENT_POLL_HINTS_MS,
+            "authenticated": True,
+            "canWebSwitchCharacter": _can_web_switch_character(request.user),
+            "character": character_block,
+            "credits": credits,
+            "inventory": inventory,
+            "ships": ships,
+            "resources": resources,
+            "mines": resources,
+            "miningAccrualValuePerCycle": mining_accrual_cycle,
+            "floraAccrualValuePerCycle": flora_accrual_cycle,
+            "faunaAccrualValuePerCycle": fauna_accrual_cycle,
+            "productionEstimatedValuePerCycle": mining_value_per_cycle,
+            "productionTotalStoredValue": mining_total_stored,
+            "miningEstimatedValuePerCycle": mining_value_per_cycle,
+            "miningTotalStoredValue": mining_total_stored,
+            "miningPersonalStoredValue": mining_personal_stored,
+            "miningLocalRawStoredValue": mining_local_raw_stored,
+            "personalStorage": personal_storage,
+            "properties": properties,
+            "propertyReferenceListValueTotalCr": property_ref_total,
+            "processing": processing,
+            "market": market,
+            "alerts": alerts,
+            "groupedAlerts": grouped_alerts,
+            "missions": missions,
+            "quests": quests,
+            "challenges": challenges,
+            "nav": nav,
+            "roomExits": room_exits,
+            "ambient": room_ambient,
+            "roomVenueId": room_venue_id,
+            "treasuryBalance": treasury_balance,
+            "message": None,
+            "minerPayoutLastCycleCr": miner_payout_last_cr,
+            "minerPayoutTotalCr": miner_payout_total_cr,
+            "minerSettlementLastCycleGrossCr": miner_settlement_last_gross,
+            "minerSettlementLastCycleFeesCr": miner_settlement_last_fees,
+            "minerSettlementTotalGrossCr": miner_settlement_total_gross,
+            "minerSettlementTotalFeesCr": miner_settlement_total_fees,
+            "minerSettlementThisSlotNetCr": miner_settlement_this_net,
+            "minerSettlementThisSlotGrossCr": miner_settlement_this_gross,
+            "minerSettlementThisSlotFeesCr": miner_settlement_this_fees,
+            "worldProductionPipeline": world_production_pipeline,
+            "worldSimulation": world_simulation,
+            "partyId": party_id,
+            "activeInstanceId": active_instance,
+            **clock_payload,
+        })
+    )
