@@ -9,14 +9,11 @@ Safe to call on every cold start.
 
 from evennia import create_object, create_script, search_object, search_script
 
-from typeclasses.property_lot_discovery import PropertyLotDiscoveryEngine
 from typeclasses.property_lot_registry import (
     PropertyLotExchangeRegistry,
     rebuild_property_exchange_registry,
 )
-from typeclasses.property_operation_registry import PropertyOperationRegistry
-from typeclasses.property_events_engine import PropertyEventsEngine
-from typeclasses.property_operations_engine import PropertyOperationsEngine
+from world.global_scripts_util import require_global_script
 
 PROPERTY_LOTS_ARCHIVE_DESC = (
     "Sovereign record storage for titled parcels. Not on the public promenade map."
@@ -134,32 +131,16 @@ def bootstrap_realty_office():
 
     rebuild_property_exchange_registry()
 
-    disc = search_script("property_lot_discovery_engine")
-    if disc:
-        print(f"[realty-office] PropertyLotDiscoveryEngine exists: {disc[0].key}")
-    else:
-        create_script(PropertyLotDiscoveryEngine)
-        print("[realty-office] Created PropertyLotDiscoveryEngine.")
+    disc = require_global_script("property_lot_discovery_engine")
+    print(f"[realty-office] PropertyLotDiscoveryEngine: {disc.key}")
 
-    op_reg = search_script("property_operation_registry")
-    if op_reg:
-        print(f"[realty-office] PropertyOperationRegistry exists: {op_reg[0].key}")
-    else:
-        create_script(PropertyOperationRegistry)
-        print("[realty-office] Created PropertyOperationRegistry.")
+    op_reg = require_global_script("property_operation_registry")
+    print(f"[realty-office] PropertyOperationRegistry: {op_reg.key}")
 
-    op_eng = search_script("property_operations_engine")
-    if op_eng:
-        print(f"[realty-office] PropertyOperationsEngine exists: {op_eng[0].key}")
-    else:
-        create_script(PropertyOperationsEngine)
-        print("[realty-office] Created PropertyOperationsEngine.")
+    op_eng = require_global_script("property_operations_engine")
+    print(f"[realty-office] PropertyOperationsEngine: {op_eng.key}")
 
-    ev_eng = search_script("property_events_engine")
-    if ev_eng:
-        print(f"[realty-office] PropertyEventsEngine exists: {ev_eng[0].key}")
-    else:
-        create_script(PropertyEventsEngine)
-        print("[realty-office] Created PropertyEventsEngine.")
+    ev_eng = require_global_script("property_events_engine")
+    print(f"[realty-office] PropertyEventsEngine: {ev_eng.key}")
 
     print("[realty-office] Bootstrap complete.")

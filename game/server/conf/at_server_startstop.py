@@ -74,30 +74,42 @@ def at_server_start():
 
         from evennia import search_script
 
+        from world.engine_tuning import (
+            FAUNA_ENGINE_INTERVAL_SEC,
+            FLORA_ENGINE_INTERVAL_SEC,
+            MINING_ENGINE_INTERVAL_SEC,
+        )
+
         # Patch MiningEngine interval
         found = search_script("mining_engine")
         if found:
             engine = found[0]
-            if engine.interval != 60:
-                engine.interval = 60
+            if engine.interval != MINING_ENGINE_INTERVAL_SEC:
+                engine.interval = MINING_ENGINE_INTERVAL_SEC
                 engine.restart()
-                print("[startup] MiningEngine interval patched to 60s and restarted.")
+                print(
+                    f"[startup] MiningEngine interval patched to {MINING_ENGINE_INTERVAL_SEC}s and restarted."
+                )
 
         flora_eng = search_script("flora_engine")
         if flora_eng:
             fe = flora_eng[0]
-            if fe.interval != 60:
-                fe.interval = 60
+            if fe.interval != FLORA_ENGINE_INTERVAL_SEC:
+                fe.interval = FLORA_ENGINE_INTERVAL_SEC
                 fe.restart()
-                print("[startup] FloraEngine interval patched to 60s and restarted.")
+                print(
+                    f"[startup] FloraEngine interval patched to {FLORA_ENGINE_INTERVAL_SEC}s and restarted."
+                )
 
         fauna_eng = search_script("fauna_engine")
         if fauna_eng:
             fae = fauna_eng[0]
-            if fae.interval != 60:
-                fae.interval = 60
+            if fae.interval != FAUNA_ENGINE_INTERVAL_SEC:
+                fae.interval = FAUNA_ENGINE_INTERVAL_SEC
                 fae.restart()
-                print("[startup] FaunaEngine interval patched to 60s and restarted.")
+                print(
+                    f"[startup] FaunaEngine interval patched to {FAUNA_ENGINE_INTERVAL_SEC}s and restarted."
+                )
 
         from world.time import HAULER_ENGINE_INTERVAL_SEC
 
@@ -184,6 +196,45 @@ def at_server_start():
             print(
                 "[startup] WARNING: AmbientWorldEngine not found. Run bootstrap_world_ambient."
             )
+
+        wcs = search_script("world_clock_script")
+        if wcs:
+            wc = wcs[0]
+            if not wc.is_active:
+                wc.start()
+                print("[startup] WorldClockScript was stopped — restarted.")
+        else:
+            print(
+                "[startup] WARNING: WorldClockScript not found. "
+                "It must be listed in settings.GLOBAL_SCRIPTS."
+            )
+
+        wenv = search_script("world_environment_engine")
+        if wenv:
+            we = wenv[0]
+            if not we.is_active:
+                we.start()
+                print("[startup] WorldEnvironmentEngine was stopped — restarted.")
+        else:
+            print(
+                "[startup] WARNING: WorldEnvironmentEngine not found. "
+                "It must be listed in settings.GLOBAL_SCRIPTS."
+            )
+
+        for key, label in (
+            ("instance_manager", "InstanceManager"),
+            ("party_registry", "PartyRegistry"),
+        ):
+            found = search_script(key)
+            if found:
+                sc = found[0]
+                if not sc.is_active:
+                    sc.start()
+                    print(f"[startup] {label} was stopped — restarted.")
+            else:
+                print(
+                    f"[startup] WARNING: {label} not found. It must be listed in settings.GLOBAL_SCRIPTS."
+                )
 
     except Exception:
         import traceback

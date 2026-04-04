@@ -92,3 +92,62 @@ if _extra:
             _CSRF_ORIGINS.append(_origin)
 
 CSRF_TRUSTED_ORIGINS = sorted(set(_CSRF_ORIGINS))
+
+# In-character time: epoch = IC 2200-01-01 00:00 UTC; 1 real second = 24 IC seconds.
+TIME_GAME_EPOCH = 7257609600.0
+TIME_FACTOR = 24.0
+
+######################################################################
+# Global Scripts (Evennia singletons)
+#
+# Keep each entry to typeclass + persistent only. Evennia hashes this dict;
+# adding interval/repeats here can delete and recreate DB scripts on deploy.
+# Tune tick intervals in each typeclass at_script_creation instead.
+######################################################################
+
+GLOBAL_SCRIPTS = {
+    "global_economy": {"typeclass": "typeclasses.economy.EconomyEngine", "persistent": True},
+    "commodity_demand": {"typeclass": "typeclasses.commodity_demand.CommodityDemandEngine", "persistent": True},
+    "manufacturing_engine": {"typeclass": "typeclasses.manufacturing.ManufacturingEngine", "persistent": True},
+    "economy_world_telemetry": {"typeclass": "typeclasses.economy_world_telemetry.EconomyWorldTelemetry", "persistent": True},
+    "economy_automation_controller": {
+        "typeclass": "typeclasses.economy_automation.EconomyAutomationController",
+        "persistent": True,
+    },
+    "mining_engine": {"typeclass": "typeclasses.mining.MiningEngine", "persistent": True},
+    "flora_engine": {"typeclass": "typeclasses.flora.FloraEngine", "persistent": True},
+    "fauna_engine": {"typeclass": "typeclasses.fauna.FaunaEngine", "persistent": True},
+    "hauler_engine": {"typeclass": "typeclasses.haulers.HaulerEngine", "persistent": True},
+    "refinery_engine": {"typeclass": "typeclasses.refining.RefineryEngine", "persistent": True},
+    "site_discovery_engine": {"typeclass": "typeclasses.site_discovery.SiteDiscoveryEngine", "persistent": True},
+    "npc_miner_registry": {"typeclass": "world.npc_miner_registry.NpcMinerRegistryScript", "persistent": True},
+    "property_operation_registry": {
+        "typeclass": "typeclasses.property_operation_registry.PropertyOperationRegistry",
+        "persistent": True,
+    },
+    "property_operations_engine": {
+        "typeclass": "typeclasses.property_operations_engine.PropertyOperationsEngine",
+        "persistent": True,
+    },
+    "property_events_engine": {"typeclass": "typeclasses.property_events_engine.PropertyEventsEngine", "persistent": True},
+    "property_lot_discovery_engine": {
+        "typeclass": "typeclasses.property_lot_discovery.PropertyLotDiscoveryEngine",
+        "persistent": True,
+    },
+    "ambient_world_engine": {"typeclass": "typeclasses.ambient_world_engine.AmbientWorldEngine", "persistent": True},
+    "crime_world_engine": {"typeclass": "typeclasses.crime_world_engine.CrimeWorldEngine", "persistent": True},
+    "battlespace_world_engine": {
+        "typeclass": "typeclasses.battlespace_world_engine.BattlespaceWorldEngine",
+        "persistent": True,
+    },
+    "mission_seeds": {"typeclass": "typeclasses.mission_seeds.MissionSeedsScript", "persistent": True},
+    "system_alerts": {"typeclass": "typeclasses.system_alerts.SystemAlertsScript", "persistent": True},
+    "station_contracts": {"typeclass": "typeclasses.station_contracts.StationContractsScript", "persistent": True},
+    "world_clock_script": {"typeclass": "typeclasses.world_clock_script.WorldClockScript", "persistent": True},
+    "world_environment_engine": {
+        "typeclass": "typeclasses.world_environment_engine.WorldEnvironmentEngine",
+        "persistent": True,
+    },
+    "instance_manager": {"typeclass": "typeclasses.instance_manager.InstanceManager", "persistent": True},
+    "party_registry": {"typeclass": "typeclasses.party_registry.PartyRegistry", "persistent": True},
+}

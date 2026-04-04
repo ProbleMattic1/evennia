@@ -88,7 +88,9 @@ export default function ClaimDetailPage() {
         subtitle={data?.claim?.description ?? "Mining claim deed"}
         actions={
           <>
-            <CsButtonLink href="/">Dashboard</CsButtonLink>
+            <CsButtonLink href="/" variant="dashboard">
+              Dashboard
+            </CsButtonLink>
             <CsButtonLink href="/real-estate#claims-market">Claims Market</CsButtonLink>
           </>
         }

@@ -260,6 +260,12 @@ class Character(ObjectParent, DefaultCharacter):
     def challenges(self):
         return ChallengeHandler(self)
 
+    @lazy_property
+    def faction_standing(self):
+        from typeclasses.faction_standing import FactionStandingHandler
+
+        return FactionStandingHandler(self)
+
     def record_web_stream_text(self, text, meta):
         """
         Append one outbound line to web_msg_buffer. ``text`` matches ``msg`` (str or tuple).
@@ -376,6 +382,28 @@ class Character(ObjectParent, DefaultCharacter):
                 min=0,
                 max=None,
             )
+        if not self.skills.get("stealth_rating"):
+            self.skills.add(
+                "stealth_rating",
+                "Stealth",
+                trait_type="counter",
+                base=10,
+                mod=0,
+                mult=1.0,
+                min=0,
+                max=None,
+            )
+        if not self.skills.get("perception_rating"):
+            self.skills.add(
+                "perception_rating",
+                "Perception",
+                trait_type="counter",
+                base=10,
+                mod=0,
+                mult=1.0,
+                min=0,
+                max=None,
+            )
         if getattr(self.db, "rpg_level", None) is None:
             self.db.rpg_level = 1
         if getattr(self.db, "rpg_xp_into_level", None) is None:
@@ -479,6 +507,24 @@ class Character(ObjectParent, DefaultCharacter):
             pass
         try:
             self.quests.on_room_enter(dest)
+        except Exception:
+            pass
+        try:
+            from world.challenges.challenge_signals import emit
+            from world.perception_resolve import environment_mods_for_character, resolve_spot
+
+            env_m = environment_mods_for_character(self)
+            for obj in list(dest.contents):
+                if obj is self:
+                    continue
+                if not obj.is_typeclass("typeclasses.characters.Character", exact=False):
+                    continue
+                spotted, margin = resolve_spot(obj, self, room_mod=1.0, environment_mod=env_m)
+                emit(
+                    self,
+                    "stealth_check",
+                    {"observer_id": obj.id, "spotted": spotted, "margin": margin, "room_id": dest.id},
+                )
         except Exception:
             pass
 

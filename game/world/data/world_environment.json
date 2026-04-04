@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "default_states": ["clear", "dust", "solar_flare_watch", "fuel_ice_fog"],
+  "default_transition": {
+    "clear": {
+      "clear": 0.86,
+      "dust": 0.09,
+      "solar_flare_watch": 0.03,
+      "fuel_ice_fog": 0.02
+    },
+    "dust": {
+      "clear": 0.18,
+      "dust": 0.72,
+      "solar_flare_watch": 0.05,
+      "fuel_ice_fog": 0.05
+    },
+    "solar_flare_watch": {
+      "clear": 0.35,
+      "dust": 0.1,
+      "solar_flare_watch": 0.45,
+      "fuel_ice_fog": 0.1
+    },
+    "fuel_ice_fog": {
+      "clear": 0.25,
+      "dust": 0.15,
+      "solar_flare_watch": 0.05,
+      "fuel_ice_fog": 0.55
+    }
+  },
+  "venues": {
+    "nanomega_core": { "initial_weather": "clear" },
+    "frontier_outpost": { "initial_weather": "clear" }
+  }
+}

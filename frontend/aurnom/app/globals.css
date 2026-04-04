@@ -28,6 +28,10 @@ html {
   --accent-cyan: #22d3ee;
   --accent-magenta: #e879f9;
   --accent-glow: rgba(34, 211, 238, 0.15);
+  /* Primary “home / dashboard” CTA — matrix terminal green */
+  --accent-matrix-green: #39ff14;
+  --matrix-green-glow: rgba(57, 255, 20, 0.35);
+  --matrix-green-glow-soft: rgba(57, 255, 20, 0.18);
   --border-subtle: rgb(51 65 85);
   --border-accent: rgba(34, 211, 238, 0.35);
   /* Spec tokens for copy on near-black panels (zinc-950 / #020617). */
@@ -45,6 +49,7 @@ html {
   --color-foreground: var(--foreground);
   --color-cyber-cyan: var(--accent-cyan);
   --color-cyber-magenta: var(--accent-magenta);
+  --color-cyber-matrix-green: var(--accent-matrix-green);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -97,6 +102,28 @@ html {
     .text-ui-pipeline-readout-secondary {
       font-size: 1.6rem;
     }
+  }
+
+  /** Header / nav: dashboard → home; stands out from default cyan controls */
+  .cs-dashboard-cta {
+    border: 1px solid color-mix(in srgb, var(--accent-matrix-green) 65%, transparent);
+    color: var(--accent-matrix-green);
+    text-shadow:
+      0 0 6px var(--matrix-green-glow-soft),
+      0 0 14px var(--matrix-green-glow-soft);
+    box-shadow:
+      0 0 10px var(--matrix-green-glow-soft),
+      0 0 20px rgba(57, 255, 20, 0.08);
+  }
+  .cs-dashboard-cta:hover {
+    background-color: rgba(57, 255, 20, 0.12);
+    border-color: color-mix(in srgb, var(--accent-matrix-green) 85%, transparent);
+    text-shadow:
+      0 0 8px var(--matrix-green-glow),
+      0 0 18px var(--matrix-green-glow-soft);
+    box-shadow:
+      0 0 14px var(--matrix-green-glow-soft),
+      0 0 28px rgba(57, 255, 20, 0.12);
   }
 }
 

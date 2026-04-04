@@ -563,16 +563,18 @@ export function PersistentNavRail() {
     if (data?.character) {
       return (
         <>
-          <div className="mb-1">
-            <button
-              type="button"
-              disabled={switchBusy}
-              onClick={onSwitchCharacter}
-              className="block w-full rounded border border-cyan-900/50 bg-zinc-950/80 px-1.5 py-0.5 text-left text-xs uppercase tracking-widest text-cyber-cyan hover:border-cyan-700/60 hover:bg-cyan-950/40 disabled:opacity-50"
-            >
-              {switchBusy ? "Switching..." : "Switch Character"}
-            </button>
-          </div>
+          {data.canWebSwitchCharacter ? (
+            <div className="mb-1">
+              <button
+                type="button"
+                disabled={switchBusy}
+                onClick={onSwitchCharacter}
+                className="block w-full rounded border border-cyan-900/50 bg-zinc-950/80 px-1.5 py-0.5 text-left text-xs uppercase tracking-widest text-cyber-cyan hover:border-cyan-700/60 hover:bg-cyan-950/40 disabled:opacity-50"
+              >
+                {switchBusy ? "Switching..." : "Switch Character"}
+              </button>
+            </div>
+          ) : null}
           <PlayerPanel
             char={data.character}
             morality={data.missions?.morality ?? { good: 0, evil: 0, lawful: 0, chaotic: 0 }}

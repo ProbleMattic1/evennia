@@ -6,7 +6,7 @@ O(1) membership via dict on a persistent script. Bootstrap industrial NPCs
 call register_npc_miner_character_id after the character is ensured.
 """
 
-from evennia import create_script, search_script
+from evennia import search_script
 
 from typeclasses.scripts import Script
 
@@ -25,13 +25,16 @@ class NpcMinerRegistryScript(Script):
 
 
 def get_npc_miner_registry():
+    from evennia import GLOBAL_SCRIPTS
+
+    script = GLOBAL_SCRIPTS.get(REGISTRY_SCRIPT_KEY)
+    if script:
+        return script
     hits = search_script(REGISTRY_SCRIPT_KEY)
     if hits:
         return hits[0]
-    return create_script(
-        "world.npc_miner_registry.NpcMinerRegistryScript",
-        key=REGISTRY_SCRIPT_KEY,
-        persistent=True,
+    raise RuntimeError(
+        "npc_miner_registry global script missing. Add it to server.conf.settings.GLOBAL_SCRIPTS."
     )
 
 

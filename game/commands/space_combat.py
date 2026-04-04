@@ -79,6 +79,21 @@ class CmdEngage(Command):
             return
 
         eng = create_space_engagement(caller, vehicle, bravo_config)
+        from evennia import GLOBAL_SCRIPTS
+
+        from world.challenges.challenge_signals import emit as challenge_emit
+
+        preg = GLOBAL_SCRIPTS.get("party_registry")
+        pid = preg.party_id_for(caller) if preg else None
+        challenge_emit(
+            caller,
+            "fleet_dispatch",
+            {
+                "party_id": pid,
+                "npc_key": target_name,
+                "vehicle_id": vehicle.id,
+            },
+        )
         caller.msg(
             f"|w[Space]|n Engagement started against |r{bravo_config['label']}|n. "
             f"Use |wvstatus|n, |wburn|n, |wfox|n, |wkinetic|n, |wghost|n etc."

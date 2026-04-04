@@ -269,9 +269,10 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         f"Mining operation deployed at {site.key}.\n"
         f"  Site: {site_room.key}\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Mining delivery: UTC 30m grid  Hauler pickup: scheduled {HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit; "
-        f"autonomous dispatch every {HAULER_ENGINE_INTERVAL // 60}m (usually within one interval after that). "
-        f"Idle waits on mine next_cycle + same pickup offset.\n"
+        f"  Mining delivery: UTC 30m grid. Autonomous dispatch wakes every {HAULER_ENGINE_INTERVAL // 60}m; "
+        f"with ore in the hopper or a haul in progress, runs repeat as fast as the engine allows. "
+        f"When the hopper is empty and the hauler is docked at the mine, the next pickup aligns to "
+        f"last deposit + {HAULER_PICKUP_OFFSET_SEC // 60}m or the following grid slot.\n"
         f"{dest_note}"
         f"  Use |wfeedrefinery|n when you want refining; |wcollectrefined|n at the plant for attributed output."
     )
@@ -359,9 +360,10 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
     return True, (
         f"Mining operation reactivated at {site.key}.\n"
         f"  Rig: {rig.key}  Storage: {storage.key}  Hauler: {hauler.key}\n"
-        f"  Mining delivery: UTC 30m grid  Hauler pickup: scheduled {HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit; "
-        f"autonomous dispatch every {HAULER_ENGINE_INTERVAL // 60}m (usually within one interval after that). "
-        f"Idle waits on mine next_cycle + same pickup offset.\n"
+        f"  Mining delivery: UTC 30m grid. Autonomous dispatch wakes every {HAULER_ENGINE_INTERVAL // 60}m; "
+        f"with ore in the hopper or a haul in progress, runs repeat as fast as the engine allows. "
+        f"When the hopper is empty and the hauler is docked at the mine, the next pickup aligns to "
+        f"last deposit + {HAULER_PICKUP_OFFSET_SEC // 60}m or the following grid slot.\n"
         f"{dest_note}"
     )
 

@@ -175,6 +175,7 @@ class CmdBuy(Command):
                     price,
                     tx_type="catalog_purchase",
                     memo=f"{caller.key} bought {template.key} from {vendor.key}",
+                    sold_template=template,
                 )
                 revenue_to = "vendor"
             msg = (
@@ -215,6 +216,7 @@ class CmdBuy(Command):
             price,
             tx_type="catalog_purchase",
             memo=f"{caller.key} bought {template.key} from {vendor.key}",
+            sold_template=template,
         )
 
         msg = (

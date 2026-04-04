@@ -1,10 +1,8 @@
-"""Create BattlespaceWorldEngine script if missing (idempotent)."""
+"""Verify BattlespaceWorldEngine global script."""
 
-from evennia import create_script, search_script
+from world.global_scripts_util import require_global_script
 
 
 def bootstrap_battlespace_world():
-    if search_script("battlespace_world_engine"):
-        return
-    create_script("typeclasses.battlespace_world_engine.BattlespaceWorldEngine")
-    print("[battlespace] Created BattlespaceWorldEngine.")
+    require_global_script("battlespace_world_engine")
+    print("[battlespace] BattlespaceWorldEngine ok.")

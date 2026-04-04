@@ -46,7 +46,16 @@ class CatalogVendor(ObjectParent, DefaultObject):
             return []
         return list(ObjectDB.objects.filter(db_tags__in=tags).distinct())
 
-    def record_sale(self, caller, price, *, tx_type="vendor_sale", memo=None, withdraw_memo=None):
+    def record_sale(
+        self,
+        caller,
+        price,
+        *,
+        tx_type="vendor_sale",
+        memo=None,
+        withdraw_memo=None,
+        sold_template=None,
+    ):
         """
         Route a purchase through the economy ledger.
         Returns (vendor_amount, tax_amount).
@@ -95,6 +104,19 @@ class CatalogVendor(ObjectParent, DefaultObject):
         caller.db.credits = econ.get_balance(player_account)
         self.db.credits = econ.get_balance(vendor_account)
         econ.db.tax_pool = econ.get_balance(treasury_account)
+
+        if sold_template is not None and tx_type in ("vendor_sale", "catalog_purchase", "ship_purchase"):
+            slug = econ.get_item_faction(sold_template)
+            if slug:
+                try:
+                    delta = max(1, min(40, int(price) // 4000))
+                    caller.faction_standing.adjust_standing(str(slug), delta, reason=str(tx_type))
+                except ValueError as exc:
+                    from evennia.utils import logger
+
+                    logger.log_warn(
+                        f"[faction_standing] skip adjust: {exc} (char={getattr(caller, 'key', '?')})"
+                    )
 
         try:
             from world.challenges.challenge_signals import emit

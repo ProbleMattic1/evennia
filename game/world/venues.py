@@ -212,6 +212,10 @@ VENUES: dict = {
             "refinery_hub_exit": "refinery deck",
             "refinery_hub_aliases": ["refinery", "refining", "deck", "smelt line", "smelt"],
         },
+        "logistics": {
+            "max_hauler_tons_per_tick": 25000.0,
+            "refinery_ingress_cap_tons": 12000.0,
+        },
         "shipyard": {
             "showroom_key": "Meridian Civil Shipyard",
             "showroom_desc": (
@@ -376,6 +380,10 @@ VENUES: dict = {
             "hub_aliases": ["processing", "plant", "processor", "ore bay"],
             "refinery_hub_exit": "refinery deck",
             "refinery_hub_aliases": ["refinery", "refining", "deck", "smelt line", "smelt"],
+        },
+        "logistics": {
+            "max_hauler_tons_per_tick": 18000.0,
+            "refinery_ingress_cap_tons": 9000.0,
         },
         "shipyard": {
             "showroom_key": "Frontier Meridian Civil Shipyard",

@@ -493,8 +493,26 @@ class EconomyEngine(Script):
             ))
         return float(self.state.get("buy_rate" if transaction_type == "buy" else "sell_rate", 1.0))
 
-    def get_final_price(self, item, buyer=None, seller=None, location=None,
-                        market_type="normal", transaction_type="buy", standing="neutral"):
+    def _character_faction_standing_multiplier(self, buyer_character, item, transaction_type: str) -> float:
+        if buyer_character is None or str(transaction_type or "buy") != "buy":
+            return 1.0
+        slug = self.get_item_faction(item)
+        if not slug:
+            return 1.0
+        h = buyer_character.faction_standing
+        return float(h.buy_price_multiplier(str(slug)))
+
+    def get_final_price(
+        self,
+        item,
+        buyer=None,
+        seller=None,
+        location=None,
+        market_type="normal",
+        transaction_type="buy",
+        standing="neutral",
+        buyer_character=None,
+    ):
         base_price = float(self.get_base_price(item) or 0)
         if base_price <= 0:
             return 0
@@ -514,6 +532,9 @@ class EconomyEngine(Script):
         scarcity_mod = float(self.get_scarcity_modifier(item=item, location=location))
         standing_mod = float(self.get_standing_modifier(standing))
         buy_sell_mod = float(self.get_buy_sell_rate(market_type=market_type, transaction_type=transaction_type))
+        char_faction_mod = self._character_faction_standing_multiplier(
+            buyer_character, item, transaction_type
+        )
 
         subtotal = (
             base_price
@@ -528,6 +549,7 @@ class EconomyEngine(Script):
             * scarcity_mod
             * standing_mod
             * buy_sell_mod
+            * char_faction_mod
         )
 
         tax_rate = self.get_tax_rate(location=location)
@@ -543,9 +565,19 @@ class EconomyEngine(Script):
             final = int(round(subtotal))
         return max(final, 0)
 
-    def get_price_breakdown(self, item, buyer=None, seller=None, location=None,
-                            market_type="normal", transaction_type="buy", standing="neutral"):
+    def get_price_breakdown(
+        self,
+        item,
+        buyer=None,
+        seller=None,
+        location=None,
+        market_type="normal",
+        transaction_type="buy",
+        standing="neutral",
+        buyer_character=None,
+    ):
         base_price = float(self.get_base_price(item) or 0)
+        cfm = self._character_faction_standing_multiplier(buyer_character, item, transaction_type)
         return {
             "base_price": base_price,
             "global_modifier": float(self.state.get("global_modifier", 1.0)),
@@ -559,6 +591,7 @@ class EconomyEngine(Script):
             "scarcity_modifier": float(self.get_scarcity_modifier(item=item, location=location)),
             "standing_modifier": float(self.get_standing_modifier(standing)),
             "buy_sell_modifier": float(self.get_buy_sell_rate(market_type=market_type, transaction_type=transaction_type)),
+            "character_faction_standing_modifier": float(cfm),
             "tax_rate": float(self.get_tax_rate(location=location)),
             "market_type": market_type,
             "transaction_type": transaction_type,
@@ -571,6 +604,7 @@ class EconomyEngine(Script):
                 market_type=market_type,
                 transaction_type=transaction_type,
                 standing=standing,
+                buyer_character=buyer_character,
             ),
         }
 
@@ -640,7 +674,14 @@ def grant_character_credits(character, amount, memo="grant"):
     return character.db.credits
 
 
-def get_price(item, location=None, market_type="normal", transaction_type="buy", standing="neutral"):
+def get_price(
+    item,
+    location=None,
+    market_type="normal",
+    transaction_type="buy",
+    standing="neutral",
+    buyer_character=None,
+):
     econ = get_economy(create_missing=True)
     return econ.get_final_price(
         item,
@@ -648,4 +689,5 @@ def get_price(item, location=None, market_type="normal", transaction_type="buy",
         market_type=market_type,
         transaction_type=transaction_type,
         standing=standing,
+        buyer_character=buyer_character,
     )

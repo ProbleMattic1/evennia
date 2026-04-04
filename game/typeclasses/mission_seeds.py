@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from evennia import create_script, search_script
+from evennia import search_script
 from evennia.scripts.scripts import DefaultScript
 
 from world.time import parse_iso, to_iso, utc_now
@@ -96,12 +96,19 @@ class MissionSeedsScript(DefaultScript):
 
 
 def get_mission_seeds_script(create_missing: bool = True) -> MissionSeedsScript | None:
+    from evennia import GLOBAL_SCRIPTS
+
+    script = GLOBAL_SCRIPTS.get("mission_seeds")
+    if script:
+        return script
     found = search_script("mission_seeds")
     if found:
         return found[0]
     if not create_missing:
         return None
-    return create_script("typeclasses.mission_seeds.MissionSeedsScript", key="mission_seeds")
+    raise RuntimeError(
+        "mission_seeds global script missing. Add it to server.conf.settings.GLOBAL_SCRIPTS."
+    )
 
 
 def enqueue_mission_seed(**kwargs) -> dict[str, Any] | None:

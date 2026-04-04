@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "factions": {
+    "allied-traders-guild": {
+      "label": "Allied Traders Guild",
+      "min_standing": -500,
+      "max_standing": 500,
+      "buy_mult_at_min_standing": 1.12,
+      "buy_mult_at_max_standing": 0.88
+    },
+    "civilian": {
+      "label": "Civilian markets",
+      "min_standing": -200,
+      "max_standing": 200,
+      "buy_mult_at_min_standing": 1.04,
+      "buy_mult_at_max_standing": 0.98
+    },
+    "corporate": {
+      "label": "Corporate",
+      "min_standing": -400,
+      "max_standing": 400,
+      "buy_mult_at_min_standing": 1.1,
+      "buy_mult_at_max_standing": 0.9
+    },
+    "government": {
+      "label": "Government",
+      "min_standing": -400,
+      "max_standing": 400,
+      "buy_mult_at_min_standing": 1.08,
+      "buy_mult_at_max_standing": 0.92
+    },
+    "black-market": {
+      "label": "Black market",
+      "min_standing": -300,
+      "max_standing": 300,
+      "buy_mult_at_min_standing": 1.15,
+      "buy_mult_at_max_standing": 0.85
+    },
+    "pirate": {
+      "label": "Pirate clans",
+      "min_standing": -500,
+      "max_standing": 500,
+      "buy_mult_at_min_standing": 1.18,
+      "buy_mult_at_max_standing": 0.82
+    }
+  }
+}

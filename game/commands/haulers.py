@@ -114,9 +114,9 @@ class CmdAssignHauler(Command):
 
         caller.msg(
             f"|w{hauler.key}|n assigned: {mine_room.key} -> {refinery_room.key}. "
-            f"Next autonomous pickup: |c{format_next_hauler_run_utc(hauler)}|n "
-            f"(mine next_cycle + {HAULER_PICKUP_OFFSET_SEC // 60}m; +{HAULER_PICKUP_OFFSET_SEC // 60}m after each deposit). "
-            f"Dispatch runs every {HAULER_ENGINE_INTERVAL // 60}m (typically within one interval after eligible time)."
+            f"Next autonomous run: |c{format_next_hauler_run_utc(hauler)}|n "
+            f"(backlog or in-flight = as fast as the {HAULER_ENGINE_INTERVAL // 60}m dispatch loop allows; "
+            f"empty hopper at mine = grid: last deposit + {HAULER_PICKUP_OFFSET_SEC // 60}m or next slot)."
         )
 
 
@@ -238,9 +238,9 @@ class CmdHaulerStatus(Command):
             else:
                 del_note = "Delivery: Ore Receiving Bay at plant (paid on unload)"
             lines.append(
-                f"    Capacity: {cap}t  Schedule: mine-linked (+{HAULER_PICKUP_OFFSET_SEC // 60}m after deposits); "
-                f"dispatch every {HAULER_ENGINE_INTERVAL // 60}m  Next: {next_str}  "
-                f"{del_note}  Upgrades: {up_str}"
+                f"    Capacity: {cap}t  Schedule: backlog/transit = continuous; empty at mine = grid "
+                f"(deposit + {HAULER_PICKUP_OFFSET_SEC // 60}m); dispatch every {HAULER_ENGINE_INTERVAL // 60}m  "
+                f"Next: {next_str}  {del_note}  Upgrades: {up_str}"
             )
         caller.msg("\n".join(lines))
 

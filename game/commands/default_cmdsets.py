@@ -78,6 +78,13 @@ from commands.reload_ambient import CmdReloadAmbient
 from commands.reload_missions import CmdReloadMissions
 from commands.reload_quests import CmdReloadQuests
 from commands.battlespace import CmdReloadBattlespace
+from commands.world_meta import (
+    CmdEnterInstance,
+    CmdLeaveInstance,
+    CmdPartyForm,
+    CmdPartyLeave,
+    CmdPartyStatus,
+)
 from commands.space_combat import (
     CmdEngage,
     CmdDisengage,
@@ -189,6 +196,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdChallengeClaim())
         self.add(CmdPointBuy())
         self.add(CmdGrantXP())
+        self.add(CmdEnterInstance())
+        self.add(CmdLeaveInstance())
+        self.add(CmdPartyForm())
+        self.add(CmdPartyLeave())
+        self.add(CmdPartyStatus())
         self.add(CmdEngage())
         self.add(CmdDisengage())
         self.add(CmdVStatus())

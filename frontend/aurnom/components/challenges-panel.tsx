@@ -134,7 +134,7 @@ function ChallengeRow({
       <div className="flex min-w-0 items-start gap-1">
         <div className="min-w-0 flex-1">
           <div
-            className={`min-w-0 truncate font-mono ${done ? "text-cyber-cyan/85" : "text-foreground"}`}
+            className={`min-w-0 truncate font-mono ${done ? "text-ui-soft" : "text-foreground"}`}
           >
             {entry.title}
           </div>
@@ -190,11 +190,11 @@ function CadenceSection({
   return (
     <div className="border-t border-cyan-900/25 pt-1.5 first:border-0 first:pt-0">
       <div className="flex min-w-0 flex-wrap items-start gap-x-1 gap-y-1 sm:items-center">
-        <span className="min-w-0 flex-1 basis-[min(100%,10rem)] truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan sm:basis-auto">
+        <span className="min-w-0 flex-1 basis-[min(100%,10rem)] truncate text-xs font-bold uppercase tracking-widest text-ui-soft sm:basis-auto">
           {label}
           {total > 0 ? (
             <span className="ml-1 font-mono font-normal normal-case tracking-normal">
-              <span className="text-cyber-cyan">{completedCount}</span>
+              <span className="text-zinc-200">{completedCount}</span>
               <span className="text-ui-muted">/</span>
               <span className="text-amber-400">{total}</span>
             </span>
@@ -272,7 +272,7 @@ function SortableEquippedPerkRow({
       >
         ⋮⋮
       </button>
-      <div className="min-w-0 flex-1 py-0.5 font-mono text-[11px] text-cyber-cyan/90">{title}</div>
+      <div className="min-w-0 flex-1 py-0.5 font-mono text-[11px] text-ui-soft">{title}</div>
       <button
         type="button"
         disabled={disabled}
@@ -340,7 +340,7 @@ function PerkLoadoutBlock(props: {
   return (
     <div className="mt-2 border-t border-cyan-900/25 pt-1.5">
       <div className="flex min-w-0 flex-wrap items-start gap-x-1 gap-y-1 sm:items-center">
-        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan">
+        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-ui-soft">
           Passive perks
         </span>
         <span className="shrink-0 font-mono text-[10px] text-ui-caption text-ui-muted">
@@ -383,7 +383,7 @@ function PerkLoadoutBlock(props: {
           ) : equipped.length > 0 ? (
             <ul className="flex flex-col gap-0.5">
               {equipped.map((id) => (
-                <li key={id} className="font-mono text-[11px] text-cyber-cyan/85">
+                <li key={id} className="font-mono text-[11px] text-ui-soft">
                   {titleFor(id)}
                 </li>
               ))}
@@ -403,7 +403,7 @@ function PerkLoadoutBlock(props: {
                       className="flex flex-col gap-0.5 border-b border-zinc-800/50 pb-1 last:border-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-2"
                     >
                       <div className="min-w-0">
-                        <div className="font-mono text-cyber-cyan/85">{row?.title ?? id}</div>
+                        <div className="font-mono text-ui-soft">{row?.title ?? id}</div>
                         {row?.summary ? <p className="text-ui-muted">{row.summary}</p> : null}
                       </div>
                       {onSetLoadout ? (
@@ -443,7 +443,7 @@ function PointStoreBlock(props: {
   return (
     <div className="mt-2 border-t border-cyan-900/25 pt-1.5">
       <div className="flex min-w-0 flex-wrap items-start gap-x-1 gap-y-1 sm:items-center">
-        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan">
+        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-ui-soft">
           Point store
         </span>
         <div className="ml-auto flex shrink-0 items-center">
@@ -463,7 +463,7 @@ function PointStoreBlock(props: {
               className="flex flex-col gap-0.5 border-b border-zinc-800/50 pb-1 last:border-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-2"
             >
               <div className="min-w-0">
-                <div className="font-mono text-cyber-cyan/90">{o.title}</div>
+                <div className="font-mono text-ui-soft">{o.title}</div>
                 {o.summary ? <p className="text-ui-muted">{o.summary}</p> : null}
                 <div className="mt-0.5 font-mono text-[10px] text-ui-caption">
                   LT {o.costLifetime}
@@ -498,7 +498,7 @@ function RecentCompletionsBlock({ history }: { history: ChallengeHistoryRow[] })
   return (
     <div className="mt-2 border-t border-cyan-900/25 pt-1.5">
       <div className="flex min-w-0 flex-wrap items-start gap-x-1 gap-y-1 sm:items-center">
-        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-cyber-cyan">
+        <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-widest text-ui-soft">
           Recent completions
         </span>
         <div className="ml-auto flex shrink-0 items-center">
@@ -517,7 +517,7 @@ function RecentCompletionsBlock({ history }: { history: ChallengeHistoryRow[] })
               key={`${row.challengeId}-${row.windowKey}`}
               className="flex min-w-0 flex-col gap-0.5 border-b border-zinc-800/60 pb-1 last:border-0 last:pb-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2 sm:pb-0.5"
             >
-              <span className="min-w-0 break-words font-mono text-cyber-cyan/90 sm:truncate">
+              <span className="min-w-0 break-words font-mono text-ui-soft sm:truncate">
                 {row.title}
               </span>
               <span className="shrink-0 self-end font-mono text-xs tabular-nums text-ui-muted sm:self-auto">

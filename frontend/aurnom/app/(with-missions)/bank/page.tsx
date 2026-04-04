@@ -35,7 +35,11 @@ function BankPageInner() {
       <CsHeader
         title={data.bankName}
         subtitle={data.roomName}
-        actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
+        actions={
+          <CsButtonLink href="/" variant="dashboard">
+            Back to dashboard
+          </CsButtonLink>
+        }
       />
       <VenueBillboardStoryFrame
         panelTitle="Location & story"

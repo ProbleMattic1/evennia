@@ -4,12 +4,12 @@ Autonomous Hauler system.
 HaulerEngine   - Global script; processes hauler routes on schedule.
 Helpers        - effective_capacity, effective_cycle_seconds (nominal tier), resolve_room.
 
-Mining: pickup at last_ore_deposit_at + HAULER_PICKUP_OFFSET_SEC (half of MINING_DELIVERY_PERIOD)
-when still in the future; otherwise next_cycle_at + that offset; grid step MINING_DELIVERY_PERIOD.
-
-Flora: hourly FLORA_DELIVERY_PERIOD grid; pickup at last_flora_deposit_at +
-FLORA_HAULER_PICKUP_OFFSET_SEC (fixed 15 min), or next_cycle_at + same offset; grid step
-FLORA_DELIVERY_PERIOD.
+Dispatch: a hauler is due immediately (next run = now) whenever it is not "clean idle at the mine":
+it has cargo, is mid-route (transit/unload), or the site's linked hopper still holds material.
+Only when state is at_mine, cargo is empty, and linked storage is empty does the next run follow
+the production grid: last deposit + pickup offset, else next_cycle_at + offset, stepped by the
+pipeline period (mining: MINING_DELIVERY_PERIOD / HAULER_PICKUP_OFFSET_SEC; flora & fauna:
+FLORA_DELIVERY_PERIOD / FLORA_HAULER_PICKUP_OFFSET_SEC).
 
 arm_hauler_pickup_after_mining_deposit / arm_hauler_pickup_after_flora_deposit /
 arm_hauler_pickup_after_fauna_deposit arm haulers tagged autonomous_hauler in category
@@ -90,7 +90,7 @@ CAPACITY_BONUS_PER_EXPANSION = 0.25  # +25% per cargo_expansion level
 
 HAULER_STAGGER_WINDOW_BASE_SEC = 6 * HOUR
 HAULER_STAGGER_WINDOW_MIN_SEC = HOUR
-HAULER_MAX_PIPELINE_STEPS = 12
+HAULER_MAX_PIPELINE_STEPS = 32
 
 HAULER_PICKUP_OFFSET_SEC = MINING_DELIVERY_PERIOD // 2
 
@@ -158,8 +158,9 @@ def effective_capacity(hauler):
 def effective_cycle_seconds(hauler):
     """
     Nominal "tier" interval in seconds (legacy Mk I/II/III hours field).
-    Actual pickup times follow deposit + offset and the production grid (mining vs flora/fauna);
-    this field is tier display / legacy upgrades only.
+    Actual dispatch uses immediate due when there is backlog or an in-flight leg; the grid applies
+    only when clean idle at the mine (see compute_next_hauler_run_at). This field is tier display
+    / legacy upgrades only.
     """
     base_hours = float(hauler.db.hauler_base_cycle_hours or HAULER_CYCLE_BASE_HOURS)
     upgrades = hauler.db.hauler_upgrades or {}
@@ -193,6 +194,23 @@ def _hauler_grid_params(hauler):
     return site, MINING_DELIVERY_PERIOD, HAULER_PICKUP_OFFSET_SEC, "last_ore_deposit_at"
 
 
+def _hauler_is_clean_idle_at_mine(hauler, site) -> bool:
+    """True only when at mine, no cargo, and linked production storage is empty."""
+    state = (hauler.db.hauler_state or "at_mine").strip().lower()
+    if state != "at_mine":
+        return False
+    try:
+        cargo = float(hauler.cargo_total_mass())
+    except (TypeError, ValueError, AttributeError):
+        cargo = 0.0
+    if cargo > 0.0:
+        return False
+    storage = getattr(site.db, "linked_storage", None) if site is not None else None
+    if storage is None or not hasattr(storage, "total_mass"):
+        return False
+    return float(storage.total_mass()) <= 0.0
+
+
 def compute_next_hauler_run_at(hauler, after: datetime | None = None) -> datetime:
     mine_room = resolve_room(hauler.db.hauler_mine_room)
     owner = hauler.db.hauler_owner
@@ -209,6 +227,9 @@ def compute_next_hauler_run_at(hauler, after: datetime | None = None) -> datetim
     if next_c is None:
         raise RuntimeError(f"Site {site.key!r} has no next_cycle_at")
     next_c = next_c.astimezone(UTC)
+
+    if not _hauler_is_clean_idle_at_mine(hauler, site):
+        return now_ref
 
     last_dep = _parse_ts(getattr(site.db, last_dep_attr, None))
     offset = timedelta(seconds=offset_sec)
@@ -329,20 +350,8 @@ def iter_plant_aggregated_raw_inventory(plant_room):
                 continue
             merged[kr] = merged.get(kr, 0.0) + tons
 
-    bay = get_plant_ore_receiving_bay(plant_room)
-    if bay:
-        absorb(getattr(bay.db, "inventory", None))
-
-    if not plant_room:
-        return merged
-
-    for obj in plant_room.contents:
-        if not obj.tags.has("mining_storage", category="mining"):
-            continue
-        if obj.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
-            absorb(getattr(obj.db, "inventory", None))
-        elif obj.tags.has(LOCAL_RAW_STORAGE_TAG, category=LOCAL_RAW_STORAGE_CATEGORY):
-            absorb(getattr(obj.db, "inventory", None))
+    for st in iter_plant_intake_storage_objects(plant_room):
+        absorb(getattr(st.db, "inventory", None))
 
     return merged
 
@@ -368,6 +377,43 @@ def get_plant_ore_receiving_bay(room):
         if obj.key == "Ore Receiving Bay":
             return obj
     return None
+
+
+def iter_plant_intake_storage_objects(plant_room):
+    """
+    Yields each raw intake storage for this plant room: shared ore receiving bay,
+    then every plant player silo and local raw reserve in ``plant_room.contents``.
+    Membership matches :func:`iter_plant_aggregated_raw_inventory` (room-scoped, no global search).
+    """
+    if not plant_room:
+        return
+    bay = get_plant_ore_receiving_bay(plant_room)
+    if bay:
+        yield bay
+    for obj in plant_room.contents:
+        if not obj.tags.has("mining_storage", category="mining"):
+            continue
+        if obj.tags.has(PLANT_PLAYER_STORAGE_TAG, category=PLANT_PLAYER_STORAGE_CATEGORY):
+            yield obj
+        elif obj.tags.has(LOCAL_RAW_STORAGE_TAG, category=LOCAL_RAW_STORAGE_CATEGORY):
+            yield obj
+
+
+def plant_aggregated_raw_storage_meters(plant_room):
+    """
+    Total stored tons and total capacity (sum of per-vessel ``capacity_tons``) across
+    the same storages as the web oreReceivingBay aggregate.
+    """
+    used = 0.0
+    cap = 0.0
+    for st in iter_plant_intake_storage_objects(plant_room):
+        if hasattr(st, "total_mass"):
+            used += float(st.total_mass())
+        else:
+            inv = getattr(st.db, "inventory", None) or {}
+            used += float(sum(float(v) for v in inv.values()))
+        cap += float(getattr(st.db, "capacity_tons", 0) or 0)
+    return round(used, 2), cap
 
 
 def get_plant_player_storage(room, owner):
@@ -520,7 +566,26 @@ def _emit_hauler_tick_challenge(owner, mine_room, pipeline):
         pass
 
 
-def _haul_unload_split_local_then_plant(hauler, owner, dest_room, mine_room, pipeline):
+def _consume_venue_haul_tick_budget(dest_room, tons: float, venue_haul_budget: dict | None) -> float:
+    """Return tons clamped by per-tick venue cap; update ``venue_haul_budget``."""
+    if venue_haul_budget is None or tons <= 0:
+        return round(float(tons), 2)
+    from world.venue_logistics import get_venue_logistics
+    from world.venues import venue_id_for_object
+
+    vid = venue_id_for_object(dest_room)
+    if not vid:
+        return round(float(tons), 2)
+    max_t = get_venue_logistics(vid)["max_hauler_tons_per_tick"]
+    used = float(venue_haul_budget.get(vid, 0.0))
+    room = max(0.0, max_t - used)
+    adj = round(min(float(tons), room), 2)
+    if adj > 0:
+        venue_haul_budget[vid] = used + adj
+    return adj
+
+
+def _haul_unload_split_local_then_plant(hauler, owner, dest_room, mine_room, pipeline, venue_haul_budget=None):
     """
     Fill local raw reserve up to effective_haul_local_plant_fill_fraction(owner) of capacity,
     then remainder to Ore Receiving Bay + treasury. Full rollback on settlement failure.
@@ -592,6 +657,7 @@ def _haul_unload_split_local_then_plant(hauler, owner, dest_room, mine_room, pip
             used_bay = bay.total_mass()
             space = max(0.0, cap_bay - used_bay)
             add = round(min(t, space), 2)
+            add = _consume_venue_haul_tick_budget(dest_room, add, venue_haul_budget)
             if add <= 0:
                 continue
             removed = hauler.unload_cargo(key, add)
@@ -644,10 +710,12 @@ def _haul_unload_split_local_then_plant(hauler, owner, dest_room, mine_room, pip
     return True, f"Split unload: {detail}. Returning to mine."
 
 
-def hauler_process_one(hauler):
+def hauler_process_one(hauler, venue_haul_budget=None):
     """
     Run one step of the hauler's route. Returns (did_work, message).
     State: at_mine -> loading -> transit_refinery -> unloading -> transit_mine
+
+    ``venue_haul_budget`` maps ``venue_id`` → tons delivered to the plant bay this engine tick.
     """
     from typeclasses.fauna import FAUNA_RESOURCE_CATALOG
     from typeclasses.flora import FLORA_RESOURCE_CATALOG
@@ -779,7 +847,7 @@ def hauler_process_one(hauler):
                     "haul_destination_room to match the haul route destination.",
                 )
             return _haul_unload_split_local_then_plant(
-                hauler, owner, dest_room, mine_room, pipeline
+                hauler, owner, dest_room, mine_room, pipeline, venue_haul_budget=venue_haul_budget
             )
 
         if use_local:
@@ -830,6 +898,7 @@ def hauler_process_one(hauler):
             used = bay.total_mass()
             space = max(0.0, cap - used)
             add = round(min(t, space), 2)
+            add = _consume_venue_haul_tick_budget(dest_room, add, venue_haul_budget)
             if add <= 0:
                 continue
             removed = hauler.unload_cargo(key, add)
@@ -843,6 +912,11 @@ def hauler_process_one(hauler):
         if not delivered:
             hauler.db.hauler_state = "transit_mine"
             set_hauler_next_cycle(hauler)
+            if venue_haul_budget is not None:
+                return (
+                    True,
+                    "Venue haul throughput cap reached or Ore Receiving Bay full — returning to mine.",
+                )
             return True, "Ore Receiving Bay full — could not unload. Returning to mine."
 
         from typeclasses.refining import settle_plant_raw_purchase_from_treasury
@@ -886,8 +960,9 @@ class HaulerEngine(Script):
     """
     Global script for autonomous hauler routes.
     Wakes every HAULER_ENGINE_INTERVAL seconds. Loads up to MAX_HAULERS_PER_ENGINE_TICK due
-    haulers (HaulerDispatchRow next_run <= now), ordered by next_run. Each may advance up to
-    HAULER_MAX_PIPELINE_STEPS state transitions per tick.
+    haulers (HaulerDispatchRow next_run <= now), ordered by next_run then objectdb_id. Each may
+    advance up to HAULER_MAX_PIPELINE_STEPS state transitions per tick (several full mine–plant–return
+    cycles when haulers are due immediately).
     """
 
     def at_script_creation(self):
@@ -904,6 +979,8 @@ class HaulerEngine(Script):
         now = _now()
         now_tz = timezone.now()
         due_ids = fetch_due_hauler_ids(now=now_tz, limit=MAX_HAULERS_PER_ENGINE_TICK)
+
+        self.ndb.hauler_venue_tons = {}
 
         processed = 0
         errors = 0
@@ -939,7 +1016,9 @@ class HaulerEngine(Script):
                     if next_at > now:
                         break
 
-                    did_work, msg = hauler_process_one(hauler)
+                    did_work, msg = hauler_process_one(
+                        hauler, venue_haul_budget=self.ndb.hauler_venue_tons
+                    )
                     steps += 1
                     if did_work:
                         logger.log_info(f"[hauler_engine] {hauler.key}: {msg}")

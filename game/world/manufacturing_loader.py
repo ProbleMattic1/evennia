@@ -36,6 +36,11 @@ def _validate_row(raw: dict, ref: str) -> tuple[dict | None, str | None]:
         if k in ("table", "id"):
             continue
         row[k] = v
+    if row.get("table") == "recipe":
+        rk = str(row.get("recipe_kind") or "fabricate").strip().lower()
+        if rk not in ("fabricate", "salvage"):
+            return None, f"unknown recipe_kind {rk!r}"
+        row["recipe_kind"] = rk
     return row, None
 
 
@@ -67,6 +72,28 @@ def assert_manufacturing_recipes_use_refined_keys(catalog, recipes):
 
     for rid, row in recipes.items():
         assert rid in catalog
+        kind = str(row.get("recipe_kind") or "fabricate").lower()
+        if kind == "salvage":
+            continue
         inputs = row["inputs"]
         for inp in inputs:
             assert inp in REFINING_RECIPES, f"recipe {rid}: unknown input {inp!r}"
+
+
+def assert_salvage_recipes_valid(catalog, recipes):
+    from typeclasses.refining import REFINING_RECIPES
+
+    for rid, row in recipes.items():
+        if str(row.get("recipe_kind") or "fabricate").lower() != "salvage":
+            continue
+        assert rid in catalog
+        inputs = row.get("inputs") or {}
+        assert isinstance(inputs, dict) and inputs, f"salvage {rid}: inputs required"
+        for inp, qty in inputs.items():
+            assert inp in catalog, f"salvage {rid}: input {inp!r} not manufactured catalog"
+            assert float(qty) > 0, f"salvage {rid}: bad qty for {inp!r}"
+        outputs = row.get("outputs") or {}
+        assert isinstance(outputs, dict) and outputs, f"salvage {rid}: outputs required"
+        for outk, qty in outputs.items():
+            assert outk in REFINING_RECIPES, f"salvage {rid}: output {outk!r} not refined key"
+            assert float(qty) > 0, f"salvage {rid}: bad output qty for {outk!r}"

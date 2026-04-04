@@ -28,19 +28,13 @@ def build_processing_plant_payload(
     Returns:
         Dict with plantName, oreReceivingBay, raw mass storage meters, fee rates, myHaulers.
     """
-    from typeclasses.haulers import get_plant_ore_receiving_bay
+    from typeclasses.haulers import plant_aggregated_raw_storage_meters
     from typeclasses.mining import COMMODITY_ASK_OVER_BID
     from typeclasses.refining import PROCESSING_FEE_RATE, RAW_SALE_FEE_RATE
 
     from web.ui.ore_receiving_bay_serialize import serialize_plant_intake_snapshot_rows
 
-    receiving_bay = get_plant_ore_receiving_bay(room)
-
-    raw_used = 0.0
-    raw_cap = 0.0
-    if receiving_bay:
-        raw_used = receiving_bay.total_mass() if hasattr(receiving_bay, "total_mass") else 0.0
-        raw_cap = float(getattr(receiving_bay.db, "capacity_tons", 0) or 0)
+    raw_used, raw_cap = plant_aggregated_raw_storage_meters(room)
 
     my_haulers = None
     if char_for_haulers:

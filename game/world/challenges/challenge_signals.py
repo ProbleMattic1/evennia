@@ -51,6 +51,10 @@ _DAILY_TRIGGERS = frozenset({
     "miner_payout",
     "balance_snapshot",
     "space_engagement",
+    "world_environment_tick",
+    "weather_shift",
+    "stealth_check",
+    "fleet_dispatch",
 })
 
 _WEEKLY_TRIGGERS = frozenset({
@@ -58,4 +62,5 @@ _WEEKLY_TRIGGERS = frozenset({
     "deed_listed",
     "deed_sold",
     "hauler_tick",
+    "party_formed",
 })

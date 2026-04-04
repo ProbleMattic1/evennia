@@ -1,18 +1,12 @@
 from __future__ import annotations
 
-from evennia import create_script, search_script
-
-SCRIPT_PATH = "typeclasses.economy_automation.EconomyAutomationController"
 SCRIPT_KEY = "economy_automation_controller"
 
 
-
 def bootstrap_economy_automation():
-    existing = search_script(SCRIPT_KEY)
-    if existing:
-        controller = existing[0]
-    else:
-        controller = create_script(SCRIPT_PATH, key=SCRIPT_KEY)
+    from world.global_scripts_util import require_global_script
+
+    controller = require_global_script(SCRIPT_KEY)
 
     if getattr(controller.db, "phase", None) is None:
         controller.db.phase = "stable"

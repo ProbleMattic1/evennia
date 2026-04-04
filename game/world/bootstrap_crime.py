@@ -1,10 +1,8 @@
-"""Create CrimeWorldEngine script if missing (idempotent)."""
+"""Verify CrimeWorldEngine global script."""
 
-from evennia import create_script, search_script
+from world.global_scripts_util import require_global_script
 
 
 def bootstrap_crime_world():
-    if search_script("crime_world_engine"):
-        return
-    create_script("typeclasses.crime_world_engine.CrimeWorldEngine")
-    print("[crime] Created CrimeWorldEngine.")
+    require_global_script("crime_world_engine")
+    print("[crime] CrimeWorldEngine ok.")

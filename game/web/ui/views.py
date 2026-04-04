@@ -151,6 +151,21 @@ def _playable_characters(account):
     return [c for c in playable if c.is_typeclass("typeclasses.characters.Character", exact=False)]
 
 
+def _web_multi_character_eligible_account(account):
+    """Superuser or Developer perm; multi-character web picker is limited to these accounts."""
+    if bool(getattr(account, "is_superuser", False)):
+        return True
+    try:
+        return bool(account.check_permstring("Developer"))
+    except Exception:
+        return False
+
+
+def _can_web_switch_character(account):
+    """True when the account may use web active-character pick / clear (multi-char admin/dev path)."""
+    return len(_playable_characters(account)) > 1 and _web_multi_character_eligible_account(account)
+
+
 def _resolve_character_for_web(account):
     """
     Resolve the active Character for web APIs.
@@ -171,14 +186,7 @@ def _resolve_character_for_web(account):
         return _ok(chars[0])
 
     # Multi-character is an admin/dev path; non-admin users should never be here.
-    is_admin = bool(getattr(account, "is_superuser", False))
-    is_dev = False
-    try:
-        is_dev = account.check_permstring("Developer")
-    except Exception:
-        is_dev = False
-
-    if is_admin or is_dev:
+    if _web_multi_character_eligible_account(account):
         pref_id = getattr(account.db, "web_active_character_id", None)
         if pref_id is not None:
             try:
@@ -212,6 +220,12 @@ def web_set_active_character(request):
     if not any(int(c.id) == cid for c in chars):
         return JsonResponse({"ok": False, "message": "Character not on this account."}, status=400)
 
+    if len(chars) > 1 and not _can_web_switch_character(request.user):
+        return JsonResponse(
+            {"ok": False, "message": "Multi-character web selection is not available for this account."},
+            status=403,
+        )
+
     request.user.db.web_active_character_id = cid
     return JsonResponse({"ok": True, "characterId": cid})
 
@@ -221,6 +235,12 @@ def web_set_active_character(request):
 def web_clear_active_character(request):
     if not request.user.is_authenticated:
         return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    if not _can_web_switch_character(request.user):
+        return JsonResponse(
+            {"ok": False, "message": "Character switch is not available for this account."},
+            status=403,
+        )
 
     # Clear stored web character selection; forces picker for admin multi-char.
     request.user.db.web_active_character_id = None
@@ -3402,6 +3422,7 @@ def shop_buy(request):
             tx_type="ship_purchase",
             memo=f"{buyer.key} purchased a ship from {vendor.key}",
             withdraw_memo=f"Ship purchase at {vendor.key}",
+            sold_template=template,
         )
 
         owned = buyer.db.owned_vehicles or []
@@ -3468,6 +3489,7 @@ def shop_buy(request):
                 price,
                 tx_type="catalog_purchase",
                 memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+                sold_template=template,
             )
         message = (
             f"Purchased {template.key} for {price:,} cr. "
@@ -3511,6 +3533,7 @@ def shop_buy(request):
         price,
         tx_type="catalog_purchase",
         memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+        sold_template=template,
     )
 
     message = f"Purchased {new_item.key} for {price:,} cr. Remaining balance: {buyer.db.credits:,} cr."

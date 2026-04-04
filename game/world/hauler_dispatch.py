@@ -38,6 +38,6 @@ def fetch_due_hauler_ids(*, now=None, limit: int | None = None) -> list[int]:
     lim = MAX_HAULERS_PER_ENGINE_TICK if limit is None else limit
     return list(
         HaulerDispatchRow.objects.filter(next_run__lte=now)
-        .order_by("next_run")
+        .order_by("next_run", "objectdb_id")
         .values_list("objectdb_id", flat=True)[:lim]
     )

@@ -171,7 +171,11 @@ function RealEstatePageInner() {
       <CsHeader
         title={data.brokerName}
         subtitle={data.officeRoomKey ?? "Real Estate office"}
-        actions={<CsButtonLink href="/">Back to dashboard</CsButtonLink>}
+        actions={
+          <CsButtonLink href="/" variant="dashboard">
+            Back to dashboard
+          </CsButtonLink>
+        }
       />
       <VenueBillboardStoryFrame
         panelTitle="Location & story"

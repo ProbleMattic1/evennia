@@ -101,12 +101,19 @@ class SystemAlertsScript(DefaultScript):
 
 
 def get_system_alerts_script(create_missing: bool = True) -> SystemAlertsScript | None:
+    from evennia import GLOBAL_SCRIPTS
+
+    script = GLOBAL_SCRIPTS.get("system_alerts")
+    if script:
+        return script
     found = search_script("system_alerts")
     if found:
         return found[0]
     if not create_missing:
         return None
-    return create_script("typeclasses.system_alerts.SystemAlertsScript", key="system_alerts")
+    raise RuntimeError(
+        "system_alerts global script missing. Add it to server.conf.settings.GLOBAL_SCRIPTS."
+    )
 
 
 def enqueue_system_alert(**kwargs) -> dict[str, Any] | None:

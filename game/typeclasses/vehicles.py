@@ -92,13 +92,21 @@ class Vehicle(DefaultObject):
             f"price {economy.get('total_price_cr', economy.get('base_price_cr', '?'))} cr"
         )
 
-    def get_market_price(self, location=None, market_type='normal', transaction_type='buy', standing='neutral'):
+    def get_market_price(
+        self,
+        location=None,
+        market_type="normal",
+        transaction_type="buy",
+        standing="neutral",
+        buyer_character=None,
+    ):
         return economy_get_price(
             self,
             location=location,
             market_type=market_type,
             transaction_type=transaction_type,
             standing=standing,
+            buyer_character=buyer_character,
         )
 
     # -----------------------------

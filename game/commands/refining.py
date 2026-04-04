@@ -157,6 +157,19 @@ def _find_mining_storage_in_room_excluding(caller, exclude=None):
     return None
 
 
+def _clamp_bay_feed_tons(plant_room, tons: float) -> float:
+    from world.venue_logistics import get_venue_logistics
+    from world.venues import venue_id_for_object
+
+    if not plant_room:
+        return tons
+    vid = venue_id_for_object(plant_room)
+    if not vid:
+        return tons
+    cap = get_venue_logistics(vid)["refinery_ingress_cap_tons"]
+    return max(0.0, min(float(tons), cap))
+
+
 def _feed_refinery_shared_plant_only(caller, loc, ref, args):
     """
     Ore Receiving Bay only → ``ref.feed`` (shared ``input_inventory``).
@@ -179,13 +192,24 @@ def _feed_refinery_shared_plant_only(caller, loc, ref, args):
         return
 
     if args == "all":
-        contents = bay.withdraw_all()
-        if not contents:
+        inventory = dict(bay.db.inventory or {})
+        if not inventory:
             caller.msg("The Ore Receiving Bay is empty.")
             return
         lines = [f"|wFed into {ref.key} (shared bin) from Ore Receiving Bay:|n"]
-        for key, tons in contents.items():
-            actual = ref.feed(key, tons)
+        budget = _clamp_bay_feed_tons(plant_room, 1e18)
+        for key, tons in list(inventory.items()):
+            t = float(tons)
+            if t <= 0:
+                continue
+            take = min(t, budget)
+            if take <= 0:
+                break
+            actual_moved = bay.withdraw(key, take)
+            if actual_moved <= 0:
+                continue
+            actual = ref.feed(key, actual_moved)
+            budget = max(0.0, budget - actual_moved)
             name = plant_raw_resource_display_name(key)
             lines.append(f"  {name}: {actual}t")
         caller.msg("\n".join(lines))
@@ -200,6 +224,11 @@ def _feed_refinery_shared_plant_only(caller, loc, ref, args):
         tons_req = float(tons_str)
     except ValueError:
         caller.msg("Tons must be a number.")
+        return
+
+    tons_req = _clamp_bay_feed_tons(plant_room, tons_req)
+    if tons_req <= 0:
+        caller.msg("Refinery ingress cap for this station does not allow moving more from the bay now.")
         return
 
     inventory = bay.db.inventory or {}

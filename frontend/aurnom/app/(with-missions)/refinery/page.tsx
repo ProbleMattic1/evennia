@@ -156,7 +156,9 @@ function RefineryLoaded({ data, reload }: { data: RefineryState; reload: () => v
         actions={
           <div className="flex flex-wrap gap-1">
             <CsButtonLink href="/processing">Processing plant</CsButtonLink>
-            <CsButtonLink href="/">Dashboard</CsButtonLink>
+            <CsButtonLink href="/" variant="dashboard">
+              Dashboard
+            </CsButtonLink>
           </div>
         }
       />

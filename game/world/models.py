@@ -4,7 +4,7 @@ from django.db import models
 class HaulerDispatchRow(models.Model):
     """
     Index for autonomous haulers: one row per ObjectDB id in the dispatch pool.
-    Queried with next_run__lte=now ORDER BY next_run LIMIT N for large fleets.
+    Queried with next_run__lte=now ORDER BY next_run, objectdb_id LIMIT N for large fleets.
     """
 
     objectdb_id = models.PositiveIntegerField(primary_key=True)

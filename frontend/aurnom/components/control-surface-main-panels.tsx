@@ -509,7 +509,7 @@ function ShipsClassGroup({
   return (
     <div className="mb-1 last:mb-0">
       <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
-        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-ui-soft">{title}</span>
         <PanelExpandButton
           open={open}
           onClick={() => setOpen((v) => !v)}
@@ -713,7 +713,7 @@ function ResourcesCategoryGroup({
             ●
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-ui-soft">{title}</span>
         <ResourcesCreditsRollupLabel items={items} />
         <PanelExpandButton
           open={open}
@@ -888,7 +888,7 @@ function PropertiesKindGroup({
   return (
     <div className="mb-1 last:mb-0">
       <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
-        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-ui-soft">{title}</span>
         <PropertiesCreditsRollupLabel sumCr={rollupCr} counted={rollupCrRows} rowCount={items.length} />
         <PanelExpandButton
           open={open}
@@ -1004,7 +1004,7 @@ function PersonalStorageKindGroup({
   return (
     <div className="mb-1 last:mb-0">
       <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
-        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{headerTitle}</span>
+        <span className="min-w-0 flex-1 truncate text-ui-soft">{headerTitle}</span>
         <PersonalStorageTonsRollupLabel tons={rollupTons} />
         <PersonalStorageCreditsRollupLabel sumCr={rollupCr} counted={rollupCrRows} rowCount={entries.length} />
         <PanelExpandButton

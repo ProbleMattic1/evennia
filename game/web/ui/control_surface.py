@@ -14,7 +14,7 @@ import json
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from evennia import search_object, search_script
+from evennia import GLOBAL_SCRIPTS, search_object, search_script
 
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
 from world.time import (
@@ -35,6 +35,7 @@ from world.venue_resolve import hub_for_object, processing_plant_room_for_object
 from .client_poll_hints import CLIENT_POLL_HINTS_MS
 from .dashboard_ships import dashboard_ship_row
 from .views import (
+    _can_web_switch_character,
     _dashboard_inventory_item_for_obj,
     _dashboard_property_portfolio,
     _first_object,
@@ -46,7 +47,7 @@ from .views import (
 )
 
 # v2: ``resources``, ``nav.resources``, ``production*`` aggregate keys (``mines`` / ``mining*`` retained).
-SCHEMA_VERSION = 3  # processing: removed refinery/miner-queue/refined-owner fields
+SCHEMA_VERSION = 4  # worldSimulation: IC clock + environment + party/instance hooks
 
 
 def _world_production_pipeline_from_telemetry():
@@ -57,6 +58,17 @@ def _world_production_pipeline_from_telemetry():
     snap = found[0].db.snapshot or {}
     block = snap.get("worldProductionPipeline")
     return block if isinstance(block, dict) else None
+
+
+def _world_simulation_summary():
+    wc = search_script("world_clock_script")
+    wenv = search_script("world_environment_engine")
+    out = {"gameClock": None, "environmentByVenue": None}
+    if wc:
+        out["gameClock"] = dict(wc[0].db.last_snapshot or {})
+    if wenv:
+        out["environmentByVenue"] = dict(wenv[0].db.by_venue or {})
+    return out
 
 
 def _world_production_pipeline_for_control_surface():
@@ -89,7 +101,7 @@ def _serialize_character_block(char, credits):
     rpg = {}
     if hasattr(char, "get_rpg_dashboard_snapshot"):
         rpg = char.get_rpg_dashboard_snapshot() or {}
-    return {
+    block = {
         "id": char.id,
         "key": char.key,
         "room": char.location.key if char.location else None,
@@ -97,6 +109,10 @@ def _serialize_character_block(char, credits):
         "credits": credits,
         **rpg,
     }
+    fs = getattr(char, "faction_standing", None)
+    if fs is not None:
+        block["factionStanding"] = fs.all_standings()
+    return block
 
 
 def _serialize_inventory(char):
@@ -495,6 +511,7 @@ def control_surface_state(request):
     }
 
     world_production_pipeline = _world_production_pipeline_for_control_surface()
+    world_simulation = _world_simulation_summary()
 
     base_sparse = {
         "schemaVersion": SCHEMA_VERSION,
@@ -540,6 +557,8 @@ def control_surface_state(request):
         "minerSettlementThisSlotGrossCr": miner_settlement_this_gross,
         "minerSettlementThisSlotFeesCr": miner_settlement_this_fees,
         "worldProductionPipeline": world_production_pipeline,
+        "worldSimulation": world_simulation,
+        "canWebSwitchCharacter": False,
         **clock_payload,
     }
 
@@ -565,6 +584,7 @@ def control_surface_state(request):
             "groupedAlerts": grouped_alerts,
             "message": msg,
             "playableCharacters": picker,
+            "canWebSwitchCharacter": _can_web_switch_character(request.user),
         })
 
     credits = econ.get_character_balance(char)
@@ -617,10 +637,15 @@ def control_surface_state(request):
     room_ambient = resolve_room_ambient(loc) if loc else None
     room_venue_id = resolve_room_venue_id(loc) if loc else None
 
+    preg = GLOBAL_SCRIPTS.get("party_registry")
+    party_id = preg.party_id_for(char) if preg else None
+    active_instance = getattr(char.db, "active_instance_id", None)
+
     return JsonResponse({
         "schemaVersion": SCHEMA_VERSION,
         "clientPollHints": CLIENT_POLL_HINTS_MS,
         "authenticated": True,
+        "canWebSwitchCharacter": _can_web_switch_character(request.user),
         "character": character_block,
         "credits": credits,
         "inventory": inventory,
@@ -662,5 +687,8 @@ def control_surface_state(request):
         "minerSettlementThisSlotGrossCr": miner_settlement_this_gross,
         "minerSettlementThisSlotFeesCr": miner_settlement_this_fees,
         "worldProductionPipeline": world_production_pipeline,
+        "worldSimulation": world_simulation,
+        "partyId": party_id,
+        "activeInstanceId": active_instance,
         **clock_payload,
     })

@@ -121,7 +121,9 @@ function ProcessingPageInner() {
           actions={
             <div className="flex flex-wrap gap-1">
               <CsButtonLink href="/refinery">Refinery</CsButtonLink>
-              <CsButtonLink href="/">Dashboard</CsButtonLink>
+              <CsButtonLink href="/" variant="dashboard">
+                Dashboard
+              </CsButtonLink>
             </div>
           }
         />

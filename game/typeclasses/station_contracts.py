@@ -1,4 +1,4 @@
-from evennia import create_script, search_script
+from evennia import search_script
 
 from typeclasses.scripts import Script
 
@@ -23,9 +23,16 @@ class StationContractsScript(Script):
 
 
 def get_contracts_script(create_missing: bool = True):
+    from evennia import GLOBAL_SCRIPTS
+
+    script = GLOBAL_SCRIPTS.get("station_contracts")
+    if script:
+        return script
     found = search_script("station_contracts")
     if found:
         return found[0]
     if create_missing:
-        return create_script("typeclasses.station_contracts.StationContractsScript")
+        raise RuntimeError(
+            "station_contracts global script missing. Add it to server.conf.settings.GLOBAL_SCRIPTS."
+        )
     return None

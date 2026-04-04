@@ -29,6 +29,8 @@ class AmbientWorldEngine(Script):
     def at_start(self):
         if self.db.broadcast_to_hub is None:
             self.db.broadcast_to_hub = False
+        if self.db.use_game_clock_modulation is None:
+            self.db.use_game_clock_modulation = True
 
     def at_repeat(self):
         now = utc_now()
@@ -72,7 +74,8 @@ class AmbientWorldEngine(Script):
         if not eligible:
             return
 
-        weights = [max(1, int(t["weight"])) for t in eligible]
+        clock_mul = self._game_clock_weight_multiplier()
+        weights = [max(1, int(t["weight"])) * clock_mul for t in eligible]
         chosen = random.choices(eligible, weights=weights, k=1)[0]
         dedupe_key = f"ambient:{chosen['id']}:{dedupe_slot}"
         alert_row = enqueue_system_alert(
@@ -104,3 +107,19 @@ class AmbientWorldEngine(Script):
         stats["fired"] = int(stats.get("fired") or 0) + 1
         self.db.stats = stats
         logger.log_info(f"[ambient_world] cadence={cadence} id={chosen['id']}")
+
+    def _game_clock_weight_multiplier(self) -> float:
+        if not getattr(self.db, "use_game_clock_modulation", False):
+            return 1.0
+        from evennia import GLOBAL_SCRIPTS
+
+        wc = GLOBAL_SCRIPTS.get("world_clock_script")
+        if not wc:
+            return 1.0
+        snap = wc.db.last_snapshot or {}
+        return float(snap.get("ambient_weight") or 1.0)
+
+
+def on_world_clock_tick(snapshot: dict) -> None:
+    """Hook for world_events fan-out (optional future use)."""
+    del snapshot

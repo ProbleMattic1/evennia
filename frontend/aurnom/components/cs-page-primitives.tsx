@@ -50,12 +50,22 @@ export function CsPanel({
   );
 }
 
-export function CsButtonLink({ href, children }: { href: string; children: ReactNode }) {
+export function CsButtonLink({
+  href,
+  children,
+  variant = "default",
+}: {
+  href: string;
+  children: ReactNode;
+  /** `dashboard` — matrix green + glow for the global home CTA */
+  variant?: "default" | "dashboard";
+}) {
+  const className =
+    variant === "dashboard"
+      ? "cs-dashboard-cta rounded px-1.5 py-0.5 text-xs transition-[background-color,box-shadow,text-shadow,border-color] duration-150"
+      : "rounded border border-cyan-800/60 px-1.5 py-0.5 text-xs text-cyber-cyan hover:bg-cyan-900/40";
   return (
-    <Link
-      href={href}
-      className="rounded border border-cyan-800/60 px-1.5 py-0.5 text-xs text-cyber-cyan hover:bg-cyan-900/40"
-    >
+    <Link href={href} className={className}>
       {children}
     </Link>
   );

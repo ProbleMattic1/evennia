@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "templates": {
+    "training_deck": {
+      "title": "Holo Training Deck",
+      "desc": "A sealed simulation volume with matte grid lines and null-g harness points.",
+      "return_anchor_hint": "Use |wleaveinstance|n to exit."
+    }
+  }
+}

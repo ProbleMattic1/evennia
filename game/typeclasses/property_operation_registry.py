@@ -4,7 +4,7 @@ Registry of property holding object ids eligible for the operations tick.
 Mutate only from develop/deploy/transfer/teardown code paths — not from the tick loop.
 """
 
-from evennia import create_script, search_script
+from evennia import search_script
 from evennia.scripts.scripts import DefaultScript
 
 REGISTRY_KEY = "property_operation_registry"
@@ -21,11 +21,19 @@ class PropertyOperationRegistry(DefaultScript):
 
 
 def get_property_operation_registry(create_missing=False):
+    from evennia import GLOBAL_SCRIPTS
+
+    script = GLOBAL_SCRIPTS.get(REGISTRY_KEY)
+    if script:
+        return script
     found = search_script(REGISTRY_KEY)
     if found:
         return found[0]
     if create_missing:
-        return create_script(PropertyOperationRegistry)
+        raise RuntimeError(
+            "property_operation_registry global script missing. "
+            "Add it to server.conf.settings.GLOBAL_SCRIPTS."
+        )
     return None
 
 

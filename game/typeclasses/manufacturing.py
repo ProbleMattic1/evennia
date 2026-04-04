@@ -20,6 +20,7 @@ from typeclasses.refining import REFINING_RECIPES
 from typeclasses.scripts import Script
 from world.manufacturing_loader import (
     assert_manufacturing_recipes_use_refined_keys,
+    assert_salvage_recipes_valid,
     load_manufacturing_tables,
 )
 
@@ -27,6 +28,7 @@ _MANU_CAT, _MANU_REC, _MANU_ERR = load_manufacturing_tables()
 assert not _MANU_ERR, "manufacturing data: " + "; ".join(_MANU_ERR)
 assert set(_MANU_CAT) == set(_MANU_REC), "manufacturing catalog/recipe id mismatch"
 assert_manufacturing_recipes_use_refined_keys(_MANU_CAT, _MANU_REC)
+assert_salvage_recipes_valid(_MANU_CAT, _MANU_REC)
 
 MANUFACTURED_CATALOG = _MANU_CAT
 MANUFACTURING_RECIPES = _MANU_REC
@@ -109,6 +111,14 @@ def _record_manufactured_supply(product_key: str, units: float) -> None:
         eng.record_supply(product_key, float(units))
 
 
+def _record_refined_supply(commodity_key: str, units: float) -> None:
+    from typeclasses.commodity_demand import get_commodity_demand_engine
+
+    eng = get_commodity_demand_engine(create_missing=False)
+    if eng:
+        eng.record_supply(str(commodity_key), float(units))
+
+
 class Workshop(ObjectParent, DefaultObject):
     """
     Fabrication unit bound to one PropertyStructure blueprint install.
@@ -162,12 +172,35 @@ class Workshop(ObjectParent, DefaultObject):
         self.db.input_inventory = inv
         return units
 
+    def feed_manufactured(self, product_key: str, units: float) -> float:
+        """Add finished manufactured goods for salvage jobs."""
+        pk = str(product_key).strip()
+        if pk not in MANUFACTURED_CATALOG:
+            return 0.0
+        units = round(float(units), 2)
+        if units <= 0:
+            return 0.0
+        inv = self.db.input_inventory or {}
+        inv[pk] = round(float(inv.get(pk, 0.0)) + units, 2)
+        self.db.input_inventory = inv
+        return units
+
     def can_run(self, recipe_key: str, runs: int = 1) -> int:
         recipe = MANUFACTURING_RECIPES.get(recipe_key)
         if not recipe or recipe["station_kind"] != self.db.station_kind:
             return 0
         possible = int(runs)
         inv = self.db.input_inventory or {}
+        kind = str(recipe.get("recipe_kind") or "fabricate").lower()
+        if kind == "salvage":
+            for key, required in recipe["inputs"].items():
+                if key not in MANUFACTURED_CATALOG:
+                    return 0
+                req = float(required)
+                if req <= 0:
+                    return 0
+                possible = min(possible, int(float(inv.get(key, 0.0)) / req))
+            return max(0, possible)
         for key, required in recipe["inputs"].items():
             if key not in REFINING_RECIPES:
                 return 0
@@ -209,20 +242,45 @@ class Workshop(ObjectParent, DefaultObject):
             return False, "Insufficient inputs for queued job."
 
         inv = dict(self.db.input_inventory or {})
-        for key, required in recipe["inputs"].items():
-            consumed = round(float(required) * possible, 2)
-            remaining = round(float(inv.get(key, 0.0)) - consumed, 2)
-            if remaining <= 0:
-                inv.pop(key, None)
-            else:
-                inv[key] = remaining
-        self.db.input_inventory = inv
+        kind = str(recipe.get("recipe_kind") or "fabricate").lower()
 
-        out = dict(self.db.output_inventory or {})
-        units = int(recipe["output_units"]) * possible
-        pk = recipe_key
-        out[pk] = round(float(out.get(pk, 0.0)) + float(units), 2)
-        self.db.output_inventory = out
+        if kind == "salvage":
+            for key, required in recipe["inputs"].items():
+                consumed = round(float(required) * possible, 2)
+                remaining = round(float(inv.get(key, 0.0)) - consumed, 2)
+                if remaining <= 0:
+                    inv.pop(key, None)
+                else:
+                    inv[key] = remaining
+            self.db.input_inventory = inv
+
+            out = dict(self.db.output_inventory or {})
+            outputs = recipe.get("outputs") or {}
+            for out_key, per_run in outputs.items():
+                add_u = round(float(per_run) * float(possible), 2)
+                if add_u <= 0:
+                    continue
+                out[out_key] = round(float(out.get(out_key, 0.0)) + add_u, 2)
+                _record_refined_supply(str(out_key), add_u)
+            self.db.output_inventory = out
+            msg = f"Salvaged {possible} run(s): {recipe['name']}."
+        else:
+            for key, required in recipe["inputs"].items():
+                consumed = round(float(required) * possible, 2)
+                remaining = round(float(inv.get(key, 0.0)) - consumed, 2)
+                if remaining <= 0:
+                    inv.pop(key, None)
+                else:
+                    inv[key] = remaining
+            self.db.input_inventory = inv
+
+            out = dict(self.db.output_inventory or {})
+            units = int(recipe["output_units"]) * possible
+            pk = recipe_key
+            out[pk] = round(float(out.get(pk, 0.0)) + float(units), 2)
+            self.db.output_inventory = out
+            _record_manufactured_supply(pk, float(units))
+            msg = f"Produced {units} x {recipe['name']}."
 
         remaining_runs = int(runs) - int(possible)
         if remaining_runs <= 0:
@@ -232,8 +290,7 @@ class Workshop(ObjectParent, DefaultObject):
             q[0] = job
         self.db.job_queue = q
 
-        _record_manufactured_supply(pk, float(units))
-        return True, f"Produced {units} x {recipe['name']}."
+        return True, msg
 
     def collect_manufactured(self, caller, product_key: str, units: float | None):
         if not self.access(caller, "control", default=False):
@@ -260,6 +317,40 @@ class Workshop(ObjectParent, DefaultObject):
         value = int(take * base * mult)
         eng.record_demand(pk, float(take))
         grant_character_credits(caller, value, memo=f"Manufactured sale {pk}")
+        return take, value
+
+    def collect_refined(self, caller, commodity_key: str, units: float | None):
+        """Sell refined units held in workshop output (e.g. from salvage)."""
+        if not self.access(caller, "control", default=False):
+            raise PermissionError("Not your workshop.")
+        ck = str(commodity_key).strip()
+        if ck not in REFINING_RECIPES:
+            raise ValueError("Not a refined commodity key.")
+        from typeclasses.commodity_demand import get_commodity_demand_engine
+        from typeclasses.economy import grant_character_credits
+        from typeclasses.mining import get_commodity_bid
+
+        out = dict(self.db.output_inventory or {})
+        available = float(out.get(ck, 0.0))
+        if available <= 0:
+            raise ValueError("Nothing to collect.")
+        take = available if units is None else min(float(units), available)
+        take = round(take, 2)
+        if take <= 0:
+            raise ValueError("Nothing to collect.")
+        remaining = round(available - take, 2)
+        if remaining <= 0:
+            out.pop(ck, None)
+        else:
+            out[ck] = remaining
+        self.db.output_inventory = out
+
+        bid = float(get_commodity_bid(ck))
+        eng = get_commodity_demand_engine(create_missing=True)
+        mult = eng.get_market_multiplier(ck)
+        value = int(take * bid * mult)
+        eng.record_demand(ck, float(take))
+        grant_character_credits(caller, value, memo=f"Workshop refined sale {ck}")
         return take, value
 
 

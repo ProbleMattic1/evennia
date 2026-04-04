@@ -40,6 +40,7 @@ def resolve_catalog_item_price(
         buyer=buyer,
         location=room,
         market_type=market_type,
+        buyer_character=buyer,
     )
 
 

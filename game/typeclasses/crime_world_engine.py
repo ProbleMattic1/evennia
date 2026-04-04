@@ -29,6 +29,10 @@ class CrimeWorldEngine(Script):
         self.start_delay = True
         self.repeats = 0
 
+    def at_start(self):
+        if self.db.use_game_clock_modulation is None:
+            self.db.use_game_clock_modulation = True
+
     def at_repeat(self):
         now = utc_now()
         self.db.tick_index = int(self.db.tick_index or 0) + 1
@@ -71,7 +75,8 @@ class CrimeWorldEngine(Script):
         if not eligible:
             return
 
-        weights = [max(1, int(t["weight"])) for t in eligible]
+        clock_mul = self._game_clock_weight_multiplier()
+        weights = [max(1, int(t["weight"])) * clock_mul for t in eligible]
         chosen = random.choices(eligible, weights=weights, k=1)[0]
         dedupe_key = f"crime:{chosen['id']}:{dedupe_slot}"
 
@@ -104,3 +109,18 @@ class CrimeWorldEngine(Script):
         stats["fired"] = int(stats.get("fired") or 0) + 1
         self.db.stats = stats
         logger.log_info(f"[crime_world] cadence={cadence} id={chosen['id']}")
+
+    def _game_clock_weight_multiplier(self) -> float:
+        if not getattr(self.db, "use_game_clock_modulation", False):
+            return 1.0
+        from evennia import GLOBAL_SCRIPTS
+
+        wc = GLOBAL_SCRIPTS.get("world_clock_script")
+        if not wc:
+            return 1.0
+        snap = wc.db.last_snapshot or {}
+        return float(snap.get("crime_weight") or 1.0)
+
+
+def on_world_clock_tick(snapshot: dict) -> None:
+    del snapshot

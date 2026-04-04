@@ -8,18 +8,16 @@ Called from at_server_cold_start so the script is verified alive on every
 cold start (scripts can be deleted accidentally or lost on db reset).
 """
 
-from evennia import create_object, create_script, search_object, search_script
+from evennia import create_object, search_object
 
-SCRIPT_PATH = "typeclasses.economy.EconomyEngine"
+from world.global_scripts_util import require_global_script
+
 SCRIPT_KEY = "global_economy"
 
 # Seeded on first ledger creation for treasury:alpha-prime only (see bootstrap loop).
 INITIAL_ALPHA_PRIME_TREASURY_CR = 100_000_000_000
 
-COMMODITY_DEMAND_PATH = "typeclasses.commodity_demand.CommodityDemandEngine"
 COMMODITY_DEMAND_KEY = "commodity_demand"
-
-MANUFACTURING_ENGINE_PATH = "typeclasses.manufacturing.ManufacturingEngine"
 MANUFACTURING_ENGINE_KEY = "manufacturing_engine"
 
 
@@ -60,21 +58,19 @@ def _get_or_create_bank(room, bank_object_key: str):
 
 
 def bootstrap_economy():
+    from world.factions_loader import load_factions_config
     from world.manufacturing_loader import load_manufacturing_tables
     from world.venue_resolve import hub_room_for_venue
     from world.venues import all_venue_ids, apply_venue_metadata, get_venue
+
+    load_factions_config()
 
     _mcat, _mrec, m_err = load_manufacturing_tables()
     assert not m_err, "manufacturing data errors: " + "; ".join(m_err)
     assert set(_mcat) == set(_mrec), "manufacturing catalog/recipe id mismatch"
 
-    found = search_script(SCRIPT_KEY)
-    if found:
-        econ = found[0]
-        print(f"[economy] Script already exists: {econ.key}")
-    else:
-        econ = create_script(SCRIPT_PATH, key=SCRIPT_KEY)
-        print(f"[economy] Created script: {econ.key}")
+    econ = require_global_script(SCRIPT_KEY)
+    print(f"[economy] Global economy script: {econ.key}")
 
     econ.set_modifier("regional_modifiers", "core-worlds", 1.08)
     econ.set_modifier("regional_modifiers", "frontier", 0.94)
@@ -119,30 +115,18 @@ def bootstrap_economy():
 
     econ.db.tax_pool = econ.get_balance(econ.get_treasury_account("alpha-prime"))
 
-    cd_found = search_script(COMMODITY_DEMAND_KEY)
-    if cd_found:
-        print(f"[economy] Commodity demand script already exists: {cd_found[0].key}")
-    else:
-        cd = create_script(COMMODITY_DEMAND_PATH, key=COMMODITY_DEMAND_KEY)
-        print(f"[economy] Created commodity demand script: {cd.key}")
+    cd = require_global_script(COMMODITY_DEMAND_KEY)
+    print(f"[economy] Commodity demand script: {cd.key}")
 
     from typeclasses.commodity_demand import seed_procurement_contracts_if_empty
 
     seed_procurement_contracts_if_empty()
 
-    mf_found = search_script(MANUFACTURING_ENGINE_KEY)
-    if mf_found:
-        print(f"[economy] Manufacturing engine script already exists: {mf_found[0].key}")
-    else:
-        mf = create_script(MANUFACTURING_ENGINE_PATH, key=MANUFACTURING_ENGINE_KEY)
-        print(f"[economy] Created manufacturing engine script: {mf.key}")
+    mf = require_global_script(MANUFACTURING_ENGINE_KEY)
+    print(f"[economy] Manufacturing engine script: {mf.key}")
 
     print("[economy] Seeded starter regional/location/faction modifiers.")
 
     tel_key = "economy_world_telemetry"
-    tel_found = search_script(tel_key)
-    if tel_found:
-        print(f"[economy] {tel_key} already exists")
-    else:
-        create_script("typeclasses.economy_world_telemetry.EconomyWorldTelemetry", key=tel_key)
-        print(f"[economy] Created script: {tel_key}")
+    tel = require_global_script(tel_key)
+    print(f"[economy] Telemetry script: {tel.key}")

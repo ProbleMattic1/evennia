@@ -16,6 +16,8 @@ Mining sites are NOT pre-seeded.  They are created dynamically:
 
 from evennia import create_object, create_script, search_object, search_script
 
+from world.global_scripts_util import require_global_script
+
 MINING_SITES = []
 
 
@@ -88,21 +90,15 @@ def bootstrap_mining():
     from typeclasses.packages import package_listings_script_key
     from typeclasses.property_deed_listings import PropertyDeedListingsScript
     from typeclasses.property_deed_market import property_deed_listings_script_key
-    from typeclasses.site_discovery import SiteDiscoveryEngine
     from world.venues import all_venue_ids, apply_venue_metadata, get_venue
 
-    found = search_script("mining_engine")
-    if found:
-        engine = found[0]
-        if engine.interval != 60:
-            engine.interval = 60
-            engine.restart()
-            print(f"[mining] Engine already exists: {engine.key} — interval updated to 60s.")
-        else:
-            print(f"[mining] Engine already exists: {engine.key}")
+    engine = require_global_script("mining_engine")
+    if engine.interval != 60:
+        engine.interval = 60
+        engine.restart()
+        print(f"[mining] Engine {engine.key} — interval set to 60s.")
     else:
-        engine = create_script("typeclasses.mining.MiningEngine")
-        print(f"[mining] Created engine: {engine.key}")
+        print(f"[mining] Engine: {engine.key}")
 
     prop_list = search_script("property_listings")
     if prop_list:
@@ -200,12 +196,8 @@ def bootstrap_mining():
                 dcontainer.locks.add("get:false();drop:false()")
                 print(f"[mining] Created {deed_key!r} container in {hub.key!r}.")
 
-    disc = search_script("site_discovery_engine")
-    if disc:
-        print(f"[mining] SiteDiscoveryEngine already exists: {disc[0].key}")
-    else:
-        create_script(SiteDiscoveryEngine)
-        print("[mining] Created SiteDiscoveryEngine.")
+    disc = require_global_script("site_discovery_engine")
+    print(f"[mining] SiteDiscoveryEngine: {disc.key}")
 
     for venue_id in all_venue_ids():
         vspec = get_venue(venue_id)

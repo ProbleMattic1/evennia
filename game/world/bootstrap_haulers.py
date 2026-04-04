@@ -11,7 +11,9 @@ The standalone hauler depot and direct-sale templates have been removed.
 Haulers are now bundled inside mining packages (bootstrap_mining_packages.py).
 """
 
-from evennia import create_script, search_object, search_script
+from evennia import create_object, search_object
+
+from world.global_scripts_util import require_global_script
 
 # Vast storage for the global plant's shared receiving bay.
 ORE_RECEIVING_BAY_CAPACITY_TONS = 1_000_000.0
@@ -21,8 +23,6 @@ def _get_or_create_refinery_receiving_storage(room):
     """Ensure an Ore Receiving Bay MiningStorage exists in the refinery room."""
     from typeclasses.haulers import ORE_RECEIVING_BAY_TAG, ORE_RECEIVING_BAY_TAG_CATEGORY
     from typeclasses.mining import MiningStorage
-    from evennia import create_object
-
     for obj in room.contents:
         if obj.tags.has("mining_storage", category="mining") and obj.key == "Ore Receiving Bay":
             obj.db.capacity_tons = ORE_RECEIVING_BAY_CAPACITY_TONS
@@ -45,19 +45,10 @@ def _get_or_create_refinery_receiving_storage(room):
 
 def bootstrap_haulers():
     """Ensure HaulerEngine, RefineryEngine, refinery receiving storage, and plant treasury exist. Idempotent."""
-    # HaulerEngine
-    if search_script("hauler_engine"):
-        print("[haulers] HaulerEngine already exists.")
-    else:
-        create_script("typeclasses.haulers.HaulerEngine")
-        print("[haulers] Created HaulerEngine.")
-
-    # RefineryEngine
-    if search_script("refinery_engine"):
-        print("[haulers] RefineryEngine already exists.")
-    else:
-        create_script("typeclasses.refining.RefineryEngine")
-        print("[haulers] Created RefineryEngine.")
+    he = require_global_script("hauler_engine")
+    print(f"[haulers] HaulerEngine: {he.key}")
+    re_eng = require_global_script("refinery_engine")
+    print(f"[haulers] RefineryEngine: {re_eng.key}")
 
     from world.npc_miner_registry import get_npc_miner_registry
 

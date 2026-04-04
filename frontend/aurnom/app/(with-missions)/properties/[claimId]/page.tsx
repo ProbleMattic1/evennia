@@ -413,7 +413,9 @@ export default function PropertyClaimDetailPage() {
         actions={
           <>
             <CsButtonLink href="/real-estate">Real Estate Office</CsButtonLink>
-            <CsButtonLink href="/">Home</CsButtonLink>
+            <CsButtonLink href="/" variant="dashboard">
+              Home
+            </CsButtonLink>
           </>
         }
       />

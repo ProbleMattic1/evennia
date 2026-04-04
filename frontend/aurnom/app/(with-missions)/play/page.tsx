@@ -92,7 +92,11 @@ function PlayPageInner() {
       <CsHeader
         title="Play"
         subtitle={`Current location: ${data.roomName}`}
-        actions={<CsButtonLink href="/">Dashboard</CsButtonLink>}
+        actions={
+          <CsButtonLink href="/" variant="dashboard">
+            Dashboard
+          </CsButtonLink>
+        }
       />
       <VenueBillboardStoryFrame
         panelTitle="Location & story"
