@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { UI_PREFIX } from "@/lib/ui-endpoints";
@@ -32,7 +33,7 @@ function LoginForm() {
   }, []);
 
   return (
-    <div className="dark mx-auto flex min-h-svh max-w-md flex-col justify-center gap-4 bg-zinc-950 p-6 font-mono text-sm text-zinc-200">
+    <div className="dark mx-auto flex min-h-svh max-w-md flex-col justify-start gap-4 bg-zinc-950 p-6 pt-8 font-mono text-sm text-zinc-200">
       <h1 className="text-lg font-semibold text-cyan-300">Sign in</h1>
       <p className="text-zinc-400">Use your Aurnom account. You will be redirected after Django accepts the session.</p>
       {error && <p className="text-red-400">{error}</p>}
@@ -66,6 +67,12 @@ function LoginForm() {
           Sign in
         </button>
       </form>
+      <Link
+        href="/auth/register"
+        className="block w-full rounded border border-cyan-700 bg-zinc-900 px-3 py-2 text-center font-semibold text-cyan-300 hover:border-cyan-500 hover:bg-zinc-800"
+      >
+        Register
+      </Link>
     </div>
   );
 }
@@ -74,7 +81,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="dark flex min-h-svh items-center justify-center bg-zinc-950 font-mono text-zinc-400">
+        <div className="dark flex min-h-svh items-start justify-center bg-zinc-950 px-6 pt-8 font-mono text-zinc-400">
           Loading…
         </div>
       }
