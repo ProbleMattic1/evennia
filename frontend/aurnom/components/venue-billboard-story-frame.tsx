@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
+import { RoomVisualTakeoverTopStrip, visualTakeoverTokenStyles } from "@/components/room-visual-takeover-chrome";
 import { StoryPanel } from "@/components/story-panel";
 import { VenueLocationBanner } from "@/components/venue-location-banner";
 import { useMissionsChromeHeight } from "@/lib/missions-chrome-height-context";
@@ -45,12 +46,17 @@ export function VenueBillboardStoryFrame({
     isMd && missionsChromeH != null && missionsChromeH > 0
       ? Math.max(0, missionsChromeH - MISSIONS_CHROME_HEIGHT_TRIM_PX)
       : undefined;
+  const themeId = ambient.themeId || "default";
+  const tokenStyle = visualTakeoverTokenStyles(ambient.visualTakeover?.tokens ?? undefined);
+  const sectionStyle: CSSProperties | undefined = (() => {
+    const h = minH != null && minH > 0 ? { minHeight: minH } : {};
+    const merged = { ...tokenStyle, ...h };
+    return Object.keys(merged).length > 0 ? merged : undefined;
+  })();
 
   return (
-    <section
-      className="mb-1 flex min-h-0 min-w-0 flex-col"
-      style={minH != null && minH > 0 ? { minHeight: minH } : undefined}
-    >
+    <section className="mb-1 flex min-h-0 min-w-0 flex-col" style={sectionStyle}>
+      <RoomVisualTakeoverTopStrip panel={ambient.visualTakeover?.top ?? undefined} themeId={themeId} />
       <div className="flex min-w-0 shrink-0 items-center gap-2 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest text-cyber-cyan">
         {panelTitle}
       </div>

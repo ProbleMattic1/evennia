@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 200" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="nmTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0c4a6e"/>
+      <stop offset="45%" style="stop-color:#155e75"/>
+      <stop offset="100%" style="stop-color:#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="nmGlass" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fff;stop-opacity:0.22"/>
+      <stop offset="100%" style="stop-color:#fff;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="200" fill="url(#nmTop)"/>
+  <g opacity="0.35" stroke="#e0f2fe" stroke-width="0.5">
+    <path d="M0 40h1200M0 80h1200M0 120h1200M0 160h1200"/>
+    <path d="M80 0v200M240 0v200M400 0v200M560 0v200M720 0v200M880 0v200M1040 0v200"/>
+  </g>
+  <rect width="1200" height="200" fill="url(#nmGlass)"/>
+  <circle cx="980" cy="36" r="120" fill="#67e8f9" opacity="0.15"/>
+</svg>

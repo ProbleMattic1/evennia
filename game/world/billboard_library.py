@@ -13,6 +13,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from world.room_ambient import normalize_visual_takeover_payload
+
 _LIBRARY_PATH = Path(__file__).resolve().parent / "billboard_library.json"
 
 _SLIDE_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
@@ -122,14 +124,37 @@ def load_billboard_library() -> dict[str, Any]:
         tg = pr.get("tagline")
         _require(lbl is None or isinstance(lbl, str), f"preset {pid}: label must be string or null.")
         _require(tg is None or isinstance(tg, str), f"preset {pid}: tagline must be string or null.")
-        preset_by_id[pid] = {
-            "id": pid,
-            "label": lbl if isinstance(lbl, str) else None,
-            "tagline": tg if isinstance(tg, str) else None,
-            "bannerSlides": norm_slides,
-            "marqueeLines": norm_lines,
-            "chips": norm_chips,
-        }
+        vt_raw = pr.get("visualTakeover")
+        if vt_raw is not None:
+            _require(isinstance(vt_raw, dict), f"preset {pid}: visualTakeover must be an object or omitted.")
+            vt_norm = normalize_visual_takeover_payload(vt_raw)
+            _require(vt_norm is not None, f"preset {pid}: visualTakeover must normalize to a non-empty object.")
+            for panel_name in ("top", "sidebar"):
+                panel = vt_norm.get(panel_name)
+                if not isinstance(panel, dict):
+                    continue
+                ik = panel.get("imageKey")
+                if isinstance(ik, str) and ik.strip():
+                    _require(ik in image_set, f"preset {pid} visualTakeover.{panel_name}: imageKey {ik!r} not in library images list.")
+            preset_by_id[pid] = {
+                "id": pid,
+                "label": lbl if isinstance(lbl, str) else None,
+                "tagline": tg if isinstance(tg, str) else None,
+                "bannerSlides": norm_slides,
+                "marqueeLines": norm_lines,
+                "chips": norm_chips,
+                "visualTakeover": vt_norm,
+            }
+        else:
+            preset_by_id[pid] = {
+                "id": pid,
+                "label": lbl if isinstance(lbl, str) else None,
+                "tagline": tg if isinstance(tg, str) else None,
+                "bannerSlides": norm_slides,
+                "marqueeLines": norm_lines,
+                "chips": norm_chips,
+                "visualTakeover": None,
+            }
     return {
         "rooms": [str(r).strip() for r in rooms],
         "images": image_list,
@@ -155,6 +180,7 @@ def catalog_for_staff_api(lib: dict[str, Any]) -> dict[str, Any]:
                 "bannerSlides": p["bannerSlides"],
                 "marqueeLines": p["marqueeLines"],
                 "chips": p["chips"],
+                "visualTakeover": p.get("visualTakeover"),
             }
             for p in lib["presets"]
         ],
@@ -198,7 +224,7 @@ def build_ui_ambient_from_selection(
         for s in slides:
             if s["id"] == k:
                 s["imageKey"] = v
-    return {
+    out: dict[str, Any] = {
         "themeId": style["themeId"],
         "marqueeClass": style["marqueeClass"],
         "label": preset["label"],
@@ -207,6 +233,10 @@ def build_ui_ambient_from_selection(
         "marqueeLines": copy.deepcopy(preset["marqueeLines"]),
         "chips": copy.deepcopy(preset["chips"]),
     }
+    vt = preset.get("visualTakeover")
+    if isinstance(vt, dict) and vt:
+        out["visualTakeover"] = copy.deepcopy(vt)
+    return out
 
 
 _LIB_CACHE: dict[str, Any] | None = None

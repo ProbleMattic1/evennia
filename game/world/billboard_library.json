@@ -1,6 +1,11 @@
 {
   "rooms": ["NanoMegaPlex Promenade"],
-  "images": [],
+  "images": [
+    "nanomega-takeover-top.svg",
+    "nanomega-takeover-sidebar.svg",
+    "frontier-takeover-top.svg",
+    "frontier-takeover-sidebar.svg"
+  ],
   "styles": [
     {
       "id": "promenade",
@@ -43,7 +48,25 @@
         "Welcome to the NanoMegaPlex.",
         "Have your sovereign ID ready at banking kiosks."
       ],
-      "chips": [{ "id": "open", "text": "OPEN" }]
+      "chips": [{ "id": "open", "text": "OPEN" }],
+      "visualTakeover": {
+        "top": {
+          "imageKey": "nanomega-takeover-top.svg",
+          "alt": "NanoMegaPlex concourse",
+          "minHeightPx": 160,
+          "overlayGradient": true
+        },
+        "sidebar": {
+          "imageKey": "nanomega-takeover-sidebar.svg",
+          "alt": "Multiplex rail",
+          "position": "left",
+          "minHeightPx": 320
+        },
+        "tokens": {
+          "takeoverAccent": "#22d3ee",
+          "takeoverVignette": "0.3"
+        }
+      }
     },
     {
       "id": "plex-minimal",

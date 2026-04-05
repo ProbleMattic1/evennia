@@ -103,3 +103,14 @@ class BillboardLibraryTests(SimpleTestCase):
             build_ui_ambient_from_selection(
                 lib, preset_id="no-such-preset", style_id="promenade", slide_images=None
             )
+
+    def test_build_ui_ambient_includes_visual_takeover_when_preset_defines_it(self):
+        lib = reload_billboard_library_for_tests()
+        out = build_ui_ambient_from_selection(
+            lib, preset_id="plex-default", style_id="promenade", slide_images=None
+        )
+        self.assertIn("visualTakeover", out)
+        vt = out["visualTakeover"]
+        self.assertIsNotNone(vt)
+        self.assertEqual(vt["top"]["imageKey"], "nanomega-takeover-top.svg")
+        self.assertEqual(vt["sidebar"]["imageKey"], "nanomega-takeover-sidebar.svg")

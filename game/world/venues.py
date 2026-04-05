@@ -183,6 +183,27 @@ VENUES: dict = {
                 "Have your sovereign ID ready at banking kiosks.",
             ],
             "chips": [{"id": "open", "text": "OPEN"}],
+            "visualTakeover": {
+                "top": {
+                    "imageKey": "nanomega-takeover-top.svg",
+                    "alt": "NanoMegaPlex concourse vista",
+                    "fit": "cover",
+                    "minHeightPx": 160,
+                    "overlayGradient": True,
+                },
+                "sidebar": {
+                    "imageKey": "nanomega-takeover-sidebar.svg",
+                    "alt": "Multiplex service bands",
+                    "position": "left",
+                    "fit": "cover",
+                    "minHeightPx": 320,
+                },
+                "tokens": {
+                    "takeoverAccent": "#22d3ee",
+                    "takeoverGlow": "0 0 24px rgba(34, 211, 238, 0.35)",
+                    "takeoverVignette": "0.25",
+                },
+            },
         },
         "bank": {
             "reserve_room_key": "Alpha Prime Central Reserve",
@@ -353,6 +374,27 @@ VENUES: dict = {
                 "Alpha Prime Frontier branch on duty.",
             ],
             "chips": [{"id": "rim", "text": "RIM"}],
+            "visualTakeover": {
+                "top": {
+                    "imageKey": "frontier-takeover-top.svg",
+                    "alt": "Frontier transit dock",
+                    "fit": "cover",
+                    "minHeightPx": 152,
+                    "overlayGradient": True,
+                },
+                "sidebar": {
+                    "imageKey": "frontier-takeover-sidebar.svg",
+                    "alt": "Rim station bulkhead",
+                    "position": "left",
+                    "fit": "cover",
+                    "minHeightPx": 320,
+                },
+                "tokens": {
+                    "takeoverAccent": "#94a3b8",
+                    "takeoverGlow": "inset 0 0 40px rgba(0, 0, 0, 0.65)",
+                    "takeoverVignette": "0.55",
+                },
+            },
         },
         "bank": {
             "reserve_room_key": "Frontier Alpha Prime Reserve",

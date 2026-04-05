@@ -588,3 +588,12 @@ body > * {
     animation: none;
   }
 }
+
+/* Room visual takeover (hero strip + optional dashboard rail) */
+.room-visual-takeover-top {
+  --room-takeover-border: rgba(34, 211, 238, 0.35);
+}
+
+.room-visual-takeover-rail {
+  --room-takeover-border: rgba(34, 211, 238, 0.25);
+}

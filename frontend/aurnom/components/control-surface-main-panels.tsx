@@ -27,6 +27,12 @@ import { DashboardMissionsPanel, EMPTY_MISSIONS } from "@/components/dashboard-m
 import { DashboardAchievementsPanel } from "@/components/dashboard-achievements-panel";
 import { DashboardWorldSimulationPanel } from "@/components/dashboard-world-simulation-panel";
 import { LocationBanner } from "@/components/location-banner";
+import {
+  RoomVisualTakeoverSidebarRail,
+  RoomVisualTakeoverTopStrip,
+  takeoverPanelHasMedia,
+  visualTakeoverTokenStyles,
+} from "@/components/room-visual-takeover-chrome";
 import { SortableRightColumnPanel } from "@/components/sortable-right-column-panel";
 import type {
   ControlSurfaceState,
@@ -1457,8 +1463,25 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
     ],
   );
 
+  const ambient = data.ambient ?? EMPTY_ROOM_AMBIENT;
+  const vt = ambient.visualTakeover ?? null;
+  const themeId = ambient.themeId || "default";
+  const takeoverShellStyle = visualTakeoverTokenStyles(vt?.tokens ?? undefined);
+  const sidebarPanel = vt?.sidebar;
+  const showSidebarRail = takeoverPanelHasMedia(sidebarPanel);
+  const sidebarOnRight = sidebarPanel?.position === "right";
+  const gridColsClass = showSidebarRail
+    ? sidebarOnRight
+      ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,11rem)]"
+      : "md:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,1fr)]"
+    : "md:grid-cols-2";
+
   return (
-    <div className="dark min-h-svh bg-zinc-950 font-mono text-xs text-foreground">
+    <div
+      className="dark min-h-svh bg-zinc-950 font-mono text-xs text-foreground"
+      style={takeoverShellStyle}
+      data-takeover-venue={data.roomVenueId ?? undefined}
+    >
       {flash ? (
         <div className="sticky top-0 z-50 bg-red-900/80 px-2 py-1 text-red-200">
           {flash}{" "}
@@ -1468,14 +1491,13 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
         </div>
       ) : null}
       {data.character?.room ? (
-        <LocationBanner
-          ambient={data.ambient ?? EMPTY_ROOM_AMBIENT}
-          roomName={data.character.room}
-          variant="compact"
-          messages={gameLog}
-        />
+        <LocationBanner ambient={ambient} roomName={data.character.room} variant="compact" messages={gameLog} />
       ) : null}
-      <div className="grid min-h-0 grid-cols-1 md:min-h-svh md:grid-cols-2">
+      <RoomVisualTakeoverTopStrip panel={vt?.top ?? undefined} themeId={themeId} />
+      <div className={`grid min-h-0 grid-cols-1 md:min-h-svh ${gridColsClass}`}>
+        {showSidebarRail && !sidebarOnRight ? (
+          <RoomVisualTakeoverSidebarRail panel={sidebarPanel} themeId={themeId} />
+        ) : null}
         <div className="min-h-0 min-w-0 overflow-y-auto border-r border-cyan-900/40 p-1.5 md:min-h-0">
           <DashboardMissionsPanel
             missions={data.missions ?? EMPTY_MISSIONS}
@@ -1513,6 +1535,9 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
             </>
           )}
         </div>
+        {showSidebarRail && sidebarOnRight ? (
+          <RoomVisualTakeoverSidebarRail panel={sidebarPanel} themeId={themeId} />
+        ) : null}
       </div>
     </div>
   );
