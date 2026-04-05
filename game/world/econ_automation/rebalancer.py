@@ -21,12 +21,18 @@ def decide_rebalance(
     inflation_pressure: float = 0.0,
     treasury_health: float = 0.0,
     passive_payout_pressure: float = 0.0,
+    commodity_pressure: float = 0.0,
+    logistics_pressure: float = 0.0,
+    property_pressure: float = 0.0,
 ) -> RebalanceDecision:
     """
     Very small deterministic policy starter.
 
     Inputs should be normalized roughly around 0.0 to 1.0 where higher means more pressure.
-    This keeps the initial controller understandable and safe.
+    Optional commodity/logistics/property pressures come from ``sim_metrics`` (see tuning there).
+
+    Sim-only signals are conservative: they only tighten policy when paired with fiscal strain
+    (elevated inflation or weak treasury), to avoid oscillation from noisy metrics.
     """
     phase = current_phase if current_phase in VALID_PHASES else "stable"
 
@@ -34,6 +40,22 @@ def decide_rebalance(
         return RebalanceDecision(
             next_phase="scarcity",
             reason="high inflation or passive payout pressure",
+            global_price_multiplier=1.08,
+            global_upkeep_multiplier=1.06,
+            global_payout_multiplier=0.96,
+        )
+
+    # Combined real-economy stress (commodity markets + haul backlog) with fiscal pressure.
+    sim_core = max(
+        float(commodity_pressure),
+        0.55 * float(logistics_pressure),
+        0.30 * float(property_pressure),
+    )
+    fiscal_strain = float(inflation_pressure) >= 0.38 or float(treasury_health) < 0.42
+    if sim_core >= 0.62 and fiscal_strain:
+        return RebalanceDecision(
+            next_phase="scarcity",
+            reason="commodity/logistics/property stress with fiscal pressure",
             global_price_multiplier=1.08,
             global_upkeep_multiplier=1.06,
             global_payout_multiplier=0.96,
@@ -48,7 +70,11 @@ def decide_rebalance(
             global_payout_multiplier=0.94,
         )
 
-    if inflation_pressure < 0.25 and treasury_health > 0.60:
+    if (
+        inflation_pressure < 0.25
+        and treasury_health > 0.60
+        and max(float(commodity_pressure), float(logistics_pressure)) < 0.50
+    ):
         return RebalanceDecision(
             next_phase="boom",
             reason="healthy treasury and low inflation pressure",

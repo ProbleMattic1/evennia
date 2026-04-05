@@ -46,6 +46,9 @@ def economy_world_state(request):
     slot_start = current_mining_delivery_slot_start_iso()
     slot_end = next_mining_delivery_boundary_iso()
 
+    norm = (world.get("simMetrics") or {}).get("normalized") or {}
+    stress_idx = int(round(float(norm.get("commodityPressure") or 0.0) * 100.0))
+
     meters = [
         {
             "id": "world_mining_slot_value_cr",
@@ -57,6 +60,17 @@ def economy_world_state(request):
             "valueAtStart": 0,
             "valueAtEnd": int(implied),
             "note": "Synthetic meter from implied active-rig output at current bids; reconciles each snapshot tick and at grid boundary.",
+        },
+        {
+            "id": "world_commodity_stress_index",
+            "kind": "linear_accruing",
+            "unit": "index",
+            "label": "Commodity stress (0–100, normalized from demand engine)",
+            "startAtIso": slot_start,
+            "endAtIso": slot_end,
+            "valueAtStart": stress_idx,
+            "valueAtEnd": stress_idx,
+            "note": "Flat for the slot; value updates when telemetry snapshot refreshes (~60s).",
         },
     ]
 

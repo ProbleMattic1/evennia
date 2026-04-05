@@ -29,6 +29,18 @@ from evennia.settings_default import *
 
 INSTALLED_APPS = INSTALLED_APPS + ["world.apps.WorldConfig"]
 
+_mw = list(MIDDLEWARE)
+for _i, _entry in enumerate(_mw):
+    if _entry == "evennia.web.utils.middleware.SharedLoginMiddleware":
+        _mw[_i] = "web.middleware_shared_login.SharedLoginMiddleware"
+        break
+else:
+    raise RuntimeError(
+        "evennia.web.utils.middleware.SharedLoginMiddleware missing from MIDDLEWARE; "
+        "Evennia defaults may have changed — re-merge manually."
+    )
+MIDDLEWARE = _mw + ["web.ui.slow_request_logging_middleware.SlowUiRequestLoggingMiddleware"]
+
 ######################################################################
 # Evennia base server config
 ######################################################################
@@ -120,6 +132,15 @@ GLOBAL_SCRIPTS = {
     "hauler_engine": {"typeclass": "typeclasses.haulers.HaulerEngine", "persistent": True},
     "refinery_engine": {"typeclass": "typeclasses.refining.RefineryEngine", "persistent": True},
     "site_discovery_engine": {"typeclass": "typeclasses.site_discovery.SiteDiscoveryEngine", "persistent": True},
+    "flora_site_discovery_engine": {
+        "typeclass": "typeclasses.flora_site_discovery.FloraSiteDiscoveryEngine",
+        "persistent": True,
+    },
+    "fauna_site_discovery_engine": {
+        "typeclass": "typeclasses.fauna_site_discovery.FaunaSiteDiscoveryEngine",
+        "persistent": True,
+    },
+    "claims_market_snapshot": {"typeclass": "typeclasses.claims_market_snapshot.ClaimsMarketSnapshotScript", "persistent": True},
     "npc_miner_registry": {"typeclass": "world.npc_miner_registry.NpcMinerRegistryScript", "persistent": True},
     "property_operation_registry": {
         "typeclass": "typeclasses.property_operation_registry.PropertyOperationRegistry",
@@ -151,3 +172,14 @@ GLOBAL_SCRIPTS = {
     "instance_manager": {"typeclass": "typeclasses.instance_manager.InstanceManager", "persistent": True},
     "party_registry": {"typeclass": "typeclasses.party_registry.PartyRegistry", "persistent": True},
 }
+
+######################################################################
+# Evennia contribs (structural alignment)
+######################################################################
+
+ACHIEVEMENT_CONTRIB_MODULES = ("world.achievement_data",)
+
+# Session auditing (contrib): disabled by default; enable AUDIT_IN / AUDIT_OUT for forensics.
+AUDIT_CALLBACK = "evennia.contrib.utils.auditing.outputs.to_file"
+AUDIT_IN = False
+AUDIT_OUT = False

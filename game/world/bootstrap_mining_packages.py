@@ -2,7 +2,7 @@
 Bootstrap for mining sale packages at Aurnom Mining Outfitters.
 
 Each package bundles a rig, storage, and hauler sold as a single item.
-Packages appear in the Mining Outfitters shop (vendor_id="mining-outfitters").
+Packages appear at each venue's Mining Outfitters kiosk (vendor tag {venue_id}-mining-outfitters).
 
 With-claim packages grant a random MiningClaim on purchase (see shop / web API).
 Equipment-only packages are the same gear at the prior price tier without a claim.
@@ -218,9 +218,12 @@ MINING_PACKAGES = [
 
 
 def _ensure_package_template(spec):
-    """Create or update a sale package template for a given spec."""
+    """Create or update a sale package template; tag each venue mining-outfitters vendor."""
+    from world.venues import all_venue_ids
+
     key = spec["key"]
-    vendor_id = spec["vendor_id"]
+    slug = spec["vendor_id"]
+
     found = search_object(key)
     # Only match templates, not previously created package instances
     template = None
@@ -242,7 +245,10 @@ def _ensure_package_template(spec):
         "base_price_cr": int(spec["price"]),
         "total_price_cr": int(spec["price"]),
     }
-    template.tags.add(vendor_id, category="vendor")
+    if template.tags.has(slug, category="vendor"):
+        template.tags.remove(slug, category="vendor")
+    for venue_id in all_venue_ids():
+        template.tags.add(f"{venue_id}-{slug}", category="vendor")
     template.locks.add("get:false()")
     return template
 
@@ -251,5 +257,5 @@ def bootstrap_mining_packages():
     """Create or update all mining sale package templates. Idempotent."""
     for spec in MINING_PACKAGES:
         t = _ensure_package_template(spec)
-        print(f"[mining_packages] Package '{t.key}' ready for vendor '{spec['vendor_id']}'.")
+        print(f"[mining_packages] Package '{t.key}' ready (venue-scoped {spec['vendor_id']} tags).")
     print("[mining_packages] Bootstrap complete.")

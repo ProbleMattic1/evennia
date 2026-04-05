@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import { DashboardMissionsPanel, EMPTY_MISSIONS } from "@/components/dashboard-missions-panel";
+import { DashboardAchievementsPanel } from "@/components/dashboard-achievements-panel";
 import { DashboardWorldSimulationPanel } from "@/components/dashboard-world-simulation-panel";
 import { useControlSurface } from "@/components/control-surface-provider";
 import { MissionsChromeHeightProvider } from "@/lib/missions-chrome-height-context";
@@ -11,7 +12,6 @@ import { WithMissionsProcessingSplitHostsProvider } from "@/lib/with-missions-pr
 import { useMsgStream } from "@/lib/use-msg-stream";
 
 export default function WithMissionsLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const isProcessingRoute = pathname === "/processing";
   const { data, loading, error, reload } = useControlSurface();
@@ -19,8 +19,7 @@ export default function WithMissionsLayout({ children }: { children: React.React
 
   const onChanged = useCallback(() => {
     reload();
-    router.refresh();
-  }, [reload, router]);
+  }, [reload]);
 
   if (loading && !data) {
     return (
@@ -47,13 +46,16 @@ export default function WithMissionsLayout({ children }: { children: React.React
   }
 
   const worldPanel = (
-    <DashboardWorldSimulationPanel
-      worldSimulation={data.worldSimulation ?? null}
-      roomVenueId={data.roomVenueId ?? null}
-      partyId={data.partyId ?? null}
-      activeInstanceId={data.activeInstanceId ?? null}
-      factionStanding={data.character?.factionStanding ?? null}
-    />
+    <>
+      <DashboardWorldSimulationPanel
+        worldSimulation={data.worldSimulation ?? null}
+        roomVenueId={data.roomVenueId ?? null}
+        partyId={data.partyId ?? null}
+        activeInstanceId={data.activeInstanceId ?? null}
+        factionStanding={data.character?.factionStanding ?? null}
+      />
+      <DashboardAchievementsPanel achievements={data.character?.achievements ?? null} />
+    </>
   );
 
   return (

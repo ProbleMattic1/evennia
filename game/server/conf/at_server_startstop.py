@@ -150,6 +150,29 @@ def at_server_start():
         else:
             print("[startup] WARNING: SiteDiscoveryEngine not found. Run bootstrap_mining.")
 
+        for _disc_key, _disc_label in (
+            ("flora_site_discovery_engine", "FloraSiteDiscoveryEngine"),
+            ("fauna_site_discovery_engine", "FaunaSiteDiscoveryEngine"),
+        ):
+            _d = search_script(_disc_key)
+            if _d:
+                _script = _d[0]
+                _eta = _script.db.next_discovery_at
+                _threshold = timezone.now() - timedelta(seconds=int(_script.interval) * 2)
+                if _eta is None or _eta < _threshold:
+                    _script.db.next_discovery_at = timezone.now() + timedelta(
+                        seconds=int(_script.interval)
+                    )
+                    print(f"[startup] {_disc_label} ETA was stale — reset.")
+                if not _script.is_active:
+                    _script.start()
+                    print(f"[startup] {_disc_label} was stopped — restarted.")
+            else:
+                print(
+                    f"[startup] WARNING: {_disc_label} not found. "
+                    "It must be listed in settings.GLOBAL_SCRIPTS."
+                )
+
         prop_disc = search_script("property_lot_discovery_engine")
         if prop_disc:
             ps = prop_disc[0]
@@ -299,7 +322,10 @@ def at_server_cold_start():
     from world.bootstrap_venue_controllers import bootstrap_venue_controllers
     from world.bootstrap_mining import bootstrap_mining
     from world.bootstrap_mining_claim_sale import bootstrap_mining_claim_sale
+    from world.bootstrap_flora_claim_sale import bootstrap_flora_claim_sale
+    from world.bootstrap_fauna_claim_sale import bootstrap_fauna_claim_sale
     from world.bootstrap_mining_packages import bootstrap_mining_packages
+    from world.bootstrap_bio_packages import bootstrap_bio_packages
     from world.bootstrap_fauna import bootstrap_fauna_engine
     from world.bootstrap_flora import bootstrap_flora_engine
     from world.bootstrap_npc_industrial_miners import bootstrap_npc_industrial_miners
@@ -340,6 +366,12 @@ def at_server_cold_start():
     _run_strict("promenade room ambience", bootstrap_promenade_room_ambience)
     _run_strict("station service NPCs and contracts", bootstrap_station_services)
     _run_strict("character ability baselines (STR–CHA)", bootstrap_character_abilities)
+    from world.player_haul_personal_storage import bootstrap_player_haul_delivers_to_local_raw_storage
+
+    _run(
+        "player hauls → local raw (Personal Storage)",
+        bootstrap_player_haul_delivers_to_local_raw_storage,
+    )
     _run_strict(
         "NanoMegaPlex Real Estate (account link; credits on create only)",
         bootstrap_nanomega_realty,
@@ -393,6 +425,9 @@ def at_server_cold_start():
 
     _run_strict("mission place tags on rooms", tag_rooms_for_roles_from_registry)
     _run_strict("random mining claim deed at Mining Outfitters", bootstrap_mining_claim_sale)
+    _run_strict("random flora claim deed at Mining Outfitters", bootstrap_flora_claim_sale)
+    _run_strict("random fauna claim deed at Mining Outfitters", bootstrap_fauna_claim_sale)
+    _run_strict("flora/fauna starter packages at Mining Outfitters", bootstrap_bio_packages)
     _run_strict("ore processor models Mk I–III at Mining Outfitters", bootstrap_processors)
     _run_strict("system alerts queue", lambda: get_system_alerts_script(create_missing=True))
     _run_strict("mission templates (JSON)", load_mission_templates)

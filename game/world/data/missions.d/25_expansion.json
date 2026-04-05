@@ -1,1052 +1,1707 @@
 [
-  {
-    "id": "amb_hab_atmo_recycle_spike",
-    "title": "Recycle bank pressure",
-    "summary": "Residents want someone to verify whether the outer-ring recycler spike is weather or neglect.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "hab_atmo_recycle_spike",
-    "giver": { "kind": "faction", "id": "hab_council", "name": "Hab Ring Council proxy" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["hab_atmo_recycle_spike"] },
-    "eligibility": { "cooldownSeconds": 14400, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "ask_guide_atmo",
-        "kind": "interaction",
-        "text": "Ask the station guide what corridors are affected.",
-        "interactionKeysAny": ["askguide", "askguide:transit"]
-      },
-      {
-        "id": "atmo_choice",
-        "kind": "choice",
-        "prompt": "You can push engineering for a public reading or take credits to call it fine.",
-        "choices": [
-          {
-            "id": "demand_reading",
-            "label": "Demand a posted public telemetry readout.",
-            "outcome": "The spike gets logged; maintenance schedules overtime.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 110 },
-            "completeMission": true
-          },
-          {
-            "id": "take_hush",
-            "label": "Accept a quiet stipend and drop the thread.",
-            "outcome": "The ducts keep whispering; your account looks healthier.",
-            "morality": { "evil": 1, "chaotic": 1 },
-            "rewards": { "credits": 200 },
-            "completeMission": true
-          }
+    {
+        "id": "amb_hab_atmo_recycle_spike",
+        "title": "Recycle bank pressure",
+        "summary": "Residents want someone to verify whether the outer-ring recycler spike is weather or neglect.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "hab_atmo_recycle_spike",
+        "giver": {
+            "kind": "faction",
+            "id": "hab_council",
+            "name": "Hab Ring Council proxy"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "hab_atmo_recycle_spike"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 14400,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "ask_guide_atmo",
+                "kind": "interaction",
+                "text": "Ask the station guide what corridors are affected.",
+                "interactionKeysAny": [
+                    "askguide",
+                    "askguide:transit"
+                ]
+            },
+            {
+                "id": "atmo_choice",
+                "kind": "choice",
+                "prompt": "You can push engineering for a public reading or take credits to call it fine.",
+                "choices": [
+                    {
+                        "id": "demand_reading",
+                        "label": "Demand a posted public telemetry readout.",
+                        "outcome": "The spike gets logged; maintenance schedules overtime.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 110,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "take_hush",
+                        "label": "Accept a quiet stipend and drop the thread.",
+                        "outcome": "The ducts keep whispering; your account looks healthier.",
+                        "morality": {
+                            "evil": 1,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 200,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_grid_telemetry_glitch",
-    "title": "Phantom trunk load",
-    "summary": "Power dispatch wants a neutral set of eyes on a ghost draw before they escalate.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "grid_telemetry_glitch",
-    "giver": { "kind": "faction", "id": "power_dispatch", "name": "Station Power Dispatch" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["grid_telemetry_glitch"] },
-    "eligibility": { "cooldownSeconds": 18000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_supply_grid",
-        "kind": "visit_room",
-        "text": "Check whether General Supply logged any odd high-draw orders.",
-        "roomKeysAny": ["Aurnom General Supply"]
-      },
-      {
-        "id": "grid_choice",
-        "kind": "choice",
-        "prompt": "You find a pattern: the draw aligns with after-hours kiosk reboots—or with a masked tap.",
-        "choices": [
-          {
-            "id": "report_tap",
-            "label": "Report the masked tap hypothesis to dispatch.",
-            "outcome": "Inspectors crawl the trunk; honest vendors get cleared.",
-            "morality": { "good": 1, "lawful": 2 },
-            "rewards": { "credits": 130 },
-            "completeMission": true
-          },
-          {
-            "id": "sell_timing",
-            "label": "Sell the timing pattern to whoever profits from the confusion.",
-            "outcome": "Someone else pays for certainty; you pay nothing but sleep.",
-            "morality": { "evil": 2, "chaotic": 1 },
-            "rewards": { "credits": 240 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_grid_telemetry_glitch",
+        "title": "Phantom trunk load",
+        "summary": "Power dispatch wants a neutral set of eyes on a ghost draw before they escalate.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "grid_telemetry_glitch",
+        "giver": {
+            "kind": "faction",
+            "id": "power_dispatch",
+            "name": "Station Power Dispatch"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "grid_telemetry_glitch"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 18000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_supply_grid",
+                "kind": "visit_room",
+                "text": "Check whether General Supply logged any odd high-draw orders.",
+                "roomKeysAny": [
+                    "Aurnom General Supply"
+                ]
+            },
+            {
+                "id": "grid_choice",
+                "kind": "choice",
+                "prompt": "You find a pattern: the draw aligns with after-hours kiosk reboots\u2014or with a masked tap.",
+                "choices": [
+                    {
+                        "id": "report_tap",
+                        "label": "Report the masked tap hypothesis to dispatch.",
+                        "outcome": "Inspectors crawl the trunk; honest vendors get cleared.",
+                        "morality": {
+                            "good": 1,
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 130,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "sell_timing",
+                        "label": "Sell the timing pattern to whoever profits from the confusion.",
+                        "outcome": "Someone else pays for certainty; you pay nothing but sleep.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 240,
+                            "xp": 30
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_broker_spread_rumor",
-    "title": "Spread on the floor",
-    "summary": "A clerk asks you to witness a spread correction before signatures land.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "broker_spread_rumor",
-    "giver": { "kind": "faction", "id": "exchange_clerk", "name": "Sovereign Floor Clerk" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["broker_spread_rumor"] },
-    "eligibility": { "cooldownSeconds": 14400, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_promenade_broker",
-        "kind": "visit_room",
-        "text": "Hear what traders are shouting on the promenade connectors.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "broker_choice",
-        "kind": "choice",
-        "prompt": "You can sign a fair correction or backdate a favorable tick for a cut.",
-        "choices": [
-          {
-            "id": "fair_correction",
-            "label": "Witness the fair correction as written.",
-            "outcome": "The board steadies; your name is boring in the best way.",
-            "morality": { "good": 1, "lawful": 2 },
-            "rewards": { "credits": 100 },
-            "completeMission": true
-          },
-          {
-            "id": "backdate_cut",
-            "label": "Backdate the tick and take the kickback.",
-            "outcome": "Profits land now; audits may land later.",
-            "morality": { "evil": 2, "lawful": -1 },
-            "rewards": { "credits": 270 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_broker_spread_rumor",
+        "title": "Spread on the floor",
+        "summary": "A clerk asks you to witness a spread correction before signatures land.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "broker_spread_rumor",
+        "giver": {
+            "kind": "faction",
+            "id": "exchange_clerk",
+            "name": "Sovereign Floor Clerk"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "broker_spread_rumor"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 14400,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_promenade_broker",
+                "kind": "visit_room",
+                "text": "Hear what traders are shouting on the promenade connectors.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "broker_choice",
+                "kind": "choice",
+                "prompt": "You can sign a fair correction or backdate a favorable tick for a cut.",
+                "choices": [
+                    {
+                        "id": "fair_correction",
+                        "label": "Witness the fair correction as written.",
+                        "outcome": "The board steadies; your name is boring in the best way.",
+                        "morality": {
+                            "good": 1,
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 100,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "backdate_cut",
+                        "label": "Backdate the tick and take the kickback.",
+                        "outcome": "Profits land now; audits may land later.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": -1
+                        },
+                        "rewards": {
+                            "credits": 270,
+                            "xp": 33
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_dock_arm_grind",
-    "title": "Berthed grudges",
-    "summary": "Traffic control needs a runner to calm a line of captains arguing over the held berth.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "dock_arm_grind",
-    "giver": { "kind": "faction", "id": "traffic_control", "name": "Civilian Traffic Control" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["dock_arm_grind"] },
-    "eligibility": { "cooldownSeconds": 14400, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_shipyard_dock",
-        "kind": "visit_room",
-        "text": "See the docking arm situation at the shipyard.",
-        "roomKeysAny": ["Meridian Civil Shipyard"]
-      },
-      {
-        "id": "dock_choice",
-        "kind": "choice",
-        "prompt": "You can relay the honest ETA or auction fake priority slots.",
-        "choices": [
-          {
-            "id": "honest_eta",
-            "label": "Broadcast the honest maintenance ETA.",
-            "outcome": "Tempers cool; queues reorder without blood.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 95 },
-            "completeMission": true
-          },
-          {
-            "id": "fake_priority",
-            "label": "Sell fake priority berthing promises.",
-            "outcome": "Credits clink in; grudges sharpen on channel nine.",
-            "morality": { "evil": 2, "chaotic": 2 },
-            "rewards": { "credits": 250 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_dock_arm_grind",
+        "title": "Berthed grudges",
+        "summary": "Traffic control needs a runner to calm a line of captains arguing over the held berth.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "dock_arm_grind",
+        "giver": {
+            "kind": "faction",
+            "id": "traffic_control",
+            "name": "Civilian Traffic Control"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "dock_arm_grind"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 14400,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_shipyard_dock",
+                "kind": "visit_room",
+                "text": "See the docking arm situation at the shipyard.",
+                "roomKeysAny": [
+                    "Meridian Civil Shipyard"
+                ]
+            },
+            {
+                "id": "dock_choice",
+                "kind": "choice",
+                "prompt": "You can relay the honest ETA or auction fake priority slots.",
+                "choices": [
+                    {
+                        "id": "honest_eta",
+                        "label": "Broadcast the honest maintenance ETA.",
+                        "outcome": "Tempers cool; queues reorder without blood.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 95,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "fake_priority",
+                        "label": "Sell fake priority berthing promises.",
+                        "outcome": "Credits clink in; grudges sharpen on channel nine.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 250,
+                            "xp": 31
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_hab_recycler_queue",
-    "title": "Crate jam ethics",
-    "summary": "Sanitation will clear the recycler queue if someone takes responsibility for mis-filed hazmat.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "hab_recycler_queue",
-    "giver": { "kind": "faction", "id": "sanitation_union", "name": "Sanitation shift lead" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["hab_recycler_queue"] },
-    "eligibility": { "cooldownSeconds": 12000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "promenade_recycler",
-        "kind": "visit_room",
-        "text": "Walk the affected promenade shoulder and count the worst choke point.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "recycler_choice",
-        "kind": "choice",
-        "prompt": "You find mis-tagged hazmat mixed with household reclaim.",
-        "choices": [
-          {
-            "id": "report_hazmat",
-            "label": "Flag the hazmat and stop the line safely.",
-            "outcome": "The jam clears slowly but cleanly.",
-            "morality": { "good": 2, "lawful": 2 },
-            "rewards": { "credits": 120 },
-            "completeMission": true
-          },
-          {
-            "id": "push_through",
-            "label": "Shove the suspect crates through to meet quota.",
-            "outcome": "The queue moves; the ducts might not forgive you.",
-            "morality": { "evil": 2, "chaotic": 1 },
-            "rewards": { "credits": 210 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_hab_recycler_queue",
+        "title": "Crate jam ethics",
+        "summary": "Sanitation will clear the recycler queue if someone takes responsibility for mis-filed hazmat.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "hab_recycler_queue",
+        "giver": {
+            "kind": "faction",
+            "id": "sanitation_union",
+            "name": "Sanitation shift lead"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "hab_recycler_queue"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 12000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "promenade_recycler",
+                "kind": "visit_room",
+                "text": "Walk the affected promenade shoulder and count the worst choke point.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "recycler_choice",
+                "kind": "choice",
+                "prompt": "You find mis-tagged hazmat mixed with household reclaim.",
+                "choices": [
+                    {
+                        "id": "report_hazmat",
+                        "label": "Flag the hazmat and stop the line safely.",
+                        "outcome": "The jam clears slowly but cleanly.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 120,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "push_through",
+                        "label": "Shove the suspect crates through to meet quota.",
+                        "outcome": "The queue moves; the ducts might not forgive you.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 210,
+                            "xp": 26
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_customs_sample_lag",
-    "title": "Sample lane favors",
-    "summary": "A customs sub-clerk offers to slide a lot forward—for a price or a principle.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "customs_sample_lag",
-    "giver": { "kind": "faction", "id": "customs_proxy", "name": "Cargo interface clerk" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["customs_sample_lag"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "shipyard_customs",
-        "kind": "visit_room",
-        "text": "Observe the backed-up sample lane near civilian cargo.",
-        "roomKeysAny": ["Meridian Civil Shipyard"]
-      },
-      {
-        "id": "customs_choice",
-        "kind": "choice",
-        "prompt": "You can refuse the bribe and insist on order, or grease the lane.",
-        "choices": [
-          {
-            "id": "refuse_bribe",
-            "label": "Refuse and file a fair-queue notice.",
-            "outcome": "Inspections stay slow but defensible.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 105 },
-            "completeMission": true
-          },
-          {
-            "id": "grease_lane",
-            "label": "Pay the clerk to skip a stranger's lot ahead.",
-            "outcome": "Someone else's cargo jumps; your conscience invoices you.",
-            "morality": { "evil": 1, "chaotic": 2 },
-            "rewards": { "credits": 230 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_customs_sample_lag",
+        "title": "Sample lane favors",
+        "summary": "A customs sub-clerk offers to slide a lot forward\u2014for a price or a principle.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "customs_sample_lag",
+        "giver": {
+            "kind": "faction",
+            "id": "customs_proxy",
+            "name": "Cargo interface clerk"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "customs_sample_lag"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "shipyard_customs",
+                "kind": "visit_room",
+                "text": "Observe the backed-up sample lane near civilian cargo.",
+                "roomKeysAny": [
+                    "Meridian Civil Shipyard"
+                ]
+            },
+            {
+                "id": "customs_choice",
+                "kind": "choice",
+                "prompt": "You can refuse the bribe and insist on order, or grease the lane.",
+                "choices": [
+                    {
+                        "id": "refuse_bribe",
+                        "label": "Refuse and file a fair-queue notice.",
+                        "outcome": "Inspections stay slow but defensible.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 105,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "grease_lane",
+                        "label": "Pay the clerk to skip a stranger's lot ahead.",
+                        "outcome": "Someone else's cargo jumps; your conscience invoices you.",
+                        "morality": {
+                            "evil": 1,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 230,
+                            "xp": 28
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_courier_union_tip",
-    "title": "Surcharge edge",
-    "summary": "Couriers want a credible read on whether the fuel surcharge rumor is real.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "courier_union_tip",
-    "giver": { "kind": "faction", "id": "courier_union", "name": "Independent Courier Union" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["courier_union_tip"] },
-    "eligibility": { "cooldownSeconds": 14400, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "guide_courier",
-        "kind": "interaction",
-        "text": "Ask the guide what official channels say about surcharges.",
-        "interactionKeysAny": ["askguide", "askguide:transit"]
-      },
-      {
-        "id": "courier_choice",
-        "kind": "choice",
-        "prompt": "You can tell the truth you found—or sell a panic premium.",
-        "choices": [
-          {
-            "id": "tell_truth",
-            "label": "Share the accurate schedule you verified.",
-            "outcome": "Couriers plan; markets wobble less.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 85 },
-            "completeMission": true
-          },
-          {
-            "id": "panic_premium",
-            "label": "Inflate the rumor and sell rush contracts.",
-            "outcome": "You profit from velocity; someone eats the lie.",
-            "morality": { "evil": 2, "chaotic": 2 },
-            "rewards": { "credits": 260 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_courier_union_tip",
+        "title": "Surcharge edge",
+        "summary": "Couriers want a credible read on whether the fuel surcharge rumor is real.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "courier_union_tip",
+        "giver": {
+            "kind": "faction",
+            "id": "courier_union",
+            "name": "Independent Courier Union"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "courier_union_tip"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 14400,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "guide_courier",
+                "kind": "interaction",
+                "text": "Ask the guide what official channels say about surcharges.",
+                "interactionKeysAny": [
+                    "askguide",
+                    "askguide:transit"
+                ]
+            },
+            {
+                "id": "courier_choice",
+                "kind": "choice",
+                "prompt": "You can tell the truth you found\u2014or sell a panic premium.",
+                "choices": [
+                    {
+                        "id": "tell_truth",
+                        "label": "Share the accurate schedule you verified.",
+                        "outcome": "Couriers plan; markets wobble less.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 85,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "panic_premium",
+                        "label": "Inflate the rumor and sell rush contracts.",
+                        "outcome": "You profit from velocity; someone eats the lie.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 260,
+                            "xp": 32
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_promenade_permit_buzz",
-    "title": "Permit table tempers",
-    "summary": "Vendors need a mediator before enforcement arrives.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "promenade_permit_buzz",
-    "giver": { "kind": "npc", "id": "vendor_rep", "name": "Promenade vendor rep" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["promenade_permit_buzz"] },
-    "eligibility": { "cooldownSeconds": 12000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_promenade_permit",
-        "kind": "visit_room",
-        "text": "Reach the congested promenade shoulder.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "permit_choice",
-        "kind": "choice",
-        "prompt": "You can help vendors apply for a batch permit—or scatter them with a fake raid whistle.",
-        "choices": [
-          {
-            "id": "batch_permit",
-            "label": "Organize a batch permit application blitz.",
-            "outcome": "Lines shrink; paperwork explodes politely.",
-            "morality": { "good": 2, "lawful": 2 },
-            "rewards": { "credits": 115 },
-            "completeMission": true
-          },
-          {
-            "id": "fake_raid",
-            "label": "Fake a raid whistle and loot abandoned stalls.",
-            "outcome": "You grab goods; trust on the promenade thins.",
-            "morality": { "evil": 2, "chaotic": 2 },
-            "rewards": { "credits": 220 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_promenade_permit_buzz",
+        "title": "Permit table tempers",
+        "summary": "Vendors need a mediator before enforcement arrives.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "promenade_permit_buzz",
+        "giver": {
+            "kind": "npc",
+            "id": "vendor_rep",
+            "name": "Promenade vendor rep"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "promenade_permit_buzz"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 12000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_promenade_permit",
+                "kind": "visit_room",
+                "text": "Reach the congested promenade shoulder.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "permit_choice",
+                "kind": "choice",
+                "prompt": "You can help vendors apply for a batch permit\u2014or scatter them with a fake raid whistle.",
+                "choices": [
+                    {
+                        "id": "batch_permit",
+                        "label": "Organize a batch permit application blitz.",
+                        "outcome": "Lines shrink; paperwork explodes politely.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 115,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "fake_raid",
+                        "label": "Fake a raid whistle and loot abandoned stalls.",
+                        "outcome": "You grab goods; trust on the promenade thins.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 220,
+                            "xp": 27
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_ration_schedule_whisper",
-    "title": "Tap rumor control",
-    "summary": "Someone is profiting off a water-window rumor. You can confirm or compound it.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "ration_schedule_whisper",
-    "giver": { "kind": "faction", "id": "civic_watch", "name": "Civic watch volunteer" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["ration_schedule_whisper"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "supply_ration",
-        "kind": "visit_room",
-        "text": "Check whether General Supply is quietly stocking extra jugs.",
-        "roomKeysAny": ["Aurnom General Supply"]
-      },
-      {
-        "id": "ration_choice",
-        "kind": "choice",
-        "prompt": "Shelves show a modest stockpile—not a crisis, not nothing.",
-        "choices": [
-          {
-            "id": "post_clarification",
-            "label": "Post a calm clarification in public channels.",
-            "outcome": "Panic ebbs; hoarders look foolish.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 100 },
-            "completeMission": true
-          },
-          {
-            "id": "corner_jugs",
-            "label": "Buy out the jugs and resell at panic prices.",
-            "outcome": "Thirst pays you; anger remembers.",
-            "morality": { "evil": 2, "lawful": -1 },
-            "rewards": { "credits": 280 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_ration_schedule_whisper",
+        "title": "Tap rumor control",
+        "summary": "Someone is profiting off a water-window rumor. You can confirm or compound it.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "ration_schedule_whisper",
+        "giver": {
+            "kind": "faction",
+            "id": "civic_watch",
+            "name": "Civic watch volunteer"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "ration_schedule_whisper"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "supply_ration",
+                "kind": "visit_room",
+                "text": "Check whether General Supply is quietly stocking extra jugs.",
+                "roomKeysAny": [
+                    "Aurnom General Supply"
+                ]
+            },
+            {
+                "id": "ration_choice",
+                "kind": "choice",
+                "prompt": "Shelves show a modest stockpile\u2014not a crisis, not nothing.",
+                "choices": [
+                    {
+                        "id": "post_clarification",
+                        "label": "Post a calm clarification in public channels.",
+                        "outcome": "Panic ebbs; hoarders look foolish.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 100,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "corner_jugs",
+                        "label": "Buy out the jugs and resell at panic prices.",
+                        "outcome": "Thirst pays you; anger remembers.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": -1
+                        },
+                        "rewards": {
+                            "credits": 280,
+                            "xp": 35
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_shipyard_weld_inspection",
-    "title": "Compliant glare",
-    "summary": "Weld crews want a witness while they swap rigs for the inspection.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "shipyard_weld_inspection",
-    "giver": { "kind": "faction", "id": "yard_foreman", "name": "Civilian yard foreman" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["shipyard_weld_inspection"] },
-    "eligibility": { "cooldownSeconds": 14400, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_yard_weld",
-        "kind": "visit_room",
-        "text": "Meet the foreman at the shipyard inspection lane.",
-        "roomKeysAny": ["Meridian Civil Shipyard"]
-      },
-      {
-        "id": "weld_choice",
-        "kind": "choice",
-        "prompt": "Auditors ask you to sign off on a bay that still flickers noncompliant.",
-        "choices": [
-          {
-            "id": "refuse_sign",
-            "label": "Refuse to sign until the bay is fixed.",
-            "outcome": "Work stops; eyes stay safe.",
-            "morality": { "good": 2, "lawful": 2 },
-            "rewards": { "credits": 125 },
-            "completeMission": true
-          },
-          {
-            "id": "sign_off",
-            "label": "Sign off for a fee and look away.",
-            "outcome": "Production resumes; retinas might not.",
-            "morality": { "evil": 2, "lawful": -2 },
-            "rewards": { "credits": 240 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_shipyard_weld_inspection",
+        "title": "Compliant glare",
+        "summary": "Weld crews want a witness while they swap rigs for the inspection.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "shipyard_weld_inspection",
+        "giver": {
+            "kind": "faction",
+            "id": "yard_foreman",
+            "name": "Civilian yard foreman"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "shipyard_weld_inspection"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 14400,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_yard_weld",
+                "kind": "visit_room",
+                "text": "Meet the foreman at the shipyard inspection lane.",
+                "roomKeysAny": [
+                    "Meridian Civil Shipyard"
+                ]
+            },
+            {
+                "id": "weld_choice",
+                "kind": "choice",
+                "prompt": "Auditors ask you to sign off on a bay that still flickers noncompliant.",
+                "choices": [
+                    {
+                        "id": "refuse_sign",
+                        "label": "Refuse to sign until the bay is fixed.",
+                        "outcome": "Work stops; eyes stay safe.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 125,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "sign_off",
+                        "label": "Sign off for a fee and look away.",
+                        "outcome": "Production resumes; retinas might not.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": -2
+                        },
+                        "rewards": {
+                            "credits": 240,
+                            "xp": 30
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_realty_ghost_listing",
-    "title": "Ghost bid chase",
-    "summary": "Realty IT wants a field check on whether a ghost listing maps to a real parcel.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "realty_ghost_listing",
-    "giver": { "kind": "faction", "id": "nanomega_realty", "name": "NanoMegaPlex Real Estate" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["realty_ghost_listing"] },
-    "eligibility": { "cooldownSeconds": 18000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_realty_office",
-        "kind": "visit_room",
-        "text": "Review the anomaly at the real estate office.",
-        "roomKeysAny": ["NanoMegaPlex Real Estate Office"]
-      },
-      {
-        "id": "ghost_choice",
-        "kind": "choice",
-        "prompt": "The listing hash matches a sealed dispute parcel.",
-        "choices": [
-          {
-            "id": "freeze_listing",
-            "label": "Freeze the listing and escalate to oversight.",
-            "outcome": "Speculators howl; the record stays honest.",
-            "morality": { "good": 1, "lawful": 2 },
-            "rewards": { "credits": 135 },
-            "completeMission": true
-          },
-          {
-            "id": "front_run",
-            "label": "Front-run the glitch with a shell bid.",
-            "outcome": "You might own air; you definitely own risk.",
-            "morality": { "evil": 2, "chaotic": 1 },
-            "rewards": { "credits": 290 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_realty_ghost_listing",
+        "title": "Ghost bid chase",
+        "summary": "Realty IT wants a field check on whether a ghost listing maps to a real parcel.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "realty_ghost_listing",
+        "giver": {
+            "kind": "faction",
+            "id": "nanomega_realty",
+            "name": "NanoMegaPlex Real Estate"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "realty_ghost_listing"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 18000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_realty_office",
+                "kind": "visit_room",
+                "text": "Review the anomaly at the real estate office.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Real Estate Office"
+                ]
+            },
+            {
+                "id": "ghost_choice",
+                "kind": "choice",
+                "prompt": "The listing hash matches a sealed dispute parcel.",
+                "choices": [
+                    {
+                        "id": "freeze_listing",
+                        "label": "Freeze the listing and escalate to oversight.",
+                        "outcome": "Speculators howl; the record stays honest.",
+                        "morality": {
+                            "good": 1,
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 135,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "front_run",
+                        "label": "Front-run the glitch with a shell bid.",
+                        "outcome": "You might own air; you definitely own risk.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 290,
+                            "xp": 36
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_drill_blackout_notice",
-    "title": "Drill escort",
-    "summary": "Security wants a civilian witness during the dim-cycle drill on one spoke.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "drill_blackout_notice",
-    "giver": { "kind": "faction", "id": "nanomega_security", "name": "NanoMegaPlex Security" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["drill_blackout_notice"] },
-    "eligibility": { "cooldownSeconds": 43200, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "guide_drill",
-        "kind": "interaction",
-        "text": "Confirm public messaging with the station guide.",
-        "interactionKeysAny": ["askguide:transit", "askguide"]
-      },
-      {
-        "id": "drill_choice",
-        "kind": "choice",
-        "prompt": "During the dim cycle, you see a sealed door propped—against procedure.",
-        "choices": [
-          {
-            "id": "report_door",
-            "label": "Report the propped door immediately.",
-            "outcome": "The drill stays by the book.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 140 },
-            "completeMission": true
-          },
-          {
-            "id": "slip_through",
-            "label": "Slip through for a quick shortcut haul.",
-            "outcome": "You save minutes; you borrow liability.",
-            "morality": { "chaotic": 2, "lawful": -2 },
-            "rewards": { "credits": 250 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_drill_blackout_notice",
+        "title": "Drill escort",
+        "summary": "Security wants a civilian witness during the dim-cycle drill on one spoke.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "drill_blackout_notice",
+        "giver": {
+            "kind": "faction",
+            "id": "nanomega_security",
+            "name": "NanoMegaPlex Security"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "drill_blackout_notice"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 43200,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "guide_drill",
+                "kind": "interaction",
+                "text": "Confirm public messaging with the station guide.",
+                "interactionKeysAny": [
+                    "askguide:transit",
+                    "askguide"
+                ]
+            },
+            {
+                "id": "drill_choice",
+                "kind": "choice",
+                "prompt": "During the dim cycle, you see a sealed door propped\u2014against procedure.",
+                "choices": [
+                    {
+                        "id": "report_door",
+                        "label": "Report the propped door immediately.",
+                        "outcome": "The drill stays by the book.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 140,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "slip_through",
+                        "label": "Slip through for a quick shortcut haul.",
+                        "outcome": "You save minutes; you borrow liability.",
+                        "morality": {
+                            "chaotic": 2,
+                            "lawful": -2
+                        },
+                        "rewards": {
+                            "credits": 250,
+                            "xp": 31
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_ore_grade_floor_fight",
-    "title": "Assayer's line",
-    "summary": "Miners want someone to read the new grade floor notice beside them.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "ore_grade_floor_fight",
-    "giver": { "kind": "faction", "id": "claimant_delegate", "name": "Independent claimant delegate" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["ore_grade_floor_fight"] },
-    "eligibility": { "cooldownSeconds": 18000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_outfitters_ore",
-        "kind": "visit_room",
-        "text": "Hear the argument at Mining Outfitters.",
-        "roomKeysAny": ["Aurnom Mining Outfitters"]
-      },
-      {
-        "id": "ore_choice",
-        "kind": "choice",
-        "prompt": "You can endorse the stricter floor or forge a sympathetic waiver.",
-        "choices": [
-          {
-            "id": "endorse_floor",
-            "label": "Endorse the stricter purity floor publicly.",
-            "outcome": "Small miners groan; markets gain clarity.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 115 },
-            "completeMission": true
-          },
-          {
-            "id": "forge_waiver",
-            "label": "Forge a waiver stamp for a desperate seller.",
-            "outcome": "Credits flow; integrity frays.",
-            "morality": { "evil": 2, "lawful": -2 },
-            "rewards": { "credits": 270 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_ore_grade_floor_fight",
+        "title": "Assayer's line",
+        "summary": "Miners want someone to read the new grade floor notice beside them.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "ore_grade_floor_fight",
+        "giver": {
+            "kind": "faction",
+            "id": "claimant_delegate",
+            "name": "Independent claimant delegate"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "ore_grade_floor_fight"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 18000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_outfitters_ore",
+                "kind": "visit_room",
+                "text": "Hear the argument at Mining Outfitters.",
+                "roomKeysAny": [
+                    "Aurnom Mining Outfitters"
+                ]
+            },
+            {
+                "id": "ore_choice",
+                "kind": "choice",
+                "prompt": "You can endorse the stricter floor or forge a sympathetic waiver.",
+                "choices": [
+                    {
+                        "id": "endorse_floor",
+                        "label": "Endorse the stricter purity floor publicly.",
+                        "outcome": "Small miners groan; markets gain clarity.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 115,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "forge_waiver",
+                        "label": "Forge a waiver stamp for a desperate seller.",
+                        "outcome": "Credits flow; integrity frays.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": -2
+                        },
+                        "rewards": {
+                            "credits": 270,
+                            "xp": 33
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_transit_cap_banner",
-    "title": "Cap crowd control",
-    "summary": "Guides need help redirecting a tour group before the cap alarm trips.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "transit_cap_banner",
-    "giver": { "kind": "npc", "id": "guide_supervisor", "name": "Guide supervisor" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["transit_cap_banner"] },
-    "eligibility": { "cooldownSeconds": 12000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "guide_transit_cap",
-        "kind": "interaction",
-        "text": "Ask the station guide for alternate routes.",
-        "interactionKeysAny": ["askguide:transit", "askguide"]
-      },
-      {
-        "id": "cap_choice",
-        "kind": "choice",
-        "prompt": "You can split the group fairly—or accept a bribe to pack them in anyway.",
-        "choices": [
-          {
-            "id": "split_fair",
-            "label": "Split the tour across two staggered departures.",
-            "outcome": "Crowds thin; schedules stretch.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 90 },
-            "completeMission": true
-          },
-          {
-            "id": "pack_in",
-            "label": "Pack them in and take the organizer's bribe.",
-            "outcome": "Alarms flirt with red; your account smiles.",
-            "morality": { "evil": 1, "chaotic": 2 },
-            "rewards": { "credits": 230 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_transit_cap_banner",
+        "title": "Cap crowd control",
+        "summary": "Guides need help redirecting a tour group before the cap alarm trips.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "transit_cap_banner",
+        "giver": {
+            "kind": "npc",
+            "id": "guide_supervisor",
+            "name": "Guide supervisor"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "transit_cap_banner"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 12000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "guide_transit_cap",
+                "kind": "interaction",
+                "text": "Ask the station guide for alternate routes.",
+                "interactionKeysAny": [
+                    "askguide:transit",
+                    "askguide"
+                ]
+            },
+            {
+                "id": "cap_choice",
+                "kind": "choice",
+                "prompt": "You can split the group fairly\u2014or accept a bribe to pack them in anyway.",
+                "choices": [
+                    {
+                        "id": "split_fair",
+                        "label": "Split the tour across two staggered departures.",
+                        "outcome": "Crowds thin; schedules stretch.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 90,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "pack_in",
+                        "label": "Pack them in and take the organizer's bribe.",
+                        "outcome": "Alarms flirt with red; your account smiles.",
+                        "morality": {
+                            "evil": 1,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 230,
+                            "xp": 28
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_clinic_supply_whisper",
-    "title": "Cold-chain detour",
-    "summary": "Volunteers suspect selective routing on a med supply line.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "clinic_supply_whisper",
-    "giver": { "kind": "faction", "id": "medic_volunteer", "name": "Medic volunteer" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["clinic_supply_whisper"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "supply_clinic_trace",
-        "kind": "visit_room",
-        "text": "Trace manifests at General Supply.",
-        "roomKeysAny": ["Aurnom General Supply"]
-      },
-      {
-        "id": "clinic_choice",
-        "kind": "choice",
-        "prompt": "Logs show a detour favoring a private clinic sponsor.",
-        "choices": [
-          {
-            "id": "expose_detour",
-            "label": "Expose the detour to public health oversight.",
-            "outcome": "Routing normalizes; sponsors fume.",
-            "morality": { "good": 2, "lawful": 2 },
-            "rewards": { "credits": 130 },
-            "completeMission": true
-          },
-          {
-            "id": "sell_detour",
-            "label": "Sell the detour secret to the sponsor.",
-            "outcome": "You monetize inequity.",
-            "morality": { "evil": 2, "lawful": -1 },
-            "rewards": { "credits": 255 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_clinic_supply_whisper",
+        "title": "Cold-chain detour",
+        "summary": "Volunteers suspect selective routing on a med supply line.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "clinic_supply_whisper",
+        "giver": {
+            "kind": "faction",
+            "id": "medic_volunteer",
+            "name": "Medic volunteer"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "clinic_supply_whisper"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "supply_clinic_trace",
+                "kind": "visit_room",
+                "text": "Trace manifests at General Supply.",
+                "roomKeysAny": [
+                    "Aurnom General Supply"
+                ]
+            },
+            {
+                "id": "clinic_choice",
+                "kind": "choice",
+                "prompt": "Logs show a detour favoring a private clinic sponsor.",
+                "choices": [
+                    {
+                        "id": "expose_detour",
+                        "label": "Expose the detour to public health oversight.",
+                        "outcome": "Routing normalizes; sponsors fume.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 130,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "sell_detour",
+                        "label": "Sell the detour secret to the sponsor.",
+                        "outcome": "You monetize inequity.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": -1
+                        },
+                        "rewards": {
+                            "credits": 255,
+                            "xp": 31
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_salvage_tug_board",
-    "title": "Beacon mismatch",
-    "summary": "A salvage gig looks wrong on paper; you can warn rookies or fleece them.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "salvage_tug_board",
-    "giver": { "kind": "faction", "id": "salvage_broker", "name": "Salvage gig broker" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["salvage_tug_board"] },
-    "eligibility": { "cooldownSeconds": 18000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "yard_salvage_board",
-        "kind": "visit_room",
-        "text": "Read the contract board at the shipyard.",
-        "roomKeysAny": ["Meridian Civil Shipyard"]
-      },
-      {
-        "id": "salvage_choice",
-        "kind": "choice",
-        "prompt": "Hull registry and beacon hash disagree on the same job.",
-        "choices": [
-          {
-            "id": "warn_rookies",
-            "label": "Warn newcomers off the bad gig.",
-            "outcome": "You lose a finder's fee; you keep a conscience.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 95 },
-            "completeMission": true
-          },
-          {
-            "id": "sell_bad_gig",
-            "label": "Sell the bad gig to desperate bidders anyway.",
-            "outcome": "You profit from someone else's bad math.",
-            "morality": { "evil": 2, "chaotic": 1 },
-            "rewards": { "credits": 300 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_salvage_tug_board",
+        "title": "Beacon mismatch",
+        "summary": "A salvage gig looks wrong on paper; you can warn rookies or fleece them.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "salvage_tug_board",
+        "giver": {
+            "kind": "faction",
+            "id": "salvage_broker",
+            "name": "Salvage gig broker"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "salvage_tug_board"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 18000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "yard_salvage_board",
+                "kind": "visit_room",
+                "text": "Read the contract board at the shipyard.",
+                "roomKeysAny": [
+                    "Meridian Civil Shipyard"
+                ]
+            },
+            {
+                "id": "salvage_choice",
+                "kind": "choice",
+                "prompt": "Hull registry and beacon hash disagree on the same job.",
+                "choices": [
+                    {
+                        "id": "warn_rookies",
+                        "label": "Warn newcomers off the bad gig.",
+                        "outcome": "You lose a finder's fee; you keep a conscience.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 95,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "sell_bad_gig",
+                        "label": "Sell the bad gig to desperate bidders anyway.",
+                        "outcome": "You profit from someone else's bad math.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 300,
+                            "xp": 37
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_corridor_dim_cycle",
-    "title": "Dim corridor escort",
-    "summary": "A nervous clerk asks for an escort through a dimmed industrial sleeve.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "corridor_dim_cycle",
-    "giver": { "kind": "npc", "id": "night_clerk", "name": "Night clerk" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["corridor_dim_cycle"] },
-    "eligibility": { "cooldownSeconds": 12000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "promenade_dim",
-        "kind": "visit_room",
-        "text": "Meet the clerk at the promenade transfer hub.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "dim_choice",
-        "kind": "choice",
-        "prompt": "Halfway through, someone offers you credits to 'lose' the clerk in the dark.",
-        "choices": [
-          {
-            "id": "stay_escort",
-            "label": "Refuse and finish the escort.",
-            "outcome": "The clerk tips you what they can; you sleep fine.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 105 },
-            "completeMission": true
-          },
-          {
-            "id": "lose_clerk",
-            "label": "Take the payment and vanish mid-walk.",
-            "outcome": "The clerk's fear pays someone's agenda.",
-            "morality": { "evil": 2, "chaotic": 2 },
-            "rewards": { "credits": 265 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_corridor_dim_cycle",
+        "title": "Dim corridor escort",
+        "summary": "A nervous clerk asks for an escort through a dimmed industrial sleeve.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "corridor_dim_cycle",
+        "giver": {
+            "kind": "npc",
+            "id": "night_clerk",
+            "name": "Night clerk"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "corridor_dim_cycle"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 12000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "promenade_dim",
+                "kind": "visit_room",
+                "text": "Meet the clerk at the promenade transfer hub.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "dim_choice",
+                "kind": "choice",
+                "prompt": "Halfway through, someone offers you credits to 'lose' the clerk in the dark.",
+                "choices": [
+                    {
+                        "id": "stay_escort",
+                        "label": "Refuse and finish the escort.",
+                        "outcome": "The clerk tips you what they can; you sleep fine.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 105,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "lose_clerk",
+                        "label": "Take the payment and vanish mid-walk.",
+                        "outcome": "The clerk's fear pays someone's agenda.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 265,
+                            "xp": 33
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_kiosk_outage_burst",
-    "title": "Terminal triad",
-    "summary": "Finance wants a witness statement on three kiosk failures in one block.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "kiosk_outage_burst",
-    "giver": { "kind": "faction", "id": "finance_bot", "name": "Finance reconciliation bot" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["kiosk_outage_burst"] },
-    "eligibility": { "cooldownSeconds": 18000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "supply_kiosk",
-        "kind": "visit_room",
-        "text": "Check if the kiosk cluster sits near General Supply loading.",
-        "roomKeysAny": ["Aurnom General Supply"]
-      },
-      {
-        "id": "kiosk_choice",
-        "kind": "choice",
-        "prompt": "Timing matches a vendor's unlicensed reboot script.",
-        "choices": [
-          {
-            "id": "file_incident",
-            "label": "File an honest incident tied to the script.",
-            "outcome": "Techs patch; blame lands correctly.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 120 },
-            "completeMission": true
-          },
-          {
-            "id": "extort_vendor",
-            "label": "Extort the vendor for silence.",
-            "outcome": "Credits flow; audits might follow.",
-            "morality": { "evil": 2, "lawful": -2 },
-            "rewards": { "credits": 275 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_kiosk_outage_burst",
+        "title": "Terminal triad",
+        "summary": "Finance wants a witness statement on three kiosk failures in one block.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "kiosk_outage_burst",
+        "giver": {
+            "kind": "faction",
+            "id": "finance_bot",
+            "name": "Finance reconciliation bot"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "kiosk_outage_burst"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 18000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "supply_kiosk",
+                "kind": "visit_room",
+                "text": "Check if the kiosk cluster sits near General Supply loading.",
+                "roomKeysAny": [
+                    "Aurnom General Supply"
+                ]
+            },
+            {
+                "id": "kiosk_choice",
+                "kind": "choice",
+                "prompt": "Timing matches a vendor's unlicensed reboot script.",
+                "choices": [
+                    {
+                        "id": "file_incident",
+                        "label": "File an honest incident tied to the script.",
+                        "outcome": "Techs patch; blame lands correctly.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 120,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "extort_vendor",
+                        "label": "Extort the vendor for silence.",
+                        "outcome": "Credits flow; audits might follow.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": -2
+                        },
+                        "rewards": {
+                            "credits": 275,
+                            "xp": 34
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_station_birthday_loop",
-    "title": "Heritage hustle",
-    "summary": "Heritage week brings opportunity: help the honest booth—or skim the donations.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "station_birthday_loop",
-    "giver": { "kind": "npc", "id": "heritage_volunteer", "name": "Heritage volunteer" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["station_birthday_loop"] },
-    "eligibility": { "cooldownSeconds": 28800, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "promenade_heritage",
-        "kind": "visit_room",
-        "text": "Visit the heritage loop on the promenade.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "heritage_choice",
-        "kind": "choice",
-        "prompt": "Donation barrels are unattended for minutes between rotations.",
-        "choices": [
-          {
-            "id": "guard_barrels",
-            "label": "Stand watch until the next volunteer arrives.",
-            "outcome": "Crowds notice; the org remembers.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 80 },
-            "completeMission": true
-          },
-          {
-            "id": "skim_barrels",
-            "label": "Skim a barrel when no one is looking.",
-            "outcome": "Charity loses a slice; you gain weight in your pocket.",
-            "morality": { "evil": 2, "chaotic": 1 },
-            "rewards": { "credits": 240 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_station_birthday_loop",
+        "title": "Heritage hustle",
+        "summary": "Heritage week brings opportunity: help the honest booth\u2014or skim the donations.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "station_birthday_loop",
+        "giver": {
+            "kind": "npc",
+            "id": "heritage_volunteer",
+            "name": "Heritage volunteer"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "station_birthday_loop"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 28800,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "promenade_heritage",
+                "kind": "visit_room",
+                "text": "Visit the heritage loop on the promenade.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "heritage_choice",
+                "kind": "choice",
+                "prompt": "Donation barrels are unattended for minutes between rotations.",
+                "choices": [
+                    {
+                        "id": "guard_barrels",
+                        "label": "Stand watch until the next volunteer arrives.",
+                        "outcome": "Crowds notice; the org remembers.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 80,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "skim_barrels",
+                        "label": "Skim a barrel when no one is looking.",
+                        "outcome": "Charity loses a slice; you gain weight in your pocket.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 240,
+                            "xp": 30
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_stowaway_calibration_drill",
-    "title": "Sensor drill witness",
-    "summary": "Security needs a civilian signature that calibration was announced properly.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "stowaway_calibration_drill",
-    "giver": { "kind": "faction", "id": "nanomega_security", "name": "NanoMegaPlex Security" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["stowaway_calibration_drill"] },
-    "eligibility": { "cooldownSeconds": 43200, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "guide_security_drill",
-        "kind": "interaction",
-        "text": "Ask the guide whether cargo advisories were posted.",
-        "interactionKeysAny": ["askguide:security", "askguide"]
-      },
-      {
-        "id": "stowaway_choice",
-        "kind": "choice",
-        "prompt": "You can sign honestly—or backdate the posting for a fee.",
-        "choices": [
-          {
-            "id": "honest_sign",
-            "label": "Sign only if postings match reality.",
-            "outcome": "Drill accountability holds.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 125 },
-            "completeMission": true
-          },
-          {
-            "id": "backdate_sign",
-            "label": "Backdate the posting for credits.",
-            "outcome": "Paperwork lies; someone profits from deniability.",
-            "morality": { "evil": 2, "lawful": -2 },
-            "rewards": { "credits": 260 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_stowaway_calibration_drill",
+        "title": "Sensor drill witness",
+        "summary": "Security needs a civilian signature that calibration was announced properly.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "stowaway_calibration_drill",
+        "giver": {
+            "kind": "faction",
+            "id": "nanomega_security",
+            "name": "NanoMegaPlex Security"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "stowaway_calibration_drill"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 43200,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "guide_security_drill",
+                "kind": "interaction",
+                "text": "Ask the guide whether cargo advisories were posted.",
+                "interactionKeysAny": [
+                    "askguide:security",
+                    "askguide"
+                ]
+            },
+            {
+                "id": "stowaway_choice",
+                "kind": "choice",
+                "prompt": "You can sign honestly\u2014or backdate the posting for a fee.",
+                "choices": [
+                    {
+                        "id": "honest_sign",
+                        "label": "Sign only if postings match reality.",
+                        "outcome": "Drill accountability holds.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 125,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "backdate_sign",
+                        "label": "Backdate the posting for credits.",
+                        "outcome": "Paperwork lies; someone profits from deniability.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": -2
+                        },
+                        "rewards": {
+                            "credits": 260,
+                            "xp": 32
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_solvent_leak_band",
-    "title": "Solvent sleeve",
-    "summary": "Industrial safety wants a corridor marked or a rumor squashed.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "solvent_leak_band",
-    "giver": { "kind": "faction", "id": "safety_observer", "name": "Industrial safety observer" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["solvent_leak_band"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "shipyard_solvent",
-        "kind": "visit_room",
-        "text": "Confirm vent status from the civilian yard side.",
-        "roomKeysAny": ["Meridian Civil Shipyard"]
-      },
-      {
-        "id": "solvent_choice",
-        "kind": "choice",
-        "prompt": "Sniffer levels are low but real; posting could panic non-essentials.",
-        "choices": [
-          {
-            "id": "full_posting",
-            "label": "Insist on full public posting and mask stations.",
-            "outcome": "Crowds grumble; lungs stay safer.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 110 },
-            "completeMission": true
-          },
-          {
-            "id": "soft_pedal",
-            "label": "Soft-pedal the numbers for station morale.",
-            "outcome": "Calm stays high; exposure might too.",
-            "morality": { "evil": 1, "chaotic": 1 },
-            "rewards": { "credits": 200 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_solvent_leak_band",
+        "title": "Solvent sleeve",
+        "summary": "Industrial safety wants a corridor marked or a rumor squashed.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "solvent_leak_band",
+        "giver": {
+            "kind": "faction",
+            "id": "safety_observer",
+            "name": "Industrial safety observer"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "solvent_leak_band"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "shipyard_solvent",
+                "kind": "visit_room",
+                "text": "Confirm vent status from the civilian yard side.",
+                "roomKeysAny": [
+                    "Meridian Civil Shipyard"
+                ]
+            },
+            {
+                "id": "solvent_choice",
+                "kind": "choice",
+                "prompt": "Sniffer levels are low but real; posting could panic non-essentials.",
+                "choices": [
+                    {
+                        "id": "full_posting",
+                        "label": "Insist on full public posting and mask stations.",
+                        "outcome": "Crowds grumble; lungs stay safer.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 110,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "soft_pedal",
+                        "label": "Soft-pedal the numbers for station morale.",
+                        "outcome": "Calm stays high; exposure might too.",
+                        "morality": {
+                            "evil": 1,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 200,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_claim_jumper_rumor",
-    "title": "Survey whispers",
-    "summary": "Miners trade overlapping survey gossip; you can verify or monetize it.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "claim_jumper_rumor",
-    "giver": { "kind": "faction", "id": "outfitters_regular", "name": "Outfitters regular" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["claim_jumper_rumor"] },
-    "eligibility": { "cooldownSeconds": 18000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "survey_claim",
-        "kind": "interaction",
-        "text": "Run a survey check against the gossip.",
-        "interactionKeysAny": ["survey"]
-      },
-      {
-        "id": "claim_choice",
-        "kind": "choice",
-        "prompt": "Data shows a borderline overlap—enough to fight over, not enough to prove.",
-        "choices": [
-          {
-            "id": "share_fair",
-            "label": "Share the ambiguous truth with both parties.",
-            "outcome": "Tempers cool into paperwork.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 115 },
-            "completeMission": true
-          },
-          {
-            "id": "auction_tip",
-            "label": "Auction the tip to the highest bitter bidder.",
-            "outcome": "You profit from a feud.",
-            "morality": { "evil": 2, "chaotic": 2 },
-            "rewards": { "credits": 265 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_claim_jumper_rumor",
+        "title": "Survey whispers",
+        "summary": "Miners trade overlapping survey gossip; you can verify or monetize it.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "claim_jumper_rumor",
+        "giver": {
+            "kind": "faction",
+            "id": "outfitters_regular",
+            "name": "Outfitters regular"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "claim_jumper_rumor"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 18000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "survey_claim",
+                "kind": "interaction",
+                "text": "Run a survey check against the gossip.",
+                "interactionKeysAny": [
+                    "survey"
+                ]
+            },
+            {
+                "id": "claim_choice",
+                "kind": "choice",
+                "prompt": "Data shows a borderline overlap\u2014enough to fight over, not enough to prove.",
+                "choices": [
+                    {
+                        "id": "share_fair",
+                        "label": "Share the ambiguous truth with both parties.",
+                        "outcome": "Tempers cool into paperwork.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 115,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "auction_tip",
+                        "label": "Auction the tip to the highest bitter bidder.",
+                        "outcome": "You profit from a feud.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 265,
+                            "xp": 33
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_freight_lift_backlog",
-    "title": "Lift priority slip",
-    "summary": "Fork crews offer a priority slip that is not on any official schedule.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "freight_lift_backlog",
-    "giver": { "kind": "faction", "id": "fork_union", "name": "Fork crew delegate" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["freight_lift_backlog"] },
-    "eligibility": { "cooldownSeconds": 14400, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "supply_lift",
-        "kind": "visit_room",
-        "text": "See the sub-deck backlog from General Supply's receiving angle.",
-        "roomKeysAny": ["Aurnom General Supply"]
-      },
-      {
-        "id": "lift_choice",
-        "kind": "choice",
-        "prompt": "You can refuse the slip and report it, or buy priority for an anonymous crate.",
-        "choices": [
-          {
-            "id": "report_slip",
-            "label": "Report the unofficial priority slip.",
-            "outcome": "Queues stay ugly but fair.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 100 },
-            "completeMission": true
-          },
-          {
-            "id": "buy_priority",
-            "label": "Buy the slip and move questionable freight.",
-            "outcome": "Your pallet rises; ethics sink.",
-            "morality": { "evil": 2, "chaotic": 1 },
-            "rewards": { "credits": 255 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_freight_lift_backlog",
+        "title": "Lift priority slip",
+        "summary": "Fork crews offer a priority slip that is not on any official schedule.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "freight_lift_backlog",
+        "giver": {
+            "kind": "faction",
+            "id": "fork_union",
+            "name": "Fork crew delegate"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "freight_lift_backlog"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 14400,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "supply_lift",
+                "kind": "visit_room",
+                "text": "See the sub-deck backlog from General Supply's receiving angle.",
+                "roomKeysAny": [
+                    "Aurnom General Supply"
+                ]
+            },
+            {
+                "id": "lift_choice",
+                "kind": "choice",
+                "prompt": "You can refuse the slip and report it, or buy priority for an anonymous crate.",
+                "choices": [
+                    {
+                        "id": "report_slip",
+                        "label": "Report the unofficial priority slip.",
+                        "outcome": "Queues stay ugly but fair.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 100,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "buy_priority",
+                        "label": "Buy the slip and move questionable freight.",
+                        "outcome": "Your pallet rises; ethics sink.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 255,
+                            "xp": 31
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_gnat_sensor_swarm",
-    "title": "Drone clutter",
-    "summary": "Navigation liaison wants a ground truth on whether drones are blinding sensors.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "gnat_sensor_swarm",
-    "giver": { "kind": "faction", "id": "nav_liaison", "name": "Civilian navigation liaison" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["gnat_sensor_swarm"] },
-    "eligibility": { "cooldownSeconds": 36000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "yard_drone",
-        "kind": "visit_room",
-        "text": "Observe the drone swarm from the shipyard observation gallery.",
-        "roomKeysAny": ["Meridian Civil Shipyard"]
-      },
-      {
-        "id": "gnat_choice",
-        "kind": "choice",
-        "prompt": "You can certify benign clutter—or sell a scare story to charter brokers.",
-        "choices": [
-          {
-            "id": "certify_benign",
-            "label": "Certify the swarm as maintenance-limited clutter.",
-            "outcome": "Schedules hold; captains grumble less.",
-            "morality": { "good": 1, "lawful": 2 },
-            "rewards": { "credits": 125 },
-            "completeMission": true
-          },
-          {
-            "id": "sell_scare",
-            "label": "Sell an exaggerated hazard bulletin.",
-            "outcome": "Charters pay risk premiums on fiction.",
-            "morality": { "evil": 2, "chaotic": 1 },
-            "rewards": { "credits": 285 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_gnat_sensor_swarm",
+        "title": "Drone clutter",
+        "summary": "Navigation liaison wants a ground truth on whether drones are blinding sensors.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "gnat_sensor_swarm",
+        "giver": {
+            "kind": "faction",
+            "id": "nav_liaison",
+            "name": "Civilian navigation liaison"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "gnat_sensor_swarm"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 36000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "yard_drone",
+                "kind": "visit_room",
+                "text": "Observe the drone swarm from the shipyard observation gallery.",
+                "roomKeysAny": [
+                    "Meridian Civil Shipyard"
+                ]
+            },
+            {
+                "id": "gnat_choice",
+                "kind": "choice",
+                "prompt": "You can certify benign clutter\u2014or sell a scare story to charter brokers.",
+                "choices": [
+                    {
+                        "id": "certify_benign",
+                        "label": "Certify the swarm as maintenance-limited clutter.",
+                        "outcome": "Schedules hold; captains grumble less.",
+                        "morality": {
+                            "good": 1,
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 125,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "sell_scare",
+                        "label": "Sell an exaggerated hazard bulletin.",
+                        "outcome": "Charters pay risk premiums on fiction.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 285,
+                            "xp": 35
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "amb_vacuum_weld_spark_ledger",
-    "title": "Timestamp tug",
-    "summary": "Two yards want a third-party nod on whose weld clock is honest.",
-    "missionKind": "mission",
-    "threadId": "ambient_station_feed_batch1",
-    "storylineId": "vacuum_weld_spark_ledger",
-    "giver": { "kind": "faction", "id": "yard_arbiter", "name": "Yard billing arbiter" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["vacuum_weld_spark_ledger"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_yards_ledger",
-        "kind": "visit_room",
-        "text": "Review the posted repair tags at the shipyard admin kiosk.",
-        "roomKeysAny": ["Meridian Civil Shipyard"]
-      },
-      {
-        "id": "ledger_choice",
-        "kind": "choice",
-        "prompt": "Both timestamps are plausible; only one can be billed.",
-        "choices": [
-          {
-            "id": "rule_honest",
-            "label": "Rule for the yard with cleaner logs.",
-            "outcome": "Billing unfreezes fairly.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 130 },
-            "completeMission": true
-          },
-          {
-            "id": "rule_bribe",
-            "label": "Rule for whoever pays you more.",
-            "outcome": "Justice bends; your balance straightens.",
-            "morality": { "evil": 2, "lawful": -2 },
-            "rewards": { "credits": 295 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "amb_vacuum_weld_spark_ledger",
+        "title": "Timestamp tug",
+        "summary": "Two yards want a third-party nod on whose weld clock is honest.",
+        "missionKind": "mission",
+        "threadId": "ambient_station_feed_batch1",
+        "storylineId": "vacuum_weld_spark_ledger",
+        "giver": {
+            "kind": "faction",
+            "id": "yard_arbiter",
+            "name": "Yard billing arbiter"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "vacuum_weld_spark_ledger"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_yards_ledger",
+                "kind": "visit_room",
+                "text": "Review the posted repair tags at the shipyard admin kiosk.",
+                "roomKeysAny": [
+                    "Meridian Civil Shipyard"
+                ]
+            },
+            {
+                "id": "ledger_choice",
+                "kind": "choice",
+                "prompt": "Both timestamps are plausible; only one can be billed.",
+                "choices": [
+                    {
+                        "id": "rule_honest",
+                        "label": "Rule for the yard with cleaner logs.",
+                        "outcome": "Billing unfreezes fairly.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 130,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "rule_bribe",
+                        "label": "Rule for whoever pays you more.",
+                        "outcome": "Justice bends; your balance straightens.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": -2
+                        },
+                        "rewards": {
+                            "credits": 295,
+                            "xp": 36
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  }
+    }
 ]

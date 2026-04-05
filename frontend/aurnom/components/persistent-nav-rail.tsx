@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import { groupExits } from "@/components/exit-grid";
 import { PanelExpandButton } from "@/components/panel-expand-button";
@@ -38,7 +38,14 @@ import {
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { useNavRailDestinationGroupOrder } from "@/lib/use-nav-rail-destination-group-order";
 import { useNavRailExitRowOrder } from "@/lib/use-nav-rail-exit-row-order";
-import { playTravel, webNavigatePathFromPlayResult, type ExitButton } from "@/lib/ui-api";
+import { finalizeServiceNavRows, type ServiceNavRow } from "@/lib/services-nav-merge";
+import {
+  isKioskPreNavigateKey,
+  playTravel,
+  runKioskBeforeNavigate,
+  webNavigatePathFromPlayResult,
+  type ExitButton,
+} from "@/lib/ui-api";
 
 function orderedExitKeys(
   sectionSlug: string,
@@ -104,9 +111,9 @@ function Panel({
   );
 }
 
-function Kv({ k, v }: { k: string; v: ReactNode }) {
+function Kv({ k, v, title }: { k: string; v: ReactNode; title?: string }) {
   return (
-    <div className="flex min-w-0 gap-1">
+    <div className="flex min-w-0 gap-1" title={title}>
       <span className="shrink-0 text-ui-muted">{k}</span>
       <span className="min-w-0 truncate font-mono text-foreground">{v}</span>
     </div>
@@ -197,6 +204,13 @@ function PlayerPanel({
             : "—"
         }
       />
+      {char.achievements != null ? (
+        <Kv
+          k="achievements"
+          v={`${char.achievements.completed} / ${char.achievements.total}`}
+          title="Milestones tracked by the achievements system (completed / defined)."
+        />
+      ) : null}
       <Kv k="credits" v={cr(char.credits)} />
       {hp && <Kv k="hp" v={`${hp.current} / ${hp.max ?? "?"} · AC ${char.armorClass}`} />}
       <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
@@ -524,11 +538,37 @@ function NavPanel({
   );
 }
 
+const RAIL_MINI_LINK =
+  "text-[10px] font-bold uppercase tracking-widest text-cyber-cyan/90 hover:text-cyber-cyan";
+
 export function PersistentNavRail() {
   const { data, loading, error, reload, bumpPuppetLocationSeq } = useControlSurface();
+  const router = useRouter();
   const [pickBusy, setPickBusy] = useState(false);
   const [pickErr, setPickErr] = useState<string | null>(null);
   const [switchBusy, setSwitchBusy] = useState(false);
+  const [stripErr, setStripErr] = useState<string | null>(null);
+
+  const kioskStripRows = useMemo(
+    () => (data?.nav ? finalizeServiceNavRows(data.nav.kiosks as ServiceNavRow[]) : []),
+    [data?.nav],
+  );
+
+  const onStripKiosk = useCallback(
+    async (e: MouseEvent<HTMLAnchorElement>, row: ServiceNavRow) => {
+      if (!row.preNavigate || !isKioskPreNavigateKey(row.preNavigate)) return;
+      e.preventDefault();
+      setStripErr(null);
+      try {
+        const res = await runKioskBeforeNavigate(row.preNavigate);
+        router.push(webNavigatePathFromPlayResult(res));
+        reload();
+      } catch (x) {
+        setStripErr(x instanceof Error ? x.message : "Navigation failed");
+      }
+    },
+    [reload, router],
+  );
 
   const onPickCharacter = useCallback(
     async (characterId: number) => {
@@ -624,12 +664,67 @@ export function PersistentNavRail() {
         <Link href="/messages" className="text-xs font-bold uppercase tracking-widest text-cyber-cyan hover:text-cyber-cyan">
           Messages
         </Link>
+        <Link href="/mail" className="text-xs font-bold uppercase tracking-widest text-cyber-cyan hover:text-cyber-cyan">
+          Mail
+        </Link>
+        <Link href="/roll" className="text-xs font-bold uppercase tracking-widest text-cyber-cyan hover:text-cyber-cyan">
+          Roll
+        </Link>
+        <Link href="/reports" className="text-xs font-bold uppercase tracking-widest text-cyber-cyan hover:text-cyber-cyan">
+          Reports
+        </Link>
+        {data?.canManageStaffReportsWeb ? (
+          <Link
+            href="/staff/reports"
+            className="text-xs font-bold uppercase tracking-widest text-cyber-cyan/80 hover:text-cyber-cyan"
+          >
+            Staff reports
+          </Link>
+        ) : null}
+        {data?.canStaffEngineHealthWeb ? (
+          <Link href="/staff/ops-health" className={RAIL_MINI_LINK}>
+            Ops health
+          </Link>
+        ) : null}
         {(loading || pickBusy || switchBusy) && <span className="ml-auto text-ui-caption text-ui-muted">…</span>}
       </div>
 
       {!data && error ? <div className="mb-1 text-red-400">{error}</div> : null}
 
       {railBody}
+
+      {data?.character ? (
+        <div className="mb-1 border-b border-cyan-900/30 pb-1">
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+            <Link href="/locator" className={RAIL_MINI_LINK}>
+              Map
+            </Link>
+            <Link href="/economy" className={RAIL_MINI_LINK}>
+              Economy
+            </Link>
+            <Link href="/real-estate" className={RAIL_MINI_LINK}>
+              Realty
+            </Link>
+            {kioskStripRows.slice(0, 5).map((k) =>
+              k.preNavigate && isKioskPreNavigateKey(k.preNavigate) ? (
+                <Link
+                  key={`strip-${k.key}-${k.href}`}
+                  href={k.href}
+                  className={RAIL_MINI_LINK}
+                  onClick={(e) => void onStripKiosk(e, k)}
+                >
+                  {k.label}
+                </Link>
+              ) : (
+                <Link key={`strip-${k.key}-${k.href}`} href={k.href} className={RAIL_MINI_LINK}>
+                  {k.label}
+                </Link>
+              ),
+            )}
+          </div>
+          {stripErr ? <p className="mt-0.5 text-[10px] text-red-400">{stripErr}</p> : null}
+        </div>
+      ) : null}
 
       <NavPanel
         roomExits={data?.roomExits ?? []}

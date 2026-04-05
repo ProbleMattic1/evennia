@@ -110,11 +110,16 @@ class CmdSurvey(Command):
 
     def func(self):
         caller = self.caller
+        if not caller.cooldowns.ready("survey_scan"):
+            left = float(caller.cooldowns.time_left("survey_scan"))
+            caller.msg(f"Survey equipment is still recalibrating ({left:.1f}s).")
+            return
         try:
             outcome = handle_survey(caller)
         except InteractionError as exc:
             caller.msg(str(exc))
             return
+        caller.cooldowns.add("survey_scan", 3.0)
         caller.msg(
             outcome.dialogue,
             options={
@@ -165,6 +170,10 @@ class CmdClaimSite(Command):
         site.db.is_claimed = True
         site.db.owner = caller
         _add_owned_site(caller, site)
+
+        from world.achievement_hooks import track_mining_site_claimed
+
+        track_mining_site_claimed(caller)
 
         caller.msg(f"You register a claim on |w{site.key}|n. Deploy a rig and storage to begin production.")
         caller.location.msg_contents(
@@ -820,6 +829,154 @@ class CmdDeployMine(Command):
         from typeclasses.packages import deploy_package_from_inventory
 
         success, msg = deploy_package_from_inventory(caller, package, claim)
+        if success:
+            caller.msg(msg)
+        else:
+            caller.msg(f"|r{msg}|n")
+
+
+def _find_flora_package_in_inventory(caller, query):
+    if not query or not query.strip():
+        return None
+    q = query.strip().lower()
+    for obj in caller.contents:
+        if not obj.tags.has("flora_package", category="flora"):
+            continue
+        if q in (obj.key or "").lower():
+            return obj
+        if str(obj.id) == q:
+            return obj
+    return None
+
+
+def _find_fauna_package_in_inventory(caller, query):
+    if not query or not query.strip():
+        return None
+    q = query.strip().lower()
+    for obj in caller.contents:
+        if not obj.tags.has("fauna_package", category="fauna"):
+            continue
+        if q in (obj.key or "").lower():
+            return obj
+        if str(obj.id) == q:
+            return obj
+    return None
+
+
+def _find_flora_claim_in_inventory(caller, query):
+    if not query or not query.strip():
+        return None
+    q = query.strip().lower()
+    for obj in caller.contents:
+        if not obj.tags.has("flora_claim", category="flora"):
+            continue
+        if q in (obj.key or "").lower():
+            return obj
+        if str(obj.id) == q:
+            return obj
+    return None
+
+
+def _find_fauna_claim_in_inventory(caller, query):
+    if not query or not query.strip():
+        return None
+    q = query.strip().lower()
+    for obj in caller.contents:
+        if not obj.tags.has("fauna_claim", category="fauna"):
+            continue
+        if q in (obj.key or "").lower():
+            return obj
+        if str(obj.id) == q:
+            return obj
+    return None
+
+
+class CmdDeployFlora(Command):
+    """
+    Deploy a flora package at a flora claim you own.
+
+    Usage:
+      deployflora <package> <claim>
+    """
+
+    key = "deployflora"
+    locks = "cmd:all()"
+    help_category = "Mining"
+
+    def func(self):
+        caller = self.caller
+        args = (self.args or "").strip()
+        if not args:
+            caller.msg("Usage: deployflora <package> <claim>")
+            return
+
+        parts = args.split(None, 1)
+        package_query = parts[0] if parts else ""
+        claim_query = parts[1].strip() if len(parts) > 1 else ""
+
+        if not claim_query:
+            caller.msg("Usage: |wdeployflora <package> <claim>|n")
+            return
+
+        package = _find_flora_package_in_inventory(caller, package_query)
+        if not package:
+            caller.msg(f"No flora package matching '{package_query}' in your inventory.")
+            return
+
+        claim = _find_flora_claim_in_inventory(caller, claim_query)
+        if not claim:
+            caller.msg(f"No flora claim matching '{claim_query}' in your inventory.")
+            return
+
+        from typeclasses.packages import deploy_flora_package_from_inventory
+
+        success, msg = deploy_flora_package_from_inventory(caller, package, claim)
+        if success:
+            caller.msg(msg)
+        else:
+            caller.msg(f"|r{msg}|n")
+
+
+class CmdDeployFauna(Command):
+    """
+    Deploy a fauna package at a fauna claim you own.
+
+    Usage:
+      deployfauna <package> <claim>
+    """
+
+    key = "deployfauna"
+    locks = "cmd:all()"
+    help_category = "Mining"
+
+    def func(self):
+        caller = self.caller
+        args = (self.args or "").strip()
+        if not args:
+            caller.msg("Usage: deployfauna <package> <claim>")
+            return
+
+        parts = args.split(None, 1)
+        package_query = parts[0] if parts else ""
+        claim_query = parts[1].strip() if len(parts) > 1 else ""
+
+        if not claim_query:
+            caller.msg("Usage: |wdeployfauna <package> <claim>|n")
+            return
+
+        package = _find_fauna_package_in_inventory(caller, package_query)
+        if not package:
+            caller.msg(f"No fauna package matching '{package_query}' in your inventory.")
+            return
+
+        claim = _find_fauna_claim_in_inventory(caller, claim_query)
+        if not claim:
+            caller.msg(f"No fauna claim matching '{claim_query}' in your inventory.")
+            return
+
+        from typeclasses.packages import deploy_fauna_package_from_inventory
+
+        success, msg = deploy_fauna_package_from_inventory(caller, package, claim)
         if success:
             caller.msg(msg)
         else:

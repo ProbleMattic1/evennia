@@ -1,0 +1,34 @@
+[
+  {
+    "id": "ROT-REF-200",
+    "title": "Rush payout: collect refined output twice this cycle",
+    "payout": 200,
+    "xp": 35,
+    "predicate_key": "refine_collect",
+    "venue_id": null
+  },
+  {
+    "id": "ROT-PKG-275",
+    "title": "Broker spot bonus: list a mining package",
+    "payout": 275,
+    "xp": 40,
+    "predicate_key": "list_package",
+    "venue_id": "nanomega_core"
+  },
+  {
+    "id": "ROT-CLM-320",
+    "title": "Claims desk overtime: list a mining claim deed",
+    "payout": 320,
+    "xp": 45,
+    "predicate_key": "list_claim",
+    "venue_id": "nanomega_core"
+  },
+  {
+    "id": "ROT-PDE-310",
+    "title": "Realty rush: list a property deed on the floor",
+    "payout": 310,
+    "xp": 45,
+    "predicate_key": "list_property_deed",
+    "venue_id": "nanomega_core"
+  }
+]

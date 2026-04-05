@@ -3,6 +3,7 @@ from __future__ import annotations
 from evennia import search_script
 
 from world.econ_automation.rebalancer import decide_rebalance
+from world.econ_automation.sim_metrics import normalized_pressures_for_automation
 from world.econ_automation.settlement import settle_passive_income_asset
 from world.time import utc_now
 
@@ -71,11 +72,16 @@ class EconomyAutomationController(Script):
         treasury_health = self._read_treasury_health()
         passive_payout_pressure = self._read_passive_payout_pressure()
 
+        c_press, l_press, p_press, sim_snapshot = normalized_pressures_for_automation()
+
         decision = decide_rebalance(
             current_phase=self.db.phase or "stable",
             inflation_pressure=inflation_pressure,
             treasury_health=treasury_health,
             passive_payout_pressure=passive_payout_pressure,
+            commodity_pressure=c_press,
+            logistics_pressure=l_press,
+            property_pressure=p_press,
         )
 
         self.db.phase = decision.next_phase
@@ -92,6 +98,10 @@ class EconomyAutomationController(Script):
                 "inflation_pressure": inflation_pressure,
                 "treasury_health": treasury_health,
                 "passive_payout_pressure": passive_payout_pressure,
+                "commodity_pressure": c_press,
+                "logistics_pressure": l_press,
+                "property_pressure": p_press,
+                "simMetricsSnapshot": sim_snapshot,
                 "global_price_multiplier": decision.global_price_multiplier,
                 "global_upkeep_multiplier": decision.global_upkeep_multiplier,
                 "global_payout_multiplier": decision.global_payout_multiplier,

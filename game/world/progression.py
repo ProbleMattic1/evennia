@@ -5,7 +5,7 @@ Character level / XP rules. Mechanics live here; typeclasses and commands stay t
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Mapping, Optional
 
 BASE_XP_PER_LEVEL = 1000
 GROWTH_EXPONENT = 1.0
@@ -60,6 +60,36 @@ def snapshot(char: Any) -> dict:
         "xp_to_next": need,
         "fraction": (into / need) if need else 1.0,
     }
+
+
+def xp_from_rewards(rewards: Mapping[str, Any] | None) -> int:
+    """Integer XP from a mission/quest/challenge rewards dict (key ``xp``)."""
+    if not rewards:
+        return 0
+    try:
+        return max(0, int(rewards.get("xp") or 0))
+    except (TypeError, ValueError):
+        raise ValueError(f"rewards['xp'] must be int-compatible, got {rewards.get('xp')!r}")
+
+
+def apply_reward_xp(character: Any, rewards: Mapping[str, Any] | None, *, reason: str) -> int:
+    """
+    Grant XP from ``rewards['xp']`` via ``character.grant_xp``.
+
+    Returns the amount granted (0 if missing or non-positive).
+    Raises if the character has no callable ``grant_xp``.
+    """
+    amount = xp_from_rewards(rewards)
+    if amount <= 0:
+        return 0
+    grant = getattr(character, "grant_xp", None)
+    if not callable(grant):
+        raise TypeError(
+            "XP rewards require an object with a callable grant_xp "
+            f"(e.g. Character); got {type(character).__name__!r}."
+        )
+    grant(amount, reason=reason)
+    return amount
 
 
 def add_xp(
@@ -118,6 +148,25 @@ def add_xp(
             on_level_up(char, ev)
 
     _set_progress(char, level, into)
+
+    if events:
+        from evennia.contrib.game_systems.achievements.achievements import track_achievements
+
+        track_achievements(
+            char,
+            category="progression",
+            tracking="character_level",
+            count=len(events),
+        )
+        for ev in events:
+            if ev.new_level == 2:
+                track_achievements(
+                    char,
+                    category="progression",
+                    tracking="milestone_level_2",
+                    count=1,
+                )
+
     return XpGrantResult(
         xp_gained=int(amount),
         level_ups=events,

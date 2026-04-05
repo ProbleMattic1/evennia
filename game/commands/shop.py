@@ -70,7 +70,11 @@ class CmdShop(Command):
         market_type = getattr(vendor.db, "market_type", None) or "normal"
         lines = [f"|w{vendor.db.vendor_name or vendor.key}:|n"]
         for item in stock:
-            if getattr(item.db, "grants_random_claim_only", False):
+            if (
+                getattr(item.db, "grants_random_claim_only", False)
+                or getattr(item.db, "grants_random_flora_claim_only", False)
+                or getattr(item.db, "grants_random_fauna_claim_only", False)
+            ):
                 continue
             price = resolve_catalog_item_price(
                 item,
@@ -155,7 +159,27 @@ class CmdBuy(Command):
             )
             return
 
-        if getattr(template.db, "grants_random_claim_only", False):
+        grant_fn = None
+        if getattr(template.db, "grants_random_flora_claim_only", False):
+            from typeclasses.claim_utils import grant_random_flora_claim_on_purchase
+
+            grant_fn = grant_random_flora_claim_on_purchase
+            elite_txt = "Elite Flora Claim"
+            normal_txt = "flora claim"
+        elif getattr(template.db, "grants_random_fauna_claim_only", False):
+            from typeclasses.claim_utils import grant_random_fauna_claim_on_purchase
+
+            grant_fn = grant_random_fauna_claim_on_purchase
+            elite_txt = "Elite Fauna Claim"
+            normal_txt = "fauna claim"
+        elif getattr(template.db, "grants_random_claim_only", False):
+            from typeclasses.claim_utils import grant_random_claim_on_purchase
+
+            grant_fn = grant_random_claim_on_purchase
+            elite_txt = "Elite Claim"
+            normal_txt = "claim"
+
+        if grant_fn:
             from typeclasses.claim_market import collect_primary_deed_sale, get_primary_deed_broker
 
             broker = get_primary_deed_broker()
@@ -182,18 +206,19 @@ class CmdBuy(Command):
                 f"You purchase |w{template.key}|n for |y{price:,}|n cr. "
                 f"Remaining balance: |y{caller.db.credits:,}|n cr."
             )
-            from typeclasses.claim_utils import grant_random_claim_on_purchase
-
-            claim, jackpot = grant_random_claim_on_purchase(caller)
+            claim, jackpot = grant_fn(caller)
             if claim:
                 if jackpot:
-                    msg += "\n|g★ JACKPOT! You received an |wElite Claim|n! ★|n"
+                    msg += f"\n|g★ JACKPOT! You received an |w{elite_txt}|n! ★|n"
                 else:
-                    msg += f"\nYou received a random claim: |w{claim.key}|n."
+                    msg += f"\nYou received a random {normal_txt}: |w{claim.key}|n."
             if tax_amount > 0:
                 msg += (
                     f" (|y{vendor_amount:,}|n cr to {revenue_to}, |y{tax_amount:,}|n cr tax)"
                 )
+            from world.achievement_hooks import track_catalog_purchase
+
+            track_catalog_purchase(caller)
             caller.msg(msg)
             return
 
@@ -208,7 +233,13 @@ class CmdBuy(Command):
         new_item.locks.add("get:true();drop:true();give:true()")
         if getattr(template.db, "is_sale_package", False):
             new_item.db.package_tier = getattr(template.db, "package_tier", None) or template.key
-            new_item.tags.add("mining_package", category="mining")
+            pkg_kind = getattr(template.db, "package_kind", None) or "mining"
+            if pkg_kind == "flora":
+                new_item.tags.add("flora_package", category="flora")
+            elif pkg_kind == "fauna":
+                new_item.tags.add("fauna_package", category="fauna")
+            else:
+                new_item.tags.add("mining_package", category="mining")
         new_item.move_to(caller, quiet=True)
 
         vendor_amount, tax_amount = vendor.record_sale(
@@ -226,14 +257,33 @@ class CmdBuy(Command):
         if getattr(template.db, "is_sale_package", False) and getattr(
             template.db, "includes_random_claim", True
         ):
-            from typeclasses.claim_utils import grant_random_claim_on_purchase
+            pkg_kind = getattr(template.db, "package_kind", None) or "mining"
+            if pkg_kind == "flora":
+                from typeclasses.claim_utils import grant_random_flora_claim_on_purchase
 
-            claim, jackpot = grant_random_claim_on_purchase(caller)
+                claim, jackpot = grant_random_flora_claim_on_purchase(caller)
+                elite_txt = "Elite Flora Claim"
+                normal_txt = "flora claim"
+            elif pkg_kind == "fauna":
+                from typeclasses.claim_utils import grant_random_fauna_claim_on_purchase
+
+                claim, jackpot = grant_random_fauna_claim_on_purchase(caller)
+                elite_txt = "Elite Fauna Claim"
+                normal_txt = "fauna claim"
+            else:
+                from typeclasses.claim_utils import grant_random_claim_on_purchase
+
+                claim, jackpot = grant_random_claim_on_purchase(caller)
+                elite_txt = "Elite Claim"
+                normal_txt = "claim"
             if claim:
                 if jackpot:
-                    msg += "\n|g★ JACKPOT! You received an |wElite Claim|n! ★|n"
+                    msg += f"\n|g★ JACKPOT! You received an |w{elite_txt}|n! ★|n"
                 else:
-                    msg += f"\nYou received a random claim: |w{claim.key}|n."
+                    msg += f"\nYou received a random {normal_txt}: |w{claim.key}|n."
         if tax_amount > 0:
             msg += f" (|y{vendor_amount:,}|n cr to vendor, |y{tax_amount:,}|n cr tax)"
+        from world.achievement_hooks import track_catalog_purchase
+
+        track_catalog_purchase(caller)
         caller.msg(msg)

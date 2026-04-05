@@ -7,8 +7,13 @@ import random
 from evennia.utils import logger
 
 from world.ambient_registry import get_ambient_snapshot
+from world.econ_automation.sim_metrics import (
+    raw_commodity_demand_metrics,
+    suggested_ambient_ids_for_commodity_stress,
+)
 from world.time import parse_iso, to_iso, utc_now
 
+from typeclasses.commodity_demand import get_commodity_demand_engine
 from typeclasses.mission_seeds import enqueue_mission_seed
 from typeclasses.scripts import Script
 from typeclasses.system_alerts import enqueue_system_alert
@@ -75,7 +80,14 @@ class AmbientWorldEngine(Script):
             return
 
         clock_mul = self._game_clock_weight_multiplier()
-        weights = [max(1, int(t["weight"])) * clock_mul for t in eligible]
+        stress_boost = set(
+            suggested_ambient_ids_for_commodity_stress(
+                raw_commodity_demand_metrics(get_commodity_demand_engine(create_missing=False))
+            )
+        )
+        weights = [
+            max(1, int(t["weight"])) * clock_mul * (3 if t.get("id") in stress_boost else 1) for t in eligible
+        ]
         chosen = random.choices(eligible, weights=weights, k=1)[0]
         dedupe_key = f"ambient:{chosen['id']}:{dedupe_slot}"
         alert_row = enqueue_system_alert(

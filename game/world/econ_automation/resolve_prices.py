@@ -137,10 +137,8 @@ def resolve_property_lot_listing_price(lot) -> int:
 def claim_listing_base_price_cr(site) -> int:
     """
     Buyer-agnostic EV×hazard listing (no macro phase); used by claim market
-    and phase scaling.
+    and phase scaling. Uses mining / flora / fauna commodity bids by site tag.
     """
-    from typeclasses.mining import get_commodity_bid
-
     deposit = site.db.deposit or {}
     comp = deposit.get("composition") or {}
     richness = float(deposit.get("richness", 0) or 0)
@@ -148,8 +146,23 @@ def claim_listing_base_price_cr(site) -> int:
     hazard = float(site.db.hazard_level or 0)
     total_tons = base_tons * richness
     ev = 0.0
+
+    if site.tags.has("flora_site", category="flora"):
+        from typeclasses.flora import get_flora_commodity_bid
+
+        bid_fn = get_flora_commodity_bid
+    elif site.tags.has("fauna_site", category="fauna"):
+        from typeclasses.fauna import get_fauna_commodity_bid
+
+        bid_fn = get_fauna_commodity_bid
+    else:
+        from typeclasses.mining import get_commodity_bid
+
+        bid_fn = get_commodity_bid
+
+    sloc = site.location
     for k, frac in comp.items():
-        ev += total_tons * float(frac) * float(get_commodity_bid(k))
+        ev += total_tons * float(frac) * float(bid_fn(k, location=sloc))
     hazard_factor = max(0.55, min(1.0, 1.0 - 0.35 * hazard))
     return int(max(500, round(ev * 4 * hazard_factor)))
 

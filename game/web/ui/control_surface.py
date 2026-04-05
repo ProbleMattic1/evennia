@@ -10,6 +10,7 @@ Most blocks compose helpers imported from views.py or world.*; production-site
 rows use ``world.mining_site_metrics.owned_production_sites_for_dashboard``.
 """
 
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from evennia import GLOBAL_SCRIPTS, search_object, search_script
@@ -31,6 +32,8 @@ from world.room_ambient import resolve_room_ambient, resolve_room_venue_id
 from world.venue_resolve import hub_for_object, processing_plant_room_for_object, treasury_bank_id_for_object, venue_id_for_object
 
 from .client_poll_hints import CLIENT_POLL_HINTS_MS
+from .web_poll_sync import web_needs_heavy_mission_challenge_sync
+from .contrib_web import account_may_manage_ingame_reports_web
 from .economy_world import _to_json_plain
 from .dashboard_ships import dashboard_ship_row
 from .views import (
@@ -286,6 +289,19 @@ def _serialize_market():
     return serialize_resource_market()
 
 
+_MARKET_CACHE_KEY = "ui:control_surface:market:v1"
+_MARKET_CACHE_TTL_SEC = 3
+
+
+def _serialize_market_cached():
+    hit = cache.get(_MARKET_CACHE_KEY)
+    if hit is not None:
+        return hit
+    data = _serialize_market()
+    cache.set(_MARKET_CACHE_KEY, data, timeout=_MARKET_CACHE_TTL_SEC)
+    return data
+
+
 _KIOSK_HREF = {
     "bank": ("Bank", "/bank"),
     "processing": ("Processor", "/processing"),
@@ -380,32 +396,29 @@ def _serialize_nav(char, resources, *, room_exit_rows=None):
     claims_nav = []
     properties_nav = []
     if char:
-        from typeclasses.mining import (
-            _resource_rarity_tier,
-            _volume_tier,
-            estimated_site_value_per_cycle_cr,
-        )
+        from world.mining_site_metrics import site_to_dashboard_row
 
         for obj in char.contents:
             if getattr(obj, "destination", None):
                 continue
             if getattr(obj.db, "is_template", False):
                 continue
-            if obj.tags.has("mining_claim", category="mining"):
+            if (
+                obj.tags.has("mining_claim", category="mining")
+                or obj.tags.has("flora_claim", category="flora")
+                or obj.tags.has("fauna_claim", category="fauna")
+            ):
                 claim_row = {"label": obj.key, "href": f"/claims/{obj.id}"}
                 site = getattr(obj.db, "site_ref", None)
                 if site and hasattr(site, "db"):
-                    deposit = site.db.deposit or {}
-                    comp = deposit.get("composition") or {}
-                    richness = float(deposit.get("richness", 0) or 0)
-                    base_tons = float(deposit.get("base_output_tons", 0) or 0)
-                    volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-                    rarity_tier, rarity_tier_cls = _resource_rarity_tier(comp)
-                    claim_row["volumeTier"] = volume_tier
-                    claim_row["volumeTierCls"] = volume_tier_cls
-                    claim_row["resourceRarityTier"] = rarity_tier
-                    claim_row["resourceRarityTierCls"] = rarity_tier_cls
-                    claim_row["estimatedValuePerCycle"] = estimated_site_value_per_cycle_cr(site)
+                    packed = site_to_dashboard_row(site)
+                    if packed:
+                        row, _, _ = packed
+                        claim_row["volumeTier"] = row.get("volumeTier")
+                        claim_row["volumeTierCls"] = row.get("volumeTierCls")
+                        claim_row["resourceRarityTier"] = row.get("resourceRarityTier")
+                        claim_row["resourceRarityTierCls"] = row.get("resourceRarityTierCls")
+                        claim_row["estimatedValuePerCycle"] = row.get("estimatedValuePerCycle")
                 claims_nav.append(claim_row)
             if obj.tags.has("property_claim", category="realty"):
                 from typeclasses.property_claims import strip_property_claim_key_prefix
@@ -497,7 +510,7 @@ def control_surface_state(request):
         miner_settlement_this_fees,
     ) = econ.get_miner_settlement_this_slot_for_web()
 
-    market = _serialize_market()
+    market = _serialize_market_cached()
 
     clock_payload = {
         "miningDeliveryPeriodSeconds": int(MINING_DELIVERY_PERIOD),
@@ -558,6 +571,7 @@ def control_surface_state(request):
         "worldProductionPipeline": world_production_pipeline,
         "worldSimulation": world_simulation,
         "canWebSwitchCharacter": False,
+        "canStaffEngineHealthWeb": False,
         **clock_payload,
     }
 
@@ -585,6 +599,8 @@ def control_surface_state(request):
                 "message": msg,
                 "playableCharacters": picker,
                 "canWebSwitchCharacter": _can_web_switch_character(request.user),
+                "canManageStaffReportsWeb": account_may_manage_ingame_reports_web(request.user),
+                "canStaffEngineHealthWeb": bool(getattr(request.user, "is_staff", False)),
             })
         )
 
@@ -593,15 +609,15 @@ def control_surface_state(request):
     tbid = treasury_bank_id_for_object(char)
     treasury_balance = econ.get_balance(econ.get_treasury_account(tbid))
 
-    char.missions.sync_global_seeds()
-    if char.location:
-        char.missions.sync_room(char.location)
-        char.quests.on_room_enter(char.location)
+    if web_needs_heavy_mission_challenge_sync(request, char):
+        char.missions.sync_global_seeds()
+        if char.location:
+            char.missions.sync_room(char.location)
+            char.quests.on_room_enter(char.location)
+        char.challenges.sync_all_windows()
+        char.challenges.evaluate_window()
     missions = char.missions.serialize_for_web()
     quests = char.quests.serialize_for_web()
-
-    char.challenges.sync_all_windows()
-    char.challenges.evaluate_window()
     challenges = char.challenges.serialize_for_web()
 
     character_block = _serialize_character_block(char, credits)
@@ -648,6 +664,8 @@ def control_surface_state(request):
             "clientPollHints": CLIENT_POLL_HINTS_MS,
             "authenticated": True,
             "canWebSwitchCharacter": _can_web_switch_character(request.user),
+            "canManageStaffReportsWeb": account_may_manage_ingame_reports_web(request.user),
+            "canStaffEngineHealthWeb": bool(getattr(request.user, "is_staff", False)),
             "character": character_block,
             "credits": credits,
             "inventory": inventory,

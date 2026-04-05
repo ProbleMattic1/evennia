@@ -409,16 +409,18 @@ class ChallengeHandler:
         """
         phase: 'complete' | 'claim'
         Idempotent: if entry['rewardsGranted'], no-op.
+
+        Template ``rewards`` may include ``challengePoints``, ``credits``, ``grantOn``, and ``xp``.
         """
         if entry.get("rewardsGranted"):
-            return {"points_added": 0, "credits_added": 0}
+            return {"points_added": 0, "credits_added": 0, "xp_granted": 0}
 
         cid = str(entry.get("challengeId") or "")
         tmpl = get_challenge_template(cid) or {}
         rewards = dict(tmpl.get("rewards") or {})
         grant_on = str(rewards.get("grantOn") or "claim").lower()
         if grant_on != phase:
-            return {"points_added": 0, "credits_added": 0}
+            return {"points_added": 0, "credits_added": 0, "xp_granted": 0}
 
         pts = max(0, int(rewards.get("challengePoints") or 0))
         cr = max(0, min(int(rewards.get("credits") or 0), MAX_SINGLE_CHALLENGE_CREDITS_GRANT))
@@ -448,10 +450,21 @@ class ChallengeHandler:
             econ.deposit(acct, cr, memo=f"challenge reward {cid}")
             econ.sync_character_balance(self.obj)
 
+        xp_granted = 0
+        try:
+            from world.progression import apply_reward_xp
+
+            reason = f"challenge {cid}".strip() if cid else "challenge"
+            xp_granted = apply_reward_xp(self.obj, rewards, reason=reason)
+        except Exception as exc:
+            logger.log_err(f"[challenges] XP reward apply failed for {self.obj.key}: {exc}")
+
         entry["rewardsGranted"] = True
         entry["rewardsGrantedAt"] = to_iso(utc_now())
-        logger.log_info(f"[challenges] reward {self.obj.key} id={cid} +{pts}pts +{cr}cr phase={phase}")
-        return {"points_added": pts, "credits_added": cr}
+        logger.log_info(
+            f"[challenges] reward {self.obj.key} id={cid} +{pts}pts +{cr}cr +{xp_granted}xp phase={phase}"
+        )
+        return {"points_added": pts, "credits_added": cr, "xp_granted": xp_granted}
 
     def mark_complete(self, challenge_id: str, window_key: str) -> bool:
         entry = self.get_active(challenge_id, window_key)

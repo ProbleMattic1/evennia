@@ -10,6 +10,7 @@ creation commands.
 
 import time
 
+from evennia.contrib.game_systems.cooldowns.cooldowns import CooldownHandler
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property, logger
@@ -266,6 +267,10 @@ class Character(ObjectParent, DefaultCharacter):
 
         return FactionStandingHandler(self)
 
+    @lazy_property
+    def cooldowns(self):
+        return CooldownHandler(self, db_attribute="cooldowns")
+
     def record_web_stream_text(self, text, meta):
         """
         Append one outbound line to web_msg_buffer. ``text`` matches ``msg`` (str or tuple).
@@ -352,6 +357,8 @@ class Character(ObjectParent, DefaultCharacter):
             self.db.rpg_pointbuy_done = False
         self.db.rpg_level = 1
         self.db.rpg_xp_into_level = 0
+        if not getattr(self.db, "is_npc", False):
+            self.db.haul_delivers_to_local_raw_storage = True
         self.ensure_default_rpg_traits()
 
     def ensure_default_rpg_traits(self):
@@ -473,7 +480,7 @@ class Character(ObjectParent, DefaultCharacter):
             vitals["hp"] = gauge_payload(self.vitals.hp)
 
         prog = progression_snapshot(self)
-        return {
+        out = {
             "abilities": abilities,
             "vitals": vitals,
             "armorClass": self.armor_class(),
@@ -481,6 +488,10 @@ class Character(ObjectParent, DefaultCharacter):
             "xpIntoLevel": prog["xp_into_level"],
             "xpToNext": prog["xp_to_next"],
         }
+        from world.achievement_snapshot import achievement_dashboard_block
+
+        out["achievements"] = achievement_dashboard_block(self)
+        return out
 
     def at_post_move(self, source_location, move_type="move", **kwargs):
         super().at_post_move(source_location, move_type=move_type, **kwargs)

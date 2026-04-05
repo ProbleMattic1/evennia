@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 const EVENNIA_BASE_URL = process.env.EVENNIA_BASE_URL ?? "http://evennia:4001";
+const UPSTREAM_FETCH_TIMEOUT_MS = 60_000;
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -49,15 +50,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   const upstream = buildUpstreamUrl(request, path);
   const cookie = request.headers.get("cookie") ?? "";
-  const response = await fetch(upstream.toString(), {
-    cache: "no-store",
-    headers: buildProxyHeaders(request, cookie),
-  });
-  const body = await response.text();
-  return new Response(body, {
-    status: response.status,
-    headers: buildResponseHeaders(response),
-  });
+  try {
+    const response = await fetch(upstream.toString(), {
+      cache: "no-store",
+      headers: buildProxyHeaders(request, cookie),
+      signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
+    });
+    const body = await response.text();
+    return new Response(body, {
+      status: response.status,
+      headers: buildResponseHeaders(response),
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ ok: false, error: "upstream_fetch_failed", detail }), {
+      status: 502,
+      headers: { "content-type": "application/json" },
+    });
+  }
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -65,18 +75,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const upstream = buildUpstreamUrl(request, path);
   const cookie = request.headers.get("cookie") ?? "";
   const contentType = request.headers.get("content-type") ?? "application/json";
-  const response = await fetch(upstream.toString(), {
-    method: "POST",
-    headers: {
-      "content-type": contentType,
-      ...buildProxyHeaders(request, cookie),
-    },
-    body: await request.text(),
-    cache: "no-store",
-  });
-  const body = await response.text();
-  return new Response(body, {
-    status: response.status,
-    headers: buildResponseHeaders(response),
-  });
+  try {
+    const response = await fetch(upstream.toString(), {
+      method: "POST",
+      headers: {
+        "content-type": contentType,
+        ...buildProxyHeaders(request, cookie),
+      },
+      body: await request.text(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
+    });
+    const body = await response.text();
+    return new Response(body, {
+      status: response.status,
+      headers: buildResponseHeaders(response),
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ ok: false, error: "upstream_fetch_failed", detail }), {
+      status: 502,
+      headers: { "content-type": "application/json" },
+    });
+  }
 }

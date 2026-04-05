@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { PersistentNavRail } from "@/components/persistent-nav-rail";
 import { getControlSurfaceState, type ControlSurfaceState } from "@/lib/control-surface-api";
+import { nextPollIntervalMs } from "@/lib/ui-poll-backoff";
 import { intervalMs, isUiPollPaused } from "@/lib/ui-refresh-policy";
 import { useUiResource } from "@/lib/use-ui-resource";
 
@@ -28,7 +29,18 @@ export function useControlSurface(): ControlSurfaceContextValue {
 }
 
 export function ControlSurfaceProvider({ children }: { children: React.ReactNode }) {
-  const loader = useCallback(() => getControlSurfaceState(), []);
+  const [adaptivePollMs, setAdaptivePollMs] = useState(() =>
+    intervalMs("controlSurface", undefined),
+  );
+
+  const loader = useCallback(async () => {
+    const t0 = performance.now();
+    const r = await getControlSurfaceState();
+    const base = intervalMs("controlSurface", r?.clientPollHints);
+    setAdaptivePollMs(nextPollIntervalMs(performance.now() - t0, base));
+    return r;
+  }, []);
+
   const { data, error, loading, reload } = useUiResource(loader);
 
   const [puppetLocationSeq, setPuppetLocationSeq] = useState(0);
@@ -37,12 +49,11 @@ export function ControlSurfaceProvider({ children }: { children: React.ReactNode
   }, []);
 
   useEffect(() => {
-    const ms = intervalMs("controlSurface", data?.clientPollHints);
     const id = setInterval(() => {
       if (!isUiPollPaused()) reload();
-    }, ms);
+    }, adaptivePollMs);
     return () => clearInterval(id);
-  }, [reload, data?.clientPollHints]);
+  }, [reload, adaptivePollMs]);
 
   const value = useMemo(
     () => ({

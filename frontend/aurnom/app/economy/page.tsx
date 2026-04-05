@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 
+import { EconomyDashboard } from "@/components/economy-dashboard";
 import { EconomyMiningAccrualCard } from "@/components/economy-mining-accrual-card";
 import { EconomyMinerPayoutHero } from "@/components/economy-miner-payout-hero";
 import { EconomyNetRevenueTickerCard } from "@/components/economy-net-revenue-ticker-card";
 import { EconomyTreasuryLiveFlowCard } from "@/components/economy-treasury-live-flow-card";
+import { EconomyWorldPanel } from "@/components/economy-world-panel";
 import { useControlSurface } from "@/components/control-surface-provider";
 
 export default function EconomyPage() {
-  const { data, error, loading } = useControlSurface();
+  const { data, error, loading, reload } = useControlSurface();
 
   if (loading && !data) {
     return (
@@ -65,6 +67,14 @@ export default function EconomyPage() {
             miningNextCycleAt={data.miningNextCycleAt}
             miningDeliveryPeriodSeconds={data.miningDeliveryPeriodSeconds}
           />
+        </section>
+
+        <section className="mt-4" aria-label="World telemetry">
+          <EconomyWorldPanel />
+        </section>
+
+        <section className="mt-4" aria-label="Portfolio charts">
+          <EconomyDashboard data={data} onReload={reload} />
         </section>
       </div>
     </main>

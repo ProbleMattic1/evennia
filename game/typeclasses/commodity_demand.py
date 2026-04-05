@@ -265,12 +265,50 @@ class CommodityDemandEngine(Script):
         self.save_state(state)
         return row
 
+    def _maybe_enqueue_emergency_story_seed(self):
+        """One debounced mission seed when any commodity hits ``emergency`` band."""
+        from typeclasses.mission_seeds import enqueue_mission_seed
+        from world.time import parse_iso
+
+        cool = max(600, int(getattr(self.db, "emergency_story_seed_cooldown_s", 7200) or 7200))
+        now = _utc_now()
+        last_raw = getattr(self.db, "last_emergency_story_seed_at", None)
+        if last_raw:
+            prev = parse_iso(str(last_raw))
+            if prev and (now - prev).total_seconds() < cool:
+                return
+
+        self._ensure_commodity_rows()
+        for key, row in (self.state.get("commodities") or {}).items():
+            if str(row.get("state") or "") != "emergency":
+                continue
+            slot = f"commodity_demand_emergency:{key}:{int(now.timestamp()) // cool}"
+            enqueue_mission_seed(
+                kind="alert",
+                seed_id="commodity_emergency_pulse",
+                source_key=slot,
+                title=f"Market emergency: {row.get('name', key)}",
+                summary=(
+                    "Procurement tags show emergency-tier pricing pressure on a catalog line. "
+                    "Clerks want a neutral read before the narrative locks in."
+                ),
+                payload={
+                    "commodityKey": str(key),
+                    "priceMultiplier": float(row.get("price_multiplier") or 1.0),
+                    "state": str(row.get("state") or ""),
+                },
+                ttl_seconds=max(cool, 7200),
+            )
+            self.db.last_emergency_story_seed_at = now.isoformat()
+            break
+
     def at_repeat(self, **kwargs):
         today = _utc_now().date().isoformat()
         last = self.db.last_rollover_at
         if last != today:
             self.rollover_day()
         self.recalc_market()
+        self._maybe_enqueue_emergency_story_seed()
 
 
 def get_commodity_demand_engine(create_missing=True):

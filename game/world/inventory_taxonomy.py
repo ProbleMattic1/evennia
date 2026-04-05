@@ -17,7 +17,11 @@ from evennia.utils import logger
 InventoryRule = tuple[str, Callable[[Any], bool]]
 
 INVENTORY_RULES: tuple[InventoryRule, ...] = (
+    ("flora_claim", lambda o: o.tags.has("flora_claim", category="flora")),
+    ("fauna_claim", lambda o: o.tags.has("fauna_claim", category="fauna")),
     ("mining_claim", lambda o: o.tags.has("mining_claim", category="mining")),
+    ("flora_package", lambda o: o.tags.has("flora_package", category="flora")),
+    ("fauna_package", lambda o: o.tags.has("fauna_package", category="fauna")),
     ("mining_package", lambda o: o.tags.has("mining_package", category="mining")),
     ("property_deed", lambda o: o.tags.has("property_claim", category="realty")),
     ("vehicle", lambda o: o.tags.has("vehicle", category="inventory")),
@@ -48,7 +52,11 @@ STACKABLE_BUCKETS: frozenset[str] = frozenset(
 )
 
 BUCKET_DISPLAY_ORDER: tuple[str, ...] = (
+    "flora_claim",
+    "fauna_claim",
     "mining_claim",
+    "flora_package",
+    "fauna_package",
     "mining_package",
     "property_deed",
     "vehicle",
@@ -62,7 +70,11 @@ BUCKET_DISPLAY_ORDER: tuple[str, ...] = (
 )
 
 BUCKET_LABELS: dict[str, str] = {
+    "flora_claim": "Flora claims",
+    "fauna_claim": "Fauna claims",
     "mining_claim": "Mining claims",
+    "flora_package": "Flora packages",
+    "fauna_package": "Fauna packages",
     "mining_package": "Mining packages",
     "property_deed": "Property deeds",
     "vehicle": "Vehicles",

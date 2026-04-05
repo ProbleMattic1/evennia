@@ -4,6 +4,7 @@ import Script from "next/script";
 
 import { ControlSurfaceProvider } from "@/components/control-surface-provider";
 import { ThemeHydration } from "@/components/theme-hydration";
+import { MsgStreamProvider } from "@/lib/use-msg-stream";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,7 +44,9 @@ export default function RootLayout({
           {`(function(){try{var s=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var dark=s==='dark'||(s!=='light'&&d);document.documentElement.classList.toggle('dark',dark);}catch(e){}})();`}
         </Script>
         <ThemeHydration />
-        <ControlSurfaceProvider>{children}</ControlSurfaceProvider>
+        <ControlSurfaceProvider>
+          <MsgStreamProvider>{children}</MsgStreamProvider>
+        </ControlSurfaceProvider>
       </body>
     </html>
   );

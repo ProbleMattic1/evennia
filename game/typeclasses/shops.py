@@ -207,7 +207,11 @@ class CatalogVendor(ObjectParent, DefaultObject):
         for obj in self.get_catalog_items():
             if not getattr(obj.db, "is_template", False):
                 continue
-            if getattr(obj.db, "grants_random_claim_only", False):
+            if (
+                getattr(obj.db, "grants_random_claim_only", False)
+                or getattr(obj.db, "grants_random_flora_claim_only", False)
+                or getattr(obj.db, "grants_random_fauna_claim_only", False)
+            ):
                 continue
             price = resolve_catalog_item_price(
                 obj,

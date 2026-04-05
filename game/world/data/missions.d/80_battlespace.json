@@ -1,252 +1,405 @@
 [
-  {
-    "id": "bs_distress_qrf",
-    "title": "QRF — outer lane beacon",
-    "summary": "A distress squawk lit up on the outer approach vector. Someone needs to verify whether it is a real casualty or a spoofed lure.",
-    "missionKind": "space",
-    "threadId": "battlespace_feed",
-    "storylineId": "outer_lane_distress",
-    "giver": { "kind": "faction", "id": "station_ops", "name": "Station operations" },
-    "trigger": { "kind": "battlespace", "seedIdsAny": ["bs_distress_skwak_tick"] },
-    "eligibility": { "cooldownSeconds": 14400, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_dock",
-        "kind": "visit_room",
-        "text": "Head to the dock and check the approach traffic board for the beacon vector.",
-        "roomTagsAny": ["dock_public"]
-      },
-      {
-        "id": "decide_response",
-        "kind": "choice",
-        "prompt": "The beacon coordinates look real, but the signature is weak. You can sortie immediately, log it for the duty officer, or flag it as a probable spoofed lure.",
-        "choices": [
-          {
-            "id": "sortie_now",
-            "label": "Sortie immediately on the last known vector.",
-            "outcome": "You burn hard toward the signal. Whatever is out there, you will find out first.",
-            "morality": { "good": 2 },
-            "rewards": { "credits": 300 },
-            "completeMission": true
-          },
-          {
-            "id": "log_duty",
-            "label": "Log it formally with the duty officer and wait for tasking.",
-            "outcome": "The report goes up the chain. By the time a response is authorized the window may have closed.",
-            "morality": { "lawful": 2 },
-            "rewards": { "credits": 100 },
-            "completeMission": true
-          },
-          {
-            "id": "flag_lure",
-            "label": "Flag it as a probable spoofed lure and advise against response.",
-            "outcome": "Your assessment is logged. If you are wrong, someone else pays the price.",
-            "morality": { "chaotic": 1 },
-            "rewards": { "credits": 60 },
-            "completeMission": true
-          }
+    {
+        "id": "bs_distress_qrf",
+        "title": "QRF \u2014 outer lane beacon",
+        "summary": "A distress squawk lit up on the outer approach vector. Someone needs to verify whether it is a real casualty or a spoofed lure.",
+        "missionKind": "space",
+        "threadId": "battlespace_feed",
+        "storylineId": "outer_lane_distress",
+        "giver": {
+            "kind": "faction",
+            "id": "station_ops",
+            "name": "Station operations"
+        },
+        "trigger": {
+            "kind": "battlespace",
+            "seedIdsAny": [
+                "bs_distress_skwak_tick"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 14400,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_dock",
+                "kind": "visit_room",
+                "text": "Head to the dock and check the approach traffic board for the beacon vector.",
+                "roomTagsAny": [
+                    "dock_public"
+                ]
+            },
+            {
+                "id": "decide_response",
+                "kind": "choice",
+                "prompt": "The beacon coordinates look real, but the signature is weak. You can sortie immediately, log it for the duty officer, or flag it as a probable spoofed lure.",
+                "choices": [
+                    {
+                        "id": "sortie_now",
+                        "label": "Sortie immediately on the last known vector.",
+                        "outcome": "You burn hard toward the signal. Whatever is out there, you will find out first.",
+                        "morality": {
+                            "good": 2
+                        },
+                        "rewards": {
+                            "credits": 300,
+                            "xp": 37
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "log_duty",
+                        "label": "Log it formally with the duty officer and wait for tasking.",
+                        "outcome": "The report goes up the chain. By the time a response is authorized the window may have closed.",
+                        "morality": {
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 100,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "flag_lure",
+                        "label": "Flag it as a probable spoofed lure and advise against response.",
+                        "outcome": "Your assessment is logged. If you are wrong, someone else pays the price.",
+                        "morality": {
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 60,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "bs_cap_scramble_intel",
-    "title": "CAP scramble — find the contact",
-    "summary": "A task unit just sortied fighters for an unresponsive heavy past the exclusion perimeter. Someone in station intelligence wants eyes on the intercept before it is sanitized.",
-    "missionKind": "space",
-    "threadId": "battlespace_feed",
-    "storylineId": "cap_scramble_picture",
-    "giver": { "kind": "faction", "id": "station_intel", "name": "Station intelligence (informal)" },
-    "trigger": { "kind": "battlespace", "seedIdsAny": ["bs_cap_scramble_strong"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_promenade",
-        "kind": "visit_room",
-        "text": "Check the promenade traffic displays — CAP scramble routes are posted in plain sight if you know what to look for.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "intel_choice",
-        "kind": "choice",
-        "prompt": "You have a partial picture of the intercept vector. You can sell it to independent traders, pass it to station authority, or hold it for later leverage.",
-        "choices": [
-          {
-            "id": "sell_traders",
-            "label": "Sell the vector to independent traders who need routing clarity.",
-            "outcome": "Credits now. The information dissolves into market noise quickly.",
-            "morality": { "chaotic": 1, "evil": 1 },
-            "rewards": { "credits": 350 },
-            "completeMission": true
-          },
-          {
-            "id": "pass_authority",
-            "label": "Pass the picture to station authority through a formal channel.",
-            "outcome": "The duty watch thanks you. Your name goes into a short list of reliable sources.",
-            "morality": { "lawful": 3, "good": 1 },
-            "rewards": { "credits": 150 },
-            "completeMission": true
-          },
-          {
-            "id": "hold_leverage",
-            "label": "Hold the intelligence for future leverage.",
-            "outcome": "You know something no one else does. That is a commodity with a short shelf life.",
-            "morality": { "evil": 2 },
-            "rewards": { "credits": 80 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "bs_cap_scramble_intel",
+        "title": "CAP scramble \u2014 find the contact",
+        "summary": "A task unit just sortied fighters for an unresponsive heavy past the exclusion perimeter. Someone in station intelligence wants eyes on the intercept before it is sanitized.",
+        "missionKind": "space",
+        "threadId": "battlespace_feed",
+        "storylineId": "cap_scramble_picture",
+        "giver": {
+            "kind": "faction",
+            "id": "station_intel",
+            "name": "Station intelligence (informal)"
+        },
+        "trigger": {
+            "kind": "battlespace",
+            "seedIdsAny": [
+                "bs_cap_scramble_strong"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_promenade",
+                "kind": "visit_room",
+                "text": "Check the promenade traffic displays \u2014 CAP scramble routes are posted in plain sight if you know what to look for.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "intel_choice",
+                "kind": "choice",
+                "prompt": "You have a partial picture of the intercept vector. You can sell it to independent traders, pass it to station authority, or hold it for later leverage.",
+                "choices": [
+                    {
+                        "id": "sell_traders",
+                        "label": "Sell the vector to independent traders who need routing clarity.",
+                        "outcome": "Credits now. The information dissolves into market noise quickly.",
+                        "morality": {
+                            "chaotic": 1,
+                            "evil": 1
+                        },
+                        "rewards": {
+                            "credits": 350,
+                            "xp": 43
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "pass_authority",
+                        "label": "Pass the picture to station authority through a formal channel.",
+                        "outcome": "The duty watch thanks you. Your name goes into a short list of reliable sources.",
+                        "morality": {
+                            "lawful": 3,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 150,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "hold_leverage",
+                        "label": "Hold the intelligence for future leverage.",
+                        "outcome": "You know something no one else does. That is a commodity with a short shelf life.",
+                        "morality": {
+                            "evil": 2
+                        },
+                        "rewards": {
+                            "credits": 80,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "bs_salvage_under_fire_assist",
-    "title": "Salvage tug rescue",
-    "summary": "A licensed salvage crew is pinned down by a hostile intercept in the outer belt. No escort on station; the window is narrow.",
-    "missionKind": "space",
-    "threadId": "battlespace_feed",
-    "storylineId": "salvage_under_fire",
-    "giver": { "kind": "faction", "id": "salvage_guild", "name": "Salvage guild dispatcher" },
-    "trigger": { "kind": "battlespace", "seedIdsAny": ["bs_salvage_under_fire_strong"] },
-    "eligibility": { "cooldownSeconds": 28800, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_dock",
-        "kind": "visit_room",
-        "text": "Go to the dock to pick up the tug's last telemetry packet from the dispatch terminal.",
-        "roomTagsAny": ["dock_dispatch"]
-      },
-      {
-        "id": "rescue_choice",
-        "kind": "choice",
-        "prompt": "The tug is broadcasting emergency codes. You can burn to their position as escort, coordinate a handoff to a fleet picket, or report the situation and collect a finder fee.",
-        "choices": [
-          {
-            "id": "escort_direct",
-            "label": "Burn to their position and cover their withdrawal.",
-            "outcome": "You go in hot. The crew makes it out; your hull takes some attention getting there.",
-            "morality": { "good": 3 },
-            "rewards": { "credits": 600 },
-            "completeMission": true
-          },
-          {
-            "id": "coordinate_picket",
-            "label": "Coordinate a handoff to the nearest fleet picket.",
-            "outcome": "The picket takes the job. Slower, but the crew survives and your record looks clean.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 250 },
-            "completeMission": true
-          },
-          {
-            "id": "finder_fee",
-            "label": "Report the position and claim the finder fee — let someone else risk the approach.",
-            "outcome": "The guild pays the tip. The crew's odds depend on who answers next.",
-            "morality": { "evil": 2, "chaotic": 1 },
-            "rewards": { "credits": 150 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "bs_salvage_under_fire_assist",
+        "title": "Salvage tug rescue",
+        "summary": "A licensed salvage crew is pinned down by a hostile intercept in the outer belt. No escort on station; the window is narrow.",
+        "missionKind": "space",
+        "threadId": "battlespace_feed",
+        "storylineId": "salvage_under_fire",
+        "giver": {
+            "kind": "faction",
+            "id": "salvage_guild",
+            "name": "Salvage guild dispatcher"
+        },
+        "trigger": {
+            "kind": "battlespace",
+            "seedIdsAny": [
+                "bs_salvage_under_fire_strong"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 28800,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_dock",
+                "kind": "visit_room",
+                "text": "Go to the dock to pick up the tug's last telemetry packet from the dispatch terminal.",
+                "roomTagsAny": [
+                    "dock_dispatch"
+                ]
+            },
+            {
+                "id": "rescue_choice",
+                "kind": "choice",
+                "prompt": "The tug is broadcasting emergency codes. You can burn to their position as escort, coordinate a handoff to a fleet picket, or report the situation and collect a finder fee.",
+                "choices": [
+                    {
+                        "id": "escort_direct",
+                        "label": "Burn to their position and cover their withdrawal.",
+                        "outcome": "You go in hot. The crew makes it out; your hull takes some attention getting there.",
+                        "morality": {
+                            "good": 3
+                        },
+                        "rewards": {
+                            "credits": 600,
+                            "xp": 75
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "coordinate_picket",
+                        "label": "Coordinate a handoff to the nearest fleet picket.",
+                        "outcome": "The picket takes the job. Slower, but the crew survives and your record looks clean.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 250,
+                            "xp": 31
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "finder_fee",
+                        "label": "Report the position and claim the finder fee \u2014 let someone else risk the approach.",
+                        "outcome": "The guild pays the tip. The crew's odds depend on who answers next.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 150,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "bs_false_iff_investigation",
-    "title": "Ghost hull — IFF fraud investigation",
-    "summary": "Security confirmed a spoofed transponder. The hull is not in any registry; it passed through approach control twice. Somebody wants to know who authorized the blind eye.",
-    "missionKind": "space",
-    "threadId": "battlespace_feed",
-    "storylineId": "false_iff_fraud",
-    "giver": { "kind": "faction", "id": "station_security", "name": "Station security (investigative)" },
-    "trigger": { "kind": "battlespace", "seedIdsAny": ["bs_false_iff_strong"] },
-    "eligibility": { "cooldownSeconds": 36000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_dock",
-        "kind": "visit_room",
-        "text": "Visit the dock gate where the ghost hull was logged. Someone on shift will remember the approach.",
-        "roomTagsAny": ["dock_public"]
-      },
-      {
-        "id": "iff_choice",
-        "kind": "choice",
-        "prompt": "A dock worker remembers the hull — and who waved it through. You can take the lead to security, sell it to the independent press, or use it as personal leverage over the contact.",
-        "choices": [
-          {
-            "id": "report_security",
-            "label": "Hand the lead directly to station security.",
-            "outcome": "The investigation opens formally. The contact disappears within hours.",
-            "morality": { "lawful": 3 },
-            "rewards": { "credits": 200 },
-            "completeMission": true
-          },
-          {
-            "id": "sell_press",
-            "label": "Sell the story to the independent press.",
-            "outcome": "The scandal runs; security is embarrassed. You make good money and a few enemies.",
-            "morality": { "chaotic": 2, "good": 1 },
-            "rewards": { "credits": 450 },
-            "completeMission": true
-          },
-          {
-            "id": "leverage",
-            "label": "Confront the contact privately and demand a quiet favor.",
-            "outcome": "You have leverage — until the contact decides the risk of silence outweighs the cost of removing it.",
-            "morality": { "evil": 3, "chaotic": 2 },
-            "rewards": { "credits": 700 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "bs_false_iff_investigation",
+        "title": "Ghost hull \u2014 IFF fraud investigation",
+        "summary": "Security confirmed a spoofed transponder. The hull is not in any registry; it passed through approach control twice. Somebody wants to know who authorized the blind eye.",
+        "missionKind": "space",
+        "threadId": "battlespace_feed",
+        "storylineId": "false_iff_fraud",
+        "giver": {
+            "kind": "faction",
+            "id": "station_security",
+            "name": "Station security (investigative)"
+        },
+        "trigger": {
+            "kind": "battlespace",
+            "seedIdsAny": [
+                "bs_false_iff_strong"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 36000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_dock",
+                "kind": "visit_room",
+                "text": "Visit the dock gate where the ghost hull was logged. Someone on shift will remember the approach.",
+                "roomTagsAny": [
+                    "dock_public"
+                ]
+            },
+            {
+                "id": "iff_choice",
+                "kind": "choice",
+                "prompt": "A dock worker remembers the hull \u2014 and who waved it through. You can take the lead to security, sell it to the independent press, or use it as personal leverage over the contact.",
+                "choices": [
+                    {
+                        "id": "report_security",
+                        "label": "Hand the lead directly to station security.",
+                        "outcome": "The investigation opens formally. The contact disappears within hours.",
+                        "morality": {
+                            "lawful": 3
+                        },
+                        "rewards": {
+                            "credits": 200,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "sell_press",
+                        "label": "Sell the story to the independent press.",
+                        "outcome": "The scandal runs; security is embarrassed. You make good money and a few enemies.",
+                        "morality": {
+                            "chaotic": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 450,
+                            "xp": 56
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "leverage",
+                        "label": "Confront the contact privately and demand a quiet favor.",
+                        "outcome": "You have leverage \u2014 until the contact decides the risk of silence outweighs the cost of removing it.",
+                        "morality": {
+                            "evil": 3,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 700,
+                            "xp": 87
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "bs_convoy_ambush_debrief",
-    "title": "Transit lane seven — convoy debrief",
-    "summary": "Three freighters reported a weapons lock and evasive contact before the escort called weapons free. The cargo manifests have not been reconciled; somebody wants a neutral party to walk the docks.",
-    "missionKind": "space",
-    "threadId": "battlespace_feed",
-    "storylineId": "convoy_ambush_aftermath",
-    "giver": { "kind": "faction", "id": "freight_guild", "name": "Freight guild investigator" },
-    "trigger": { "kind": "battlespace", "seedIdsAny": ["bs_convoy_ambush_strong"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_promenade",
-        "kind": "visit_room",
-        "text": "Walk the promenade trade floor — the crews will be talking.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "debrief_choice",
-        "kind": "choice",
-        "prompt": "You piece together what happened. One cargo manifest does not match the dock scanner log. You can file a straight debrief, flag the discrepancy privately to the guild, or sit on it.",
-        "choices": [
-          {
-            "id": "straight_debrief",
-            "label": "File a complete and accurate debrief with all parties.",
-            "outcome": "The guild and security both have the picture. The discrepancy goes on record.",
-            "morality": { "lawful": 2, "good": 2 },
-            "rewards": { "credits": 180 },
-            "completeMission": true
-          },
-          {
-            "id": "flag_guild",
-            "label": "Flag the manifest discrepancy to the guild privately and let them decide.",
-            "outcome": "The guild owes you discretion. The anomaly may or may not surface.",
-            "morality": { "lawful": 1 },
-            "rewards": { "credits": 280 },
-            "completeMission": true
-          },
-          {
-            "id": "sit_on_it",
-            "label": "Sit on the discrepancy — knowledge is a resource.",
-            "outcome": "Nobody knows you know. That only helps as long as you are the only one who found it.",
-            "morality": { "evil": 1, "chaotic": 1 },
-            "rewards": { "credits": 60 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "bs_convoy_ambush_debrief",
+        "title": "Transit lane seven \u2014 convoy debrief",
+        "summary": "Three freighters reported a weapons lock and evasive contact before the escort called weapons free. The cargo manifests have not been reconciled; somebody wants a neutral party to walk the docks.",
+        "missionKind": "space",
+        "threadId": "battlespace_feed",
+        "storylineId": "convoy_ambush_aftermath",
+        "giver": {
+            "kind": "faction",
+            "id": "freight_guild",
+            "name": "Freight guild investigator"
+        },
+        "trigger": {
+            "kind": "battlespace",
+            "seedIdsAny": [
+                "bs_convoy_ambush_strong"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_promenade",
+                "kind": "visit_room",
+                "text": "Walk the promenade trade floor \u2014 the crews will be talking.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "debrief_choice",
+                "kind": "choice",
+                "prompt": "You piece together what happened. One cargo manifest does not match the dock scanner log. You can file a straight debrief, flag the discrepancy privately to the guild, or sit on it.",
+                "choices": [
+                    {
+                        "id": "straight_debrief",
+                        "label": "File a complete and accurate debrief with all parties.",
+                        "outcome": "The guild and security both have the picture. The discrepancy goes on record.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 2
+                        },
+                        "rewards": {
+                            "credits": 180,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "flag_guild",
+                        "label": "Flag the manifest discrepancy to the guild privately and let them decide.",
+                        "outcome": "The guild owes you discretion. The anomaly may or may not surface.",
+                        "morality": {
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 280,
+                            "xp": 35
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "sit_on_it",
+                        "label": "Sit on the discrepancy \u2014 knowledge is a resource.",
+                        "outcome": "Nobody knows you know. That only helps as long as you are the only one who found it.",
+                        "morality": {
+                            "evil": 1,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 60,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  }
+    }
 ]

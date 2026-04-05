@@ -1,0 +1,23 @@
+Barter / trade — web parity (design spike, not implemented)
+============================================================
+
+The Evennia barter contrib is built around TradeHandler state, cmdset wiring, and
+timeouts. It is not a thin Msg-based API like mail or ingame_reports.
+
+Reasonable paths for future web parity:
+
+A) Server-side session driving the same TradeHandler objects as CmdTrade
+   - Pros: One source of truth for rules and edge cases.
+   - Cons: Tight coupling to handler lifecycle, careful auth (who may mutate which
+     trade), and mapping HTTP requests to the same invariants the command enforces.
+
+B) A separate REST state machine that re-implements trade rules
+   - Pros: Clear HTTP-shaped API.
+   - Cons: Duplicates behavior; drift vs telnet is likely unless heavily tested.
+
+Recommendation: Ship mail, dice, and reports on the web first. Pursue barter only
+after an explicit product decision (minimal flow vs full parity) and a security
+review of trade mutation from the browser.
+
+Until then: trading remains telnet-first unless a deliberately scoped first step
+(e.g. invite-only negotiation) is specified.

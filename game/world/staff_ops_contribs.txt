@@ -1,0 +1,6 @@
+Staff / ops (Evennia contribs)
+------------------------------
+- manage reports — Admin pperm; EvMenu over filed bugs/ideas/player reports (ingame_reports).
+- @mail — Account-level OOC mail (mail contrib); separate from character IC mail.
+- Auditing — Enable AUDIT_IN / AUDIT_OUT in server/conf/settings.py when you need session logs;
+  callback default writes via evennia.contrib.utils.auditing.outputs.to_file.

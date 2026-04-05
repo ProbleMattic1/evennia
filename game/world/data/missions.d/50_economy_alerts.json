@@ -1,134 +1,214 @@
 [
-  {
-    "id": "econ_refinery_backlog_contracts",
-    "title": "Backlog Paper Trail",
-    "summary": "Plant intake queues are long. Procurement wants a runner to eye the board and decide how honest the public line should be.",
-    "missionKind": "mission",
-    "threadId": "economy_station_feed",
-    "storylineId": "refinery_procurement_pressure",
-    "giver": { "kind": "faction", "id": "processing_procurement", "name": "Ore Processing Procurement" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["refinery_backlog"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_processing_plant",
-        "kind": "visit_room",
-        "text": "Report to the Ore Processing Plant and read the procurement board.",
-        "roomKeysAny": ["Aurnom Ore Processing Plant"]
-      },
-      {
-        "id": "read_contract_board",
-        "kind": "interaction",
-        "text": "Pull the live contract list from the procurement board.",
-        "interactionKeysAny": ["contractboard"]
-      },
-      {
-        "id": "backlog_choice",
-        "kind": "choice",
-        "prompt": "You can quote the board accurately to worried haulers—or sell a calmer version for a fee.",
-        "choices": [
-          {
-            "id": "accurate_quote",
-            "label": "Quote wait times and contract volumes exactly.",
-            "outcome": "Haulers reschedule; the board stays credible.",
-            "morality": { "good": 1, "lawful": 2 },
-            "rewards": { "credits": 130 },
-            "completeMission": true
-          },
-          {
-            "id": "sell_calm",
-            "label": "Sell a sanitized timeline to nervous independents.",
-            "outcome": "Credits land now; trust frays when reality arrives.",
-            "morality": { "evil": 2, "chaotic": 1 },
-            "rewards": { "credits": 250 },
-            "completeMission": true
-          }
+    {
+        "id": "econ_refinery_backlog_contracts",
+        "title": "Backlog Paper Trail",
+        "summary": "Plant intake queues are long. Procurement wants a runner to eye the board and decide how honest the public line should be.",
+        "missionKind": "mission",
+        "threadId": "economy_station_feed",
+        "storylineId": "refinery_procurement_pressure",
+        "giver": {
+            "kind": "faction",
+            "id": "processing_procurement",
+            "name": "Ore Processing Procurement"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "refinery_backlog"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_processing_plant",
+                "kind": "visit_room",
+                "text": "Report to the Ore Processing Plant and read the procurement board.",
+                "roomKeysAny": [
+                    "Aurnom Ore Processing Plant"
+                ]
+            },
+            {
+                "id": "read_contract_board",
+                "kind": "interaction",
+                "text": "Pull the live contract list from the procurement board.",
+                "interactionKeysAny": [
+                    "contractboard"
+                ]
+            },
+            {
+                "id": "backlog_choice",
+                "kind": "choice",
+                "prompt": "You can quote the board accurately to worried haulers\u2014or sell a calmer version for a fee.",
+                "choices": [
+                    {
+                        "id": "accurate_quote",
+                        "label": "Quote wait times and contract volumes exactly.",
+                        "outcome": "Haulers reschedule; the board stays credible.",
+                        "morality": {
+                            "good": 1,
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 130,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "sell_calm",
+                        "label": "Sell a sanitized timeline to nervous independents.",
+                        "outcome": "Credits land now; trust frays when reality arrives.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 1
+                        },
+                        "rewards": {
+                            "credits": 250,
+                            "xp": 31
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "econ_market_listing_flurry",
-    "title": "Listing Flurry Witness",
-    "summary": "Exchange clerks logged a burst of new listings. Someone wants a neutral read on whether it is rotation—or a squeeze.",
-    "missionKind": "mission",
-    "threadId": "economy_station_feed",
-    "storylineId": "sovereign_listing_pressure",
-    "giver": { "kind": "faction", "id": "exchange_clerk", "name": "Sovereign Floor Clerk" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["market_listing_flurry"] },
-    "eligibility": { "cooldownSeconds": 18000, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_promenade_listings",
-        "kind": "visit_room",
-        "text": "Walk the promenade and listen to what traders are saying about the listing burst.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "listing_choice",
-        "kind": "choice",
-        "prompt": "You can file a straight witness note—or tip a buyer bloc before the bell.",
-        "choices": [
-          {
-            "id": "straight_note",
-            "label": "File a straight witness note with the clerk.",
-            "outcome": "The record stays boring and fair.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 120 },
-            "completeMission": true
-          },
-          {
-            "id": "tip_bloc",
-            "label": "Sell an early read to a buyer bloc.",
-            "outcome": "Someone else front-runs the noise you helped create.",
-            "morality": { "evil": 2, "lawful": -1 },
-            "rewards": { "credits": 260 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "econ_market_listing_flurry",
+        "title": "Listing Flurry Witness",
+        "summary": "Exchange clerks logged a burst of new listings. Someone wants a neutral read on whether it is rotation\u2014or a squeeze.",
+        "missionKind": "mission",
+        "threadId": "economy_station_feed",
+        "storylineId": "sovereign_listing_pressure",
+        "giver": {
+            "kind": "faction",
+            "id": "exchange_clerk",
+            "name": "Sovereign Floor Clerk"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "market_listing_flurry"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 18000,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_promenade_listings",
+                "kind": "visit_room",
+                "text": "Walk the promenade and listen to what traders are saying about the listing burst.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "listing_choice",
+                "kind": "choice",
+                "prompt": "You can file a straight witness note\u2014or tip a buyer bloc before the bell.",
+                "choices": [
+                    {
+                        "id": "straight_note",
+                        "label": "File a straight witness note with the clerk.",
+                        "outcome": "The record stays boring and fair.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 120,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "tip_bloc",
+                        "label": "Sell an early read to a buyer bloc.",
+                        "outcome": "Someone else front-runs the noise you helped create.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": -1
+                        },
+                        "rewards": {
+                            "credits": 260,
+                            "xp": 32
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "econ_freighter_eta_manifest",
-    "title": "Freighter Manifest Check",
-    "summary": "A bulk freighter is on approach. Dock interests want a third-party skim of whether manifests match the rumor mill.",
-    "missionKind": "mission",
-    "threadId": "economy_station_feed",
-    "storylineId": "freighter_manifest_ethics",
-    "giver": { "kind": "faction", "id": "dock_clerk", "name": "Civilian dock clerk" },
-    "trigger": { "kind": "alert", "seedIdsAny": ["freighter_eta"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_shipyard_freighter",
-        "kind": "visit_room",
-        "text": "Observe the posted arrival lane at the civilian shipyard.",
-        "roomKeysAny": ["Meridian Civil Shipyard"]
-      },
-      {
-        "id": "freighter_choice",
-        "kind": "choice",
-        "prompt": "Public boards match the rumor—or someone is holding back a hold lot.",
-        "choices": [
-          {
-            "id": "match_public",
-            "label": "Confirm the public boards and close the rumor thread.",
-            "outcome": "Schedules stabilize; speculators lose their edge.",
-            "morality": { "good": 2, "lawful": 1 },
-            "rewards": { "credits": 110 },
-            "completeMission": true
-          },
-          {
-            "id": "sell_hold_lot",
-            "label": "Sell the hold-lot whisper to the highest bidder.",
-            "outcome": "You profit from asymmetry someone else manufactured.",
-            "morality": { "evil": 2, "chaotic": 2 },
-            "rewards": { "credits": 275 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "econ_freighter_eta_manifest",
+        "title": "Freighter Manifest Check",
+        "summary": "A bulk freighter is on approach. Dock interests want a third-party skim of whether manifests match the rumor mill.",
+        "missionKind": "mission",
+        "threadId": "economy_station_feed",
+        "storylineId": "freighter_manifest_ethics",
+        "giver": {
+            "kind": "faction",
+            "id": "dock_clerk",
+            "name": "Civilian dock clerk"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "freighter_eta"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_shipyard_freighter",
+                "kind": "visit_room",
+                "text": "Observe the posted arrival lane at the civilian shipyard.",
+                "roomKeysAny": [
+                    "Meridian Civil Shipyard"
+                ]
+            },
+            {
+                "id": "freighter_choice",
+                "kind": "choice",
+                "prompt": "Public boards match the rumor\u2014or someone is holding back a hold lot.",
+                "choices": [
+                    {
+                        "id": "match_public",
+                        "label": "Confirm the public boards and close the rumor thread.",
+                        "outcome": "Schedules stabilize; speculators lose their edge.",
+                        "morality": {
+                            "good": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 110,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "sell_hold_lot",
+                        "label": "Sell the hold-lot whisper to the highest bidder.",
+                        "outcome": "You profit from asymmetry someone else manufactured.",
+                        "morality": {
+                            "evil": 2,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 275,
+                            "xp": 34
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  }
+    }
 ]

@@ -16,12 +16,15 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Countdown } from "@/components/countdown";
 import { ChallengesPanel } from "@/components/challenges-panel";
+import { PackageMarketPanel } from "@/components/package-listings-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { DashboardMissionsPanel, EMPTY_MISSIONS } from "@/components/dashboard-missions-panel";
+import { DashboardAchievementsPanel } from "@/components/dashboard-achievements-panel";
 import { DashboardWorldSimulationPanel } from "@/components/dashboard-world-simulation-panel";
 import { LocationBanner } from "@/components/location-banner";
 import { SortableRightColumnPanel } from "@/components/sortable-right-column-panel";
@@ -46,10 +49,15 @@ import {
   dashboardAckAlert,
   dashboardAckAllAlerts,
   EMPTY_ROOM_AMBIENT,
+  isKioskPreNavigateKey,
   mineDeploy,
+  mineDeployFauna,
+  mineDeployFlora,
   mineRepairRig,
   purchaseChallengeOffer,
+  runKioskBeforeNavigate,
   setChallengePerkLoadout,
+  webNavigatePathFromPlayResult,
 } from "@/lib/ui-api";
 import { formatCr as cr } from "@/lib/format-units";
 import { compositionToLines, buildResourceNameLookup, displayResourceName } from "@/lib/resource-display";
@@ -58,10 +66,18 @@ import {
   type RightColumnPanelId,
 } from "@/lib/dashboard-right-column-ids";
 import { isRightColumnPanelVisible, INVENTORY_PANEL_HIDDEN_BUCKETS } from "@/lib/dashboard-right-column-visibility";
+import { finalizeServiceNavRows, type ServiceNavRow } from "@/lib/services-nav-merge";
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { useDashboardRightColumnOrder } from "@/lib/use-dashboard-right-column-order";
 import { useMsgStream } from "@/lib/use-msg-stream";
 import { useResourceNameLookup } from "@/lib/use-resource-name-lookup";
+import {
+  DASHBOARD_PANEL_BODY,
+  DASHBOARD_PANEL_HEADER,
+  DASHBOARD_PANEL_SECTION,
+  DASHBOARD_PANEL_SUBHEADER,
+  DASHBOARD_PANEL_TITLE,
+} from "@/lib/dashboard-panel-chrome";
 
 function Panel({
   panelKey,
@@ -80,9 +96,9 @@ function Panel({
   const [open, setOpen] = useDashboardPanelOpen(panelKey, true);
 
   return (
-    <section className={`mb-1 ${className}`}>
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
-        <span className="min-w-0 truncate text-cyber-cyan">{title}</span>
+    <section className={`${DASHBOARD_PANEL_SECTION} ${className}`.trim()}>
+      <div className={DASHBOARD_PANEL_HEADER}>
+        <span className={DASHBOARD_PANEL_TITLE}>{title}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1 normal-case tracking-normal">
           {headerActions}
           <PanelExpandButton
@@ -92,7 +108,7 @@ function Panel({
           />
         </div>
       </div>
-      {open ? <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">{children}</div> : null}
+      {open ? <div className={DASHBOARD_PANEL_BODY}>{children}</div> : null}
     </section>
   );
 }
@@ -397,7 +413,10 @@ function InventoryPanel({ inventory }: { inventory: CsInventory }) {
                   {item.count && item.count > 1 ? `${item.count}× ` : ""}
                   {item.key}
                 </span>
-                {bucketId === "mining_package" && item.estimatedValue != null ? (
+                {(bucketId === "mining_package" ||
+                  bucketId === "flora_package" ||
+                  bucketId === "fauna_package") &&
+                item.estimatedValue != null ? (
                   <span className="font-mono text-ui-muted">{cr(item.estimatedValue)}</span>
                 ) : null}
               </Row>
@@ -409,20 +428,56 @@ function InventoryPanel({ inventory }: { inventory: CsInventory }) {
   );
 }
 
-function MineDeploymentPanel({
+type ProductionDeployKind = "mining" | "flora" | "fauna";
+
+const PRODUCTION_DEPLOY_CONFIG: Record<
+  ProductionDeployKind,
+  { packageBucket: string; claimBucket: string; sectionTitle: string; deployLabel: string }
+> = {
+  mining: {
+    packageBucket: "mining_package",
+    claimBucket: "mining_claim",
+    sectionTitle: "Mining",
+    deployLabel: "Deploy mine",
+  },
+  flora: {
+    packageBucket: "flora_package",
+    claimBucket: "flora_claim",
+    sectionTitle: "Flora",
+    deployLabel: "Deploy flora",
+  },
+  fauna: {
+    packageBucket: "fauna_package",
+    claimBucket: "fauna_claim",
+    sectionTitle: "Fauna",
+    deployLabel: "Deploy fauna",
+  },
+};
+
+function DeployPairSection({
+  sectionTitle,
+  packageBucket,
+  claimBucket,
   inventory,
   onDeploy,
   busy,
+  deployLabel,
+  showTopRule,
 }: {
+  sectionTitle: string;
+  packageBucket: string;
+  claimBucket: string;
   inventory: CsInventory;
   onDeploy: (packageId: number, claimId: number) => void;
   busy: boolean;
+  deployLabel: string;
+  showTopRule: boolean;
 }) {
-  const packageRows = inventoryBucket(inventory, "mining_package").flatMap((item) => {
+  const packageRows = inventoryBucket(inventory, packageBucket).flatMap((item) => {
     const ids = item.stacked && item.ids?.length ? item.ids : [item.id];
     return ids.map((id) => ({ ...item, id }));
   });
-  const claimRows = inventoryBucket(inventory, "mining_claim").flatMap((item) => {
+  const claimRows = inventoryBucket(inventory, claimBucket).flatMap((item) => {
     const ids = item.stacked && item.ids?.length ? item.ids : [item.id];
     return ids.map((id) => ({ ...item, id }));
   });
@@ -430,7 +485,6 @@ function MineDeploymentPanel({
   const [packageId, setPackageId] = useState<number | "">("");
   const [claimId, setClaimId] = useState<number | "">("");
 
-  // Only show when deploy is possible: at least one package and one mining claim.
   if (packageRows.length === 0 || claimRows.length === 0) {
     return null;
   }
@@ -438,47 +492,99 @@ function MineDeploymentPanel({
   const canDeploy = typeof packageId === "number" && typeof claimId === "number";
 
   return (
-    <Panel panelKey="mine-operations" title="Mine Operations">
-      <div className="space-y-1">
+    <div className={showTopRule ? "mt-2 border-t border-cyan-900/40 pt-2" : ""}>
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-ui-muted">{sectionTitle}</div>
+      <div className="mt-0.5 space-y-1">
         <Kv k="packages" v={packageRows.length} />
         <Kv k="claims" v={claimRows.length} />
       </div>
-      <>
-          <label className="mt-1 block text-xs uppercase tracking-wide text-ui-muted">Package</label>
-          <select
-            className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-xs text-foreground"
-            value={packageId}
-            onChange={(e) => setPackageId(e.target.value ? Number(e.target.value) : "")}
-          >
-            <option value="">Select package</option>
-            {packageRows.map((p) => (
-              <option key={`package-${p.id}`} value={p.id}>
-                {p.key} #{p.id}
-              </option>
-            ))}
-          </select>
+      <label className="mt-1 block text-xs uppercase tracking-wide text-ui-muted">Package</label>
+      <select
+        className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-xs text-foreground"
+        value={packageId}
+        onChange={(e) => setPackageId(e.target.value ? Number(e.target.value) : "")}
+      >
+        <option value="">Select package</option>
+        {packageRows.map((p) => (
+          <option key={`${packageBucket}-package-${p.id}`} value={p.id}>
+            {p.key} #{p.id}
+          </option>
+        ))}
+      </select>
 
-          <label className="mt-1 block text-xs uppercase tracking-wide text-ui-muted">Claim</label>
-          <select
-            className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-xs text-foreground"
-            value={claimId}
-            onChange={(e) => setClaimId(e.target.value ? Number(e.target.value) : "")}
-          >
-            <option value="">Select claim</option>
-            {claimRows.map((c) => (
-              <option key={`claim-${c.id}`} value={c.id}>
-                {formatClaimOptionLabel(c)}
-              </option>
-            ))}
-          </select>
+      <label className="mt-1 block text-xs uppercase tracking-wide text-ui-muted">Claim</label>
+      <select
+        className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-xs text-foreground"
+        value={claimId}
+        onChange={(e) => setClaimId(e.target.value ? Number(e.target.value) : "")}
+      >
+        <option value="">Select claim</option>
+        {claimRows.map((c) => (
+          <option key={`${claimBucket}-claim-${c.id}`} value={c.id}>
+            {formatClaimOptionLabel(c)}
+          </option>
+        ))}
+      </select>
 
-          <div className="mt-1 flex items-center gap-1">
-            <TinyButton onClick={() => canDeploy && onDeploy(packageId, claimId)} disabled={!canDeploy || busy}>
-              Deploy mine
-            </TinyButton>
-            {typeof claimId === "number" ? <TinyLink href={`/claims/${claimId}`}>Claim detail →</TinyLink> : null}
-          </div>
-      </>
+      <div className="mt-1 flex items-center gap-1">
+        <TinyButton onClick={() => canDeploy && onDeploy(packageId, claimId)} disabled={!canDeploy || busy}>
+          {deployLabel}
+        </TinyButton>
+        {typeof claimId === "number" ? <TinyLink href={`/claims/${claimId}`}>Claim detail →</TinyLink> : null}
+      </div>
+    </div>
+  );
+}
+
+function ProductionDeploymentPanel({
+  inventory,
+  onDeployMining,
+  onDeployFlora,
+  onDeployFauna,
+  busy,
+}: {
+  inventory: CsInventory;
+  onDeployMining: (packageId: number, claimId: number) => void;
+  onDeployFlora: (packageId: number, claimId: number) => void;
+  onDeployFauna: (packageId: number, claimId: number) => void;
+  busy: boolean;
+}) {
+  const kinds: ProductionDeployKind[] = ["mining", "flora", "fauna"];
+  const activeKinds = kinds.filter((k) => {
+    const c = PRODUCTION_DEPLOY_CONFIG[k];
+    return (
+      (inventory.byBucket[c.packageBucket]?.length ?? 0) > 0 &&
+      (inventory.byBucket[c.claimBucket]?.length ?? 0) > 0
+    );
+  });
+  if (activeKinds.length === 0) {
+    return null;
+  }
+
+  const deployFor: Record<ProductionDeployKind, (packageId: number, claimId: number) => void> = {
+    mining: onDeployMining,
+    flora: onDeployFlora,
+    fauna: onDeployFauna,
+  };
+
+  return (
+    <Panel panelKey="mine-operations" title="Production deployment">
+      {activeKinds.map((k, i) => {
+        const c = PRODUCTION_DEPLOY_CONFIG[k];
+        return (
+          <DeployPairSection
+            key={k}
+            sectionTitle={c.sectionTitle}
+            packageBucket={c.packageBucket}
+            claimBucket={c.claimBucket}
+            inventory={inventory}
+            onDeploy={deployFor[k]}
+            busy={busy}
+            deployLabel={c.deployLabel}
+            showTopRule={i > 0}
+          />
+        );
+      })}
     </Panel>
   );
 }
@@ -509,7 +615,7 @@ function ShipsClassGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
+      <div className={DASHBOARD_PANEL_SUBHEADER}>
         <span className="min-w-0 flex-1 truncate text-ui-soft">{title}</span>
         <PanelExpandButton
           open={open}
@@ -704,7 +810,7 @@ function ResourcesCategoryGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
+      <div className={DASHBOARD_PANEL_SUBHEADER}>
         {!open ? (
           <span
             className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
@@ -778,8 +884,8 @@ function ResourcesPanel({
   const title = `Resources (${resources.length})`;
 
   return (
-    <section className="mb-1">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
+    <section className={DASHBOARD_PANEL_SECTION}>
+      <div className={DASHBOARD_PANEL_HEADER}>
         {!open ? (
           <span
             className={`shrink-0 font-semibold ${allActive ? "text-green-400" : "text-red-400"}`}
@@ -789,7 +895,7 @@ function ResourcesPanel({
             ●
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-cyber-cyan">{title}</span>
+        <span className={`${DASHBOARD_PANEL_TITLE} flex-1`}>{title}</span>
         <ResourcesCreditsRollupLabel items={resources} className="text-xs text-cyber-cyan/80" />
         <span
           className={RESOURCE_ROLLUP_MONO}
@@ -810,7 +916,7 @@ function ResourcesPanel({
         />
       </div>
       {open ? (
-        <div className="border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs">
+        <div className={DASHBOARD_PANEL_BODY}>
           {orderedKindKeys.map((kindKey) => (
             <ResourcesCategoryGroup
               key={kindKey}
@@ -888,7 +994,7 @@ function PropertiesKindGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
+      <div className={DASHBOARD_PANEL_SUBHEADER}>
         <span className="min-w-0 flex-1 truncate text-ui-soft">{title}</span>
         <PropertiesCreditsRollupLabel sumCr={rollupCr} counted={rollupCrRows} rowCount={items.length} />
         <PanelExpandButton
@@ -1004,7 +1110,7 @@ function PersonalStorageKindGroup({
 
   return (
     <div className="mb-1 last:mb-0">
-      <div className="flex min-w-0 items-center gap-1 bg-cyan-900/20 px-1 py-0.5 text-ui-caption font-bold uppercase tracking-widest">
+      <div className={DASHBOARD_PANEL_SUBHEADER}>
         <span className="min-w-0 flex-1 truncate text-ui-soft">{headerTitle}</span>
         <PersonalStorageTonsRollupLabel tons={rollupTons} />
         <PersonalStorageCreditsRollupLabel sumCr={rollupCr} counted={rollupCrRows} rowCount={entries.length} />
@@ -1147,6 +1253,113 @@ function PropertiesPanel({ properties }: { properties: DashboardProperty[] }) {
   );
 }
 
+function PlacesNavPanel({
+  nav,
+  onReload,
+}: {
+  nav: ControlSurfaceState["nav"];
+  onReload: () => void;
+}) {
+  const router = useRouter();
+  const [navErr, setNavErr] = useState<string | null>(null);
+
+  const kioskRows = useMemo(
+    () => finalizeServiceNavRows(nav.kiosks as unknown as ServiceNavRow[]),
+    [nav.kiosks],
+  );
+
+  const onKioskClick = useCallback(
+    async (e: React.MouseEvent, row: ServiceNavRow) => {
+      if (!row.preNavigate || !isKioskPreNavigateKey(row.preNavigate)) return;
+      e.preventDefault();
+      setNavErr(null);
+      try {
+        const res = await runKioskBeforeNavigate(row.preNavigate);
+        router.push(webNavigatePathFromPlayResult(res));
+        onReload();
+      } catch (x) {
+        setNavErr(x instanceof Error ? x.message : "Navigation failed");
+      }
+    },
+    [onReload, router],
+  );
+
+  const shops = nav.shops ?? [];
+  const properties = nav.properties ?? [];
+  const resources = nav.resources ?? [];
+
+  return (
+    <Panel panelKey="places-nav" title="Services & places">
+      {navErr ? <p className="mb-1 text-red-400">{navErr}</p> : null}
+      {kioskRows.length > 0 ? (
+        <div className="mb-2">
+          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-ui-muted">Services</div>
+          <div className={DASHBOARD_SCROLL_LIST_CLASS}>
+            {kioskRows.map((k) =>
+              k.preNavigate && isKioskPreNavigateKey(k.preNavigate) ? (
+                <div key={`${k.key}-${k.href}`} className="mb-0.5">
+                  <Link
+                    href={k.href}
+                    className="inline-block rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40"
+                    onClick={(e) => void onKioskClick(e, k)}
+                  >
+                    {k.label}
+                  </Link>
+                </div>
+              ) : (
+                <div key={`${k.key}-${k.href}`} className="mb-0.5">
+                  <TinyLink href={k.href}>{k.label}</TinyLink>
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+      ) : null}
+      {shops.length > 0 ? (
+        <div className="mb-2">
+          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-ui-muted">Shipyards & vendors</div>
+          <div className={DASHBOARD_SCROLL_LIST_CLASS}>
+            {shops.map((s) => (
+              <div key={s.roomKey} className="mb-0.5">
+                <TinyLink href={`/shop?room=${encodeURIComponent(s.roomKey)}`}>{s.label}</TinyLink>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {properties.length > 0 ? (
+        <div className="mb-2">
+          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-ui-muted">Properties</div>
+          <div className={DASHBOARD_SCROLL_LIST_CLASS}>
+            {properties.map((p) => (
+              <div key={p.href} className="mb-0.5">
+                <TinyLink href={p.href}>{p.label}</TinyLink>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {resources.length > 0 ? (
+        <div>
+          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-ui-muted">Production sites</div>
+          <div className={DASHBOARD_SCROLL_LIST_CLASS}>
+            {resources.map((m) => (
+              <div key={m.href} className="mb-0.5 flex flex-wrap items-center gap-1">
+                <TinyLink href={m.href}>{m.label}</TinyLink>
+                {m.active ? (
+                  <span className="text-ui-caption text-emerald-500/90">active</span>
+                ) : (
+                  <span className="text-ui-caption text-ui-muted">idle</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </Panel>
+  );
+}
+
 function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims"] }) {
   if (claims.length === 0) return null;
   return (
@@ -1196,6 +1409,14 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
   const ackAllAlerts = useCallback(() => run(() => dashboardAckAllAlerts()), [run]);
   const deployMineCb = useCallback(
     (packageId: number, claimId: number) => run(() => mineDeploy({ packageId, claimId })),
+    [run],
+  );
+  const deployFloraCb = useCallback(
+    (packageId: number, claimId: number) => run(() => mineDeployFlora({ packageId, claimId })),
+    [run],
+  );
+  const deployFaunaCb = useCallback(
+    (packageId: number, claimId: number) => run(() => mineDeployFauna({ packageId, claimId })),
     [run],
   );
   const repairRigCb = useCallback((siteId: number) => run(() => mineRepairRig({ siteId })), [run]);
@@ -1287,6 +1508,16 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           return <ShipsPanel ships={data.ships} />;
         case "inventory":
           return <InventoryPanel inventory={data.inventory} />;
+        case "mineOperations":
+          return (
+            <ProductionDeploymentPanel
+              inventory={data.inventory}
+              onDeployMining={deployMineCb}
+              onDeployFlora={deployFloraCb}
+              onDeployFauna={deployFaunaCb}
+              busy={busy}
+            />
+          );
         case "resources":
           return (
             <ResourcesPanel
@@ -1308,6 +1539,10 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           return <PropertiesPanel properties={data.properties} />;
         case "claimsNav":
           return <ClaimsNavPanel claims={data.nav.claims} />;
+        case "packageMarket":
+          return <PackageMarketPanel inventory={data.inventory} run={run} busy={busy} />;
+        case "placesNav":
+          return <PlacesNavPanel nav={data.nav} onReload={onReload} />;
         default:
           return null;
       }
@@ -1316,6 +1551,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       data,
       busy,
       onReload,
+      run,
       claimChallengeCb,
       claimCadenceCb,
       claimAllChallengesCb,
@@ -1323,6 +1559,9 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
       setPerkLoadoutCb,
       ackAlert,
       ackAllAlerts,
+      deployMineCb,
+      deployFloraCb,
+      deployFaunaCb,
       repairRigCb,
     ],
   );
@@ -1361,7 +1600,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
             activeInstanceId={data.activeInstanceId ?? null}
             factionStanding={data.character?.factionStanding ?? null}
           />
-          <MineDeploymentPanel inventory={data.inventory} onDeploy={deployMineCb} busy={busy} />
+          <DashboardAchievementsPanel achievements={data.character?.achievements ?? null} />
         </div>
         <div className="min-h-0 min-w-0 overflow-y-auto p-1.5 md:min-h-0">
           {busy ? <div className="mb-1 text-xs text-ui-muted">Working...</div> : null}

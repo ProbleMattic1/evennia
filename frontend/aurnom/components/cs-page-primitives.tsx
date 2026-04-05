@@ -3,6 +3,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { DASHBOARD_PANEL_BODY, DASHBOARD_PANEL_HEADER, DASHBOARD_PANEL_SECTION } from "@/lib/dashboard-panel-chrome";
+
 export function CsPage({ children }: { children: ReactNode }) {
   return (
     <main className="dark min-h-svh bg-zinc-950 font-mono text-xs text-foreground">{children}</main>
@@ -41,11 +43,9 @@ export function CsPanel({
   className?: string;
 }) {
   return (
-    <section className={`mb-1 ${className}`}>
-      <div className="flex min-w-0 items-center gap-2 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest text-cyber-cyan">
-        {title}
-      </div>
-      <div className="min-w-0 border border-cyan-900/40 bg-zinc-950/80 p-1.5">{children}</div>
+    <section className={`${DASHBOARD_PANEL_SECTION} ${className}`.trim()}>
+      <div className={`${DASHBOARD_PANEL_HEADER} gap-2 text-cyber-cyan`}>{title}</div>
+      <div className={DASHBOARD_PANEL_BODY}>{children}</div>
     </section>
   );
 }

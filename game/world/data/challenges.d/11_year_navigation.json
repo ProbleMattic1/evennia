@@ -1,35 +1,58 @@
 [
-  {
-    "id": "year.title_odyssey_venues",
-    "cadence": "year",
-    "title": "Venue Odyssey",
-    "summary": "Visit at least one room in every configured venue across the world this year.",
-    "predicateKey": "navigation.title_odyssey_venues",
-    "predicateParams": {},
-    "rewards": {"challengePoints": 1250, "credits": 100000, "grantOn": "claim"},
-    "requiresTelemetry": ["venues_ever"],
-    "enabled": true
-  },
-  {
-    "id": "year.title_odyssey_locator_zones",
-    "cadence": "year",
-    "title": "Zone Cartographer",
-    "summary": "Set foot in every known locator zone at least once this year.",
-    "predicateKey": "navigation.title_odyssey_locator_zones",
-    "predicateParams": {},
-    "rewards": {"challengePoints": 1250, "credits": 100000, "grantOn": "claim"},
-    "requiresTelemetry": ["locator_zones_ever"],
-    "enabled": true
-  },
-  {
-    "id": "monthly.locator_cartography",
-    "cadence": "monthly",
-    "title": "New Ground",
-    "summary": "Discover at least 5 rooms you have never visited before this month.",
-    "predicateKey": "navigation.cartography",
-    "predicateParams": {"min_rooms": 5},
-    "rewards": {"challengePoints": 45, "credits": 4500, "grantOn": "claim"},
-    "requiresTelemetry": ["rooms_ever"],
-    "enabled": true
-  }
+    {
+        "id": "year.title_odyssey_venues",
+        "cadence": "year",
+        "title": "Venue Odyssey",
+        "summary": "Visit at least one room in every configured venue across the world this year.",
+        "predicateKey": "navigation.title_odyssey_venues",
+        "predicateParams": {},
+        "rewards": {
+            "challengePoints": 1250,
+            "credits": 100000,
+            "xp": 800,
+            "grantOn": "claim"
+        },
+        "requiresTelemetry": [
+            "venues_ever"
+        ],
+        "enabled": true
+    },
+    {
+        "id": "year.title_odyssey_locator_zones",
+        "cadence": "year",
+        "title": "Zone Cartographer",
+        "summary": "Set foot in every known locator zone at least once this year.",
+        "predicateKey": "navigation.title_odyssey_locator_zones",
+        "predicateParams": {},
+        "rewards": {
+            "challengePoints": 1250,
+            "credits": 100000,
+            "xp": 800,
+            "grantOn": "claim"
+        },
+        "requiresTelemetry": [
+            "locator_zones_ever"
+        ],
+        "enabled": true
+    },
+    {
+        "id": "monthly.locator_cartography",
+        "cadence": "monthly",
+        "title": "New Ground",
+        "summary": "Discover at least 5 rooms you have never visited before this month.",
+        "predicateKey": "navigation.cartography",
+        "predicateParams": {
+            "min_rooms": 5
+        },
+        "rewards": {
+            "challengePoints": 45,
+            "credits": 4500,
+            "xp": 562,
+            "grantOn": "claim"
+        },
+        "requiresTelemetry": [
+            "rooms_ever"
+        ],
+        "enabled": true
+    }
 ]

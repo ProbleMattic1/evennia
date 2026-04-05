@@ -35,6 +35,30 @@ def _prepare_deploy_components(components, buyer, site):
     return prepare_deploy_components(components, buyer, site, ("rig", "storage", "hauler"))
 
 
+def _mining_deploy_dest_note(buyer, refinery_room):
+    """Player-facing line about where autonomous ore unload goes."""
+    from typeclasses.haulers import effective_haul_local_plant_fill_fraction
+
+    use_local = bool(getattr(buyer.db, "haul_delivers_to_local_raw_storage", False))
+    split = bool(getattr(buyer.db, "haul_local_reserve_then_plant", False))
+    hdr = getattr(buyer.db, "haul_destination_room", None)
+    reserve_room = hdr if hdr is not None else refinery_room
+    reserve_key = getattr(reserve_room, "key", str(reserve_room))
+    if use_local and split and hdr:
+        pct = int(round(effective_haul_local_plant_fill_fraction(buyer) * 100))
+        return (
+            f"  Autonomous hauls fill your local raw reserve at {reserve_key} "
+            f"to {pct}% of its capacity, then sell the remainder to the Ore Receiving Bay at {refinery_room.key} "
+            f"(plant raw purchase on the bay portion).\n"
+        )
+    if use_local:
+        return (
+            f"  Autonomous hauls deliver to your local raw reserve at {reserve_key} "
+            f"(no plant payout on unload).\n"
+        )
+    return f"  Ore will flow to the Ore Receiving Bay at {refinery_room.key} (paid on delivery).\n"
+
+
 def _deploy_profile_for_tier_string(tier_str):
     """Map legacy SKU keys or deploy_profile ids to deploy_profile for matching."""
     from world.bootstrap_mining_packages import MINING_PACKAGES
@@ -185,10 +209,10 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
     from typeclasses.haulers import (
         HAULER_ENGINE_INTERVAL,
         HAULER_PICKUP_OFFSET_SEC,
-        effective_haul_local_plant_fill_fraction,
         set_hauler_next_cycle,
     )
 
+    from world.player_haul_personal_storage import prime_local_raw_storage_for_plant
     from world.venue_resolve import (
         processing_plant_room_for_npc_autonomous_supply,
         processing_plant_room_for_object,
@@ -235,9 +259,6 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
 
     hauler.db.hauler_mine_room = site_room
     hauler.db.hauler_refinery_room = refinery_room
-    hdr = getattr(buyer.db, "haul_destination_room", None)
-    if hdr:
-        hauler.db.hauler_destination_room = hdr
     hauler.db.hauler_state = "at_mine"
     set_hauler_next_cycle(hauler)
 
@@ -246,24 +267,12 @@ def _deploy_components_at_site(buyer, site, site_room, components, package_tier)
         owned_vehicles.append(hauler)
     buyer.db.owned_vehicles = owned_vehicles
 
-    use_local = bool(getattr(buyer.db, "haul_delivers_to_local_raw_storage", False))
-    split = bool(getattr(buyer.db, "haul_local_reserve_then_plant", False))
-    if use_local and hdr and split:
-        pct = int(round(effective_haul_local_plant_fill_fraction(buyer) * 100))
-        dest_note = (
-            f"  Autonomous hauls fill your local raw reserve at {buyer.db.haul_destination_room.key} "
-            f"to {pct}% of its capacity, then sell the remainder to the Ore Receiving Bay at {refinery_room.key} "
-            f"(plant raw purchase on the bay portion).\n"
-        )
-    elif use_local and hdr:
-        dest_note = (
-            f"  Autonomous hauls deliver to your local raw reserve "
-            f"at {buyer.db.haul_destination_room.key} (no plant payout on unload).\n"
-        )
-    else:
-        dest_note = (
-            f"  Ore will flow to the Ore Receiving Bay at {refinery_room.key} (paid on delivery).\n"
-        )
+    prime_local_raw_storage_for_plant(buyer, refinery_room)
+    hdr = getattr(buyer.db, "haul_destination_room", None)
+    if hdr:
+        hauler.db.hauler_destination_room = hdr
+
+    dest_note = _mining_deploy_dest_note(buyer, refinery_room)
 
     return True, (
         f"Mining operation deployed at {site.key}.\n"
@@ -283,10 +292,10 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
     from typeclasses.haulers import (
         HAULER_ENGINE_INTERVAL,
         HAULER_PICKUP_OFFSET_SEC,
-        effective_haul_local_plant_fill_fraction,
         set_hauler_next_cycle,
     )
 
+    from world.player_haul_personal_storage import prime_local_raw_storage_for_plant
     from world.venue_resolve import (
         processing_plant_room_for_npc_autonomous_supply,
         processing_plant_room_for_object,
@@ -329,9 +338,6 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
     hauler.db.allowed_boarders = [buyer]
     hauler.db.hauler_mine_room = site_room
     hauler.db.hauler_refinery_room = refinery_room
-    hdr = getattr(buyer.db, "haul_destination_room", None)
-    if hdr:
-        hauler.db.hauler_destination_room = hdr
     hauler.db.hauler_state = "at_mine"
     set_hauler_next_cycle(hauler)
 
@@ -340,22 +346,12 @@ def _reactivate_components_at_site(buyer, site, site_room, components, package_t
         owned_vehicles.append(hauler)
     buyer.db.owned_vehicles = owned_vehicles
 
-    use_local = bool(getattr(buyer.db, "haul_delivers_to_local_raw_storage", False))
-    split = bool(getattr(buyer.db, "haul_local_reserve_then_plant", False))
-    if use_local and hdr and split:
-        pct = int(round(effective_haul_local_plant_fill_fraction(buyer) * 100))
-        dest_note = (
-            f"  Autonomous hauls fill your local raw reserve at {buyer.db.haul_destination_room.key} "
-            f"to {pct}% of its capacity, then sell the remainder to the Ore Receiving Bay at {refinery_room.key} "
-            f"(plant raw purchase on the bay portion)."
-        )
-    elif use_local and hdr:
-        dest_note = (
-            f"  Autonomous hauls deliver to your local raw reserve "
-            f"at {buyer.db.haul_destination_room.key} (no plant payout on unload)."
-        )
-    else:
-        dest_note = f"  Ore will flow to the Ore Receiving Bay at {refinery_room.key} (paid on delivery)."
+    prime_local_raw_storage_for_plant(buyer, refinery_room)
+    hdr = getattr(buyer.db, "haul_destination_room", None)
+    if hdr:
+        hauler.db.hauler_destination_room = hdr
+
+    dest_note = _mining_deploy_dest_note(buyer, refinery_room)
 
     return True, (
         f"Mining operation reactivated at {site.key}.\n"
@@ -427,6 +423,150 @@ def deploy_package_from_inventory(buyer, package_obj, claim_obj):
 
     ok, msg = _deploy_components_at_site(buyer, site, site_room, components, package_tier)
     if ok:
+        package_obj.delete()
+        claim_obj.delete()
+    return ok, msg
+
+
+PLAYER_FLORA_PLANT_KEYS = (
+    "Aurnom Flora Processing Plant",
+    "Aurnom Ore Processing Plant",
+)
+
+PLAYER_FAUNA_PLANT_KEYS = (
+    "Aurnom Fauna Processing Plant",
+    "Aurnom Flora Processing Plant",
+    "Aurnom Ore Processing Plant",
+)
+
+
+def _get_flora_package_spec_by_tier(package_tier):
+    from world.bootstrap_bio_packages import FLORA_PACKAGES
+
+    if not package_tier:
+        return None
+    for spec in FLORA_PACKAGES:
+        if spec["key"] == package_tier or spec.get("deploy_profile") == package_tier:
+            return spec
+    return None
+
+
+def _get_fauna_package_spec_by_tier(package_tier):
+    from world.bootstrap_bio_packages import FAUNA_PACKAGES
+
+    if not package_tier:
+        return None
+    for spec in FAUNA_PACKAGES:
+        if spec["key"] == package_tier or spec.get("deploy_profile") == package_tier:
+            return spec
+    return None
+
+
+def deploy_flora_package_from_inventory(buyer, package_obj, claim_obj):
+    """
+    Consume flora package and FloraClaim; deploy at the claim's FloraSite.
+    Returns (success: bool, message: str).
+    """
+    from world.npc_bio_colony_deploy import deploy_flora_colony_site
+
+    if package_obj.location != buyer:
+        return False, "You do not have that package in your inventory."
+    if claim_obj.location != buyer:
+        return False, "You do not have that claim in your inventory."
+    if not package_obj.tags.has("flora_package", category="flora"):
+        return False, "That is not a flora package."
+    if not claim_obj.tags.has("flora_claim", category="flora"):
+        return False, "That is not a flora claim."
+
+    site = getattr(claim_obj.db, "site_ref", None)
+    if not site or not hasattr(site, "db"):
+        return False, "That claim is invalid or expired."
+    if not site.tags.has("flora_site", category="flora"):
+        return False, "That claim does not reference a flora stand."
+    if getattr(site.db, "is_claimed", False):
+        site_name = site.location.key if site.location else site.key
+        return False, f"{site_name} is already claimed."
+
+    package_tier = getattr(package_obj.db, "package_tier", None)
+    if not package_tier:
+        return False, "That item is not a deployable flora package."
+
+    spec = _get_flora_package_spec_by_tier(package_tier)
+    if not spec:
+        return False, f"Unknown flora package tier '{package_tier}'. Contact an administrator."
+
+    components = spec.get("components") or package_obj.db.package_components or []
+    if not components:
+        return False, "Package has no components configured."
+
+    site_room = site.location
+    if not site_room:
+        return False, "Claim site has no room."
+
+    allowed = getattr(site.db, "allowed_purposes", None) or ["flora"]
+    if "flora" not in allowed:
+        return False, "This site cannot be used for flora harvesting."
+
+    ok, msg = deploy_flora_colony_site(
+        buyer, site, site_room, components, PLAYER_FLORA_PLANT_KEYS
+    )
+    if ok:
+        site.db.package_tier = package_tier
+        package_obj.delete()
+        claim_obj.delete()
+    return ok, msg
+
+
+def deploy_fauna_package_from_inventory(buyer, package_obj, claim_obj):
+    """
+    Consume fauna package and FaunaClaim; deploy at the claim's FaunaSite.
+    Returns (success: bool, message: str).
+    """
+    from world.npc_bio_colony_deploy import deploy_fauna_colony_site
+
+    if package_obj.location != buyer:
+        return False, "You do not have that package in your inventory."
+    if claim_obj.location != buyer:
+        return False, "You do not have that claim in your inventory."
+    if not package_obj.tags.has("fauna_package", category="fauna"):
+        return False, "That is not a fauna package."
+    if not claim_obj.tags.has("fauna_claim", category="fauna"):
+        return False, "That is not a fauna claim."
+
+    site = getattr(claim_obj.db, "site_ref", None)
+    if not site or not hasattr(site, "db"):
+        return False, "That claim is invalid or expired."
+    if not site.tags.has("fauna_site", category="fauna"):
+        return False, "That claim does not reference a fauna range."
+    if getattr(site.db, "is_claimed", False):
+        site_name = site.location.key if site.location else site.key
+        return False, f"{site_name} is already claimed."
+
+    package_tier = getattr(package_obj.db, "package_tier", None)
+    if not package_tier:
+        return False, "That item is not a deployable fauna package."
+
+    spec = _get_fauna_package_spec_by_tier(package_tier)
+    if not spec:
+        return False, f"Unknown fauna package tier '{package_tier}'. Contact an administrator."
+
+    components = spec.get("components") or package_obj.db.package_components or []
+    if not components:
+        return False, "Package has no components configured."
+
+    site_room = site.location
+    if not site_room:
+        return False, "Claim site has no room."
+
+    allowed = getattr(site.db, "allowed_purposes", None) or ["fauna"]
+    if "fauna" not in allowed:
+        return False, "This site cannot be used for fauna harvesting."
+
+    ok, msg = deploy_fauna_colony_site(
+        buyer, site, site_room, components, PLAYER_FAUNA_PLANT_KEYS
+    )
+    if ok:
+        site.db.package_tier = package_tier
         package_obj.delete()
         claim_obj.delete()
     return ok, msg
@@ -811,13 +951,20 @@ def buy_listed_package(buyer, package_id):
     if balance < price:
         return False, f"You need {price:,} cr but only have {balance:,} cr."
 
-    buyer_acct = econ.get_character_account(buyer)
-    seller_acct = econ.get_character_account(seller)
-    econ.ensure_account(buyer_acct, opening_balance=int(buyer.db.credits or 0))
-    econ.ensure_account(seller_acct, opening_balance=int(seller.db.credits or 0))
-    econ.transfer(buyer_acct, seller_acct, price, memo="package sale")
-    buyer.db.credits = econ.get_character_balance(buyer)
-    seller.db.credits = econ.get_character_balance(seller)
+    from typeclasses.claim_market import collect_player_to_player_sale
+
+    try:
+        collect_player_to_player_sale(
+            buyer,
+            seller,
+            price,
+            tx_type="player_mining_package_sale",
+            withdraw_memo="Package purchase (listing)",
+            seller_deposit_memo="Package sale proceeds",
+            memo=f"{buyer.key} bought listed package from {seller.key}",
+        )
+    except ValueError:
+        return False, "Insufficient credits."
     package.move_to(buyer)
     script.db.listings = [e for e in listings if e.get("package_id") != pid]
     return True, f"You bought {package.key} for {price:,} cr."

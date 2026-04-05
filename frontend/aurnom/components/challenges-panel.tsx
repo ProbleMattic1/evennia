@@ -20,6 +20,12 @@ import { CSS } from "@dnd-kit/utilities";
 import { useMemo } from "react";
 
 import { PanelExpandButton } from "@/components/panel-expand-button";
+import {
+  DASHBOARD_PANEL_BODY,
+  DASHBOARD_PANEL_HEADER,
+  DASHBOARD_PANEL_SECTION,
+  DASHBOARD_PANEL_TITLE,
+} from "@/lib/dashboard-panel-chrome";
 import type {
   ChallengeActive,
   ChallengeHistoryRow,
@@ -548,10 +554,6 @@ type Props = {
   perkLoadoutBusy?: boolean;
 };
 
-const PANEL_HEADER =
-  "flex min-w-0 items-center gap-1 bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest";
-const PANEL_BODY = "border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs";
-
 export function ChallengesPanel({
   challenges,
   onClaimChallenge,
@@ -590,11 +592,11 @@ export function ChallengesPanel({
 
   if (active.length === 0 && history.length === 0 && pointOffers.length === 0 && ownedPerksCount === 0) {
     return (
-      <section className="mb-1">
-        <div className={PANEL_HEADER}>
-          <span className="min-w-0 truncate text-cyber-cyan">Challenges</span>
+      <section className={DASHBOARD_PANEL_SECTION}>
+        <div className={DASHBOARD_PANEL_HEADER}>
+          <span className={DASHBOARD_PANEL_TITLE}>Challenges</span>
         </div>
-        <div className={PANEL_BODY}>
+        <div className={DASHBOARD_PANEL_BODY}>
           <p className="text-ui-muted">No challenges tracked yet. Explore, trade, or operate a property to begin.</p>
         </div>
       </section>
@@ -602,12 +604,10 @@ export function ChallengesPanel({
   }
 
   return (
-    <section className="mb-1">
-      <div
-        className={`${PANEL_HEADER} flex-nowrap`}
-      >
+    <section className={DASHBOARD_PANEL_SECTION}>
+      <div className={`${DASHBOARD_PANEL_HEADER} flex-nowrap`}>
         <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-cyber-cyan">Challenges</span>
+          <span className={`${DASHBOARD_PANEL_TITLE} flex-1`}>Challenges</span>
           {typeof challenges.pointsLifetime === "number" ? (
             <span className="shrink-0 font-mono text-ui-caption font-normal normal-case tracking-normal text-amber-400/90">
               LT {challenges.pointsLifetime.toLocaleString()}
@@ -656,7 +656,7 @@ export function ChallengesPanel({
         </div>
       </div>
       {panelOpen ? (
-        <div className={PANEL_BODY}>
+        <div className={DASHBOARD_PANEL_BODY}>
           {active.length > 0 ? (
             <div className="flex flex-col gap-0">
               {grouped.map((group) => (

@@ -10,11 +10,16 @@ import {
 } from "@/components/dashboard-world-status-glyphs";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import type { ControlSurfaceState } from "@/lib/control-surface-api";
+import {
+  DASHBOARD_PANEL_BODY,
+  DASHBOARD_PANEL_HEADER,
+  DASHBOARD_PANEL_INSET,
+  DASHBOARD_PANEL_INSET_TITLE,
+  DASHBOARD_PANEL_SECTION,
+  DASHBOARD_PANEL_TITLE,
+} from "@/lib/dashboard-panel-chrome";
 
 const STORAGE_KEY = "aurnom:dashboard-panel:world-status";
-
-const PANEL_HEADER =
-  "flex min-w-0 items-center gap-1 bg-cyan-900/30 px-2 py-1 text-xs font-bold uppercase tracking-widest";
 
 function strVal(v: unknown): string {
   if (v == null || v === "") return "—";
@@ -26,13 +31,10 @@ function strVal(v: unknown): string {
 
 function SectionCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-zinc-800/70 bg-gradient-to-br from-zinc-900/55 via-zinc-950/80 to-zinc-950 p-2 shadow-[inset_0_1px_0_0_rgba(34,211,238,0.05)]">
+    <div className={DASHBOARD_PANEL_INSET}>
       <div className="mb-2 flex items-center gap-2">
-        <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyber-cyan/80 shadow-[0_0_10px_rgba(34,211,238,0.35)]"
-          aria-hidden
-        />
-        <h3 className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">{title}</h3>
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyber-cyan/70" aria-hidden />
+        <h3 className={DASHBOARD_PANEL_INSET_TITLE}>{title}</h3>
       </div>
       {children}
     </div>
@@ -143,9 +145,9 @@ export function DashboardWorldSimulationPanel({
   const standings = factionStanding ? Object.entries(factionStanding).sort(([a], [b]) => a.localeCompare(b)) : [];
 
   return (
-    <section className="mb-1 min-w-0 overflow-hidden rounded-lg border border-cyan-900/45 shadow-lg shadow-black/30">
-      <div className={PANEL_HEADER}>
-        <span className="min-w-0 truncate text-cyber-cyan">World status</span>
+    <section className={DASHBOARD_PANEL_SECTION}>
+      <div className={DASHBOARD_PANEL_HEADER}>
+        <span className={DASHBOARD_PANEL_TITLE}>World status</span>
         <PanelExpandButton
           open={open}
           onClick={toggleOpen}
@@ -155,7 +157,7 @@ export function DashboardWorldSimulationPanel({
       </div>
 
       {open ? (
-        <div className="min-w-0 border-t border-cyan-900/35 bg-zinc-950/95 p-2 text-xs">
+        <div className={DASHBOARD_PANEL_BODY}>
           <div className="flex flex-col gap-2">
             <SectionCard title="In-character time">
               {gc && typeof gc === "object" && !Array.isArray(gc) ? (

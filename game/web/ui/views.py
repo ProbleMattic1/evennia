@@ -28,6 +28,13 @@ from .room_nav_utils import (
 
 DEFAULT_PLAY_ROOM = HUB_ROOM_KEY
 
+_PROPERTY_DEED_LISTINGS_CACHE_KEY = "ui:property_deed_listings:v1"
+_PROPERTY_DEED_LISTINGS_TTL_SEC = 30
+
+
+def _invalidate_property_deed_listings_cache() -> None:
+    cache.delete(_PROPERTY_DEED_LISTINGS_CACHE_KEY)
+
 
 def _is_ship_catalog_vendor(obj):
     if not obj.is_typeclass("typeclasses.shops.CatalogVendor", exact=False):
@@ -482,6 +489,7 @@ def _serialize_mining_site(site, char=None):
         rigs_payload.append(entry)
 
     payload = {
+        "siteKind": "mining",
         "id": site.id,
         "key": site.key,
         "siteKey": site.key,
@@ -536,10 +544,45 @@ def _serialize_mining_site(site, char=None):
     return payload
 
 
+def _serialize_claim_site_for_detail(site, char=None):
+    """Site payload for claim detail: mining full row, flora/fauna summary from dashboard row."""
+    if not site or not getattr(site, "db", None):
+        return None
+    if site.tags.has("mining_site", category="mining"):
+        return _serialize_mining_site(site, char=char)
+    if site.tags.has("flora_site", category="flora") or site.tags.has("fauna_site", category="fauna"):
+        from world.mining_site_metrics import site_to_dashboard_row
+
+        packed = site_to_dashboard_row(site)
+        if not packed:
+            return None
+        row, _, _ = packed
+        haz = float(row.get("hazardLevel") or 0.0)
+        if haz <= 0.20:
+            hazard_label = "Low"
+        elif haz <= 0.50:
+            hazard_label = "Medium"
+        else:
+            hazard_label = "High"
+        comp = row.get("composition") or {}
+        families = ", ".join(sorted(comp.keys())) if comp else "unknown"
+        return {
+            "siteKind": row.get("siteKind") or "flora",
+            "roomKey": row.get("location") or "",
+            "volumeTier": row.get("volumeTier"),
+            "volumeTierCls": row.get("volumeTierCls"),
+            "resourceRarityTier": row.get("resourceRarityTier"),
+            "resourceRarityTierCls": row.get("resourceRarityTierCls"),
+            "hazardLabel": hazard_label,
+            "resources": families,
+        }
+    return None
+
+
 @csrf_exempt
 @require_POST
 def claims_market_list_claim(request):
-    """List a mining claim deed from inventory. Body: { "claimId": int, "price": number }"""
+    """List a resource claim deed from inventory. Body: { "claimId": int, "price": number }"""
     if not request.user.is_authenticated:
         return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
 
@@ -553,6 +596,10 @@ def claims_market_list_claim(request):
     success, msg = list_claim_for_sale(char, body.get("claimId"), body.get("price"))
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
 
     bundle = _web_refresh_bundle(request)
     dash_data = bundle.get("dashboard", {})
@@ -577,6 +624,10 @@ def claims_market_purchase_listed_claim(request):
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
+
     bundle = _web_refresh_bundle(request)
     dash_data = bundle.get("dashboard", {})
     return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
@@ -584,7 +635,7 @@ def claims_market_purchase_listed_claim(request):
 
 @require_GET
 def claim_detail_state(request):
-    """Mining claim detail. Query: claimId=int"""
+    """Mining / flora / fauna claim deed detail. Query: claimId=int"""
     from evennia import search_object
 
     raw = request.GET.get("claimId")
@@ -595,7 +646,15 @@ def claim_detail_state(request):
 
     found = search_object("#" + str(cid))
     claim = found[0] if found else None
-    if not claim or not claim.tags.has("mining_claim", category="mining"):
+    claim_kind = None
+    if claim:
+        if claim.tags.has("mining_claim", category="mining"):
+            claim_kind = "mining"
+        elif claim.tags.has("flora_claim", category="flora"):
+            claim_kind = "flora"
+        elif claim.tags.has("fauna_claim", category="fauna"):
+            claim_kind = "fauna"
+    if not claim or not claim_kind:
         return JsonResponse({"ok": False, "message": "Claim not found."}, status=404)
 
     char = None
@@ -603,7 +662,7 @@ def claim_detail_state(request):
         char, _ = _resolve_character_for_web(request.user)
 
     site = getattr(claim.db, "site_ref", None)
-    site_payload = _serialize_mining_site(site, char=char) if site else None
+    site_payload = _serialize_claim_site_for_detail(site, char=char) if site else None
 
     from typeclasses.claim_listings import claim_is_publicly_listed
 
@@ -1293,9 +1352,13 @@ def property_purchase_extra_slot(request):
 
 @require_GET
 def property_deed_listings_state(request):
+    hit = cache.get(_PROPERTY_DEED_LISTINGS_CACHE_KEY)
+    if hit is not None:
+        return JsonResponse({"ok": True, "listings": hit})
     from typeclasses.property_deed_market import get_property_deed_listings
 
     listings = get_property_deed_listings()
+    cache.set(_PROPERTY_DEED_LISTINGS_CACHE_KEY, listings, timeout=_PROPERTY_DEED_LISTINGS_TTL_SEC)
     return JsonResponse({"ok": True, "listings": listings})
 
 
@@ -1319,6 +1382,8 @@ def property_deed_list(request):
     success, msg = list_property_deed_for_sale(char, claim_id, price)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    _invalidate_property_deed_listings_cache()
 
     bundle = _web_refresh_bundle(request)
     dash_data = bundle.get("dashboard", {})
@@ -1344,6 +1409,8 @@ def property_deed_buy(request):
     success, msg = buy_listed_property_deed(char, claim_id)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    _invalidate_property_deed_listings_cache()
 
     bundle = _web_refresh_bundle(request)
     dash_data = bundle.get("dashboard", {})
@@ -1371,6 +1438,31 @@ def property_ops_health(request):
             "eventsEngineActive": bool(ev and ev[0].is_active),
             "eventsEngineInterval": ev[0].interval if ev else None,
             "registeredHoldings": len((reg[0].db.active_holding_ids or []) if reg else []),
+        }
+    )
+
+
+@require_GET
+def staff_hauler_engine_health(request):
+    """Staff-only: last HaulerEngine tick wall time (ndb)."""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"ok": False, "message": "Forbidden."}, status=403)
+
+    from evennia import search_script
+    from typeclasses.haulers import HAULER_MAX_PIPELINE_STEPS, MAX_HAULERS_PER_ENGINE_TICK
+
+    he = search_script("hauler_engine")
+    if not he:
+        return JsonResponse({"ok": True, "script": None})
+    s = he[0]
+    wall = getattr(s.ndb, "last_tick_duration_sec", None)
+    return JsonResponse(
+        {
+            "ok": True,
+            "lastTickWallSec": wall,
+            "intervalSec": s.interval,
+            "maxHaulersPerTick": MAX_HAULERS_PER_ENGINE_TICK,
+            "maxPipelineSteps": HAULER_MAX_PIPELINE_STEPS,
         }
     )
 
@@ -1877,6 +1969,10 @@ def nav_state(request):
                 continue
             if obj.tags.has("mining_claim", category="mining"):
                 claims_nav.append({"label": obj.key, "href": f"/claims/{obj.id}"})
+            if obj.tags.has("flora_claim", category="flora"):
+                claims_nav.append({"label": obj.key, "href": f"/claims/{obj.id}"})
+            if obj.tags.has("fauna_claim", category="fauna"):
+                claims_nav.append({"label": obj.key, "href": f"/claims/{obj.id}"})
             if obj.tags.has("property_claim", category="realty"):
                 from typeclasses.property_claims import strip_property_claim_key_prefix
 
@@ -2369,38 +2465,46 @@ def _dashboard_inventory_item_for_obj(char, obj):
     if obj.tags.has("mining_package", category="mining"):
         inv_entry["isMiningPackage"] = True
         inv_entry["estimatedValue"] = int(getattr(obj.db, "estimated_value", 0) or 0)
-    if obj.tags.has("mining_claim", category="mining"):
-        inv_entry["isMiningClaim"] = True
+    if obj.tags.has("flora_package", category="flora"):
+        inv_entry["isFloraPackage"] = True
+        inv_entry["estimatedValue"] = int(getattr(obj.db, "estimated_value", 0) or 0)
+    if obj.tags.has("fauna_package", category="fauna"):
+        inv_entry["isFaunaPackage"] = True
+        inv_entry["estimatedValue"] = int(getattr(obj.db, "estimated_value", 0) or 0)
+    if (
+        obj.tags.has("mining_claim", category="mining")
+        or obj.tags.has("flora_claim", category="flora")
+        or obj.tags.has("fauna_claim", category="fauna")
+    ):
+        inv_entry["isResourceClaim"] = True
+        if obj.tags.has("mining_claim", category="mining"):
+            inv_entry["isMiningClaim"] = True
+        if obj.tags.has("flora_claim", category="flora"):
+            inv_entry["isFloraClaim"] = True
+        if obj.tags.has("fauna_claim", category="fauna"):
+            inv_entry["isFaunaClaim"] = True
         site = getattr(obj.db, "site_ref", None)
         if site and hasattr(site, "db"):
-            from typeclasses.mining import get_commodity_bid, _volume_tier, _resource_rarity_tier
+            from world.mining_site_metrics import site_to_dashboard_row
 
-            deposit = site.db.deposit or {}
-            comp = deposit.get("composition") or {}
-            richness = float(deposit.get("richness", 0) or 0)
-            base_tons = float(deposit.get("base_output_tons", 0) or 0)
-            hazard = float(site.db.hazard_level or 0)
-            estimated_value = 0
-            total_tons = base_tons * richness
-            loc = site.location
-            for k, frac in comp.items():
-                price = get_commodity_bid(k, location=loc)
-                estimated_value += total_tons * float(frac) * price
-            volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-            resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
-            inv_entry["claimSpecs"] = {
-                "roomKey": site.location.key if site.location else site.key,
-                "richness": round(richness, 2),
-                "baseOutputTons": base_tons,
-                "composition": {str(k): float(v) for k, v in comp.items()},
-                "hazardLevel": round(hazard, 2),
-                "hazardLabel": "Low" if hazard <= 0.20 else "Medium" if hazard <= 0.50 else "High",
-                "estimatedValuePerCycle": int(round(estimated_value)),
-                "volumeTier": volume_tier,
-                "volumeTierCls": volume_tier_cls,
-                "resourceRarityTier": resource_rarity_tier,
-                "resourceRarityTierCls": resource_rarity_tier_cls,
-            }
+            packed = site_to_dashboard_row(site)
+            if packed:
+                row, _, _ = packed
+                haz = float(row.get("hazardLevel") or 0)
+                inv_entry["claimSpecs"] = {
+                    "roomKey": row.get("location") or "",
+                    "richness": row.get("richness"),
+                    "baseOutputTons": row.get("baseOutputTons"),
+                    "composition": row.get("composition") or {},
+                    "hazardLevel": round(haz, 2),
+                    "hazardLabel": "Low" if haz <= 0.20 else "Medium" if haz <= 0.50 else "High",
+                    "estimatedValuePerCycle": row.get("estimatedValuePerCycle"),
+                    "volumeTier": row.get("volumeTier"),
+                    "volumeTierCls": row.get("volumeTierCls"),
+                    "resourceRarityTier": row.get("resourceRarityTier"),
+                    "resourceRarityTierCls": row.get("resourceRarityTierCls"),
+                    "siteKind": row.get("siteKind"),
+                }
     return inv_entry
 
 
@@ -2613,15 +2717,17 @@ def dashboard_state(request):
             }
         )
 
-    char.missions.sync_global_seeds()
-    if char.location:
-        char.missions.sync_room(char.location)
-        char.quests.on_room_enter(char.location)
+    from .web_poll_sync import web_needs_heavy_mission_challenge_sync
+
+    if web_needs_heavy_mission_challenge_sync(request, char):
+        char.missions.sync_global_seeds()
+        if char.location:
+            char.missions.sync_room(char.location)
+            char.quests.on_room_enter(char.location)
+        char.challenges.sync_all_windows()
+        char.challenges.evaluate_window()
     missions = char.missions.serialize_for_web()
     quests = char.quests.serialize_for_web()
-
-    char.challenges.sync_all_windows()
-    char.challenges.evaluate_window()
     challenges_web = char.challenges.serialize_for_web()
 
     credits = econ.get_character_balance(char)
@@ -3116,140 +3222,41 @@ def market_state(request):
 @require_GET
 def claims_market_state(request):
     """
-    List mining sites open on the claims market (unclaimed, no outstanding deed).
+    List resource sites on the claims market (mining / flora / fauna primary + listings).
     Public — no auth required.
     """
-    from evennia import search_tag
-
     from typeclasses.claim_market import (
-        _existing_deed_for_site,
-        _get_property_listings_script,
-        claims_market_row_extras,
-        site_is_claims_market_listable,
+        quote_random_fauna_claim_deed,
+        quote_random_flora_claim_deed,
+        quote_random_mining_claim_deed,
     )
-    from typeclasses.mining import _resource_rarity_tier, _volume_tier
+    from world.claims_market_read_model import get_claims_market_snapshot
 
-    sites = search_tag("mining_site", category="mining")
-    listable = [s for s in sites if site_is_claims_market_listable(s)]
-
-    claims = []
-    for site in listable:
-        room = site.location
-        room_key = room.key if room else "unknown"
-        deposit = site.db.deposit or {}
-        comp = deposit.get("composition", {})
-        families = ", ".join(comp.keys()) if comp else "unknown"
-        richness = float(deposit.get("richness", 0.0))
-        hazard = float(site.db.hazard_level or 0.0)
-        base_tons = float(deposit.get("base_output_tons", 0) or 0)
-
-        volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-        resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
-        if hazard <= 0.20:
-            hazard_label = "Low"
-        elif hazard <= 0.50:
-            hazard_label = "Medium"
-        else:
-            hazard_label = "High"
-        row = {
-            "siteKey": site.key,
-            "roomKey": room_key,
-            "resources": families,
-            "richness": round(richness, 2),
-            "volumeTier": volume_tier,
-            "volumeTierCls": volume_tier_cls,
-            "resourceRarityTier": resource_rarity_tier,
-            "resourceRarityTierCls": resource_rarity_tier_cls,
-            "hazardLevel": round(hazard, 2),
-            "hazardLabel": hazard_label,
-            "baseOutputTons": base_tons,
-        }
-        row.update(claims_market_row_extras(site))
-        row["playerListing"] = False
-        claims.append(row)
-
-    script = _get_property_listings_script()
-    if script:
-        for ent in list(script.db.listings or []):
-            sid = ent.get("site_id")
-            site = next((s for s in sites if s.id == sid), None)
-            if not site:
-                continue
-            if getattr(site.db, "is_claimed", False):
-                continue
-            if _existing_deed_for_site(site):
-                continue
-            seller_key = "?"
-            seller_id = ent.get("seller_id")
-            if seller_id:
-                found = search_object("#" + str(seller_id))
-                if found:
-                    seller_key = found[0].key
-            room = site.location
-            room_key = room.key if room else "unknown"
-            deposit = site.db.deposit or {}
-            comp = deposit.get("composition", {})
-            families = ", ".join(comp.keys()) if comp else "unknown"
-            richness = float(deposit.get("richness", 0.0))
-            hazard = float(site.db.hazard_level or 0.0)
-            base_tons = float(deposit.get("base_output_tons", 0) or 0)
-            volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-            resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
-            if hazard <= 0.20:
-                hazard_label = "Low"
-            elif hazard <= 0.50:
-                hazard_label = "Medium"
-            else:
-                hazard_label = "High"
-            claims.append(
-                {
-                    "siteKey": site.key,
-                    "roomKey": room_key,
-                    "resources": families,
-                    "richness": round(richness, 2),
-                    "volumeTier": volume_tier,
-                    "volumeTierCls": volume_tier_cls,
-                    "resourceRarityTier": resource_rarity_tier,
-                    "resourceRarityTierCls": resource_rarity_tier_cls,
-                    "hazardLevel": round(hazard, 2),
-                    "hazardLabel": hazard_label,
-                    "baseOutputTons": base_tons,
-                    "listingPriceCr": int(ent.get("price", 0) or 0),
-                    "purchasable": True,
-                    "playerListing": True,
-                    "sellerKey": seller_key,
-                }
-            )
-
-    from typeclasses.claim_listings import get_claim_listings_rows
-
-    for row in get_claim_listings_rows():
-        claims.append(row)
-
-    from evennia import search_script
-
-    disc = search_script("site_discovery_engine")
-    next_discovery_at = None
-    if disc:
-        eta = disc[0].db.next_discovery_at
-        if eta is not None:
-            next_discovery_at = eta.isoformat()
-
-    from typeclasses.claim_market import quote_random_mining_claim_deed
+    snap = get_claims_market_snapshot()
+    claims = list(snap.get("claims") or [])
+    next_discovery_at = snap.get("nextDiscoveryAt")
 
     buyer_for_quote = None
     if request.user.is_authenticated:
         char, _ = _resolve_character_for_web(request.user)
         buyer_for_quote = char
     random_mining_claim = quote_random_mining_claim_deed(buyer=buyer_for_quote)
+    random_flora_claim = quote_random_flora_claim_deed(buyer=buyer_for_quote)
+    random_fauna_claim = quote_random_fauna_claim_deed(buyer=buyer_for_quote)
 
-    return JsonResponse(
-        {
-            "claims": claims,
-            "nextDiscoveryAt": next_discovery_at,
-            "randomMiningClaim": random_mining_claim,
-        }
-    )
+    payload = {
+        "claims": claims,
+        "nextDiscoveryAt": next_discovery_at,
+        "nextDiscoveryByKind": snap.get("nextDiscoveryByKind"),
+        "randomMiningClaim": random_mining_claim,
+        "randomFloraClaim": random_flora_claim,
+        "randomFaunaClaim": random_fauna_claim,
+    }
+    if request.user.is_authenticated:
+        payload["mineClaims"] = list(snap.get("mineClaims") or [])
+        payload["floraClaims"] = list(snap.get("floraClaims") or [])
+        payload["faunaClaims"] = list(snap.get("faunaClaims") or [])
+    return JsonResponse(payload)
 
 
 @csrf_exempt
@@ -3272,20 +3279,24 @@ def claims_market_purchase(request):
         return JsonResponse({"ok": False, "message": "Missing siteKey."}, status=400)
 
     from typeclasses.claim_market import (
+        _resolve_resource_site_by_key,
         get_property_listing_for_site_id,
         purchase_property_listing,
         purchase_site_claim_deed,
-        _resolve_mining_site_by_key,
     )
     from typeclasses.economy import get_economy
 
-    site = _resolve_mining_site_by_key(site_key)
+    site = _resolve_resource_site_by_key(site_key)
     if site and get_property_listing_for_site_id(site.id):
         success, msg, claim = purchase_property_listing(buyer, site)
     else:
         success, msg, claim = purchase_site_claim_deed(buyer, site_key)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
 
     econ = get_economy(create_missing=True)
     buyer_credits = econ.get_character_balance(buyer)
@@ -3323,6 +3334,88 @@ def claims_market_purchase_random_mining_claim(request):
     success, msg, claim = purchase_random_mining_claim_deed(buyer)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
+
+    econ = get_economy(create_missing=True)
+    buyer_credits = econ.get_character_balance(buyer)
+
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
+
+    payload = {
+        "ok": True,
+        "message": msg,
+        "buyerCredits": buyer_credits,
+        "dashboard": dash_data,
+    }
+    if claim:
+        payload["claim"] = {"id": claim.id, "key": claim.key}
+    return JsonResponse(payload)
+
+
+@csrf_exempt
+@require_POST
+def claims_market_purchase_random_flora_claim(request):
+    """Buy the standalone random flora claim deed from Mining Outfitters catalog."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    from typeclasses.claim_market import purchase_random_flora_claim_deed
+    from typeclasses.economy import get_economy
+
+    success, msg, claim = purchase_random_flora_claim_deed(buyer)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
+
+    econ = get_economy(create_missing=True)
+    buyer_credits = econ.get_character_balance(buyer)
+
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
+
+    payload = {
+        "ok": True,
+        "message": msg,
+        "buyerCredits": buyer_credits,
+        "dashboard": dash_data,
+    }
+    if claim:
+        payload["claim"] = {"id": claim.id, "key": claim.key}
+    return JsonResponse(payload)
+
+
+@csrf_exempt
+@require_POST
+def claims_market_purchase_random_fauna_claim(request):
+    """Buy the standalone random fauna claim deed from Mining Outfitters catalog."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    from typeclasses.claim_market import purchase_random_fauna_claim_deed
+    from typeclasses.economy import get_economy
+
+    success, msg, claim = purchase_random_fauna_claim_deed(buyer)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
 
     econ = get_economy(create_missing=True)
     buyer_credits = econ.get_character_balance(buyer)
@@ -3470,7 +3563,24 @@ def shop_buy(request):
             status=400,
         )
 
-    if getattr(template.db, "grants_random_claim_only", False):
+    grant_fn = None
+    elite_txt = "Elite Claim"
+    if getattr(template.db, "grants_random_flora_claim_only", False):
+        from typeclasses.claim_utils import grant_random_flora_claim_on_purchase
+
+        grant_fn = grant_random_flora_claim_on_purchase
+        elite_txt = "Elite Flora Claim"
+    elif getattr(template.db, "grants_random_fauna_claim_only", False):
+        from typeclasses.claim_utils import grant_random_fauna_claim_on_purchase
+
+        grant_fn = grant_random_fauna_claim_on_purchase
+        elite_txt = "Elite Fauna Claim"
+    elif getattr(template.db, "grants_random_claim_only", False):
+        from typeclasses.claim_utils import grant_random_claim_on_purchase
+
+        grant_fn = grant_random_claim_on_purchase
+
+    if grant_fn:
         from typeclasses.claim_market import collect_primary_deed_sale, get_primary_deed_broker
 
         broker = get_primary_deed_broker()
@@ -3495,12 +3605,10 @@ def shop_buy(request):
             f"Purchased {template.key} for {price:,} cr. "
             f"Remaining balance: {buyer.db.credits:,} cr."
         )
-        from typeclasses.claim_utils import grant_random_claim_on_purchase
-
-        claim, jackpot = grant_random_claim_on_purchase(buyer)
+        claim, jackpot = grant_fn(buyer)
         if claim:
             if jackpot:
-                message += " ★ JACKPOT! You received an Elite Claim! ★"
+                message += f" ★ JACKPOT! You received an {elite_txt}! ★"
             else:
                 message += f" Random claim: {claim.key}."
         return JsonResponse(
@@ -3525,7 +3633,13 @@ def shop_buy(request):
     new_item.locks.add("get:true();drop:true();give:true()")
     if getattr(template.db, "is_sale_package", False):
         new_item.db.package_tier = getattr(template.db, "package_tier", None) or template.key
-        new_item.tags.add("mining_package", category="mining")
+        pkg_kind = getattr(template.db, "package_kind", None) or "mining"
+        if pkg_kind == "flora":
+            new_item.tags.add("flora_package", category="flora")
+        elif pkg_kind == "fauna":
+            new_item.tags.add("fauna_package", category="fauna")
+        else:
+            new_item.tags.add("mining_package", category="mining")
     new_item.move_to(buyer, quiet=True)
 
     vendor_amount, tax_amount = vendor.record_sale(
@@ -3540,12 +3654,25 @@ def shop_buy(request):
     if getattr(template.db, "is_sale_package", False) and getattr(
         template.db, "includes_random_claim", True
     ):
-        from typeclasses.claim_utils import grant_random_claim_on_purchase
+        pkg_kind = getattr(template.db, "package_kind", None) or "mining"
+        if pkg_kind == "flora":
+            from typeclasses.claim_utils import grant_random_flora_claim_on_purchase
 
-        claim, jackpot = grant_random_claim_on_purchase(buyer)
+            claim, jackpot = grant_random_flora_claim_on_purchase(buyer)
+            elite_txt = "Elite Flora Claim"
+        elif pkg_kind == "fauna":
+            from typeclasses.claim_utils import grant_random_fauna_claim_on_purchase
+
+            claim, jackpot = grant_random_fauna_claim_on_purchase(buyer)
+            elite_txt = "Elite Fauna Claim"
+        else:
+            from typeclasses.claim_utils import grant_random_claim_on_purchase
+
+            claim, jackpot = grant_random_claim_on_purchase(buyer)
+            elite_txt = "Elite Claim"
         if claim:
             if jackpot:
-                message += " ★ JACKPOT! You received an Elite Claim! ★"
+                message += f" ★ JACKPOT! You received an {elite_txt}! ★"
             else:
                 message += f" Random claim: {claim.key}."
 
@@ -3575,38 +3702,10 @@ def mine_claims(request):
     if not request.user.is_authenticated:
         return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
 
-    from evennia import search_tag
+    from world.claims_market_read_model import get_claims_market_snapshot
 
-    from typeclasses.claim_market import site_is_claims_market_listable
-    from typeclasses.mining import _volume_tier, _resource_rarity_tier
-
-    sites = search_tag("mining_site", category="mining")
-    listable = [s for s in sites if site_is_claims_market_listable(s)]
-
-    claims = []
-    for site in listable:
-        room = site.location
-        room_name = room.key if room else "unknown"
-        deposit = site.db.deposit or {}
-        comp = deposit.get("composition", {})
-        families = ", ".join(comp.keys()) if comp else "unknown"
-        richness = float(deposit.get("richness", 0.0))
-        base_tons = float(deposit.get("base_output_tons", 0) or 0)
-        hazard = float(site.db.hazard_level or 0.0)
-        volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-        resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
-        claims.append({
-            "siteKey": site.key,
-            "roomKey": room_name,
-            "resources": families,
-            "richness": richness,
-            "volumeTier": volume_tier,
-            "volumeTierCls": volume_tier_cls,
-            "resourceRarityTier": resource_rarity_tier,
-            "resourceRarityTierCls": resource_rarity_tier_cls,
-            "hazardLevel": hazard,
-        })
-
+    snap = get_claims_market_snapshot()
+    claims = list(snap.get("mineClaims") or [])
     return JsonResponse({"ok": True, "claims": claims})
 
 
@@ -3656,6 +3755,130 @@ def mine_deploy(request):
     success, msg = deploy_package_from_inventory(buyer, package, claim)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
+
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
+    return JsonResponse({
+        "ok": True,
+        "message": msg,
+        "dashboard": dash_data,
+    })
+
+
+@csrf_exempt
+@require_POST
+def mine_deploy_flora(request):
+    """
+    Deploy a flora package from inventory at a FloraClaim.
+    Body: { "packageId": <int>, "claimId": <int> }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    package_id = body.get("packageId")
+    claim_id = body.get("claimId")
+
+    if not package_id:
+        return JsonResponse({"ok": False, "message": "Missing packageId."}, status=400)
+    if not claim_id:
+        return JsonResponse({"ok": False, "message": "Missing claimId."}, status=400)
+
+    try:
+        pid = int(package_id)
+        cid = int(claim_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Invalid packageId or claimId."}, status=400)
+
+    package = None
+    claim = None
+    for obj in buyer.contents:
+        if obj.id == pid and obj.tags.has("flora_package", category="flora"):
+            package = obj
+        if obj.id == cid and obj.tags.has("flora_claim", category="flora"):
+            claim = obj
+    if not package:
+        return JsonResponse({"ok": False, "message": "Flora package not found."}, status=404)
+    if not claim:
+        return JsonResponse({"ok": False, "message": "Flora claim not found."}, status=404)
+
+    from typeclasses.packages import deploy_flora_package_from_inventory
+
+    success, msg = deploy_flora_package_from_inventory(buyer, package, claim)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
+
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
+    return JsonResponse({
+        "ok": True,
+        "message": msg,
+        "dashboard": dash_data,
+    })
+
+
+@csrf_exempt
+@require_POST
+def mine_deploy_fauna(request):
+    """
+    Deploy a fauna package from inventory at a FaunaClaim.
+    Body: { "packageId": <int>, "claimId": <int> }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    package_id = body.get("packageId")
+    claim_id = body.get("claimId")
+
+    if not package_id:
+        return JsonResponse({"ok": False, "message": "Missing packageId."}, status=400)
+    if not claim_id:
+        return JsonResponse({"ok": False, "message": "Missing claimId."}, status=400)
+
+    try:
+        pid = int(package_id)
+        cid = int(claim_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "message": "Invalid packageId or claimId."}, status=400)
+
+    package = None
+    claim = None
+    for obj in buyer.contents:
+        if obj.id == pid and obj.tags.has("fauna_package", category="fauna"):
+            package = obj
+        if obj.id == cid and obj.tags.has("fauna_claim", category="fauna"):
+            claim = obj
+    if not package:
+        return JsonResponse({"ok": False, "message": "Fauna package not found."}, status=404)
+    if not claim:
+        return JsonResponse({"ok": False, "message": "Fauna claim not found."}, status=404)
+
+    from typeclasses.packages import deploy_fauna_package_from_inventory
+
+    success, msg = deploy_fauna_package_from_inventory(buyer, package, claim)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
 
     bundle = _web_refresh_bundle(request)
     dash_data = bundle.get("dashboard", {})
@@ -3715,6 +3938,10 @@ def mine_undeploy(request):
     success, msg, returned = undeploy_mine_to_package(buyer, site)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
 
     bundle = _web_refresh_bundle(request)
     dash_data = bundle.get("dashboard", {})
@@ -3782,6 +4009,10 @@ def mine_reactivate(request):
 
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
 
     bundle = _web_refresh_bundle(request)
     dash_data = bundle.get("dashboard", {})
@@ -3888,6 +4119,10 @@ def claims_market_list_property(request):
     success, msg = list_property_for_sale(buyer, site_id, price)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
 
     bundle = _web_refresh_bundle(request)
     dash_data = bundle.get("dashboard", {})

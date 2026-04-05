@@ -1,55 +1,102 @@
 [
-  {
-    "id": "quarter.district_track_industrial",
-    "cadence": "quarter",
-    "title": "Industrial Colony Veteran",
-    "summary": "Complete at least 10 hauler cycles originating from the Industrial Resource Colony zone this quarter.",
-    "predicateKey": "extraction.district_track",
-    "predicateParams": {"zone_id": "industrial-colony", "min_events": 10},
-    "rewards": {"challengePoints": 200, "credits": 20000, "grantOn": "claim"},
-    "requiresTelemetry": ["hauler_throughput_by_window", "locator_zones_ever"],
-    "enabled": true
-  },
-  {
-    "id": "quarter.district_track_killstar",
-    "cadence": "quarter",
-    "title": "Killstar Operator",
-    "summary": "Complete at least 10 hauler cycles originating from the Killstar Annex zone this quarter.",
-    "predicateKey": "extraction.district_track",
-    "predicateParams": {"zone_id": "killstar-annex", "min_events": 10},
-    "rewards": {"challengePoints": 200, "credits": 20000, "grantOn": "claim"},
-    "requiresTelemetry": ["hauler_throughput_by_window", "locator_zones_ever"],
-    "enabled": true
-  },
-  {
-    "id": "quarter.district_track_meridian",
-    "cadence": "quarter",
-    "title": "Meridian Corridor",
-    "summary": "Complete at least 10 hauler cycles in the Meridian Shipping zone this quarter.",
-    "predicateKey": "extraction.district_track",
-    "predicateParams": {"zone_id": "meridian-shipping", "min_events": 10},
-    "rewards": {"challengePoints": 200, "credits": 20000, "grantOn": "claim"},
-    "requiresTelemetry": ["hauler_throughput_by_window", "locator_zones_ever"],
-    "enabled": true
-  },
-  {
-    "id": "half_year.claim_to_skyline",
-    "cadence": "half_year",
-    "title": "Claim to Skyline",
-    "summary": "Have at least one holding running an operation with at least one structure installed.",
-    "predicateKey": "property.claim_to_skyline",
-    "predicateParams": {"min_structures": 1},
-    "rewards": {"challengePoints": 500, "credits": 50000, "grantOn": "claim"},
-    "enabled": true
-  },
-  {
-    "id": "half_year.pipeline_specialist",
-    "cadence": "half_year",
-    "title": "Extraction Specialist",
-    "summary": "Own and actively operate sites in at least one resource pipeline for six months.",
-    "predicateKey": "extraction.pipeline_specialist",
-    "predicateParams": {"pipeline": "mining"},
-    "rewards": {"challengePoints": 500, "credits": 50000, "grantOn": "claim"},
-    "enabled": true
-  }
+    {
+        "id": "quarter.district_track_industrial",
+        "cadence": "quarter",
+        "title": "Industrial Colony Veteran",
+        "summary": "Complete at least 10 hauler cycles originating from the Industrial Resource Colony zone this quarter.",
+        "predicateKey": "extraction.district_track",
+        "predicateParams": {
+            "zone_id": "industrial-colony",
+            "min_events": 10
+        },
+        "rewards": {
+            "challengePoints": 200,
+            "credits": 20000,
+            "xp": 800,
+            "grantOn": "claim"
+        },
+        "requiresTelemetry": [
+            "hauler_throughput_by_window",
+            "locator_zones_ever"
+        ],
+        "enabled": true
+    },
+    {
+        "id": "quarter.district_track_killstar",
+        "cadence": "quarter",
+        "title": "Killstar Operator",
+        "summary": "Complete at least 10 hauler cycles originating from the Killstar Annex zone this quarter.",
+        "predicateKey": "extraction.district_track",
+        "predicateParams": {
+            "zone_id": "killstar-annex",
+            "min_events": 10
+        },
+        "rewards": {
+            "challengePoints": 200,
+            "credits": 20000,
+            "xp": 800,
+            "grantOn": "claim"
+        },
+        "requiresTelemetry": [
+            "hauler_throughput_by_window",
+            "locator_zones_ever"
+        ],
+        "enabled": true
+    },
+    {
+        "id": "quarter.district_track_meridian",
+        "cadence": "quarter",
+        "title": "Meridian Corridor",
+        "summary": "Complete at least 10 hauler cycles in the Meridian Shipping zone this quarter.",
+        "predicateKey": "extraction.district_track",
+        "predicateParams": {
+            "zone_id": "meridian-shipping",
+            "min_events": 10
+        },
+        "rewards": {
+            "challengePoints": 200,
+            "credits": 20000,
+            "xp": 800,
+            "grantOn": "claim"
+        },
+        "requiresTelemetry": [
+            "hauler_throughput_by_window",
+            "locator_zones_ever"
+        ],
+        "enabled": true
+    },
+    {
+        "id": "half_year.claim_to_skyline",
+        "cadence": "half_year",
+        "title": "Claim to Skyline",
+        "summary": "Have at least one holding running an operation with at least one structure installed.",
+        "predicateKey": "property.claim_to_skyline",
+        "predicateParams": {
+            "min_structures": 1
+        },
+        "rewards": {
+            "challengePoints": 500,
+            "credits": 50000,
+            "xp": 800,
+            "grantOn": "claim"
+        },
+        "enabled": true
+    },
+    {
+        "id": "half_year.pipeline_specialist",
+        "cadence": "half_year",
+        "title": "Extraction Specialist",
+        "summary": "Own and actively operate sites in at least one resource pipeline for six months.",
+        "predicateKey": "extraction.pipeline_specialist",
+        "predicateParams": {
+            "pipeline": "mining"
+        },
+        "rewards": {
+            "challengePoints": 500,
+            "credits": 50000,
+            "xp": 800,
+            "grantOn": "claim"
+        },
+        "enabled": true
+    }
 ]

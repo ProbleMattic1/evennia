@@ -131,26 +131,33 @@ class MissionHandler:
         self._state["morality"] = ledger
 
     def _apply_rewards(self, rewards: dict[str, Any] | None) -> None:
+        """
+        Supported ``rewards`` keys: ``credits`` (economy deposit), ``xp`` (``Character.grant_xp``).
+        """
         if not rewards:
             return
         credits = int(rewards.get("credits") or 0)
-        if credits <= 0:
-            return
-        from world.point_store.perk_resolver import mission_credits_multiplier
+        if credits > 0:
+            from world.point_store.perk_resolver import mission_credits_multiplier
 
-        credits = max(0, int(round(credits * mission_credits_multiplier(self.obj))))
-        if credits <= 0:
-            return
+            credits = max(0, int(round(credits * mission_credits_multiplier(self.obj))))
+            if credits > 0:
+                try:
+                    from typeclasses.economy import get_economy
+
+                    econ = get_economy(create_missing=True)
+                    acct = econ.get_character_account(self.obj)
+                    econ.ensure_account(acct, opening_balance=int(self.obj.db.credits or 0))
+                    econ.deposit(acct, credits, memo="Mission reward")
+                    self.obj.db.credits = econ.get_character_balance(self.obj)
+                except Exception as exc:
+                    logger.log_err(f"[missions] credit reward apply failed for {self.obj.key}: {exc}")
         try:
-            from typeclasses.economy import get_economy
+            from world.progression import apply_reward_xp
 
-            econ = get_economy(create_missing=True)
-            acct = econ.get_character_account(self.obj)
-            econ.ensure_account(acct, opening_balance=int(self.obj.db.credits or 0))
-            econ.deposit(acct, credits, memo="Mission reward")
-            self.obj.db.credits = econ.get_character_balance(self.obj)
+            apply_reward_xp(self.obj, rewards, reason="mission reward")
         except Exception as exc:
-            logger.log_err(f"[missions] reward apply failed for {self.obj.key}: {exc}")
+            logger.log_err(f"[missions] XP reward apply failed for {self.obj.key}: {exc}")
 
     def _eligible_for_template(self, tmpl: dict) -> bool:
         tid = tmpl["id"]
@@ -394,6 +401,10 @@ class MissionHandler:
                         "sourceKey": f"followup:{mission['id']}:{followup_id}",
                     },
                 )
+
+        from world.achievement_hooks import track_mission_completed
+
+        track_mission_completed(self.obj)
 
     def _progress_visit_room(self, room) -> None:
         if not room:

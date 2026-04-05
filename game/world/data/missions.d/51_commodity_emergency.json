@@ -1,0 +1,81 @@
+[
+    {
+        "id": "econ_commodity_emergency_pulse",
+        "title": "Emergency band witness",
+        "summary": "A catalog line hit emergency pricing. Floor clerks want a third-party note before traders spin it into panic.",
+        "missionKind": "mission",
+        "threadId": "economy_station_feed",
+        "storylineId": "commodity_emergency_pulse",
+        "giver": {
+            "kind": "faction",
+            "id": "exchange_clerk",
+            "name": "Sovereign Floor Clerk"
+        },
+        "trigger": {
+            "kind": "alert",
+            "seedIdsAny": [
+                "commodity_emergency_pulse"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 14400,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_promenade",
+                "kind": "visit_room",
+                "text": "Walk the promenade and listen to how traders are pricing the spike.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "emergency_choice",
+                "kind": "choice",
+                "prompt": "You can document the board truthfully, sell a calming lie for credits, or refuse to sign anything.",
+                "choices": [
+                    {
+                        "id": "truth_board",
+                        "label": "Document the board read accurately.",
+                        "outcome": "The file lands dry; volatility stays honest.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 180,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "calm_lie",
+                        "label": "Sell a calming narrative for a fee.",
+                        "outcome": "Credits now; someone pays when reality snaps back.",
+                        "morality": {
+                            "evil": 1,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 320,
+                            "xp": 40
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "decline",
+                        "label": "Decline to put your name on it.",
+                        "outcome": "You vanish from the paper trail.",
+                        "morality": {},
+                        "rewards": {
+                            "credits": 60,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
+        ]
+    }
+]

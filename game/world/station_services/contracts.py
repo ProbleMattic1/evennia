@@ -3,7 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from typeclasses.economy import grant_character_credits
-from typeclasses.station_contracts import get_contracts_script
+from typeclasses.station_contracts import (
+    get_contracts_script,
+    register_station_contract_in_flight,
+    unregister_station_contract_in_flight,
+)
 
 from world.station_services.service_result import StationServiceResult
 
@@ -37,6 +41,7 @@ def handle(character, args: str, extra_switches: tuple[str, ...]) -> str | Stati
             return "You already took that contract."
         active[cid] = {"accepted_at": datetime.now(UTC).isoformat()}
         character.db.station_contracts_active = active
+        register_station_contract_in_flight(cid)
         return StationServiceResult(
             private=(
                 f"You accepted |w{cid}|n: {c['title']}. Complete it in play; payout on success."
@@ -84,8 +89,19 @@ def try_complete_contract(character, predicate_key: str, *, venue_id: str | None
         payout = int(c.get("payout", 0) or 0)
         if payout > 0:
             grant_character_credits(character, payout, memo=f"contract:{cid}")
+        xp_award = int(c.get("xp", 0) or 0)
+        if xp_award > 0:
+            try:
+                from world.progression import apply_reward_xp
+
+                apply_reward_xp(character, {"xp": xp_award}, reason=f"contract:{cid}")
+            except Exception as exc:
+                from evennia.utils import logger
+
+                logger.log_err(f"[contracts] XP reward apply failed for {character.key}: {exc}")
         to_remove.append(cid)
 
     for cid in to_remove:
         active.pop(cid, None)
+        unregister_station_contract_in_flight(cid)
     character.db.station_contracts_active = active

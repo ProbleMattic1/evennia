@@ -35,6 +35,9 @@ HAUL_LOCAL_PLANT_FILL_FRACTION = 0.5
 # Explicit db.haul_local_plant_fill_fraction must match one of these (float compare with epsilon).
 ALLOWED_HAUL_LOCAL_PLANT_FILL_FRACTIONS = frozenset({0.1, 0.25, 0.5, 0.75, 1.0})
 
+import logging
+import os
+import time
 from datetime import UTC, datetime, timedelta
 
 from django.utils import timezone
@@ -46,7 +49,7 @@ from world.time import (
     FLORA_HAULER_PICKUP_OFFSET_SEC,
     HOUR,
     HAULER_ENGINE_INTERVAL_SEC,
-    MAX_HAULERS_PER_ENGINE_TICK,
+    MAX_HAULERS_PER_ENGINE_TICK as _DEFAULT_MAX_HAULERS_PER_ENGINE_TICK,
     MINING_DELIVERY_PERIOD,
     to_iso,
     utc_now,
@@ -54,6 +57,19 @@ from world.time import (
 from evennia.utils import logger
 
 from .scripts import Script
+
+_hauler_step_log = logging.getLogger("hauler_engine.steps")
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        v = int(str(raw).strip(), 10)
+    except ValueError:
+        return default
+    return v if v > 0 else default
 
 
 def effective_haul_local_plant_fill_fraction(owner) -> float:
@@ -83,14 +99,21 @@ def effective_haul_local_plant_fill_fraction(owner) -> float:
     return HAUL_LOCAL_PLANT_FILL_FRACTION
 
 
-HAULER_ENGINE_INTERVAL = HAULER_ENGINE_INTERVAL_SEC
+HAULER_ENGINE_INTERVAL = _env_positive_int(
+    "AURNOM_HAULER_ENGINE_INTERVAL_SEC",
+    int(HAULER_ENGINE_INTERVAL_SEC),
+)
+MAX_HAULERS_PER_ENGINE_TICK = _env_positive_int(
+    "AURNOM_MAX_HAULERS_PER_ENGINE_TICK",
+    _DEFAULT_MAX_HAULERS_PER_ENGINE_TICK,
+)
 HAULER_CYCLE_BASE_HOURS = 4.0  # legacy Mk tier field on packages
 CYCLE_REDUCTION_PER_AUTOMATION = 0.5  # kept for effective_cycle_seconds() compatibility
 CAPACITY_BONUS_PER_EXPANSION = 0.25  # +25% per cargo_expansion level
 
 HAULER_STAGGER_WINDOW_BASE_SEC = 6 * HOUR
 HAULER_STAGGER_WINDOW_MIN_SEC = HOUR
-HAULER_MAX_PIPELINE_STEPS = 32
+HAULER_MAX_PIPELINE_STEPS = _env_positive_int("AURNOM_HAULER_MAX_PIPELINE_STEPS", 32)
 
 HAULER_PICKUP_OFFSET_SEC = MINING_DELIVERY_PERIOD // 2
 
@@ -976,6 +999,7 @@ class HaulerEngine(Script):
     def at_repeat(self, **kwargs):
         from world.hauler_dispatch import delete_hauler_dispatch_row, fetch_due_hauler_ids
 
+        _tick_t0 = time.perf_counter()
         now = _now()
         now_tz = timezone.now()
         due_ids = fetch_due_hauler_ids(now=now_tz, limit=MAX_HAULERS_PER_ENGINE_TICK)
@@ -1021,7 +1045,7 @@ class HaulerEngine(Script):
                     )
                     steps += 1
                     if did_work:
-                        logger.log_info(f"[hauler_engine] {hauler.key}: {msg}")
+                        _hauler_step_log.debug("%s: %s", hauler.key, msg)
                         owner = hauler.db.hauler_owner
                         if owner and hasattr(owner, "sessions") and owner.sessions.count():
                             owner.msg(f"|w[Hauler: {hauler.key}]|n {msg}")
@@ -1037,7 +1061,8 @@ class HaulerEngine(Script):
                 errors += 1
                 logger.log_err(f"[hauler_engine] Error on {getattr(hauler, 'key', '?')}: {err}")
 
+        self.ndb.last_tick_duration_sec = round(time.perf_counter() - _tick_t0, 4)
         logger.log_info(
             f"[hauler_engine] Tick — due_fetched={len(due_ids)} scanned={scanned} "
-            f"step(s)={processed} error(s)={errors}"
+            f"step(s)={processed} error(s)={errors} wall_s={self.ndb.last_tick_duration_sec}"
         )

@@ -11,6 +11,7 @@ import {
   EMPTY_ROOM_AMBIENT,
   getPropertyClaimDetail,
   installPropertyStructure,
+  postPropertyResolveIncident,
   propertyProcessorDeploy,
   propertyWorkshopCollect,
   propertyWorkshopFeed,
@@ -22,6 +23,7 @@ import {
   startPropertyOperation,
   type PropertyClaimDetailState,
   type PropertyHoldingStructure,
+  type PropertyIncidentPreview,
   type PropertyStructureUpgradeCatalogEntry,
 } from "@/lib/ui-api";
 
@@ -84,6 +86,8 @@ export default function PropertyClaimDetailPage() {
   const [processorDeployBusy, setProcessorDeployBusy] = useState(false);
   const [processorDeployErr, setProcessorDeployErr] = useState<string | null>(null);
   const [processorDeployId, setProcessorDeployId] = useState<number | null>(null);
+  const [incidentBusy, setIncidentBusy] = useState(false);
+  const [incidentErr, setIncidentErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(claimId)) {
@@ -112,6 +116,29 @@ export default function PropertyClaimDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const handleResolveIncident = useCallback(
+    async (rawId: PropertyIncidentPreview["id"]) => {
+      if (rawId == null || rawId === "") return;
+      const eventId = String(rawId).trim();
+      if (!eventId) return;
+      setIncidentBusy(true);
+      setIncidentErr(null);
+      try {
+        const res = await postPropertyResolveIncident({ claimId, eventId });
+        if (res.holding) {
+          setData((d) => (d ? { ...d, holding: res.holding! } : d));
+        } else {
+          await load();
+        }
+      } catch (e) {
+        setIncidentErr(e instanceof Error ? e.message : "Could not resolve incident.");
+      } finally {
+        setIncidentBusy(false);
+      }
+    },
+    [claimId, load],
+  );
 
   useEffect(() => {
     const rows = data?.portableProcessorsCarried ?? [];
@@ -934,12 +961,44 @@ export default function PropertyClaimDetailPage() {
                 ) : null}
 
                 {holding.eventQueuePreview.length > 0 ? (
-                  <details className="text-xs text-ui-muted">
-                    <summary className="cursor-pointer font-mono">Event preview</summary>
-                    <pre className="mt-1 max-h-40 overflow-auto rounded bg-zinc-100 p-2 dark:bg-zinc-950">
-                      {JSON.stringify(holding.eventQueuePreview, null, 2)}
-                    </pre>
-                  </details>
+                  <div className="mt-2 border-t border-zinc-100 pt-3 dark:border-cyan-900/40">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ui-muted">
+                      Incidents & events ({holding.eventQueueLength} queued)
+                    </p>
+                    {incidentErr ? (
+                      <p className="mt-1 font-mono text-xs text-red-600 dark:text-red-400">{incidentErr}</p>
+                    ) : null}
+                    <ul className="mt-2 space-y-2">
+                      {holding.eventQueuePreview.map((ev) => (
+                        <li
+                          key={`${String(ev.id ?? "")}-${ev.createdAt ?? ""}-${ev.title}`}
+                          className="rounded border border-zinc-200 bg-zinc-50 p-2 dark:border-cyan-900/50 dark:bg-zinc-950/80"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-mono text-xs font-semibold text-foreground">{ev.title}</p>
+                              <p className="mt-0.5 text-xs text-ui-muted">{ev.summary || "—"}</p>
+                              <p className="mt-1 font-mono text-[10px] text-ui-muted">
+                                {ev.severity}
+                                {ev.dueAt ? ` · due ${ev.dueAt}` : ""}
+                                {ev.resolved ? " · resolved" : ""}
+                              </p>
+                            </div>
+                            {data.isOwner && !ev.resolved && ev.id != null && String(ev.id).trim() !== "" ? (
+                              <button
+                                type="button"
+                                disabled={incidentBusy}
+                                onClick={() => void handleResolveIncident(ev.id)}
+                                className="shrink-0 rounded border border-cyan-800/60 px-2 py-1 text-xs text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
+                              >
+                                {incidentBusy ? "…" : "Resolve"}
+                              </button>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
 
                 {(holding.buildCatalog?.length ?? 0) > 0 ? (

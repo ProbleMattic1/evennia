@@ -1,248 +1,332 @@
 [
-  {
-    "id": "main_arc_duplicate_glyph",
-    "title": "The Duplicate Glyph",
-    "summary": "Mira Okonkwo’s parcel thread stops being a rumor and becomes a line someone will kill to cut. You can punch through, talk your way clear, or let the guide’s security map do the work.",
-    "questKind": "main",
-    "storylineId": "main_station_seals",
-    "threadId": "glyph_parcel_spine",
-    "version": 1,
-    "trigger": { "kind": "room", "roomKeysAny": ["NanoMegaPlex Promenade"] },
-    "prerequisites": { "completedQuestIdsAny": [], "flagsAll": [] },
-    "eligibility": { "once": true, "maxActive": 1 },
-    "rewards": { "credits": 320 },
-    "unlockQuestIds": [],
-    "objectives": [
-      {
-        "id": "hear_mira",
-        "kind": "interaction",
-        "text": "Mira Okonkwo is holding a manifest that does not match the seal. Ask her what she is afraid of.",
-        "interactionKeysAny": ["parcel:commuter"]
-      },
-      {
-        "id": "trace_supply",
-        "kind": "visit_room",
-        "text": "Follow the trace to Aurnom General Supply — the clerk’s bay log is where duplicate glyphs usually appear.",
-        "roomKeysAny": ["Aurnom General Supply"]
-      },
-      {
-        "id": "pressure_clerk",
-        "kind": "interaction",
-        "text": "Ask the supply clerk what the holding bay shows. Listen for the name they almost say.",
-        "interactionKeysAny": ["parcel:supply_clerk"]
-      },
-      {
-        "id": "promenade_pressure",
-        "kind": "resolve_situation",
-        "text": "Someone steps out of the tourist flow to collect the rumor you just dug up. Fight if you must; otherwise lean on security channels, or let transit law language cool them down.",
-        "paths": [
-          {
-            "via": "signal",
-            "signal": "combat_victory",
-            "completionKey": "cut_through",
-            "match": { "encounter_id": "main_glyph_promenade_pressure" }
-          },
-          {
-            "via": "interaction",
-            "completionKey": "security_channels",
-            "interactionKeysAny": ["askguide:security"]
-          },
-          {
-            "via": "interaction",
-            "completionKey": "transit_law_calm",
-            "interactionKeysAny": ["askguide:transit"]
-          }
+    {
+        "id": "main_arc_duplicate_glyph",
+        "title": "The Duplicate Glyph",
+        "summary": "Mira Okonkwo\u2019s parcel thread stops being a rumor and becomes a line someone will kill to cut. You can punch through, talk your way clear, or let the guide\u2019s security map do the work.",
+        "questKind": "main",
+        "storylineId": "main_station_seals",
+        "threadId": "glyph_parcel_spine",
+        "version": 1,
+        "trigger": {
+            "kind": "room",
+            "roomKeysAny": [
+                "NanoMegaPlex Promenade"
+            ]
+        },
+        "prerequisites": {
+            "completedQuestIdsAny": [],
+            "flagsAll": []
+        },
+        "eligibility": {
+            "once": true,
+            "maxActive": 1
+        },
+        "rewards": {
+            "credits": 320,
+            "xp": 40
+        },
+        "unlockQuestIds": [],
+        "objectives": [
+            {
+                "id": "hear_mira",
+                "kind": "interaction",
+                "text": "Mira Okonkwo is holding a manifest that does not match the seal. Ask her what she is afraid of.",
+                "interactionKeysAny": [
+                    "parcel:commuter"
+                ]
+            },
+            {
+                "id": "trace_supply",
+                "kind": "visit_room",
+                "text": "Follow the trace to Aurnom General Supply \u2014 the clerk\u2019s bay log is where duplicate glyphs usually appear.",
+                "roomKeysAny": [
+                    "Aurnom General Supply"
+                ]
+            },
+            {
+                "id": "pressure_clerk",
+                "kind": "interaction",
+                "text": "Ask the supply clerk what the holding bay shows. Listen for the name they almost say.",
+                "interactionKeysAny": [
+                    "parcel:supply_clerk"
+                ]
+            },
+            {
+                "id": "promenade_pressure",
+                "kind": "resolve_situation",
+                "text": "Someone steps out of the tourist flow to collect the rumor you just dug up. Fight if you must; otherwise lean on security channels, or let transit law language cool them down.",
+                "paths": [
+                    {
+                        "via": "signal",
+                        "signal": "combat_victory",
+                        "completionKey": "cut_through",
+                        "match": {
+                            "encounter_id": "main_glyph_promenade_pressure"
+                        }
+                    },
+                    {
+                        "via": "interaction",
+                        "completionKey": "security_channels",
+                        "interactionKeysAny": [
+                            "askguide:security"
+                        ]
+                    },
+                    {
+                        "via": "interaction",
+                        "completionKey": "transit_law_calm",
+                        "interactionKeysAny": [
+                            "askguide:transit"
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "dock_read",
+                "kind": "visit_room",
+                "text": "The civilian shipyard boards list which berth is pretending to be empty. Walk the lane and confirm the posted arrival story.",
+                "roomKeysAny": [
+                    "Meridian Civil Shipyard"
+                ]
+            },
+            {
+                "id": "glyph_finale",
+                "kind": "choice",
+                "prompt": "You can hand security a clean chain-of-custody note that burns Mira\u2019s upstream forgeries \u2014 or sell the forged seal pattern to the first broker who pays before the sweep lands.",
+                "choices": [
+                    {
+                        "id": "file_clean_chain",
+                        "label": "File the clean chain; let the forgeries die in daylight.",
+                        "outcome": "Screens update; Mira breathes like someone returned gravity. The station owes you a favor it will not put in writing.",
+                        "completeQuest": true
+                    },
+                    {
+                        "id": "auction_seal_pattern",
+                        "label": "Auction the seal pattern; vanish before the advisory widens.",
+                        "outcome": "Credits land hot. Somewhere on the promenade, a new pouch will ship with the wrong glyph \u2014 and your name will be on someone\u2019s private list.",
+                        "completeQuest": true
+                    }
+                ]
+            }
         ]
-      },
-      {
-        "id": "dock_read",
-        "kind": "visit_room",
-        "text": "The civilian shipyard boards list which berth is pretending to be empty. Walk the lane and confirm the posted arrival story.",
-        "roomKeysAny": ["Meridian Civil Shipyard"]
-      },
-      {
-        "id": "glyph_finale",
-        "kind": "choice",
-        "prompt": "You can hand security a clean chain-of-custody note that burns Mira’s upstream forgeries — or sell the forged seal pattern to the first broker who pays before the sweep lands.",
-        "choices": [
-          {
-            "id": "file_clean_chain",
-            "label": "File the clean chain; let the forgeries die in daylight.",
-            "outcome": "Screens update; Mira breathes like someone returned gravity. The station owes you a favor it will not put in writing.",
-            "completeQuest": true
-          },
-          {
-            "id": "auction_seal_pattern",
-            "label": "Auction the seal pattern; vanish before the advisory widens.",
-            "outcome": "Credits land hot. Somewhere on the promenade, a new pouch will ship with the wrong glyph — and your name will be on someone’s private list.",
-            "completeQuest": true
-          }
+    },
+    {
+        "id": "main_arc_file_and_field",
+        "title": "The File and the Field",
+        "summary": "Realty paperwork and a mining survey disagree on the same parcel boundary. Procurement noise at the plant turns a spreadsheet argument into a public hazard \u2014 unless you doctor the story.",
+        "questKind": "main",
+        "storylineId": "main_station_seals",
+        "threadId": "vein_realty_spine",
+        "version": 1,
+        "trigger": {
+            "kind": "room",
+            "roomKeysAny": [
+                "NanoMegaPlex Real Estate Office"
+            ]
+        },
+        "prerequisites": {
+            "completedQuestIdsAny": [],
+            "flagsAll": []
+        },
+        "eligibility": {
+            "once": true,
+            "maxActive": 1
+        },
+        "rewards": {
+            "credits": 340,
+            "xp": 42
+        },
+        "unlockQuestIds": [],
+        "objectives": [
+            {
+                "id": "read_file",
+                "kind": "visit_room",
+                "text": "Sit with the file in the real estate office until the boundary error stops looking like a typo.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Real Estate Office"
+                ]
+            },
+            {
+                "id": "field_truth",
+                "kind": "visit_room",
+                "text": "Walk the contested edge where miners actually swing picks \u2014 Mining Outfitters\u2019 survey desk is the honest ground truth.",
+                "roomKeysAny": [
+                    "Aurnom Mining Outfitters"
+                ]
+            },
+            {
+                "id": "run_numbers",
+                "kind": "interaction",
+                "text": "Run the survey rig and compare tonnage lines to the deed overlay.",
+                "interactionKeysAny": [
+                    "survey"
+                ]
+            },
+            {
+                "id": "plant_temperature",
+                "kind": "visit_room",
+                "text": "Procurement at the Ore Processing Plant is where rumors become contract language. Be there when the board refreshes.",
+                "roomKeysAny": [
+                    "Aurnom Ore Processing Plant"
+                ]
+            },
+            {
+                "id": "board_or_blood",
+                "kind": "resolve_situation",
+                "text": "Independent haulers corner you with a loaded question: is the plant lying about backlog? You can fight free of the shakedown, pull the live board for truth, or ask the guide how property disputes usually get \u201chandled\u201d on-station.",
+                "paths": [
+                    {
+                        "via": "signal",
+                        "signal": "combat_victory",
+                        "completionKey": "broke_the_corner",
+                        "match": {
+                            "encounter_id": "main_vein_plant_shakedown"
+                        }
+                    },
+                    {
+                        "via": "interaction",
+                        "completionKey": "pulled_the_board",
+                        "interactionKeysAny": [
+                            "contractboard"
+                        ]
+                    },
+                    {
+                        "via": "interaction",
+                        "completionKey": "property_wisdom",
+                        "interactionKeysAny": [
+                            "askguide:property"
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "close_the_loop",
+                "kind": "choice",
+                "prompt": "You can align the public record with the survey \u2014 or align the survey with the payout.",
+                "choices": [
+                    {
+                        "id": "align_public_record",
+                        "label": "Disclose the mismatch; force a clean correction.",
+                        "outcome": "Margins scream; sleep improves. The office stamps a revision that will outlive this quarter\u2019s panic.",
+                        "completeQuest": true
+                    },
+                    {
+                        "id": "align_the_payout",
+                        "label": "Forge quiet agreement between file and field for a fee.",
+                        "outcome": "The map lies flat. The people standing on the wrong side of the line will discover that later \u2014 without your name on the cover page.",
+                        "completeQuest": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "main_arc_file_and_field",
-    "title": "The File and the Field",
-    "summary": "Realty paperwork and a mining survey disagree on the same parcel boundary. Procurement noise at the plant turns a spreadsheet argument into a public hazard — unless you doctor the story.",
-    "questKind": "main",
-    "storylineId": "main_station_seals",
-    "threadId": "vein_realty_spine",
-    "version": 1,
-    "trigger": { "kind": "room", "roomKeysAny": ["NanoMegaPlex Real Estate Office"] },
-    "prerequisites": { "completedQuestIdsAny": [], "flagsAll": [] },
-    "eligibility": { "once": true, "maxActive": 1 },
-    "rewards": { "credits": 340 },
-    "unlockQuestIds": [],
-    "objectives": [
-      {
-        "id": "read_file",
-        "kind": "visit_room",
-        "text": "Sit with the file in the real estate office until the boundary error stops looking like a typo.",
-        "roomKeysAny": ["NanoMegaPlex Real Estate Office"]
-      },
-      {
-        "id": "field_truth",
-        "kind": "visit_room",
-        "text": "Walk the contested edge where miners actually swing picks — Mining Outfitters’ survey desk is the honest ground truth.",
-        "roomKeysAny": ["Aurnom Mining Outfitters"]
-      },
-      {
-        "id": "run_numbers",
-        "kind": "interaction",
-        "text": "Run the survey rig and compare tonnage lines to the deed overlay.",
-        "interactionKeysAny": ["survey"]
-      },
-      {
-        "id": "plant_temperature",
-        "kind": "visit_room",
-        "text": "Procurement at the Ore Processing Plant is where rumors become contract language. Be there when the board refreshes.",
-        "roomKeysAny": ["Aurnom Ore Processing Plant"]
-      },
-      {
-        "id": "board_or_blood",
-        "kind": "resolve_situation",
-        "text": "Independent haulers corner you with a loaded question: is the plant lying about backlog? You can fight free of the shakedown, pull the live board for truth, or ask the guide how property disputes usually get “handled” on-station.",
-        "paths": [
-          {
-            "via": "signal",
-            "signal": "combat_victory",
-            "completionKey": "broke_the_corner",
-            "match": { "encounter_id": "main_vein_plant_shakedown" }
-          },
-          {
-            "via": "interaction",
-            "completionKey": "pulled_the_board",
-            "interactionKeysAny": ["contractboard"]
-          },
-          {
-            "via": "interaction",
-            "completionKey": "property_wisdom",
-            "interactionKeysAny": ["askguide:property"]
-          }
+    },
+    {
+        "id": "main_arc_frontier_cord",
+        "title": "The Frontier Cord",
+        "summary": "The transit shell\u2019s kiosk still thinks you are a tourist. The promenade thinks you are revenue. Somewhere between is a cord of favors \u2014 or a fight you did not schedule.",
+        "questKind": "main",
+        "storylineId": "main_frontier_core",
+        "threadId": "cord_shell_spine",
+        "version": 1,
+        "trigger": {
+            "kind": "room",
+            "roomKeysAny": [
+                "Frontier Transit Shell"
+            ]
+        },
+        "prerequisites": {
+            "completedQuestIdsAny": [],
+            "flagsAll": []
+        },
+        "eligibility": {
+            "once": true,
+            "maxActive": 1
+        },
+        "rewards": {
+            "credits": 300,
+            "xp": 37
+        },
+        "unlockQuestIds": [],
+        "objectives": [
+            {
+                "id": "kiosk_briefing",
+                "kind": "interaction",
+                "text": "Pull the frontier kiosk brief \u2014 what it omits is usually the story.",
+                "interactionKeysAny": [
+                    "frontier:kiosk"
+                ]
+            },
+            {
+                "id": "core_floor",
+                "kind": "visit_room",
+                "text": "Step onto the NanoMegaPlex Promenade until the station\u2019s gravity feels like policy instead of physics.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "crowd_math",
+                "kind": "interaction",
+                "text": "Ask Mira what changed on the promenade routes since the shell started running ghost manifests.",
+                "interactionKeysAny": [
+                    "parcel:commuter"
+                ]
+            },
+            {
+                "id": "shell_pressure",
+                "kind": "resolve_situation",
+                "text": "A fixer claims you owe a routing tax between shell and core. Fight, buy time with transit law, or let security rhetoric scare them off.",
+                "paths": [
+                    {
+                        "via": "signal",
+                        "signal": "combat_victory",
+                        "completionKey": "tax_revoked",
+                        "match": {
+                            "encounter_id": "main_cord_routing_shakedown"
+                        }
+                    },
+                    {
+                        "via": "interaction",
+                        "completionKey": "transit_paragraph",
+                        "interactionKeysAny": [
+                            "askguide:transit"
+                        ]
+                    },
+                    {
+                        "via": "interaction",
+                        "completionKey": "security_echo",
+                        "interactionKeysAny": [
+                            "askguide:security"
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "supply_anchor",
+                "kind": "visit_room",
+                "text": "General Supply is where shell rumors become crates. Confirm what is actually moving.",
+                "roomKeysAny": [
+                    "Aurnom General Supply"
+                ]
+            },
+            {
+                "id": "cord_finale",
+                "kind": "choice",
+                "prompt": "You can stitch the shell and the core with a truthful advisory \u2014 or sell a panic map that makes your cut before the corridor locks down.",
+                "choices": [
+                    {
+                        "id": "truth_advisory",
+                        "label": "Publish a truthful advisory through the channels you trust.",
+                        "outcome": "Traffic evens; profits dip; the station remembers you as someone who chose breath over margin.",
+                        "completeQuest": true
+                    },
+                    {
+                        "id": "panic_map",
+                        "label": "Sell a panic map to the first buyer with heavy pockets.",
+                        "outcome": "The corridor seizes; your account does not. The kiosk will call you a tourist again \u2014 and mean something worse.",
+                        "completeQuest": true
+                    }
+                ]
+            }
         ]
-      },
-      {
-        "id": "close_the_loop",
-        "kind": "choice",
-        "prompt": "You can align the public record with the survey — or align the survey with the payout.",
-        "choices": [
-          {
-            "id": "align_public_record",
-            "label": "Disclose the mismatch; force a clean correction.",
-            "outcome": "Margins scream; sleep improves. The office stamps a revision that will outlive this quarter’s panic.",
-            "completeQuest": true
-          },
-          {
-            "id": "align_the_payout",
-            "label": "Forge quiet agreement between file and field for a fee.",
-            "outcome": "The map lies flat. The people standing on the wrong side of the line will discover that later — without your name on the cover page.",
-            "completeQuest": true
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "main_arc_frontier_cord",
-    "title": "The Frontier Cord",
-    "summary": "The transit shell’s kiosk still thinks you are a tourist. The promenade thinks you are revenue. Somewhere between is a cord of favors — or a fight you did not schedule.",
-    "questKind": "main",
-    "storylineId": "main_frontier_core",
-    "threadId": "cord_shell_spine",
-    "version": 1,
-    "trigger": { "kind": "room", "roomKeysAny": ["Frontier Transit Shell"] },
-    "prerequisites": { "completedQuestIdsAny": [], "flagsAll": [] },
-    "eligibility": { "once": true, "maxActive": 1 },
-    "rewards": { "credits": 300 },
-    "unlockQuestIds": [],
-    "objectives": [
-      {
-        "id": "kiosk_briefing",
-        "kind": "interaction",
-        "text": "Pull the frontier kiosk brief — what it omits is usually the story.",
-        "interactionKeysAny": ["frontier:kiosk"]
-      },
-      {
-        "id": "core_floor",
-        "kind": "visit_room",
-        "text": "Step onto the NanoMegaPlex Promenade until the station’s gravity feels like policy instead of physics.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "crowd_math",
-        "kind": "interaction",
-        "text": "Ask Mira what changed on the promenade routes since the shell started running ghost manifests.",
-        "interactionKeysAny": ["parcel:commuter"]
-      },
-      {
-        "id": "shell_pressure",
-        "kind": "resolve_situation",
-        "text": "A fixer claims you owe a routing tax between shell and core. Fight, buy time with transit law, or let security rhetoric scare them off.",
-        "paths": [
-          {
-            "via": "signal",
-            "signal": "combat_victory",
-            "completionKey": "tax_revoked",
-            "match": { "encounter_id": "main_cord_routing_shakedown" }
-          },
-          {
-            "via": "interaction",
-            "completionKey": "transit_paragraph",
-            "interactionKeysAny": ["askguide:transit"]
-          },
-          {
-            "via": "interaction",
-            "completionKey": "security_echo",
-            "interactionKeysAny": ["askguide:security"]
-          }
-        ]
-      },
-      {
-        "id": "supply_anchor",
-        "kind": "visit_room",
-        "text": "General Supply is where shell rumors become crates. Confirm what is actually moving.",
-        "roomKeysAny": ["Aurnom General Supply"]
-      },
-      {
-        "id": "cord_finale",
-        "kind": "choice",
-        "prompt": "You can stitch the shell and the core with a truthful advisory — or sell a panic map that makes your cut before the corridor locks down.",
-        "choices": [
-          {
-            "id": "truth_advisory",
-            "label": "Publish a truthful advisory through the channels you trust.",
-            "outcome": "Traffic evens; profits dip; the station remembers you as someone who chose breath over margin.",
-            "completeQuest": true
-          },
-          {
-            "id": "panic_map",
-            "label": "Sell a panic map to the first buyer with heavy pockets.",
-            "outcome": "The corridor seizes; your account does not. The kiosk will call you a tourist again — and mean something worse.",
-            "completeQuest": true
-          }
-        ]
-      }
-    ]
-  }
+    }
 ]

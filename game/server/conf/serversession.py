@@ -21,12 +21,12 @@ settings file:
 
 """
 
-from evennia.server.serversession import ServerSession as BaseServerSession
+from evennia.contrib.utils.auditing.server import AuditedServerSession
 
 from world.web_stream import normalize_web_stream_meta
 
 
-class ServerSession(BaseServerSession):
+class ServerSession(AuditedServerSession):
     """
     This class represents a player's session and is a template for
     individual protocols to communicate with Evennia.

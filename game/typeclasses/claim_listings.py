@@ -1,5 +1,5 @@
 """
-Player-listed mining claim deeds (inventory resale), per venue hub escrow.
+Player-listed resource claim deeds (mining / flora / fauna), per venue hub escrow.
 
 Script db.listings = [{"claim_id": int, "seller_id": int, "price": int}, ...]
 """
@@ -67,9 +67,39 @@ def claim_is_publicly_listed(claim):
     )
 
 
+def _claim_kind_from_obj(obj):
+    if obj.tags.has("mining_claim", category="mining"):
+        return "mining"
+    if obj.tags.has("flora_claim", category="flora"):
+        return "flora"
+    if obj.tags.has("fauna_claim", category="fauna"):
+        return "fauna"
+    return None
+
+
+def _find_tradable_claim_in_inventory(seller, cid):
+    for obj in seller.contents:
+        if obj.id != cid:
+            continue
+        k = _claim_kind_from_obj(obj)
+        if k:
+            return obj, k
+    return None, None
+
+
+def _find_tradable_claim_in_container(container, cid):
+    for obj in container.contents:
+        if obj.id != cid:
+            continue
+        k = _claim_kind_from_obj(obj)
+        if k:
+            return obj, k
+    return None, None
+
+
 def list_claim_for_sale(seller, claim_id, price):
     """
-    List a MiningClaim from seller's inventory. Moves claim to escrow container.
+    List a mining, flora, or fauna claim deed from seller inventory into escrow.
     Returns (success: bool, message: str).
     """
     from world.venue_resolve import venue_id_for_object
@@ -88,13 +118,9 @@ def list_claim_for_sale(seller, claim_id, price):
     if price < 0:
         return False, "Invalid price."
 
-    claim = None
-    for obj in seller.contents:
-        if obj.id == cid and obj.tags.has("mining_claim", category="mining"):
-            claim = obj
-            break
+    claim, _kind = _find_tradable_claim_in_inventory(seller, cid)
     if not claim:
-        return False, "You do not have that mining claim in your inventory."
+        return False, "You do not have that claim deed in your inventory."
 
     site = getattr(claim.db, "site_ref", None)
     if not site or not hasattr(site, "db"):
@@ -123,7 +149,9 @@ def list_claim_for_sale(seller, claim_id, price):
 
 
 def _rows_for_venue(venue_id: str):
-    from typeclasses.mining import _resource_rarity_tier, _volume_tier
+    from typeclasses.claim_market import claims_market_site_kind
+    from typeclasses.mining import _volume_tier
+    from world.mining_site_metrics import _resource_rarity_tier_multi_catalog
 
     script = get_claim_listings_script(venue_id, create_missing=False)
     container = _container_for_venue(venue_id)
@@ -138,11 +166,7 @@ def _rows_for_venue(venue_id: str):
         cid = ent.get("claim_id")
         seller_id = ent.get("seller_id")
         price = int(ent.get("price", 0) or 0)
-        claim = None
-        for obj in container.contents:
-            if obj.id == cid and obj.tags.has("mining_claim", category="mining"):
-                claim = obj
-                break
+        claim, _ck = _find_tradable_claim_in_container(container, cid)
         if not claim:
             continue
 
@@ -167,7 +191,8 @@ def _rows_for_venue(venue_id: str):
         hazard = float(site.db.hazard_level or 0.0)
         base_tons = float(deposit.get("base_output_tons", 0) or 0)
         volume_tier, volume_tier_cls = _volume_tier(richness, base_tons)
-        resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier(comp)
+        resource_rarity_tier, resource_rarity_tier_cls = _resource_rarity_tier_multi_catalog(comp)
+        site_kind = claims_market_site_kind(site)
         if hazard <= 0.20:
             hazard_label = "Low"
         elif hazard <= 0.50:
@@ -195,6 +220,7 @@ def _rows_for_venue(venue_id: str):
             "listingKind": "deed",
             "sellerKey": seller_key,
             "venueId": venue_id,
+            "siteKind": site_kind,
         })
 
     script.db.listings = valid
@@ -224,29 +250,21 @@ def buy_listed_claim(buyer, claim_id):
 
     script = None
     container = None
-    vid_found = None
     for vid in all_venue_ids():
         s = get_claim_listings_script(vid, create_missing=False)
         c = _container_for_venue(vid)
         if not s or not c:
             continue
-        for obj in c.contents:
-            if obj.id == cid and obj.tags.has("mining_claim", category="mining"):
-                script = s
-                container = c
-                vid_found = vid
-                break
-        if script:
+        cl, _k = _find_tradable_claim_in_container(c, cid)
+        if cl:
+            script = s
+            container = c
             break
 
     if not script or not container:
         return False, "Claim listings are not available."
 
-    claim = None
-    for obj in container.contents:
-        if obj.id == cid and obj.tags.has("mining_claim", category="mining"):
-            claim = obj
-            break
+    claim, claim_kind = _find_tradable_claim_in_container(container, cid)
     if not claim:
         return False, "That claim is not for sale or has been sold."
 
@@ -284,13 +302,27 @@ def buy_listed_claim(buyer, claim_id):
     if balance < price:
         return False, f"You need {price:,} cr but only have {balance:,} cr."
 
-    buyer_acct = econ.get_character_account(buyer)
-    seller_acct = econ.get_character_account(seller)
-    econ.ensure_account(buyer_acct, opening_balance=int(buyer.db.credits or 0))
-    econ.ensure_account(seller_acct, opening_balance=int(seller.db.credits or 0))
-    econ.transfer(buyer_acct, seller_acct, price, memo="mining claim sale")
-    buyer.db.credits = econ.get_character_balance(buyer)
-    seller.db.credits = econ.get_character_balance(seller)
+    from typeclasses.claim_market import collect_player_to_player_sale
+
+    tx_labels = {
+        "mining": ("player_mining_claim_sale", "Mining claim purchase (listing)", "Mining claim sale proceeds"),
+        "flora": ("player_flora_claim_sale", "Flora claim purchase (listing)", "Flora claim sale proceeds"),
+        "fauna": ("player_fauna_claim_sale", "Fauna claim purchase (listing)", "Fauna claim sale proceeds"),
+    }
+    tx_type, w_memo, s_memo = tx_labels.get(claim_kind, tx_labels["mining"])
+
+    try:
+        collect_player_to_player_sale(
+            buyer,
+            seller,
+            price,
+            tx_type=tx_type,
+            withdraw_memo=w_memo,
+            seller_deposit_memo=s_memo,
+            memo=f"{buyer.key} bought listed {claim_kind} claim from {seller.key}",
+        )
+    except ValueError:
+        return False, "Insufficient credits."
 
     claim.move_to(buyer)
     script.db.listings = [e for e in listings if e.get("claim_id") != cid]

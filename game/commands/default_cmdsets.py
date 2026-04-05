@@ -3,6 +3,10 @@ Command sets
 """
 
 from evennia import default_cmds
+from evennia.contrib.game_systems import mail
+from evennia.contrib.game_systems.achievements.achievements import CmdAchieve
+from evennia.contrib.game_systems.barter.barter import CmdTrade
+from evennia.contrib.rpg import dice
 
 from commands.chargen_pointbuy import CmdCharCreate, CmdPointBuy
 from commands.banking import CmdBalance, CmdTreasury
@@ -10,6 +14,8 @@ from commands.mining import (
     CmdAvailableClaims,
     CmdClaimSite,
     CmdDeployMine,
+    CmdDeployFlora,
+    CmdDeployFauna,
     CmdCollectOre,
     CmdDeployRig,
     CmdLicenseSite,
@@ -133,6 +139,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdRepairRig())
         self.add(CmdAvailableClaims())
         self.add(CmdDeployMine())
+        self.add(CmdDeployFlora())
+        self.add(CmdDeployFauna())
         self.add(CmdUndeployMine())
         self.add(CmdRefineList())
         self.add(CmdRefineStatus())
@@ -213,6 +221,10 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdFox())
         self.add(CmdKinetic())
         self.add(CmdPDC())
+        self.add(mail.CmdMailCharacter())
+        self.add(CmdAchieve())
+        self.add(CmdTrade())
+        self.add(dice.CmdDice())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
@@ -232,6 +244,10 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
         self.add(CmdChallengeInfo())
         self.add(CmdGrantChallenge())
         self.add(CmdSetChallengeSeason())
+        self.add(mail.CmdMail())
+        from evennia.contrib.base_systems.ingame_reports import ReportsCmdSet
+
+        self.add(ReportsCmdSet)
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

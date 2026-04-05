@@ -19,7 +19,7 @@
       "once": true,
       "maxActive": 1
     },
-    "rewards": {},
+    "rewards": { "xp": 80 },
     "unlockQuestIds": ["main_dock_pressure_02"],
     "objectives": [
       {
@@ -80,7 +80,7 @@
       "once": true,
       "maxActive": 1
     },
-    "rewards": {},
+    "rewards": { "xp": 40 },
     "unlockQuestIds": [],
     "objectives": [
       {

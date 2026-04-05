@@ -1,8 +1,9 @@
 """
-Listed mining-site claim deeds: pricing and purchase for the claims market UI.
+Listed resource-site claim deeds: pricing and purchase for the claims market UI.
 
-Deed purchase grants a MiningClaim in inventory; mine ownership is applied via
-deploy_package_from_inventory / mine/deploy (package + claim).
+Deed purchase grants a MiningClaim, FloraClaim, or FaunaClaim; ownership is applied via
+deploy_package_from_inventory / deploy_flora_package_from_inventory /
+deploy_fauna_package_from_inventory (package + claim).
 """
 
 from evennia import search_object, search_script, search_tag
@@ -105,6 +106,65 @@ def collect_primary_deed_sale(
     return net_amount, tax_amount
 
 
+def collect_player_to_player_sale(
+    buyer,
+    seller,
+    price,
+    *,
+    tx_type="player_listing_sale",
+    memo=None,
+    withdraw_memo=None,
+    seller_deposit_memo=None,
+):
+    """
+    Withdraw ``price`` from buyer; net to seller; tax to alpha-prime treasury.
+    Same split as collect_primary_deed_sale / CatalogVendor.record_sale.
+    Returns (net_amount, tax_amount).
+    """
+    from typeclasses.economy import get_economy
+
+    price = int(price)
+    tax_rate = outfitters_claims_tax_rate()
+    tax_rate = max(0.0, min(1.0, float(tax_rate)))
+    tax_amount = int(round(price * tax_rate))
+    net_amount = price - tax_amount
+
+    econ = get_economy(create_missing=True)
+    player_account = econ.get_character_account(buyer)
+    seller_account = econ.get_character_account(seller)
+    treasury_account = econ.get_treasury_account("alpha-prime")
+
+    econ.ensure_account(player_account, opening_balance=int(buyer.db.credits or 0))
+    econ.ensure_account(seller_account, opening_balance=int(seller.db.credits or 0))
+    econ.ensure_account(treasury_account, opening_balance=int(econ.db.tax_pool or 0))
+
+    w_memo = withdraw_memo or "Player listing purchase"
+    econ.withdraw(player_account, price, memo=w_memo)
+    econ.deposit(seller_account, net_amount, memo=seller_deposit_memo or f"Sale proceeds ({seller.key})")
+    if tax_amount > 0:
+        econ.deposit(treasury_account, tax_amount, memo="Sales tax (player listing)")
+
+    econ.record_transaction(
+        tx_type=tx_type,
+        amount=price,
+        from_account=player_account,
+        to_account=seller_account,
+        memo=memo or f"{buyer.key} player listing purchase from {seller.key}",
+        extra={
+            "tax_amount": tax_amount,
+            "treasury_account": treasury_account,
+            "seller_account": seller_account,
+            "net_to_seller": net_amount,
+        },
+    )
+
+    buyer.db.credits = econ.get_balance(player_account)
+    seller.db.credits = econ.get_balance(seller_account)
+    econ.db.tax_pool = econ.get_balance(treasury_account)
+
+    return net_amount, tax_amount
+
+
 def _get_property_listings_script():
     found = search_script("property_listings")
     return found[0] if found else None
@@ -130,6 +190,27 @@ def get_property_listing_for_site_id(site_id):
     return None
 
 
+def _find_owned_resource_site_by_id(sid):
+    """Return a mining, flora, or fauna site with this id, or None."""
+    for s in search_tag("mining_site", category="mining"):
+        if s.id == sid:
+            return s
+    for s in search_tag("flora_site", category="flora"):
+        if s.id == sid:
+            return s
+    for s in search_tag("fauna_site", category="fauna"):
+        if s.id == sid:
+            return s
+    return None
+
+
+def _site_has_active_operation(site):
+    """True if rigs are installed or (mining) operation flag is active."""
+    if (site.db.rigs or []):
+        return True
+    return bool(getattr(site.db, "mine_operation_active", False))
+
+
 def list_property_for_sale(seller, site_id, price):
     """Release an idle owned site and add a player-priced claims-market listing."""
     try:
@@ -137,17 +218,13 @@ def list_property_for_sale(seller, site_id, price):
     except (TypeError, ValueError):
         return False, "Invalid site id."
 
-    site = None
-    for s in search_tag("mining_site", category="mining"):
-        if s.id == sid:
-            site = s
-            break
+    site = _find_owned_resource_site_by_id(sid)
     if not site:
         return False, "Site not found."
     if not getattr(site.db, "is_claimed", False) or site.db.owner != seller:
-        return False, "You do not own that mining site."
-    if (site.db.rigs or []) or site.db.mine_operation_active:
-        return False, "Undeploy the mine before listing the property."
+        return False, "You do not own that site."
+    if _site_has_active_operation(site):
+        return False, "Undeploy the operation before listing the property."
 
     script = _get_property_listings_script()
     if not script:
@@ -177,10 +254,10 @@ def list_property_for_sale(seller, site_id, price):
 
 def purchase_property_listing(buyer, site):
     """
-    Buyer pays the listed seller; listing removed; MiningClaim granted.
+    Buyer pays the listed seller; listing removed; deed granted for site kind.
     Returns (success, message, claim_or_none).
     """
-    from typeclasses.claim_utils import create_claim_for_site
+    from typeclasses.claim_utils import create_claim_for_resource_site
     from typeclasses.economy import get_economy
 
     if not site:
@@ -223,65 +300,63 @@ def purchase_property_listing(buyer, site):
     if not ok:
         return False, err, None
 
-    buyer_acc = econ.get_character_account(buyer)
-    seller_acc = econ.get_character_account(seller)
-    econ.ensure_account(buyer_acc, opening_balance=int(buyer.db.credits or 0))
-    econ.ensure_account(seller_acc, opening_balance=int(seller.db.credits or 0))
+    if getattr(site.db, "is_claimed", False):
+        return False, "That site is already claimed.", None
+
     try:
-        econ.transfer(buyer_acc, seller_acc, price, memo=f"Property sale: {site.key}")
+        collect_player_to_player_sale(
+            buyer,
+            seller,
+            price,
+            tx_type="player_mining_site_listing_sale",
+            withdraw_memo=f"Property listing purchase ({site.key})",
+            seller_deposit_memo=f"Property sale proceeds ({site.key})",
+            memo=f"{buyer.key} property listing from {seller.key}",
+        )
     except ValueError:
         return False, "Insufficient credits.", None
-    econ.sync_character_balance(buyer)
-    econ.sync_character_balance(seller)
-
-    ok, err = _validate_site_purchasable(site, buyer)
-    if not ok:
-        try:
-            econ.transfer(seller_acc, buyer_acc, price, memo="Rollback property sale")
-            econ.sync_character_balance(buyer)
-            econ.sync_character_balance(seller)
-        except ValueError:
-            pass
-        return False, err, None
 
     listings = [e for e in listings if e.get("site_id") != site.id]
     script.db.listings = listings
 
-    if getattr(site.db, "is_claimed", False):
-        try:
-            econ.transfer(seller_acc, buyer_acc, price, memo="Rollback property sale")
-            econ.sync_character_balance(buyer)
-            econ.sync_character_balance(seller)
-        except ValueError:
-            pass
-        script.db.listings = list(script.db.listings or []) + [ent]
-        return False, "That site is already claimed.", None
-
-    claim = create_claim_for_site(site, buyer, is_jackpot=False)
+    claim = create_claim_for_resource_site(site, buyer, is_jackpot=False)
+    if not claim:
+        return False, "Could not create claim deed for this site.", None
     msg = f"Purchased claim deed {claim.key} for {price:,} cr from {seller.key}."
     return True, msg, claim
 
 
 def _existing_deed_for_site(site):
-    """Another MiningClaim already bound to this site (any owner)."""
+    """Any claim deed (mining / flora / fauna) already bound to this site (any owner)."""
     if not site:
         return None
     sid = site.id
-    for obj in search_tag("mining_claim", category="mining"):
-        ref = getattr(obj.db, "site_ref", None)
-        if ref is None:
-            continue
-        try:
-            if ref.id == sid:
-                return obj
-        except Exception:
-            continue
+    for tag, category in (
+        ("mining_claim", "mining"),
+        ("flora_claim", "flora"),
+        ("fauna_claim", "fauna"),
+    ):
+        for obj in search_tag(tag, category=category):
+            ref = getattr(obj.db, "site_ref", None)
+            if ref is None:
+                continue
+            try:
+                if ref.id == sid:
+                    return obj
+            except Exception:
+                continue
     return None
 
 
 def site_is_claims_market_listable(site):
-    """True if the site may appear on the claims market / mine deploy site list."""
-    if not site or not site.tags.has("mining_site", category="mining"):
+    """True if the site may appear on the claims market for primary deed purchase."""
+    if not site:
+        return False
+    if not (
+        site.tags.has("mining_site", category="mining")
+        or site.tags.has("flora_site", category="flora")
+        or site.tags.has("fauna_site", category="fauna")
+    ):
         return False
     if getattr(site.db, "is_claimed", False):
         return False
@@ -302,6 +377,15 @@ def listing_price_cr(site):
     return resolve_claim_listing_price_cr(site)
 
 
+def claims_market_site_kind(site):
+    """Stable token for UI: mining | flora | fauna."""
+    if site.tags.has("flora_site", category="flora"):
+        return "flora"
+    if site.tags.has("fauna_site", category="fauna"):
+        return "fauna"
+    return "mining"
+
+
 def claims_market_row_extras(site):
     """
     Fields merged into each claims-market JSON row (only listable sites are serialized).
@@ -315,6 +399,7 @@ def claims_market_row_extras(site):
         "purchasable": True,
         "sellerKey": NANOMEGA_REALTY_CHARACTER_KEY,
         "listingKind": "npc",
+        "siteKind": claims_market_site_kind(site),
     }
 
 
@@ -366,8 +451,14 @@ def _refund_claim_deed_purchase(
 
 def _validate_site_purchasable(site, buyer):
     """Return (ok, error_message)."""
-    if not site or not site.tags.has("mining_site", category="mining"):
-        return False, "That is not a valid mining site."
+    if not site:
+        return False, "That is not a valid site."
+    if not (
+        site.tags.has("mining_site", category="mining")
+        or site.tags.has("flora_site", category="flora")
+        or site.tags.has("fauna_site", category="fauna")
+    ):
+        return False, "That is not a valid resource site."
     if getattr(site.db, "is_claimed", False):
         return False, "That site is already claimed."
     existing = _existing_deed_for_site(site)
@@ -378,28 +469,32 @@ def _validate_site_purchasable(site, buyer):
     return True, None
 
 
-def _resolve_mining_site_by_key(site_key):
+def _resolve_resource_site_by_key(site_key):
     key = (site_key or "").strip()
     if not key:
         return None
     for obj in search_object(key):
         if obj.tags.has("mining_site", category="mining"):
             return obj
+        if obj.tags.has("flora_site", category="flora"):
+            return obj
+        if obj.tags.has("fauna_site", category="fauna"):
+            return obj
     return None
 
 
 def purchase_site_claim_deed(buyer, site_key):
     """
-    Charge the buyer and grant a MiningClaim for the listed unclaimed site.
+    Charge the buyer and grant a deed for the listed unclaimed resource site.
 
     Returns (success: bool, message: str, claim_or_none).
     """
-    from typeclasses.claim_utils import create_claim_for_site
+    from typeclasses.claim_utils import create_claim_for_resource_site
     from typeclasses.economy import get_economy
 
-    site = _resolve_mining_site_by_key(site_key)
+    site = _resolve_resource_site_by_key(site_key)
     if not site:
-        return False, f"No mining site matching '{site_key}'.", None
+        return False, f"No claimable site matching '{site_key}'.", None
 
     ok, err = _validate_site_purchasable(site, buyer)
     if not ok:
@@ -486,7 +581,17 @@ def purchase_site_claim_deed(buyer, site_key):
             return False, "You already hold a claim deed for this site.", None
         return False, "This site already has an outstanding claim deed.", None
 
-    claim = create_claim_for_site(site, buyer, is_jackpot=False)
+    claim = create_claim_for_resource_site(site, buyer, is_jackpot=False)
+    if not claim:
+        _refund_claim_deed_purchase(
+            buyer,
+            price,
+            net_amount=net_amount,
+            tax_amount=tax_amount,
+            broker=payment_broker,
+            vendor=payment_vendor,
+        )
+        return False, "Could not create claim deed for this site.", None
     msg = f"Purchased claim deed {claim.key} for {price:,} cr."
     if broker or vendor:
         msg += f" Remaining balance: {econ.get_character_balance(buyer):,} cr."
@@ -588,4 +693,175 @@ def purchase_random_mining_claim_deed(buyer):
             message += " ★ JACKPOT! You received an Elite Claim! ★"
         else:
             message += f" Random claim: {claim.key}."
+    return True, message, claim
+
+
+def _find_random_claim_template(flag_attr):
+    vendor = _get_claims_vendor()
+    if not vendor:
+        return None, None
+    for obj in vendor.get_catalog_items():
+        if getattr(obj.db, "is_template", False) and getattr(obj.db, flag_attr, False):
+            return vendor, obj
+    return None, None
+
+
+def find_random_flora_claim_deed_template():
+    """Return (vendor, template) for the random flora claim catalog item, if any."""
+    return _find_random_claim_template("grants_random_flora_claim_only")
+
+
+def quote_random_flora_claim_deed(buyer=None):
+    from typeclasses.economy import get_economy
+
+    vendor, template = find_random_flora_claim_deed_template()
+    if not vendor or not template:
+        return None
+    room = vendor.location
+    econ = get_economy(create_missing=True)
+    market_type = getattr(vendor.db, "market_type", None) or "normal"
+    price = econ.get_final_price(
+        template,
+        buyer=buyer,
+        location=room,
+        market_type=market_type,
+    )
+    if price is None or int(price) <= 0:
+        return None
+    return {"templateKey": template.key, "priceCr": int(price)}
+
+
+def purchase_random_flora_claim_deed(buyer):
+    from typeclasses.claim_utils import grant_random_flora_claim_on_purchase
+    from typeclasses.economy import get_economy
+
+    vendor, template = find_random_flora_claim_deed_template()
+    if not vendor or not template:
+        return False, "Random flora claim deed is not available.", None
+
+    room = vendor.location
+    econ = get_economy(create_missing=True)
+    market_type = getattr(vendor.db, "market_type", None) or "normal"
+    price = econ.get_final_price(
+        template,
+        buyer=buyer,
+        location=room,
+        market_type=market_type,
+    )
+    if price is None or int(price) <= 0:
+        return False, "Item has no valid price.", None
+
+    price = int(price)
+    credits = econ.get_character_balance(buyer)
+    if credits < price:
+        return False, f"{template.key} costs {price:,} cr. You have {credits:,} cr.", None
+
+    broker = get_primary_deed_broker()
+    if broker:
+        collect_primary_deed_sale(
+            buyer,
+            price,
+            broker,
+            tx_type="catalog_purchase",
+            memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+            withdraw_memo=f"Purchase at {vendor.key}",
+        )
+    else:
+        vendor.record_sale(
+            buyer,
+            price,
+            tx_type="catalog_purchase",
+            memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+        )
+
+    message = (
+        f"Purchased {template.key} for {price:,} cr. "
+        f"Remaining balance: {buyer.db.credits:,} cr."
+    )
+    claim, jackpot = grant_random_flora_claim_on_purchase(buyer)
+    if claim:
+        if jackpot:
+            message += " ★ JACKPOT! You received an Elite Flora Claim! ★"
+        else:
+            message += f" Random flora claim: {claim.key}."
+    return True, message, claim
+
+
+def find_random_fauna_claim_deed_template():
+    return _find_random_claim_template("grants_random_fauna_claim_only")
+
+
+def quote_random_fauna_claim_deed(buyer=None):
+    from typeclasses.economy import get_economy
+
+    vendor, template = find_random_fauna_claim_deed_template()
+    if not vendor or not template:
+        return None
+    room = vendor.location
+    econ = get_economy(create_missing=True)
+    market_type = getattr(vendor.db, "market_type", None) or "normal"
+    price = econ.get_final_price(
+        template,
+        buyer=buyer,
+        location=room,
+        market_type=market_type,
+    )
+    if price is None or int(price) <= 0:
+        return None
+    return {"templateKey": template.key, "priceCr": int(price)}
+
+
+def purchase_random_fauna_claim_deed(buyer):
+    from typeclasses.claim_utils import grant_random_fauna_claim_on_purchase
+    from typeclasses.economy import get_economy
+
+    vendor, template = find_random_fauna_claim_deed_template()
+    if not vendor or not template:
+        return False, "Random fauna claim deed is not available.", None
+
+    room = vendor.location
+    econ = get_economy(create_missing=True)
+    market_type = getattr(vendor.db, "market_type", None) or "normal"
+    price = econ.get_final_price(
+        template,
+        buyer=buyer,
+        location=room,
+        market_type=market_type,
+    )
+    if price is None or int(price) <= 0:
+        return False, "Item has no valid price.", None
+
+    price = int(price)
+    credits = econ.get_character_balance(buyer)
+    if credits < price:
+        return False, f"{template.key} costs {price:,} cr. You have {credits:,} cr.", None
+
+    broker = get_primary_deed_broker()
+    if broker:
+        collect_primary_deed_sale(
+            buyer,
+            price,
+            broker,
+            tx_type="catalog_purchase",
+            memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+            withdraw_memo=f"Purchase at {vendor.key}",
+        )
+    else:
+        vendor.record_sale(
+            buyer,
+            price,
+            tx_type="catalog_purchase",
+            memo=f"{buyer.key} bought {template.key} from {vendor.key}",
+        )
+
+    message = (
+        f"Purchased {template.key} for {price:,} cr. "
+        f"Remaining balance: {buyer.db.credits:,} cr."
+    )
+    claim, jackpot = grant_random_fauna_claim_on_purchase(buyer)
+    if claim:
+        if jackpot:
+            message += " ★ JACKPOT! You received an Elite Fauna Claim! ★"
+        else:
+            message += f" Random fauna claim: {claim.key}."
     return True, message, claim

@@ -212,13 +212,20 @@ def buy_listed_property_deed(buyer, claim_id):
     if balance < price:
         return False, f"You need {price:,} cr but only have {balance:,} cr."
 
-    buyer_acct = econ.get_character_account(buyer)
-    seller_acct = econ.get_character_account(seller)
-    econ.ensure_account(buyer_acct, opening_balance=int(buyer.db.credits or 0))
-    econ.ensure_account(seller_acct, opening_balance=int(seller.db.credits or 0))
-    econ.transfer(buyer_acct, seller_acct, price, memo="property deed sale")
-    buyer.db.credits = econ.get_character_balance(buyer)
-    seller.db.credits = econ.get_character_balance(seller)
+    from typeclasses.claim_market import collect_player_to_player_sale
+
+    try:
+        collect_player_to_player_sale(
+            buyer,
+            seller,
+            price,
+            tx_type="player_property_deed_sale",
+            withdraw_memo="Property deed purchase (listing)",
+            seller_deposit_memo="Property deed sale proceeds",
+            memo=f"{buyer.key} bought listed property deed from {seller.key}",
+        )
+    except ValueError:
+        return False, "Insufficient credits."
 
     lot = getattr(claim.db, "lot_ref", None)
     if lot:

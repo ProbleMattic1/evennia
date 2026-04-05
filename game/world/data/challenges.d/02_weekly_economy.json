@@ -1,13 +1,23 @@
 [
-  {
-    "id": "weekly.tax_contribution",
-    "cadence": "weekly",
-    "title": "Treasury Week",
-    "summary": "Contribute at least 100 cr in taxes through your market activity this week.",
-    "predicateKey": "economy.tax_contribution",
-    "predicateParams": {"min_tax": 100},
-    "rewards": {"challengePoints": 9, "credits": 900, "grantOn": "claim"},
-    "requiresTelemetry": ["vendor_sales_today", "treasury_touches_today"],
-    "enabled": true
-  }
+    {
+        "id": "weekly.tax_contribution",
+        "cadence": "weekly",
+        "title": "Treasury Week",
+        "summary": "Contribute at least 100 cr in taxes through your market activity this week.",
+        "predicateKey": "economy.tax_contribution",
+        "predicateParams": {
+            "min_tax": 100
+        },
+        "rewards": {
+            "challengePoints": 9,
+            "credits": 900,
+            "xp": 112,
+            "grantOn": "claim"
+        },
+        "requiresTelemetry": [
+            "vendor_sales_today",
+            "treasury_touches_today"
+        ],
+        "enabled": true
+    }
 ]

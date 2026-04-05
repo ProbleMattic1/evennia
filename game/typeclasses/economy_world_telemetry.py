@@ -74,8 +74,32 @@ class EconomyWorldTelemetry(Script):
         ) = sum_player_pipeline_breakdown_cr()
         implied_cr_per_hour = int(max(0.0, world_implied_cr_per_sec) * 3600.0)
 
+        from world.econ_automation.sim_metrics import collect_sim_metrics_snapshot
+
+        sim_metrics = collect_sim_metrics_snapshot()
+
+        automation_block: dict = {}
+        try:
+            from evennia import search_script
+
+            found_ctrl = search_script("economy_automation_controller")
+            if found_ctrl:
+                c = found_ctrl[0]
+                hist = list(c.db.rebalance_history or [])
+                automation_block = {
+                    "phase": str(c.db.phase or "stable"),
+                    "globalPriceMultiplier": float(c.db.global_price_multiplier or 1.0),
+                    "globalUpkeepMultiplier": float(c.db.global_upkeep_multiplier or 1.0),
+                    "globalPayoutMultiplier": float(c.db.global_payout_multiplier or 1.0),
+                    "recentHistory": hist[-5:],
+                }
+        except Exception:
+            pass
+
         self.db.snapshot = {
             "computedAtIso": now_iso,
+            "simMetrics": sim_metrics,
+            "automation": automation_block,
             "worldProductionPipeline": {
                 "playerCharacterCount": char_n,
                 "estimatedPipelineTotalCr": world_pipeline_cr,

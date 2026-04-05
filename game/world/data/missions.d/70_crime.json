@@ -1,94 +1,148 @@
 [
-  {
-    "id": "crime_customs_anomaly_runner",
-    "title": "Lane rotation blind spot",
-    "summary": "Someone wants eyes on whether the customs spike is incompetence—or a shaped hole.",
-    "missionKind": "crime",
-    "threadId": "station_crime_feed",
-    "storylineId": "customs_sampling_spike",
-    "giver": { "kind": "faction", "id": "dock_interest", "name": "Interested clerk" },
-    "trigger": { "kind": "crime", "seedIdsAny": ["crime_customs_anomaly_tick"] },
-    "eligibility": { "cooldownSeconds": 21600, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_docks",
-        "kind": "visit_room",
-        "text": "Walk the main dock customs line and watch how holds are routed.",
-        "roomTagsAny": ["dock_public"]
-      },
-      {
-        "id": "decide_tip",
-        "kind": "choice",
-        "prompt": "You can file a straight report, sell a quiet tip to independents, or stay out of it.",
-        "choices": [
-          {
-            "id": "straight_report",
-            "label": "File a straight report with station clerks.",
-            "outcome": "Paperwork closes the loop; lanes tighten.",
-            "morality": { "lawful": 2, "good": 1 },
-            "rewards": { "credits": 100 },
-            "completeMission": true
-          },
-          {
-            "id": "quiet_tip",
-            "label": "Sell a quiet tip about the blind spot.",
-            "outcome": "Credits now; the hole stays open a little longer.",
-            "morality": { "evil": 1, "chaotic": 2 },
-            "rewards": { "credits": 220 },
-            "completeMission": true
-          },
-          {
-            "id": "walk_away",
-            "label": "Walk away—you did not see anything reliable.",
-            "outcome": "The gossip continues without you.",
-            "morality": {},
-            "rewards": { "credits": 40 },
-            "completeMission": true
-          }
+    {
+        "id": "crime_customs_anomaly_runner",
+        "title": "Lane rotation blind spot",
+        "summary": "Someone wants eyes on whether the customs spike is incompetence\u2014or a shaped hole.",
+        "missionKind": "crime",
+        "threadId": "station_crime_feed",
+        "storylineId": "customs_sampling_spike",
+        "giver": {
+            "kind": "faction",
+            "id": "dock_interest",
+            "name": "Interested clerk"
+        },
+        "trigger": {
+            "kind": "crime",
+            "seedIdsAny": [
+                "crime_customs_anomaly_tick"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 21600,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_docks",
+                "kind": "visit_room",
+                "text": "Walk the main dock customs line and watch how holds are routed.",
+                "roomTagsAny": [
+                    "dock_public"
+                ]
+            },
+            {
+                "id": "decide_tip",
+                "kind": "choice",
+                "prompt": "You can file a straight report, sell a quiet tip to independents, or stay out of it.",
+                "choices": [
+                    {
+                        "id": "straight_report",
+                        "label": "File a straight report with station clerks.",
+                        "outcome": "Paperwork closes the loop; lanes tighten.",
+                        "morality": {
+                            "lawful": 2,
+                            "good": 1
+                        },
+                        "rewards": {
+                            "credits": 100,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "quiet_tip",
+                        "label": "Sell a quiet tip about the blind spot.",
+                        "outcome": "Credits now; the hole stays open a little longer.",
+                        "morality": {
+                            "evil": 1,
+                            "chaotic": 2
+                        },
+                        "rewards": {
+                            "credits": 220,
+                            "xp": 27
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "walk_away",
+                        "label": "Walk away\u2014you did not see anything reliable.",
+                        "outcome": "The gossip continues without you.",
+                        "morality": {},
+                        "rewards": {
+                            "credits": 40,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "crime_ledger_discrepancy_audit",
-    "title": "Smoothing desk rumor",
-    "summary": "A reconciliation miss has traders whispering. Audit wants a neutral pair of eyes before they go formal.",
-    "missionKind": "crime",
-    "threadId": "station_crime_feed",
-    "storylineId": "ledger_discrepancy",
-    "giver": { "kind": "faction", "id": "internal_audit", "name": "Internal audit (informal)" },
-    "trigger": { "kind": "crime", "seedIdsAny": ["crime_ledger_discrepancy_strong"] },
-    "eligibility": { "cooldownSeconds": 28800, "maxActive": 1 },
-    "objectives": [
-      {
-        "id": "visit_promenade",
-        "kind": "visit_room",
-        "text": "Listen to floor talk where listings and rumors concentrate.",
-        "roomKeysAny": ["NanoMegaPlex Promenade"]
-      },
-      {
-        "id": "audit_choice",
-        "kind": "choice",
-        "prompt": "You can back the boring explanation, nudge audit toward a specific desk, or decline to sign your name.",
-        "choices": [
-          {
-            "id": "boring_truth",
-            "label": "Back the boring clerical explanation.",
-            "outcome": "The file stays small; volatility cools.",
-            "morality": { "lawful": 2 },
-            "rewards": { "credits": 150 },
-            "completeMission": true
-          },
-          {
-            "id": "aim_audit",
-            "label": "Nudge audit toward the desk that benefits your contacts.",
-            "outcome": "Pressure lands where you pointed; favors trade hands.",
-            "morality": { "evil": 2, "lawful": 1 },
-            "rewards": { "credits": 280 },
-            "completeMission": true
-          }
+    },
+    {
+        "id": "crime_ledger_discrepancy_audit",
+        "title": "Smoothing desk rumor",
+        "summary": "A reconciliation miss has traders whispering. Audit wants a neutral pair of eyes before they go formal.",
+        "missionKind": "crime",
+        "threadId": "station_crime_feed",
+        "storylineId": "ledger_discrepancy",
+        "giver": {
+            "kind": "faction",
+            "id": "internal_audit",
+            "name": "Internal audit (informal)"
+        },
+        "trigger": {
+            "kind": "crime",
+            "seedIdsAny": [
+                "crime_ledger_discrepancy_strong"
+            ]
+        },
+        "eligibility": {
+            "cooldownSeconds": 28800,
+            "maxActive": 1
+        },
+        "objectives": [
+            {
+                "id": "visit_promenade",
+                "kind": "visit_room",
+                "text": "Listen to floor talk where listings and rumors concentrate.",
+                "roomKeysAny": [
+                    "NanoMegaPlex Promenade"
+                ]
+            },
+            {
+                "id": "audit_choice",
+                "kind": "choice",
+                "prompt": "You can back the boring explanation, nudge audit toward a specific desk, or decline to sign your name.",
+                "choices": [
+                    {
+                        "id": "boring_truth",
+                        "label": "Back the boring clerical explanation.",
+                        "outcome": "The file stays small; volatility cools.",
+                        "morality": {
+                            "lawful": 2
+                        },
+                        "rewards": {
+                            "credits": 150,
+                            "xp": 25
+                        },
+                        "completeMission": true
+                    },
+                    {
+                        "id": "aim_audit",
+                        "label": "Nudge audit toward the desk that benefits your contacts.",
+                        "outcome": "Pressure lands where you pointed; favors trade hands.",
+                        "morality": {
+                            "evil": 2,
+                            "lawful": 1
+                        },
+                        "rewards": {
+                            "credits": 280,
+                            "xp": 35
+                        },
+                        "completeMission": true
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  }
+    }
 ]

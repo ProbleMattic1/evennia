@@ -2,6 +2,12 @@
 In-character time helpers (Evennia ``evennia.utils.gametime``).
 
 Configure ``TIME_GAME_EPOCH`` and ``TIME_FACTOR`` in ``server.conf.settings``.
+
+**Two clocks (intentional):**
+- **In-character** narrative time: this module and ``WorldClockScript`` / world engines.
+- **Wall / grid UTC** for industry schedules (mining windows, hauler dispatch): ``world.time``
+  (``utc_now``, epoch-aligned periods). Do not replace those with gametime; they are separate
+  contracts already documented there.
 """
 
 from __future__ import annotations

@@ -1,6 +1,7 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
+from . import contrib_web
 from . import views
 from . import staff_room_billboard
 from . import world_graph
@@ -25,6 +26,15 @@ urlpatterns = [
         name="ui-play-go-to-refinery",
     ),
     path("play/interact", views.play_interact, name="ui-play-interact"),
+    path("play/roll", contrib_web.ui_play_roll, name="ui-play-roll"),
+    path("mail", contrib_web.ui_mail_list, name="ui-mail"),
+    path("mail/send", contrib_web.ui_mail_send, name="ui-mail-send"),
+    path("mail/delete", contrib_web.ui_mail_delete, name="ui-mail-delete"),
+    path("reports/bug", contrib_web.ui_reports_bug, name="ui-reports-bug"),
+    path("reports/idea", contrib_web.ui_reports_idea, name="ui-reports-idea"),
+    path("reports/player", contrib_web.ui_reports_player, name="ui-reports-player"),
+    path("staff/reports", contrib_web.ui_staff_reports_list, name="ui-staff-reports"),
+    path("staff/reports/status", contrib_web.ui_staff_reports_status, name="ui-staff-reports-status"),
     path("msg-stream", views.msg_stream, name="ui-msg-stream"),
     path("nav", views.nav_state, name="ui-nav"),
     path("world-graph", world_graph.world_graph_state, name="ui-world-graph"),
@@ -64,6 +74,16 @@ urlpatterns = [
         "claims-market/purchase-random-mining-claim",
         views.claims_market_purchase_random_mining_claim,
         name="ui-claims-market-purchase-random-mining-claim",
+    ),
+    path(
+        "claims-market/purchase-random-flora-claim",
+        views.claims_market_purchase_random_flora_claim,
+        name="ui-claims-market-purchase-random-flora-claim",
+    ),
+    path(
+        "claims-market/purchase-random-fauna-claim",
+        views.claims_market_purchase_random_fauna_claim,
+        name="ui-claims-market-purchase-random-fauna-claim",
     ),
     path("claims-market/list-property", views.claims_market_list_property, name="ui-claims-market-list-property"),
     path("claims-market/list-claim", views.claims_market_list_claim, name="ui-claims-market-list-claim"),
@@ -145,6 +165,8 @@ urlpatterns = [
     path("resources", views.resources_state, name="ui-resources"),
     path("mine/claims", views.mine_claims, name="ui-mine-claims"),
     path("mine/deploy", views.mine_deploy, name="ui-mine-deploy"),
+    path("mine/deploy-flora", views.mine_deploy_flora, name="ui-mine-deploy-flora"),
+    path("mine/deploy-fauna", views.mine_deploy_fauna, name="ui-mine-deploy-fauna"),
     path("mine/undeploy", views.mine_undeploy, name="ui-mine-undeploy"),
     path("mine/reactivate", views.mine_reactivate, name="ui-mine-reactivate"),
     path("mine/repair-rig", views.mine_repair_rig, name="ui-mine-repair-rig"),
@@ -169,4 +191,5 @@ urlpatterns = [
         staff_room_billboard.staff_room_billboard_apply,
         name="ui-staff-room-billboard-apply",
     ),
+    path("staff/hauler-engine", views.staff_hauler_engine_health, name="ui-staff-hauler-engine"),
 ]
