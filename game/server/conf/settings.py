@@ -39,7 +39,10 @@ else:
         "evennia.web.utils.middleware.SharedLoginMiddleware missing from MIDDLEWARE; "
         "Evennia defaults may have changed — re-merge manually."
     )
-MIDDLEWARE = _mw + ["web.ui.slow_request_logging_middleware.SlowUiRequestLoggingMiddleware"]
+MIDDLEWARE = _mw + [
+    "web.ui.ui_jwt_middleware.UiJwtMiddleware",
+    "web.ui.slow_request_logging_middleware.SlowUiRequestLoggingMiddleware",
+]
 
 ######################################################################
 # Evennia base server config
@@ -84,17 +87,31 @@ try:
 except ImportError:
     print("secret_settings.py file not found or failed to import.")
 
+# Docker edge proxy: resolve hostname to IP for OriginIpMiddleware trusted list.
+_proxy_host = os.environ.get("AURNOM_TRUSTED_PROXY_HOST", "").strip()
+if _proxy_host:
+    import socket
+
+    try:
+        _edge_ip = socket.gethostbyname(_proxy_host)
+        UPSTREAM_IPS = list(UPSTREAM_IPS) + [_edge_ip]
+    except OSError:
+        pass
+
 ######################################################################
 # CSRF: allow login from localhost and host IP (required when accessing via IP)
 ######################################################################
 _CSRF_ORIGINS = [
     "http://localhost",
     "http://localhost:4001",
+    "http://localhost:8080",
     "http://127.0.0.1",
     "http://127.0.0.1:4001",
+    "http://127.0.0.1:8080",
     "http://10.0.0.94",
     "http://10.0.0.94:4001",
     "http://10.0.0.94:3000",
+    "http://10.0.0.94:8080",
 ]
 _extra = os.environ.get("CSRF_TRUSTED_ORIGIN", "")
 if _extra:

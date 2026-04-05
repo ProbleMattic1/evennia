@@ -17,9 +17,11 @@ import {
 } from "@dnd-kit/sortable";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { groupExits } from "@/components/exit-grid";
+import { NavRailCollapsiblePanel as Panel, NAV_RAIL_DESTINATION_ROW_CLASS } from "@/components/nav-rail-collapsible-panel";
+import { PlacesNavPanel } from "@/components/places-nav-panel";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { SortableNavDestinationGroup } from "@/components/sortable-nav-destination-group";
 import { SortableNavDestinationRow } from "@/components/sortable-nav-destination-row";
@@ -38,14 +40,8 @@ import {
 import { useDashboardPanelOpen } from "@/lib/use-dashboard-panel-open";
 import { useNavRailDestinationGroupOrder } from "@/lib/use-nav-rail-destination-group-order";
 import { useNavRailExitRowOrder } from "@/lib/use-nav-rail-exit-row-order";
-import { finalizeServiceNavRows, type ServiceNavRow } from "@/lib/services-nav-merge";
-import {
-  isKioskPreNavigateKey,
-  playTravel,
-  runKioskBeforeNavigate,
-  webNavigatePathFromPlayResult,
-  type ExitButton,
-} from "@/lib/ui-api";
+import { isPlacesNavContentVisible } from "@/lib/dashboard-right-column-visibility";
+import { playTravel, webNavigatePathFromPlayResult, type ExitButton } from "@/lib/ui-api";
 
 function orderedExitKeys(
   sectionSlug: string,
@@ -56,59 +52,6 @@ function orderedExitKeys(
   const current = items.map((ex) => ex.key);
   if (!rowOrderHydrated) return current;
   return normalizeExitRowOrder(bySection[sectionSlug], current);
-}
-
-function Panel({
-  panelKey,
-  title,
-  children,
-  className = "",
-  bodyClassName = "border border-cyan-900/40 bg-zinc-950/80 p-1.5 text-xs",
-}: {
-  panelKey: string;
-  title: string;
-  children: ReactNode;
-  className?: string;
-  /** Panel body wrapper; default includes even padding. Use pl-0 when drag handles should sit flush left. */
-  bodyClassName?: string;
-}) {
-  const storageKey = `aurnom:nav-panel:${panelKey}`;
-  const [open, setOpen] = useState(true);
-
-  useEffect(() => {
-    /* sessionStorage is only available after mount; avoids SSR/client mismatch on first paint. */
-    /* eslint-disable react-hooks/set-state-in-effect */
-    try {
-      const raw = window.sessionStorage.getItem(storageKey);
-      if (raw !== null) setOpen(raw === "1");
-    } catch {
-      // ignore
-    }
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [storageKey]);
-
-  useEffect(() => {
-    try {
-      window.sessionStorage.setItem(storageKey, open ? "1" : "0");
-    } catch {
-      // ignore storage errors and keep UI functional
-    }
-  }, [open, storageKey]);
-
-  return (
-    <section className={`mb-1 ${className}`}>
-      <div className="flex items-center bg-cyan-900/30 px-1.5 py-0.5 text-xs font-bold uppercase tracking-widest">
-        <span className="text-cyber-cyan">{title}</span>
-        <PanelExpandButton
-          open={open}
-          onClick={() => setOpen((v) => !v)}
-          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
-          className="ml-auto shrink-0"
-        />
-      </div>
-      {open ? <div className={bodyClassName}>{children}</div> : null}
-    </section>
-  );
 }
 
 function Kv({ k, v, title }: { k: string; v: ReactNode; title?: string }) {
@@ -253,7 +196,7 @@ function NavDestinationRow({
       type="button"
       onClick={() => onTravel(exit.destination)}
       disabled={busyKey === k}
-      className="block w-full truncate rounded border border-cyan-800/60 px-1 py-0.5 text-left text-xs text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-40"
+      className={NAV_RAIL_DESTINATION_ROW_CLASS}
     >
       {busyKey === k ? "Moving…" : exit.label}
     </button>
@@ -547,29 +490,6 @@ export function PersistentNavRail() {
   const [pickBusy, setPickBusy] = useState(false);
   const [pickErr, setPickErr] = useState<string | null>(null);
   const [switchBusy, setSwitchBusy] = useState(false);
-  const [stripErr, setStripErr] = useState<string | null>(null);
-
-  const kioskStripRows = useMemo(
-    () => (data?.nav ? finalizeServiceNavRows(data.nav.kiosks as ServiceNavRow[]) : []),
-    [data?.nav],
-  );
-
-  const onStripKiosk = useCallback(
-    async (e: MouseEvent<HTMLAnchorElement>, row: ServiceNavRow) => {
-      if (!row.preNavigate || !isKioskPreNavigateKey(row.preNavigate)) return;
-      e.preventDefault();
-      setStripErr(null);
-      try {
-        const res = await runKioskBeforeNavigate(row.preNavigate);
-        router.push(webNavigatePathFromPlayResult(res));
-        reload();
-      } catch (x) {
-        setStripErr(x instanceof Error ? x.message : "Navigation failed");
-      }
-    },
-    [reload, router],
-  );
-
   const onPickCharacter = useCallback(
     async (characterId: number) => {
       setPickErr(null);
@@ -649,7 +569,17 @@ export function PersistentNavRail() {
         </div>
       );
     }
-    return <div className="text-ui-muted">Not logged in.</div>;
+    return (
+      <div className="space-y-1 text-ui-muted">
+        <p>Not logged in.</p>
+        <Link
+          href="/login"
+          className="inline-block rounded border border-cyan-900/50 bg-zinc-950/80 px-2 py-1 text-xs font-bold uppercase tracking-widest text-cyber-cyan hover:border-cyan-700/60"
+        >
+          Sign in
+        </Link>
+      </div>
+    );
   })();
 
   return (
@@ -693,37 +623,8 @@ export function PersistentNavRail() {
 
       {railBody}
 
-      {data?.character ? (
-        <div className="mb-1 border-b border-cyan-900/30 pb-1">
-          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-            <Link href="/locator" className={RAIL_MINI_LINK}>
-              Map
-            </Link>
-            <Link href="/economy" className={RAIL_MINI_LINK}>
-              Economy
-            </Link>
-            <Link href="/real-estate" className={RAIL_MINI_LINK}>
-              Realty
-            </Link>
-            {kioskStripRows.slice(0, 5).map((k) =>
-              k.preNavigate && isKioskPreNavigateKey(k.preNavigate) ? (
-                <Link
-                  key={`strip-${k.key}-${k.href}`}
-                  href={k.href}
-                  className={RAIL_MINI_LINK}
-                  onClick={(e) => void onStripKiosk(e, k)}
-                >
-                  {k.label}
-                </Link>
-              ) : (
-                <Link key={`strip-${k.key}-${k.href}`} href={k.href} className={RAIL_MINI_LINK}>
-                  {k.label}
-                </Link>
-              ),
-            )}
-          </div>
-          {stripErr ? <p className="mt-0.5 text-[10px] text-red-400">{stripErr}</p> : null}
-        </div>
+      {data?.character && data.nav && isPlacesNavContentVisible(data) ? (
+        <PlacesNavPanel nav={data.nav} onReload={reload} />
       ) : null}
 
       <NavPanel

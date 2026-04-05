@@ -38,3 +38,18 @@ if os.getenv("POSTGRES_HOST"):
             "PORT": os.getenv("POSTGRES_PORT", "5432"),
         }
     }
+
+_redis_url = os.getenv("REDIS_URL", "").strip()
+if _redis_url:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _redis_url,
+        },
+        "throttle": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _redis_url,
+            "TIMEOUT": 60 * 5,
+            "OPTIONS": {"MAX_ENTRIES": 2000},
+        },
+    }

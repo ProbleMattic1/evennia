@@ -13,6 +13,10 @@ function buildProxyHeaders(request: NextRequest, cookie: string): Record<string,
   if (cookie) {
     headers.cookie = cookie;
   }
+  const authz = request.headers.get("authorization");
+  if (authz) {
+    headers.authorization = authz;
+  }
   const xff = request.headers.get("x-forwarded-for");
   if (xff) {
     headers["x-forwarded-for"] = xff;

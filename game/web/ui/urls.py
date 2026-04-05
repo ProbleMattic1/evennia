@@ -7,8 +7,14 @@ from . import staff_room_billboard
 from . import world_graph
 from .control_surface import control_surface_state
 from .economy_world import economy_world_state
+from . import ui_auth
 
 urlpatterns = [
+    path("auth/csrf", ui_auth.ui_auth_csrf, name="ui-auth-csrf"),
+    path("auth/status", ui_auth.ui_auth_status, name="ui-auth-status"),
+    path("auth/token", ui_auth.ui_auth_token, name="ui-auth-token"),
+    path("auth/refresh", ui_auth.ui_auth_refresh, name="ui-auth-refresh"),
+    path("auth/revoke", ui_auth.ui_auth_revoke, name="ui-auth-revoke"),
     path("active-character", views.web_set_active_character, name="ui-active-character"),
     path("active-character/clear", views.web_clear_active_character, name="ui-active-character-clear"),
     path("control-surface", control_surface_state, name="ui-control-surface"),

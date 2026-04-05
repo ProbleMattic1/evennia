@@ -77,7 +77,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     fi && \
     if [ "$INSTALL_POSTGRES" = "true" ]; then \
         pip install --no-cache-dir "psycopg[binary]>=3.1.0"; \
-    fi
+    fi && \
+    pip install --no-cache-dir "PyJWT>=2.8.0" "redis>=5.0.0"
 
 # add the game source when rebuilding a new docker image from inside
 # a game dir

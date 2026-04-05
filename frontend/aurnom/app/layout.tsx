@@ -4,6 +4,7 @@ import Script from "next/script";
 
 import { ControlSurfaceProvider } from "@/components/control-surface-provider";
 import { ThemeHydration } from "@/components/theme-hydration";
+import { UiJwtBootstrap } from "@/components/ui-jwt-bootstrap";
 import { MsgStreamProvider } from "@/lib/use-msg-stream";
 import "./globals.css";
 
@@ -45,6 +46,7 @@ export default function RootLayout({
         </Script>
         <ThemeHydration />
         <ControlSurfaceProvider>
+          <UiJwtBootstrap />
           <MsgStreamProvider>{children}</MsgStreamProvider>
         </ControlSurfaceProvider>
       </body>

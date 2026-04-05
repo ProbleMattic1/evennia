@@ -23,5 +23,8 @@ class RoomAmbienceScript(Script):
             "A maintenance skiff hums overhead.",
             "Someone argues about berth fees near the transit map.",
         ]
-        line = random.choice(lines)
+        prev = getattr(self.ndb, "last_ambience_line", None)
+        pool = [ln for ln in lines if ln != prev] or list(lines)
+        line = random.choice(pool)
+        self.ndb.last_ambience_line = line
         room.msg_contents(f"|w{line}|n", exclude=None)

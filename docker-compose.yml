@@ -10,6 +10,9 @@
 #   Start everything:
 #     docker compose up
 #
+#   Primary URL (edge: Next + Evennia auth on one origin):
+#     http://localhost:8080
+#
 #   Development (interactive shell):
 #     docker compose run evennia bash
 #
@@ -17,6 +20,10 @@
 #     docker compose run evennia evennia migrate --noinput
 
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
   evennia:
     build:
       context: .
@@ -30,6 +37,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       - "0.0.0.0:4000:4000"
       - "0.0.0.0:4001:4001"
@@ -45,6 +54,9 @@ services:
       POSTGRES_USER: evennia
       POSTGRES_PASSWORD: password
       POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/1
+      AURNOM_TRUSTED_PROXY_HOST: edge
+      AURNOM_JWT_SECRET: docker-dev-jwt-secret-change-for-production
       EVENNIA_SUPERUSER_USERNAME: admin
       EVENNIA_SUPERUSER_PASSWORD: admin
       EVENNIA_SUPERUSER_EMAIL: ""
@@ -97,6 +109,17 @@ services:
     command: sh -c "npm install && HOST=0.0.0.0 npm run dev -- --hostname 0.0.0.0"
     ports:
       - "3000:3000"
+    restart: unless-stopped
+
+  edge:
+    image: caddy:2-alpine
+    depends_on:
+      - frontend
+      - evennia
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
     restart: unless-stopped
 
 volumes:

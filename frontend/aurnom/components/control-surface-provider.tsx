@@ -55,6 +55,12 @@ export function ControlSurfaceProvider({ children }: { children: React.ReactNode
     return () => clearInterval(id);
   }, [reload, adaptivePollMs]);
 
+  useEffect(() => {
+    const onJwt = () => reload();
+    window.addEventListener("aurnom:jwt-ready", onJwt);
+    return () => window.removeEventListener("aurnom:jwt-ready", onJwt);
+  }, [reload]);
+
   const value = useMemo(
     () => ({
       data,

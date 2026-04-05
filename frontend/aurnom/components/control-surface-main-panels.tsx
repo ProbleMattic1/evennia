@@ -568,7 +568,7 @@ function ProductionDeploymentPanel({
   };
 
   return (
-    <Panel panelKey="mine-operations" title="Production deployment">
+    <Panel panelKey="production-deployment" title="Production deployment">
       {activeKinds.map((k, i) => {
         const c = PRODUCTION_DEPLOY_CONFIG[k];
         return (
@@ -1253,113 +1253,6 @@ function PropertiesPanel({ properties }: { properties: DashboardProperty[] }) {
   );
 }
 
-function PlacesNavPanel({
-  nav,
-  onReload,
-}: {
-  nav: ControlSurfaceState["nav"];
-  onReload: () => void;
-}) {
-  const router = useRouter();
-  const [navErr, setNavErr] = useState<string | null>(null);
-
-  const kioskRows = useMemo(
-    () => finalizeServiceNavRows(nav.kiosks as unknown as ServiceNavRow[]),
-    [nav.kiosks],
-  );
-
-  const onKioskClick = useCallback(
-    async (e: React.MouseEvent, row: ServiceNavRow) => {
-      if (!row.preNavigate || !isKioskPreNavigateKey(row.preNavigate)) return;
-      e.preventDefault();
-      setNavErr(null);
-      try {
-        const res = await runKioskBeforeNavigate(row.preNavigate);
-        router.push(webNavigatePathFromPlayResult(res));
-        onReload();
-      } catch (x) {
-        setNavErr(x instanceof Error ? x.message : "Navigation failed");
-      }
-    },
-    [onReload, router],
-  );
-
-  const shops = nav.shops ?? [];
-  const properties = nav.properties ?? [];
-  const resources = nav.resources ?? [];
-
-  return (
-    <Panel panelKey="places-nav" title="Services & places">
-      {navErr ? <p className="mb-1 text-red-400">{navErr}</p> : null}
-      {kioskRows.length > 0 ? (
-        <div className="mb-2">
-          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-ui-muted">Services</div>
-          <div className={DASHBOARD_SCROLL_LIST_CLASS}>
-            {kioskRows.map((k) =>
-              k.preNavigate && isKioskPreNavigateKey(k.preNavigate) ? (
-                <div key={`${k.key}-${k.href}`} className="mb-0.5">
-                  <Link
-                    href={k.href}
-                    className="inline-block rounded border border-cyan-800/60 px-1 py-0 text-xs text-cyber-cyan hover:bg-cyan-900/40"
-                    onClick={(e) => void onKioskClick(e, k)}
-                  >
-                    {k.label}
-                  </Link>
-                </div>
-              ) : (
-                <div key={`${k.key}-${k.href}`} className="mb-0.5">
-                  <TinyLink href={k.href}>{k.label}</TinyLink>
-                </div>
-              ),
-            )}
-          </div>
-        </div>
-      ) : null}
-      {shops.length > 0 ? (
-        <div className="mb-2">
-          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-ui-muted">Shipyards & vendors</div>
-          <div className={DASHBOARD_SCROLL_LIST_CLASS}>
-            {shops.map((s) => (
-              <div key={s.roomKey} className="mb-0.5">
-                <TinyLink href={`/shop?room=${encodeURIComponent(s.roomKey)}`}>{s.label}</TinyLink>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {properties.length > 0 ? (
-        <div className="mb-2">
-          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-ui-muted">Properties</div>
-          <div className={DASHBOARD_SCROLL_LIST_CLASS}>
-            {properties.map((p) => (
-              <div key={p.href} className="mb-0.5">
-                <TinyLink href={p.href}>{p.label}</TinyLink>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {resources.length > 0 ? (
-        <div>
-          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-ui-muted">Production sites</div>
-          <div className={DASHBOARD_SCROLL_LIST_CLASS}>
-            {resources.map((m) => (
-              <div key={m.href} className="mb-0.5 flex flex-wrap items-center gap-1">
-                <TinyLink href={m.href}>{m.label}</TinyLink>
-                {m.active ? (
-                  <span className="text-ui-caption text-emerald-500/90">active</span>
-                ) : (
-                  <span className="text-ui-caption text-ui-muted">idle</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </Panel>
-  );
-}
-
 function ClaimsNavPanel({ claims }: { claims: ControlSurfaceState["nav"]["claims"] }) {
   if (claims.length === 0) return null;
   return (
@@ -1508,7 +1401,7 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           return <ShipsPanel ships={data.ships} />;
         case "inventory":
           return <InventoryPanel inventory={data.inventory} />;
-        case "mineOperations":
+        case "productionDeployment":
           return (
             <ProductionDeploymentPanel
               inventory={data.inventory}
@@ -1541,8 +1434,6 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           return <ClaimsNavPanel claims={data.nav.claims} />;
         case "packageMarket":
           return <PackageMarketPanel inventory={data.inventory} run={run} busy={busy} />;
-        case "placesNav":
-          return <PlacesNavPanel nav={data.nav} onReload={onReload} />;
         default:
           return null;
       }

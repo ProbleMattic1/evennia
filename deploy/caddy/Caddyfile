@@ -1,0 +1,12 @@
+# Single browser entrypoint — http://localhost:8080 (see game/docs/WEB_PLATFORM_EDGE.md)
+
+:8080 {
+	reverse_proxy /api* frontend:3000
+	reverse_proxy /auth* evennia:4001
+	reverse_proxy /webclient* evennia:4001
+	reverse_proxy /media* evennia:4001
+	reverse_proxy /static* evennia:4001
+	reverse_proxy /admin* evennia:4001
+	reverse_proxy /favicon.ico evennia:4001
+	reverse_proxy frontend:3000
+}
