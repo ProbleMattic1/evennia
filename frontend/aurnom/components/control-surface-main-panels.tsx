@@ -1472,8 +1472,8 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
   const sidebarOnRight = sidebarPanel?.position === "right";
   const gridColsClass = showSidebarRail
     ? sidebarOnRight
-      ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,11rem)]"
-      : "md:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,1fr)]"
+      ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,100px)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,11rem)]"
+      : "md:grid-cols-[minmax(0,100px)_minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,1fr)]"
     : "md:grid-cols-2";
 
   return (
