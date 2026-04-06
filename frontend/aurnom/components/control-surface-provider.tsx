@@ -78,12 +78,12 @@ export function ControlSurfaceProvider({ children }: { children: React.ReactNode
       <div
         className={
           "dark mx-auto grid min-h-svh w-full max-w-[400px] grid-cols-1 bg-zinc-950 font-mono text-xs text-foreground " +
-          "md:max-w-[800px] md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] " +
-          "lg:max-w-[1200px]"
+          "md:max-w-[800px] md:max-[1199px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] " +
+          "lg:max-w-[1200px] min-[1200px]:grid-cols-[200px_minmax(0,1fr)]"
         }
       >
         <PersistentNavRail />
-        <main className="min-h-0 min-w-0 bg-zinc-950 md:col-span-2">{children}</main>
+        <main className="min-h-0 min-w-0 bg-zinc-950 md:max-[1199px]:col-span-2 min-[1200px]:col-span-1">{children}</main>
       </div>
     </ControlSurfaceContext.Provider>
   );

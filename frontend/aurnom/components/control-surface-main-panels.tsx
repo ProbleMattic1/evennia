@@ -1472,9 +1472,9 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
   const sidebarOnRight = sidebarPanel?.position === "right";
   const gridColsClass = showSidebarRail
     ? sidebarOnRight
-      ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,100px)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,11rem)]"
-      : "md:grid-cols-[minmax(0,100px)_minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,1fr)]"
-    : "md:grid-cols-2";
+      ? "md:max-[1023px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,100px)] lg:max-[1199px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,11rem)] min-[1200px]:grid-cols-[minmax(0,525fr)_minmax(0,435fr)_minmax(0,150px)]"
+      : "md:max-[1023px]:grid-cols-[minmax(0,100px)_minmax(0,1fr)_minmax(0,1fr)] lg:max-[1199px]:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,1fr)] min-[1200px]:grid-cols-[minmax(0,150px)_minmax(0,525fr)_minmax(0,435fr)]"
+    : "md:max-[1199px]:grid-cols-2 min-[1200px]:grid-cols-[minmax(0,525fr)_minmax(0,435fr)]";
 
   return (
     <div

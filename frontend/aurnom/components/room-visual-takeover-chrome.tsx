@@ -117,7 +117,7 @@ export function RoomVisualTakeoverSidebarRail({
       : "md:border-r border-cyan-900/30";
   return (
     <aside
-      className={`room-visual-takeover-rail hidden min-h-0 w-full min-w-0 bg-black/30 md:flex md:max-w-[100px] md:flex-col lg:max-w-[11rem] ${borderCls}`}
+      className={`room-visual-takeover-rail hidden min-h-0 w-full min-w-0 bg-black/30 md:flex md:max-[1023px]:max-w-[100px] md:flex-col lg:max-[1199px]:max-w-[11rem] min-[1200px]:max-w-[150px] ${borderCls}`}
       data-room-theme={themeId === "default" ? undefined : themeId}
       data-takeover-rail-position={pos}
       aria-label={panel.alt?.trim() || "Venue atmosphere"}

@@ -16,12 +16,12 @@ export function ControlSurfaceShell({
       <div
         className={
           "mx-auto grid min-h-svh w-full max-w-[400px] grid-cols-1 " +
-          "md:max-w-[800px] md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] " +
-          "lg:max-w-[1200px]"
+          "md:max-w-[800px] md:max-[1199px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] " +
+          "lg:max-w-[1200px] min-[1200px]:grid-cols-[200px_minmax(0,1fr)]"
         }
       >
         <PersistentNavRail />
-        <div className="min-w-0 md:col-span-2">
+        <div className="min-w-0 md:max-[1199px]:col-span-2 min-[1200px]:col-span-1">
           <ControlSurfaceMainPanels data={data} onReload={onReload} />
         </div>
       </div>
