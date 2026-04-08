@@ -55,6 +55,10 @@ DEBUG = True
 SERVERNAME = "game"
 ROOT_URLCONF = "web.urls"
 
+# Twisted WSGI thread pool for Django on the game Server (portal proxies public HTTP to it).
+# Default (1, 20) can serialize concurrent /ui/* work (health, control-surface, msg-stream long-poll).
+WEBSERVER_THREADPOOL_LIMITS = (4, 40)
+
 # Trusted reverse-proxy IPs only (see Evennia UPSTREAM_IPS + ip_from_request).
 # Never list your entire Docker bridge CIDR here — the Next.js container is the
 # TCP peer, not a hop to strip unless it adds X-Forwarded-For (see frontend proxy).
@@ -87,16 +91,41 @@ try:
 except ImportError:
     print("secret_settings.py file not found or failed to import.")
 
-# Docker edge proxy: resolve hostname to IP for OriginIpMiddleware trusted list.
-_proxy_host = os.environ.get("AURNOM_TRUSTED_PROXY_HOST", "").strip()
-if _proxy_host:
+# Docker reverse proxies: resolve hostnames to IPs for OriginIpMiddleware / ip_from_request.
+# Browser -> Caddy -> Next (/api/ui) -> Evennia: REMOTE_ADDR is the Next container; X-Forwarded-For
+# must be peeled using trusted hops. Include both edge and frontend (compose service names).
+def _merge_upstream_ips(hostnames: list[str], base_ips):
     import socket
 
-    try:
-        _edge_ip = socket.gethostbyname(_proxy_host)
-        UPSTREAM_IPS = list(UPSTREAM_IPS) + [_edge_ip]
-    except OSError:
-        pass
+    ips = list(base_ips)
+    seen = set(ips)
+    for host in hostnames:
+        host = (host or "").strip()
+        if not host:
+            continue
+        try:
+            ip = socket.gethostbyname(host)
+        except OSError:
+            continue
+        if ip not in seen:
+            ips.append(ip)
+            seen.add(ip)
+    return ips
+
+
+_proxy_names: list[str] = []
+for _env_key in ("AURNOM_TRUSTED_PROXY_HOSTS", "AURNOM_TRUSTED_PROXY_EXTRA_HOSTS"):
+    _raw = os.environ.get(_env_key, "").strip()
+    if _raw:
+        for _part in _raw.split(","):
+            _p = _part.strip()
+            if _p and _p not in _proxy_names:
+                _proxy_names.append(_p)
+_legacy = os.environ.get("AURNOM_TRUSTED_PROXY_HOST", "").strip()
+if _legacy and _legacy not in _proxy_names:
+    _proxy_names.insert(0, _legacy)
+if _proxy_names:
+    UPSTREAM_IPS = _merge_upstream_ips(_proxy_names, UPSTREAM_IPS)
 
 ######################################################################
 # CSRF: allow login from localhost and host IP (required when accessing via IP)
@@ -188,6 +217,10 @@ GLOBAL_SCRIPTS = {
     },
     "instance_manager": {"typeclass": "typeclasses.instance_manager.InstanceManager", "persistent": True},
     "party_registry": {"typeclass": "typeclasses.party_registry.PartyRegistry", "persistent": True},
+    "mining_cluster_registry": {
+        "typeclass": "typeclasses.mining_cluster_registry.MiningClusterRegistry",
+        "persistent": True,
+    },
 }
 
 ######################################################################

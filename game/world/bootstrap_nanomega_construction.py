@@ -2,6 +2,9 @@
 Ensure the NanoMegaPlex Construction NPC exists and is linked to an account.
 
 Mirrors bootstrap_nanomega_realty: optional env overrides for account, credits reset, stats reset.
+
+Seeded character is a world NPC: ``char.db.is_npc = True`` (challenge / point-store
+non-participation, consistent with other station bootstraps).
 """
 
 import os
@@ -91,6 +94,7 @@ def bootstrap_nanomega_construction():
         if char not in account.characters:
             account.characters.add(char)
         char.db.rpg_pointbuy_done = True
+        char.db.is_npc = True
         if _reset_stats_requested():
             _apply_construction_ability_scores(char)
             print(
@@ -122,6 +126,7 @@ def bootstrap_nanomega_construction():
 
     _apply_construction_ability_scores(char)
     char.db.rpg_pointbuy_done = True
+    char.db.is_npc = True
     _apply_construction_credits(char)
     print(
         f"[nanomega-construction] Created {NANOMEGA_CONSTRUCTION_CHARACTER_KEY!r} for {account.username} "

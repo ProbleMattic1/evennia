@@ -3,6 +3,9 @@ Advertising agency rooms per venue + agent placement.
 
 NanoMegaPlex agent: full account / reset env handling.
 Frontier agent: created in bootstrap_frontier_service_npcs; this wires the room and placement.
+
+The NanoMegaPlex agent character is a world NPC: ``char.db.is_npc = True``.
+(Frontier agent is flagged in ``bootstrap_frontier_npcs``.)
 """
 
 import os
@@ -147,6 +150,7 @@ def bootstrap_nanomega_advertising():
         if char not in account.characters:
             account.characters.add(char)
         char.db.rpg_pointbuy_done = True
+        char.db.is_npc = True
         if _reset_stats_requested():
             _apply_ability_scores(char)
             print(
@@ -173,6 +177,7 @@ def bootstrap_nanomega_advertising():
 
     _apply_ability_scores(char)
     char.db.rpg_pointbuy_done = True
+    char.db.is_npc = True
     _apply_starting_credits(char)
     print(
         f"[nanomega-advertising] Created {NANOMEGA_ADVERTISING_CHARACTER_KEY!r} for {account.username} "

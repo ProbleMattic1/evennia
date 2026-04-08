@@ -1,4 +1,5 @@
 import json
+import time
 from urllib.parse import quote
 
 from django.core.cache import cache
@@ -28,8 +29,84 @@ from .room_nav_utils import (
 
 DEFAULT_PLAY_ROOM = HUB_ROOM_KEY
 
+
+@require_GET
+def ui_health(_request):
+    """Synthetic monitoring probe (JWT-exempt; no DB work)."""
+    return JsonResponse({"ok": True, "service": "evennia-ui"})
+
+
 _PROPERTY_DEED_LISTINGS_CACHE_KEY = "ui:property_deed_listings:v1"
 _PROPERTY_DEED_LISTINGS_TTL_SEC = 30
+
+_MINING_SCANNER_TYPE = "typeclasses.mining_scanner.MiningScanner"
+_MAX_CARRIED_SCANNERS_WEB = 32
+
+
+def _plain_web_message(text: str) -> str:
+    from evennia.utils.ansi import parse_ansi
+
+    return str(parse_ansi(text or "", strip_ansi=True))
+
+
+def _mining_scanner_play_fields(site, char):
+    """Scanner deploy state and survey/district gates for the web Play mine panel."""
+    empty = {
+        "deployedScanner": None,
+        "carriedMiningScanners": [],
+        "canRunSurvey": False,
+        "canRunDistrictScan": False,
+    }
+    if not char or not site or not getattr(site, "location", None):
+        return empty
+    cloc = getattr(char, "location", None)
+    if cloc is None or cloc.id != site.location.id:
+        return empty
+
+    from world.mining_survey_ops import room_has_deployed_scanner
+
+    deployed = None
+    for obj in site.location.contents:
+        is_tc = getattr(obj, "is_typeclass", None)
+        if not callable(is_tc):
+            continue
+        try:
+            if not is_tc(_MINING_SCANNER_TYPE, exact=False):
+                continue
+        except (AttributeError, TypeError):
+            continue
+        if not getattr(obj.db, "is_deployed", False):
+            continue
+        if getattr(obj.db, "owner", None) != char:
+            continue
+        if getattr(obj.db, "deploy_site_ref", None) != site:
+            continue
+        deployed = {"id": obj.id, "key": obj.key}
+        break
+
+    carried = []
+    for obj in char.contents:
+        is_tc = getattr(obj, "is_typeclass", None)
+        if not callable(is_tc):
+            continue
+        try:
+            if not is_tc(_MINING_SCANNER_TYPE, exact=False):
+                continue
+        except (AttributeError, TypeError):
+            continue
+        if getattr(obj.db, "is_deployed", False):
+            continue
+        carried.append({"id": obj.id, "key": obj.key})
+        if len(carried) >= _MAX_CARRIED_SCANNERS_WEB:
+            break
+
+    can = room_has_deployed_scanner(cloc, char, site)
+    return {
+        "deployedScanner": deployed,
+        "carriedMiningScanners": carried,
+        "canRunSurvey": can,
+        "canRunDistrictScan": can,
+    }
 
 
 def _invalidate_property_deed_listings_cache() -> None:
@@ -498,6 +575,8 @@ def _serialize_mining_site(site, char=None):
         "isClaimed": bool(site.db.is_claimed),
         "owner": owner_key,
         "surveyLevel": int(site.db.survey_level),
+        "miningDistrictKey": str(getattr(site.db, "mining_district_key", None) or ""),
+        "clusterId": str(getattr(site.db, "cluster_id", None) or ""),
         "richness": round(richness, 4),
         "volumeTier": volume_tier,
         "volumeTierCls": volume_tier_cls,
@@ -532,8 +611,54 @@ def _serialize_mining_site(site, char=None):
         "storageCapacity": cap,
         "inventory": inv,
     }
+    payload.update(_mining_scanner_play_fields(site, char))
     mo_active = getattr(site.db, "mine_operation_active", True)
     payload["mineOperationActive"] = mo_active
+
+    from typeclasses.claim_market import (
+        _existing_deed_for_site,
+        get_property_listing_for_site_id,
+        listing_price_cr,
+        mining_site_primary_deed_eligibility,
+    )
+
+    disc = getattr(site.db, "discovered_by", None)
+    payload["discoveryPending"] = bool(getattr(site.db, "discovery_pending", False))
+    payload["discoveredByKey"] = disc.key if disc else None
+
+    pl_ent = get_property_listing_for_site_id(site.id)
+    ex_deed = _existing_deed_for_site(site)
+    unclaimed = not getattr(site.db, "is_claimed", False)
+    payload["discoveryListedPriceCr"] = (
+        int(pl_ent.get("price", 0) or 0) if pl_ent else None
+    )
+
+    if char:
+        can_primary_base = unclaimed and ex_deed is None and pl_ent is None
+        if can_primary_base:
+            ok_elig, elig_err = mining_site_primary_deed_eligibility(site, char)
+            payload["canPurchasePrimaryDeed"] = ok_elig
+            payload["primaryDeedPriceCr"] = listing_price_cr(site) if ok_elig else None
+            payload["primaryDeedBlockReason"] = None if ok_elig else elig_err
+        else:
+            payload["canPurchasePrimaryDeed"] = False
+            payload["primaryDeedPriceCr"] = None
+            payload["primaryDeedBlockReason"] = None
+
+        pending_off = not getattr(site.db, "discovery_pending", False)
+        payload["canListDiscoveryForSale"] = (
+            disc == char
+            and unclaimed
+            and ex_deed is None
+            and pending_off
+            and pl_ent is None
+        )
+    else:
+        payload["canPurchasePrimaryDeed"] = False
+        payload["primaryDeedPriceCr"] = None
+        payload["primaryDeedBlockReason"] = None
+        payload["canListDiscoveryForSale"] = False
+
     if char and getattr(site.db, "is_claimed", False) and site.db.owner == char:
         if getattr(site.db, "package_tier", None):
             if mo_active:
@@ -1449,7 +1574,11 @@ def staff_hauler_engine_health(request):
         return JsonResponse({"ok": False, "message": "Forbidden."}, status=403)
 
     from evennia import search_script
-    from typeclasses.haulers import HAULER_MAX_PIPELINE_STEPS, MAX_HAULERS_PER_ENGINE_TICK
+    from typeclasses.haulers import (
+        HAULER_ENGINE_MAX_WALL_SEC,
+        HAULER_MAX_PIPELINE_STEPS,
+        MAX_HAULERS_PER_ENGINE_TICK,
+    )
 
     he = search_script("hauler_engine")
     if not he:
@@ -1463,6 +1592,9 @@ def staff_hauler_engine_health(request):
             "intervalSec": s.interval,
             "maxHaulersPerTick": MAX_HAULERS_PER_ENGINE_TICK,
             "maxPipelineSteps": HAULER_MAX_PIPELINE_STEPS,
+            "maxWallSec": HAULER_ENGINE_MAX_WALL_SEC,
+            "lastBudgetHit": bool(getattr(s.ndb, "last_tick_budget_hit", False)),
+            "lastDeferredApprox": int(getattr(s.ndb, "last_tick_deferred_approx", 0) or 0),
         }
     )
 
@@ -1846,6 +1978,9 @@ def play_interact(request):
     return JsonResponse({"ok": True, "message": "Interaction executed.", **bundle})
 
 
+_MSG_STREAM_IDLE_POLL_SEC = 0.5
+
+
 @require_GET
 def msg_stream(request):
     """
@@ -1854,6 +1989,7 @@ def msg_stream(request):
 
     Query params:
         since (int): Return only messages with seq > this value. Default 0 (all).
+        block_ms (int): Optional long-poll; wait up to this many ms for new rows (cap 25000).
     """
     if not request.user.is_authenticated:
         return JsonResponse({"ok": False, "messages": [], "seq": 0}, status=401)
@@ -1870,10 +2006,29 @@ def msg_stream(request):
     except (TypeError, ValueError):
         since = 0
 
-    messages = char.get_web_msg_buffer(since_seq=since)
-    latest_seq = int(messages[-1]["seq"]) if messages else int(since)
+    try:
+        block_ms = int(request.GET.get("block_ms", 0))
+    except (TypeError, ValueError):
+        block_ms = 0
+    block_ms = max(0, min(block_ms, 25_000))
 
-    return JsonResponse({"ok": True, "messages": messages, "seq": latest_seq})
+    deadline = time.monotonic() + (block_ms / 1000.0) if block_ms else 0.0
+
+    while True:
+        messages = char.get_web_msg_buffer(since_seq=since)
+        if messages:
+            latest_seq = int(messages[-1]["seq"])
+            return JsonResponse({"ok": True, "messages": messages, "seq": latest_seq})
+
+        if not block_ms or time.monotonic() >= deadline:
+            latest_seq = int(since)
+            return JsonResponse({"ok": True, "messages": [], "seq": latest_seq})
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            latest_seq = int(since)
+            return JsonResponse({"ok": True, "messages": [], "seq": latest_seq})
+        time.sleep(min(_MSG_STREAM_IDLE_POLL_SEC, remaining))
 
 
 NAV_KIOSKS = {
@@ -2454,6 +2609,49 @@ def refinery_collect_refined(request):
     return JsonResponse({"ok": ok, "message": msg}, status=status)
 
 
+@csrf_exempt
+@require_POST
+def refinery_withdraw_parts(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    char, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    venue_id = str(body.get("venue") or request.GET.get("venue") or "").strip()
+    if not venue_id:
+        venue_id = _resolve_web_venue_id(request, char)
+
+    withdraw_all = bool(body.get("all"))
+    amounts_raw = body.get("amounts")
+    amounts = None
+    if not withdraw_all:
+        if not isinstance(amounts_raw, dict) or not amounts_raw:
+            return JsonResponse(
+                {"ok": False, "message": "Provide \"all\": true or a non-empty \"amounts\" object."},
+                status=400,
+            )
+        amounts = {}
+        for k, v in amounts_raw.items():
+            try:
+                amounts[str(k).strip()] = float(v)
+            except (TypeError, ValueError):
+                return JsonResponse(
+                    {"ok": False, "message": f"Invalid amount for key {k!r}."},
+                    status=400,
+                )
+
+    from world.refinery_web_ops import withdraw_attributed_parts_to_hold
+
+    ok, msg = withdraw_attributed_parts_to_hold(
+        char, venue_id, withdraw_all=withdraw_all, amounts=amounts
+    )
+    status = 200 if ok else 400
+    return JsonResponse({"ok": ok, "message": msg}, status=status)
+
+
 def _dashboard_inventory_item_for_obj(char, obj):
     """Single carried-object payload for dashboard JSON (one physical object)."""
     desc = getattr(obj.db, "desc", None) or ""
@@ -2462,6 +2660,9 @@ def _dashboard_inventory_item_for_obj(char, obj):
         "key": obj.key,
         "description": desc,
     }
+    cid = getattr(obj.db, "catalog_id", None)
+    if cid:
+        inv_entry["catalogId"] = str(cid)
     if obj.tags.has("mining_package", category="mining"):
         inv_entry["isMiningPackage"] = True
         inv_entry["estimatedValue"] = int(getattr(obj.db, "estimated_value", 0) or 0)
@@ -2666,6 +2867,7 @@ def dashboard_state(request):
                 "character": None,
                 "credits": None,
                 "inventory": empty_inventory_payload(),
+                "partInventory": [],
                 "ships": [],
                 "mines": [],
                 "properties": [],
@@ -2701,6 +2903,7 @@ def dashboard_state(request):
                 "character": None,
                 "credits": None,
                 "inventory": empty_inventory_payload(),
+                "partInventory": [],
                 "ships": [],
                 "mines": [],
                 "properties": [],
@@ -2717,15 +2920,9 @@ def dashboard_state(request):
             }
         )
 
-    from .web_poll_sync import web_needs_heavy_mission_challenge_sync
+    from .heavy_mission_quest_challenge_web import run_heavy_mission_quest_challenge_sync_if_due
 
-    if web_needs_heavy_mission_challenge_sync(request, char):
-        char.missions.sync_global_seeds()
-        if char.location:
-            char.missions.sync_room(char.location)
-            char.quests.on_room_enter(char.location)
-        char.challenges.sync_all_windows()
-        char.challenges.evaluate_window()
+    run_heavy_mission_quest_challenge_sync_if_due(request, char)
     missions = char.missions.serialize_for_web()
     quests = char.quests.serialize_for_web()
     challenges_web = char.challenges.serialize_for_web()
@@ -2733,6 +2930,10 @@ def dashboard_state(request):
     credits = econ.get_character_balance(char)
 
     inventory = serialize_inventory_by_bucket(char, _dashboard_inventory_item_for_obj)
+
+    from world.part_inventory import part_inventory_for_json
+
+    part_inventory = part_inventory_for_json(char)
 
     ships = []
     for entry in char.db.owned_vehicles or []:
@@ -2763,6 +2964,7 @@ def dashboard_state(request):
             "character": {"id": char.id, "key": char.key, "room": room_key, **rpg},
             "credits": credits,
             "inventory": inventory,
+            "partInventory": part_inventory,
             "ships": ships,
             "mines": mines,
             "properties": properties,
@@ -3225,7 +3427,11 @@ def claims_market_state(request):
     List resource sites on the claims market (mining / flora / fauna primary + listings).
     Public — no auth required.
     """
+    import copy
+
     from typeclasses.claim_market import (
+        _resolve_resource_site_by_key,
+        mining_site_primary_deed_eligibility,
         quote_random_fauna_claim_deed,
         quote_random_flora_claim_deed,
         quote_random_mining_claim_deed,
@@ -3233,13 +3439,33 @@ def claims_market_state(request):
     from world.claims_market_read_model import get_claims_market_snapshot
 
     snap = get_claims_market_snapshot()
-    claims = list(snap.get("claims") or [])
+    claims = copy.deepcopy(list(snap.get("claims") or []))
     next_discovery_at = snap.get("nextDiscoveryAt")
 
     buyer_for_quote = None
     if request.user.is_authenticated:
         char, _ = _resolve_character_for_web(request.user)
         buyer_for_quote = char
+    if buyer_for_quote:
+        for row in claims:
+            if row.get("listingKind") != "npc":
+                continue
+            if row.get("siteKind") != "mining":
+                continue
+            sk = row.get("siteKey")
+            if not sk:
+                continue
+            site = _resolve_resource_site_by_key(sk)
+            if not site:
+                continue
+            ok, err = mining_site_primary_deed_eligibility(site, buyer_for_quote)
+            row["canPurchasePrimaryDeed"] = ok
+            row["primaryDeedBlockReason"] = None if ok else err
+    else:
+        for row in claims:
+            if row.get("listingKind") == "npc" and row.get("siteKind") == "mining":
+                row["canPurchasePrimaryDeed"] = False
+                row["primaryDeedBlockReason"] = None
     random_mining_claim = quote_random_mining_claim_deed(buyer=buyer_for_quote)
     random_flora_claim = quote_random_flora_claim_deed(buyer=buyer_for_quote)
     random_fauna_claim = quote_random_fauna_claim_deed(buyer=buyer_for_quote)
@@ -3624,6 +3850,8 @@ def shop_buy(request):
 
     new_item = template.copy(new_key=template.key)
     new_item.db.is_template = False
+    if getattr(template.db, "catalog_id", None):
+        new_item.db.catalog_id = template.db.catalog_id
     if new_item.tags.has("for_sale", category="shop_stock"):
         new_item.tags.remove("for_sale", category="shop_stock")
     vid = vendor.db.vendor_id
@@ -3955,6 +4183,172 @@ def mine_undeploy(request):
 
 @csrf_exempt
 @require_POST
+def mine_scanner_deploy(request):
+    """Deploy a carried MiningScanner at the deposit in the character's current room."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    raw_id = body.get("scannerObjectId")
+    if raw_id is None:
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Missing scannerObjectId."},
+            status=400,
+        )
+    try:
+        scanner_object_id = int(raw_id)
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "code": "INVALID_ARGUMENT", "message": "Invalid scannerObjectId."},
+            status=400,
+        )
+
+    from world.mining_scanner_ops import attempt_deploy_scanner
+
+    ok, msg = attempt_deploy_scanner(buyer, scanner_object_id=scanner_object_id)
+    if not ok:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "SCANNER_DEPLOY_FAILED",
+                "message": _plain_web_message(msg),
+            },
+            status=400,
+        )
+
+    room_key = buyer.location.key if getattr(buyer, "location", None) else None
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": _plain_web_message(msg),
+            **bundle,
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def mine_scanner_undeploy(request):
+    """Pick up a deployed MiningScanner from the current room into inventory."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    raw_id = body.get("scannerObjectId")
+    frag = body.get("scannerKeyFragment")
+    has_id = raw_id is not None
+    has_frag = bool(str(frag or "").strip())
+    if has_id and has_frag:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "INVALID_ARGUMENT",
+                "message": "Send only scannerObjectId or scannerKeyFragment, not both.",
+            },
+            status=400,
+        )
+    if not has_id and not has_frag:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "INVALID_ARGUMENT",
+                "message": "Missing scannerObjectId or scannerKeyFragment.",
+            },
+            status=400,
+        )
+
+    from world.mining_scanner_ops import attempt_undeploy_scanner
+
+    if has_id:
+        try:
+            sid = int(raw_id)
+        except (TypeError, ValueError):
+            return JsonResponse(
+                {"ok": False, "code": "INVALID_ARGUMENT", "message": "Invalid scannerObjectId."},
+                status=400,
+            )
+        ok, msg = attempt_undeploy_scanner(buyer, scanner_object_id=sid)
+    else:
+        ok, msg = attempt_undeploy_scanner(buyer, key_fragment=str(frag).strip())
+
+    if not ok:
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": "SCANNER_UNDEPLOY_FAILED",
+                "message": _plain_web_message(msg),
+            },
+            status=400,
+        )
+
+    room_key = buyer.location.key if getattr(buyer, "location", None) else None
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": _plain_web_message(msg),
+            **bundle,
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def mine_district_scan(request):
+    """District peer list; same gate and cooldown as ``districtscan``."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    buyer, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    from world.mining_scanner_ops import attempt_district_scan
+
+    ok, err_msg, peers, district_key = attempt_district_scan(buyer)
+    if not ok:
+        code = "DISTRICT_SCAN_COOLDOWN" if err_msg and "recharging" in err_msg else "DISTRICT_SCAN_FAILED"
+        return JsonResponse(
+            {
+                "ok": False,
+                "code": code,
+                "message": _plain_web_message(err_msg or "District scan failed."),
+            },
+            status=400,
+        )
+
+    summary = (
+        "No adjacent deposits you can purchase from here."
+        if not peers
+        else (
+            f"{len(peers)} adjacent deposit(s) you can buy"
+            + (f" (from {district_key})." if district_key else ".")
+        )
+    )
+    room_key = buyer.location.key if getattr(buyer, "location", None) else None
+    bundle = _web_refresh_bundle(request, room_key=room_key)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": _plain_web_message(summary),
+            "districtKey": district_key,
+            "peers": peers,
+            **bundle,
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
 def mine_reactivate(request):
     """
     Reactivate an idle owned mine. Body: { "siteId": int, "packageId"?: int }
@@ -4117,6 +4511,41 @@ def claims_market_list_property(request):
     from typeclasses.claim_market import list_property_for_sale
 
     success, msg = list_property_for_sale(buyer, site_id, price)
+    if not success:
+        return JsonResponse({"ok": False, "message": msg}, status=400)
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    invalidate_claims_market_snapshot()
+
+    bundle = _web_refresh_bundle(request)
+    dash_data = bundle.get("dashboard", {})
+    return JsonResponse({"ok": True, "message": msg, "dashboard": dash_data})
+
+
+@csrf_exempt
+@require_POST
+def claims_market_list_discovery(request):
+    """
+    List an unclaimed surveyed mining deposit for sale (discoverer only).
+    Body: { "siteId": int, "price": number }
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Authentication required."}, status=401)
+
+    seller, err = _character_for_web_purchase(request.user)
+    if err is not None:
+        return err
+
+    body = _json_body(request)
+    site_id = body.get("siteId")
+    price = body.get("price")
+    if site_id is None:
+        return JsonResponse({"ok": False, "message": "Missing siteId."}, status=400)
+
+    from typeclasses.claim_market import list_unclaimed_discovery_for_sale
+
+    success, msg = list_unclaimed_discovery_for_sale(seller, site_id, price)
     if not success:
         return JsonResponse({"ok": False, "message": msg}, status=400)
 

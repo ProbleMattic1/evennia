@@ -6,6 +6,10 @@ Attached to Character as a lazy_property (same pattern as MissionHandler):
     character.challenges.evaluate_window("daily")
     character.challenges.serialize_for_web()
 
+Characters with ``db.is_npc`` use ``NonParticipantChallengeHandler`` via
+``challenge_handler_for_object``; emit() call sites are unchanged, but NPCs do
+not load or persist challenge state.
+
 State schema (stored under Attribute key "_challenges", category="challenges"):
 {
     "schema_version": 1,
@@ -155,6 +159,175 @@ def _blank_state() -> dict[str, Any]:
             "space_heat_stress_events_today": 0,
         },
     }
+
+
+def character_participates_in_challenge_system(obj) -> bool:
+    """False for NPC characters (``db.is_npc``); they do not use persisted challenge state."""
+    if obj is None:
+        return False
+    return not bool(getattr(obj.db, "is_npc", False))
+
+
+class NonParticipantChallengeHandler:
+    """
+    Stand-in when ``db.is_npc`` is True: no Evennia attribute I/O, no progression.
+
+    Implements the same public surface as ``ChallengeHandler`` that gameplay,
+    ``emit()``, web, and staff commands rely on.
+    """
+
+    def __init__(self, obj):
+        self.obj = obj
+        self._shadow: dict[str, Any] = _blank_state()
+
+    @property
+    def _state(self) -> dict[str, Any]:
+        return self._shadow
+
+    def _save(self) -> None:
+        return
+
+    def on_event(self, event_name: str, payload: dict[str, Any] | None = None) -> None:
+        return
+
+    def evaluate_window(self, cadence: str | None = None) -> list[str]:
+        return []
+
+    def sync_window_roll(self, cadence: str) -> bool:
+        return False
+
+    def sync_all_windows(self) -> list[str]:
+        return []
+
+    @property
+    def telemetry(self) -> dict[str, Any]:
+        return self._shadow["telemetry"]
+
+    def record_zone_visit(self, zone_id: str) -> None:
+        return
+
+    def record_room_visit(self, room_id: int, venue_id: str | None = None) -> None:
+        return
+
+    def record_vendor_sale(self, vendor_id: str, price: int, tax_amount: int) -> None:
+        return
+
+    def record_treasury_touch(self) -> None:
+        return
+
+    def record_property_op(self) -> None:
+        return
+
+    def record_hauler_event(self, mine_zone: str | None = None) -> None:
+        return
+
+    def record_mine_deposit(self, pipeline: str) -> None:
+        return
+
+    def record_deed_action(self) -> None:
+        return
+
+    def take_balance_snapshot(self, balance: int) -> None:
+        return
+
+    def add_lifetime_credits(self, amount: int) -> None:
+        return
+
+    def get_active(self, challenge_id: str, window_key: str) -> dict[str, Any] | None:
+        return None
+
+    def get_or_create_active(
+        self, challenge_id: str, cadence: str, window_key: str
+    ) -> dict[str, Any]:
+        # Detached row (not in _shadow["active"]) so mark_complete / staff grant fail closed.
+        return {
+            "challengeId": challenge_id,
+            "cadence": cadence,
+            "windowKey": window_key,
+            "progress": {},
+            "status": "in_progress",
+            "startedAt": "",
+            "completedAt": None,
+        }
+
+    def mark_complete(self, challenge_id: str, window_key: str) -> bool:
+        return False
+
+    def mark_claimed(self, challenge_id: str, window_key: str) -> tuple[bool, str]:
+        return False, "This character does not participate in the challenge system."
+
+    def list_complete_claim_pairs_for_cadence(self, cadence: str) -> list[tuple[str, str]]:
+        return []
+
+    def claim_all_complete_for_cadence(self, cadence: str) -> tuple[int, str]:
+        return 0, "This character does not participate in the challenge system."
+
+    def already_completed(self, challenge_id: str, window_key: str) -> bool:
+        return False
+
+    def purchase_count(self, offer_id: str) -> int:
+        return 0
+
+    def has_unlock_tag(self, tag: str) -> bool:
+        return False
+
+    def equipped_perk_ids(self) -> list[str]:
+        return []
+
+    def owned_perk_ids(self) -> list[str]:
+        return []
+
+    def set_equipped_perks(self, ordered_ids: list[str]) -> tuple[bool, str]:
+        return False, "This character does not participate in the challenge system."
+
+    def perk_slot_total(self) -> int:
+        return DEFAULT_PERK_SLOT_TOTAL
+
+    def license_tier(self, key: str) -> int:
+        return 0
+
+    def has_refining_recipe_unlock(self, recipe_key: str) -> bool:
+        return False
+
+    def purchase_offer(self, offer_id: str) -> tuple[bool, str]:
+        return False, "This character does not participate in the challenge system."
+
+    def serialize_for_web(self) -> dict[str, Any]:
+        offers_pub: list[dict[str, Any]] = []
+        for off in all_point_offers():
+            if not off.get("enabled", True):
+                continue
+            ser = serialize_offer_for_web(off)
+            cid = ser["id"]
+            ser["purchasedCount"] = 0
+            ser["canAfford"] = False
+            ser["prerequisitesMet"] = False
+            ser["soldOut"] = False
+            ser["seasonOk"] = True
+            ser["canPurchase"] = False
+            offers_pub.append(ser)
+
+        return {
+            "active": [],
+            "history": [],
+            "windows": {},
+            "pointsLifetime": 0,
+            "pointsSeason": 0,
+            "seasonId": "",
+            "pointOffers": offers_pub,
+            "pointPurchases": {},
+            "perkSlotTotal": self.perk_slot_total(),
+            "ownedPerks": [],
+            "equippedPerks": [],
+            "perkCatalog": [],
+        }
+
+
+def challenge_handler_for_object(obj):
+    """Return persisted ``ChallengeHandler`` for players; non-participant adapter for NPCs."""
+    if character_participates_in_challenge_system(obj):
+        return ChallengeHandler(obj)
+    return NonParticipantChallengeHandler(obj)
 
 
 class ChallengeHandler:

@@ -43,6 +43,7 @@ import type {
 import type {
   DashboardAlert,
   DashboardGroupedAlerts,
+  DashboardInventoryItem,
   DashboardMine,
   DashboardProperty,
   DashboardShip,
@@ -390,6 +391,77 @@ function AlertsPanel({
   );
 }
 
+function InventoryBucketGroup({
+  bucketId,
+  title,
+  rows,
+}: {
+  bucketId: string;
+  title: string;
+  rows: DashboardInventoryItem[];
+}) {
+  const headerTitle = `${title} (${rows.length})`;
+  const [open, setOpen] = useDashboardPanelOpen(`inventory:${bucketId}`, true);
+
+  const showPackageCr =
+    bucketId === "mining_package" || bucketId === "flora_package" || bucketId === "fauna_package";
+  let sumCr = 0;
+  let crCounted = 0;
+  if (showPackageCr) {
+    for (const item of rows) {
+      const v = item.estimatedValue;
+      if (v != null && !Number.isNaN(v)) {
+        sumCr += v;
+        crCounted += 1;
+      }
+    }
+  }
+
+  return (
+    <div className="mb-1 last:mb-0">
+      <div className={DASHBOARD_PANEL_SUBHEADER}>
+        <span className="min-w-0 flex-1 truncate text-ui-soft">{headerTitle}</span>
+        {showPackageCr && crCounted > 0 ? (
+          <span
+            className={RESOURCE_ROLLUP_MONO}
+            title={
+              crCounted === rows.length
+                ? "Total estimated package value (credits)"
+                : `Estimated value from ${crCounted} of ${rows.length} stacks (others omit value)`
+            }
+          >
+            {cr(sumCr)}
+            {crCounted < rows.length ? <span className="text-ui-muted"> *</span> : null}
+          </span>
+        ) : null}
+        <PanelExpandButton
+          open={open}
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${open ? "Collapse" : "Expand"} ${headerTitle}`}
+          className="shrink-0"
+        />
+      </div>
+      {open ? (
+        <div className={`${DASHBOARD_SCROLL_LIST_CLASS} space-y-0 pt-0.5`}>
+          {rows.map((item) => (
+            <Row
+              key={`${bucketId}-${item.stacked && item.ids?.length ? item.ids.join("-") : item.id}-${item.key}`}
+            >
+              <span className="min-w-0 flex-1 truncate font-mono text-foreground">
+                {item.count && item.count > 1 ? `${item.count}× ` : ""}
+                {item.key}
+              </span>
+              {showPackageCr && item.estimatedValue != null ? (
+                <span className="shrink-0 font-mono text-ui-muted">{cr(item.estimatedValue)}</span>
+              ) : null}
+            </Row>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function InventoryPanel({ inventory }: { inventory: CsInventory }) {
   const visibleOrder = (
     inventory.bucketOrder.length > 0 ? inventory.bucketOrder : Object.keys(inventory.byBucket).sort()
@@ -410,25 +482,7 @@ function InventoryPanel({ inventory }: { inventory: CsInventory }) {
         const rows = inventory.byBucket[bucketId];
         if (!rows?.length) return null;
         const title = labels[bucketId] ?? bucketId.replace(/_/g, " ");
-        return (
-          <div key={bucketId} className="mt-0.5 first:mt-0">
-            <div className="text-xs uppercase text-ui-muted">{title}</div>
-            {rows.map((item) => (
-              <Row key={`${bucketId}-${item.stacked && item.ids?.length ? item.ids.join("-") : item.id}-${item.key}`}>
-                <span className="flex-1 truncate text-foreground">
-                  {item.count && item.count > 1 ? `${item.count}× ` : ""}
-                  {item.key}
-                </span>
-                {(bucketId === "mining_package" ||
-                  bucketId === "flora_package" ||
-                  bucketId === "fauna_package") &&
-                item.estimatedValue != null ? (
-                  <span className="font-mono text-ui-muted">{cr(item.estimatedValue)}</span>
-                ) : null}
-              </Row>
-            ))}
-          </div>
-        );
+        return <InventoryBucketGroup key={bucketId} bucketId={bucketId} title={title} rows={rows} />;
       })}
     </Panel>
   );
@@ -1490,10 +1544,10 @@ export function ControlSurfaceMainPanels({ data, onReload }: { data: ControlSurf
           </button>
         </div>
       ) : null}
+      <RoomVisualTakeoverTopStrip panel={vt?.top ?? undefined} themeId={themeId} />
       {data.character?.room ? (
         <LocationBanner ambient={ambient} roomName={data.character.room} variant="compact" messages={gameLog} />
       ) : null}
-      <RoomVisualTakeoverTopStrip panel={vt?.top ?? undefined} themeId={themeId} />
       <div className={`grid min-h-0 grid-cols-1 md:min-h-svh ${gridColsClass}`}>
         {showSidebarRail && !sidebarOnRight ? (
           <RoomVisualTakeoverSidebarRail panel={sidebarPanel} themeId={themeId} />

@@ -59,6 +59,11 @@ function ClaimCard({
   const isDeed = c.listingKind === "deed" && c.claimId != null;
   const kind = c.siteKind ?? "mining";
   const kindLabel = kind === "flora" ? "Flora" : kind === "fauna" ? "Fauna" : "Mining";
+  const npcMiningPrimaryBlocked =
+    kind === "mining" &&
+    !isDeed &&
+    c.listingKind === "npc" &&
+    c.canPurchasePrimaryDeed === false;
   return (
     <div className="rounded border border-cyan-900/40 bg-zinc-950/60 px-3 py-2.5">
       <div className="flex items-start justify-between gap-3">
@@ -85,6 +90,11 @@ function ClaimCard({
               Seller: {c.sellerKey}
             </p>
           ) : null}
+          {npcMiningPrimaryBlocked && c.primaryDeedBlockReason ? (
+            <p className="text-xs leading-snug text-amber-600/90 dark:text-amber-400/90">
+              {c.primaryDeedBlockReason}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <span className="font-mono text-sm font-semibold tabular-nums text-cyber-cyan">
@@ -103,10 +113,10 @@ function ClaimCard({
             <button
               type="button"
               className={panelPrimaryButtonClass}
-              disabled={buyingKey !== null}
+              disabled={buyingKey !== null || npcMiningPrimaryBlocked}
               onClick={() => (isDeed ? onBuyListedDeed(c.claimId!) : onBuySiteDeed(c.siteKey))}
             >
-              {busy ? "…" : "Buy Deed"}
+              {busy ? "…" : npcMiningPrimaryBlocked ? "Not available" : "Buy Deed"}
             </button>
           )}
         </div>

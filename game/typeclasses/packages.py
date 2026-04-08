@@ -89,16 +89,24 @@ def _get_package_spec_by_tier(package_tier):
     return None
 
 
-def _find_unclaimed_site(site_query):
+def _find_unclaimed_site(site_query, buyer=None):
     """
     Find an unclaimed MiningSite by partial room or site key match.
     Returns (site_object, site_room) or (None, None).
+
+    Skips deposits still awaiting first survey and deposits exclusive to another operator.
     """
     from evennia import search_tag
+
     sites = search_tag("mining_site", category="mining")
     query = site_query.strip().lower()
     for site in sites:
         if getattr(site.db, "is_claimed", False):
+            continue
+        if getattr(site.db, "discovery_pending", False):
+            continue
+        disc = getattr(site.db, "discovered_by", None)
+        if disc is not None and buyer is not None and disc != buyer:
             continue
         site_key_lower = (site.key or "").lower()
         room_key_lower = (site.location.key if site.location else "").lower()
@@ -369,9 +377,15 @@ def deliver_mining_package(buyer, package_template, site_query):
     Resolve unclaimed site, spawn components from template, deploy.
     Returns (success: bool, message: str).
     """
-    site, site_room = _find_unclaimed_site(site_query)
+    from typeclasses.claim_market import mining_site_buyer_may_operate_exclusive
+
+    site, site_room = _find_unclaimed_site(site_query, buyer=buyer)
     if not site:
         return False, f"No unclaimed mining site matching '{site_query}'. Use |wavailableclaims|n to list options."
+
+    ok, err = mining_site_buyer_may_operate_exclusive(site, buyer)
+    if not ok:
+        return False, err
 
     components = package_template.db.package_components or []
     if not components:
@@ -420,6 +434,12 @@ def deploy_package_from_inventory(buyer, package_obj, claim_obj):
     allowed = getattr(site.db, "allowed_purposes", None) or ["mining"]
     if "mining" not in allowed:
         return False, "This site cannot be used for mining."
+
+    from typeclasses.claim_market import mining_site_buyer_may_operate_exclusive
+
+    ok, err = mining_site_buyer_may_operate_exclusive(site, buyer)
+    if not ok:
+        return False, err
 
     ok, msg = _deploy_components_at_site(buyer, site, site_room, components, package_tier)
     if ok:

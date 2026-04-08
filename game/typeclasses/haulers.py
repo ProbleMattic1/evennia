@@ -8,24 +8,24 @@ Dispatch: a hauler is due immediately (next run = now) whenever it is not "clean
 it has cargo, is mid-route (transit/unload), or the site's linked hopper still holds material.
 Only when state is at_mine, cargo is empty, and linked storage is empty does the next run follow
 the production grid: last deposit + pickup offset, else next_cycle_at + offset, stepped by the
-pipeline period (mining: MINING_DELIVERY_PERIOD / HAULER_PICKUP_OFFSET_SEC; flora & fauna:
+pipeline period (mining: MINING_DELIVERY_PERIOD / MINING_HAULER_PICKUP_OFFSET_SEC; flora & fauna:
 FLORA_DELIVERY_PERIOD / FLORA_HAULER_PICKUP_OFFSET_SEC).
 
 arm_hauler_pickup_after_mining_deposit / arm_hauler_pickup_after_flora_deposit /
 arm_hauler_pickup_after_fauna_deposit arm haulers tagged autonomous_hauler in category
 mining / flora / fauna respectively.
 
-At the processing plant, haulers normally unload into the shared Ore Receiving Bay; the treasury
-pays the hauler owner (plant raw purchase). Owners with db.haul_delivers_to_local_raw_storage
-instead unload into local raw reserve (tag local_raw_ore_storage) in db.haul_destination_room;
-no treasury payout on that move. If db.haul_local_reserve_then_plant is also true (with local
-delivery enabled and haul_destination_room matching the route destination), the hauler fills
-local reserve only up to an effective fill fraction of that storage's capacity (default
-HAUL_LOCAL_PLANT_FILL_FRACTION), then unloads the remainder to the bay with the usual treasury
-purchase. Optional per-owner override: db.haul_local_plant_fill_fraction must be one of
-ALLOWED_HAUL_LOCAL_PLANT_FILL_FRACTIONS (see effective_haul_local_plant_fill_fraction).
-Assigned plant silos are fed via feedprocessor / feedrefinery silo paths, not by the default
-autonomous hauler unload.
+At the processing plant, haulers unload into either the shared Ore Receiving Bay or the owner's
+local raw reserve (tag local_raw_ore_storage) when db.haul_delivers_to_local_raw_storage is true.
+In both cases the venue treasury buys the unloaded tons at plant bid (net after RAW_SALE_FEE) via
+settle_plant_raw_purchase_from_treasury — same economics as the bay-only path. If
+db.haul_local_reserve_then_plant is also true (with local delivery enabled and
+haul_destination_room matching the route destination), the hauler fills local reserve only up to
+effective_haul_local_plant_fill_fraction of capacity, then unloads the remainder to the bay;
+settlement runs once for the combined tonnage (local + bay). Optional per-owner override:
+db.haul_local_plant_fill_fraction must be one of ALLOWED_HAUL_LOCAL_PLANT_FILL_FRACTIONS
+(see effective_haul_local_plant_fill_fraction). Assigned plant silos are fed via feedprocessor /
+feedrefinery silo paths, not by the default autonomous hauler unload.
 """
 
 # Fraction of local raw reserve capacity to fill before routing further raw to the plant bay
@@ -51,6 +51,7 @@ from world.time import (
     HAULER_ENGINE_INTERVAL_SEC,
     MAX_HAULERS_PER_ENGINE_TICK as _DEFAULT_MAX_HAULERS_PER_ENGINE_TICK,
     MINING_DELIVERY_PERIOD,
+    MINING_HAULER_PICKUP_OFFSET_SEC,
     to_iso,
     utc_now,
 )
@@ -67,6 +68,17 @@ def _env_positive_int(name: str, default: int) -> int:
         return default
     try:
         v = int(str(raw).strip(), 10)
+    except ValueError:
+        return default
+    return v if v > 0 else default
+
+
+def _env_positive_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        v = float(str(raw).strip())
     except ValueError:
         return default
     return v if v > 0 else default
@@ -113,9 +125,13 @@ CAPACITY_BONUS_PER_EXPANSION = 0.25  # +25% per cargo_expansion level
 
 HAULER_STAGGER_WINDOW_BASE_SEC = 6 * HOUR
 HAULER_STAGGER_WINDOW_MIN_SEC = HOUR
-HAULER_MAX_PIPELINE_STEPS = _env_positive_int("AURNOM_HAULER_MAX_PIPELINE_STEPS", 32)
+HAULER_MAX_PIPELINE_STEPS = _env_positive_int("AURNOM_HAULER_MAX_PIPELINE_STEPS", 10)
 
-HAULER_PICKUP_OFFSET_SEC = MINING_DELIVERY_PERIOD // 2
+# Wall-clock cap per HaulerEngine at_repeat so Twisted can keep serving HTTP (env override).
+HAULER_ENGINE_MAX_WALL_SEC = _env_positive_float("AURNOM_HAULER_ENGINE_MAX_WALL_SEC", 2.0)
+
+# Mining pickup delay after ore deposit (player-facing copy uses this name).
+HAULER_PICKUP_OFFSET_SEC = MINING_HAULER_PICKUP_OFFSET_SEC
 
 # Player-assigned ore silo at haul destination (plant or parcel). Queued into
 # miner_ore_queue via feedrefinery / transfer_owner_plant_silo_to_miner_queue;
@@ -129,6 +145,24 @@ LOCAL_RAW_STORAGE_CATEGORY = "mining"
 # Shared plant receiving bay (bootstrap + hauler unload + web UI). Canonical identity is this tag.
 ORE_RECEIVING_BAY_TAG = "ore_receiving_bay"
 ORE_RECEIVING_BAY_TAG_CATEGORY = "mining"
+
+
+def _merge_plant_delivered_maps(left: dict | None, right: dict | None) -> dict:
+    """
+    Sum per-resource tons for a single plant raw purchase settlement.
+
+    Used when split-haul deposits to both local reserve and Ore Receiving Bay in one trip:
+    one treasury settlement keeps ledger volume predictable for long-running worlds.
+    """
+    merged: dict[str, float] = {}
+    for src in (left or {}, right or {}):
+        for k, v in src.items():
+            t = round(float(v), 2)
+            if t <= 0:
+                continue
+            ks = str(k)
+            merged[ks] = round(float(merged.get(ks, 0.0)) + t, 2)
+    return {k: v for k, v in merged.items() if v > 0}
 
 
 def _now():
@@ -214,7 +248,7 @@ def _hauler_grid_params(hauler):
         site = get_flora_site_in_room(mine_room)
         return site, FLORA_DELIVERY_PERIOD, FLORA_HAULER_PICKUP_OFFSET_SEC, "last_flora_deposit_at"
     site = get_site_in_room(mine_room)
-    return site, MINING_DELIVERY_PERIOD, HAULER_PICKUP_OFFSET_SEC, "last_ore_deposit_at"
+    return site, MINING_DELIVERY_PERIOD, MINING_HAULER_PICKUP_OFFSET_SEC, "last_ore_deposit_at"
 
 
 def _hauler_is_clean_idle_at_mine(hauler, site) -> bool:
@@ -517,7 +551,8 @@ def get_player_destination_storage(room, owner):
     """
     Player-assigned plant silo in this room (e.g. feedprocessor / feedrefinery silo path).
     Default autonomous haulers unload to Ore Receiving Bay; owners with
-    haul_delivers_to_local_raw_storage use local raw reserve instead.
+    haul_delivers_to_local_raw_storage unload to local raw reserve in the destination room.
+    Treasury purchase on unload is handled in hauler_process_one / split-haul helper.
     Prefers tagged plant silo; else any mining_storage with same owner; else creates silo.
     """
     if not room or not owner:
@@ -611,7 +646,8 @@ def _consume_venue_haul_tick_budget(dest_room, tons: float, venue_haul_budget: d
 def _haul_unload_split_local_then_plant(hauler, owner, dest_room, mine_room, pipeline, venue_haul_budget=None):
     """
     Fill local raw reserve up to effective_haul_local_plant_fill_fraction(owner) of capacity,
-    then remainder to Ore Receiving Bay + treasury. Full rollback on settlement failure.
+    then remainder to Ore Receiving Bay. After all physical moves, one treasury purchase
+    covers local + bay tonnage; full rollback on settlement failure.
     """
     from typeclasses.refining import settle_plant_raw_purchase_from_treasury
 
@@ -663,7 +699,7 @@ def _haul_unload_split_local_then_plant(hauler, owner, dest_room, mine_room, pip
     cargo_remain = hauler.db.cargo or {}
     delivered_bay = {}
     bay = None
-    total_net = 0
+
     if cargo_remain:
         bay = get_plant_ore_receiving_bay(dest_room)
         if not bay:
@@ -691,29 +727,36 @@ def _haul_unload_split_local_then_plant(hauler, owner, dest_room, mine_room, pip
             bay.db.inventory = inv
             delivered_bay[key] = round(float(delivered_bay.get(key, 0)) + removed, 2)
 
-        if not delivered_bay:
-            hauler.db.hauler_state = "transit_mine"
-            set_hauler_next_cycle(hauler)
-            owner.db.local_raw_storage = target
-            _emit_hauler_tick_challenge(owner, mine_room, pipeline)
-            return True, "Ore Receiving Bay full — could not unload remainder. Returning to mine."
+    def _rollback_bay_to_hauler():
+        if bay is None or not delivered_bay:
+            return
+        for rk, t in list(delivered_bay.items()):
+            w = bay.withdraw(rk, t)
+            if w > 0:
+                hauler.load_cargo(rk, w)
 
-        try:
-            total_net = settle_plant_raw_purchase_from_treasury(
-                owner,
-                dest_room,
-                delivered_bay,
-                raw_pipeline=pipeline,
-                memo=f"Plant raw intake ({hauler.key})",
-            )
-        except ValueError:
-            for rk, t in list(delivered_bay.items()):
-                bay.withdraw(rk, t)
-                hauler.load_cargo(rk, t)
-            _rollback_local_to_hauler()
-            hauler.db.hauler_state = "transit_mine"
-            set_hauler_next_cycle(hauler)
-            return True, "Plant treasury could not cover purchase; cargo retained."
+    delivered_total = _merge_plant_delivered_maps(delivered_local, delivered_bay)
+    if not delivered_total:
+        hauler.db.hauler_state = "transit_mine"
+        set_hauler_next_cycle(hauler)
+        owner.db.local_raw_storage = target
+        _emit_hauler_tick_challenge(owner, mine_room, pipeline)
+        return True, "Nothing could be unloaded to plant storage; returning to mine."
+
+    try:
+        total_net = settle_plant_raw_purchase_from_treasury(
+            owner,
+            dest_room,
+            delivered_total,
+            raw_pipeline=pipeline,
+            memo=f"Plant raw intake ({hauler.key})",
+        )
+    except ValueError:
+        _rollback_bay_to_hauler()
+        _rollback_local_to_hauler()
+        hauler.db.hauler_state = "transit_mine"
+        set_hauler_next_cycle(hauler)
+        return True, "Plant treasury could not cover purchase; cargo retained."
 
     hauler.db.hauler_state = "transit_mine"
     set_hauler_next_cycle(hauler)
@@ -722,15 +765,12 @@ def _haul_unload_split_local_then_plant(hauler, owner, dest_room, mine_room, pip
 
     parts = []
     if delivered_local:
-        parts.append(
-            f"local {target.key} ({sum(delivered_local.values()):.1f} t)"
-        )
-    if delivered_bay:
-        parts.append(
-            f"{bay.key} ({sum(delivered_bay.values()):.1f} t); paid {owner.key} {total_net:,} cr net"
-        )
+        parts.append(f"local {target.key} ({sum(delivered_local.values()):.1f} t)")
+    if delivered_bay and bay is not None:
+        parts.append(f"{bay.key} ({sum(delivered_bay.values()):.1f} t)")
+    paid_note = f"; paid {owner.key} {int(total_net):,} cr net"
     detail = "; ".join(parts) if parts else "no transfer"
-    return True, f"Split unload: {detail}. Returning to mine."
+    return True, f"Split unload: {detail}{paid_note}. Returning to mine."
 
 
 def hauler_process_one(hauler, venue_haul_budget=None):
@@ -738,7 +778,8 @@ def hauler_process_one(hauler, venue_haul_budget=None):
     Run one step of the hauler's route. Returns (did_work, message).
     State: at_mine -> loading -> transit_refinery -> unloading -> transit_mine
 
-    ``venue_haul_budget`` maps ``venue_id`` → tons delivered to the plant bay this engine tick.
+    ``venue_haul_budget`` maps ``venue_id`` → tons delivered to the plant bay this engine tick
+    (split-haul only; local-reserve tons are not venue-capped here).
     """
     from typeclasses.fauna import FAUNA_RESOURCE_CATALOG
     from typeclasses.flora import FLORA_RESOURCE_CATALOG
@@ -842,7 +883,7 @@ def hauler_process_one(hauler, venue_haul_budget=None):
         hauler.db.hauler_state = "unloading"
         return True, f"Arrived at {dest_room.key}. Unloading."
 
-    # ---- At destination: local raw reserve OR Ore Receiving Bay + treasury ------------
+    # ---- At destination: local raw reserve or Ore Receiving Bay (treasury pays unloaded tons) ----
     if state == "unloading":
         if loc != dest_room:
             hauler.move_to(dest_room, quiet=True, move_hooks=False)
@@ -874,6 +915,8 @@ def hauler_process_one(hauler, venue_haul_budget=None):
             )
 
         if use_local:
+            from typeclasses.refining import settle_plant_raw_purchase_from_treasury
+
             target = ensure_local_raw_storage(dest_room, owner)
             cap_tgt = float(getattr(target.db, "capacity_tons", 0) or 0)
             delivered = {}
@@ -898,12 +941,30 @@ def hauler_process_one(hauler, venue_haul_budget=None):
                 set_hauler_next_cycle(hauler)
                 return True, "Local raw reserve full — could not unload. Returning to mine."
 
+            try:
+                total_net = settle_plant_raw_purchase_from_treasury(
+                    owner,
+                    dest_room,
+                    delivered,
+                    raw_pipeline=pipeline,
+                    memo=f"Plant raw intake ({hauler.key})",
+                )
+            except ValueError:
+                for rk, t in list(delivered.items()):
+                    w = target.withdraw(rk, t)
+                    if w > 0:
+                        hauler.load_cargo(rk, t)
+                hauler.db.hauler_state = "transit_mine"
+                set_hauler_next_cycle(hauler)
+                return True, "Plant treasury could not cover purchase; cargo retained."
+
             hauler.db.hauler_state = "transit_mine"
             set_hauler_next_cycle(hauler)
             owner.db.local_raw_storage = target
             _emit_hauler_tick_challenge(owner, mine_room, pipeline)
             return True, (
-                f"Unloaded to {target.key} ({sum(delivered.values()):.1f} t). Returning to mine."
+                f"Unloaded to {target.key} ({sum(delivered.values()):.1f} t); "
+                f"paid {owner.key} {int(total_net):,} cr net. Returning to mine."
             )
 
         bay = get_plant_ore_receiving_bay(dest_room)
@@ -985,7 +1046,9 @@ class HaulerEngine(Script):
     Wakes every HAULER_ENGINE_INTERVAL seconds. Loads up to MAX_HAULERS_PER_ENGINE_TICK due
     haulers (HaulerDispatchRow next_run <= now), ordered by next_run then objectdb_id. Each may
     advance up to HAULER_MAX_PIPELINE_STEPS state transitions per tick (several full mine–plant–return
-    cycles when haulers are due immediately).
+    cycles when haulers are due immediately). Work stops early when wall time exceeds
+    HAULER_ENGINE_MAX_WALL_SEC so the reactor can serve portal traffic; remaining due haulers run on
+    subsequent ticks.
     """
 
     def at_script_creation(self):
@@ -1009,8 +1072,18 @@ class HaulerEngine(Script):
         processed = 0
         errors = 0
         scanned = 0
+        budget_hit = False
+        deferred_approx = 0
+        max_wall = float(HAULER_ENGINE_MAX_WALL_SEC)
 
-        for hid in due_ids:
+        def _over_budget() -> bool:
+            return (time.perf_counter() - _tick_t0) >= max_wall
+
+        for idx, hid in enumerate(due_ids):
+            if _over_budget():
+                budget_hit = True
+                deferred_approx = len(due_ids) - idx
+                break
             try:
                 try:
                     hauler = ObjectDB.objects.get(id=hid)
@@ -1033,6 +1106,10 @@ class HaulerEngine(Script):
                 scanned += 1
                 steps = 0
                 while steps < HAULER_MAX_PIPELINE_STEPS:
+                    if _over_budget():
+                        budget_hit = True
+                        deferred_approx = len(due_ids) - idx
+                        break
                     next_at = get_hauler_next_cycle_at(hauler)
                     if next_at is None:
                         set_hauler_next_cycle(hauler)
@@ -1057,12 +1134,23 @@ class HaulerEngine(Script):
                     if next_after is not None and next_after > now:
                         break
 
+                if budget_hit:
+                    break
+
             except Exception as err:
                 errors += 1
                 logger.log_err(f"[hauler_engine] Error on {getattr(hauler, 'key', '?')}: {err}")
 
         self.ndb.last_tick_duration_sec = round(time.perf_counter() - _tick_t0, 4)
+        self.ndb.last_tick_budget_hit = budget_hit
+        self.ndb.last_tick_deferred_approx = int(deferred_approx) if budget_hit else 0
+        extra = (
+            f" budget_hit=1 deferred_approx={deferred_approx}"
+            if budget_hit
+            else " budget_hit=0"
+        )
         logger.log_info(
             f"[hauler_engine] Tick — due_fetched={len(due_ids)} scanned={scanned} "
             f"step(s)={processed} error(s)={errors} wall_s={self.ndb.last_tick_duration_sec}"
+            f"{extra}"
         )

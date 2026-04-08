@@ -234,7 +234,7 @@ class CmdHaulerStatus(Command):
             if getattr(caller.db, "haul_delivers_to_local_raw_storage", False) and getattr(
                 h.db, "hauler_destination_room", None
             ):
-                del_note = "Delivery: local raw reserve (no plant payout on unload)"
+                del_note = "Delivery: local raw reserve (treasury pays on unload)"
             else:
                 del_note = "Delivery: Ore Receiving Bay at plant (paid on unload)"
             lines.append(

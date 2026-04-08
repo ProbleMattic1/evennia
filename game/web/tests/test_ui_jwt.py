@@ -39,6 +39,9 @@ class UiJwtPathTests(TestCase):
         self.assertTrue(path_is_jwt_exempt("/ui/auth/csrf"))
         self.assertTrue(path_is_jwt_exempt("/ui/auth/token"))
 
+    def test_exempt_health_path(self):
+        self.assertTrue(path_is_jwt_exempt("/ui/health"))
+
     def test_requires_jwt_for_msg_stream(self):
         class R:
             path = "/ui/msg-stream"

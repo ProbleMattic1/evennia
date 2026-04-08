@@ -7,6 +7,9 @@ NANOMEGA_REALTY_RESET_STATS=1.
 
 Account: NANOMEGA_REALTY_ACCOUNT_USERNAME if set, else same fallback as Marcus
 (EVENNIA_SUPERUSER_USERNAME / first superuser / id 1).
+
+Seeded character is a world NPC: ``char.db.is_npc = True`` (challenge / point-store
+non-participation, consistent with other station bootstraps).
 """
 
 import os
@@ -96,6 +99,7 @@ def bootstrap_nanomega_realty():
         if char not in account.characters:
             account.characters.add(char)
         char.db.rpg_pointbuy_done = True
+        char.db.is_npc = True
         if _reset_stats_requested():
             _apply_realty_ability_scores(char)
             print(
@@ -127,6 +131,7 @@ def bootstrap_nanomega_realty():
 
     _apply_realty_ability_scores(char)
     char.db.rpg_pointbuy_done = True
+    char.db.is_npc = True
     _apply_realty_credits(char)
     print(
         f"[nanomega-realty] Created {NANOMEGA_REALTY_CHARACTER_KEY!r} for {account.username} "

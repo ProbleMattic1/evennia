@@ -8,6 +8,7 @@ creation commands.
 
 """
 
+import threading
 import time
 
 from evennia.contrib.game_systems.cooldowns.cooldowns import CooldownHandler
@@ -20,7 +21,7 @@ from evennia.utils.utils import make_iter
 from typeclasses.crime_record import CrimeRecordHandler
 from typeclasses.missions import MissionHandler
 from typeclasses.quests import QuestHandler
-from world.challenges.challenge_handler import ChallengeHandler
+from world.challenges.challenge_handler import challenge_handler_for_object
 from world.progression import LevelUpEvent, add_xp as rules_add_xp, snapshot as progression_snapshot
 from world.progression_rewards import apply_level_up_rewards
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
@@ -221,6 +222,94 @@ def ability_bases_for_character_key(character_key, *, rpg_pointbuy_done):
     return DEFAULT_ABILITY_BASES
 
 
+# Serialize buffer + seq updates per character. Portal data_out and headless/API msg
+# paths can hit the same Character from different threads; without this, duplicate
+# seq values can appear in web_msg_buffer.
+_WEB_MSG_STREAM_LOCKS: dict[int, threading.Lock] = {}
+_WEB_MSG_STREAM_LOCKS_GUARD = threading.Lock()
+
+
+def _web_msg_stream_lock(character):
+    oid = character.id
+    with _WEB_MSG_STREAM_LOCKS_GUARD:
+        lock = _WEB_MSG_STREAM_LOCKS.get(oid)
+        if lock is None:
+            lock = threading.Lock()
+            _WEB_MSG_STREAM_LOCKS[oid] = lock
+        return lock
+
+
+# Process-local coalesce before persisting web_msg_buffer (single Evennia server process).
+_WEB_MSG_PENDING: dict[int, list[dict]] = {}
+_WEB_MSG_COALESCE_BATCH = 8
+_WEB_MSG_PENDING_HARD_CAP = 200
+
+
+def _flush_web_msg_buffer_inner(character):
+    """
+    Merge pending rows into persisted web_msg_buffer.
+    Caller MUST hold _web_msg_stream_lock(character).
+    """
+    oid = character.id
+    chunk = _WEB_MSG_PENDING.pop(oid, None)
+    if not chunk:
+        return
+
+    stored = list(character.attributes.get("web_msg_buffer", default=[]))
+    buf = normalize_web_msg_buffer_rows(stored)
+    stored_seq = int(character.attributes.get("web_msg_seq", default=0))
+    max_buf_seq = max((r["seq"] for r in buf), default=0)
+    last_assigned = max(stored_seq, max_buf_seq)
+
+    for raw in chunk:
+        last_assigned += 1
+        buf.append(
+            {
+                "seq": last_assigned,
+                "html": str(raw["html"]),
+                "ts": float(raw["ts"]),
+                "meta": dict(raw.get("meta") or {}),
+            }
+        )
+
+    if len(buf) > character.WEB_MSG_BUFFER_MAX:
+        buf = buf[-character.WEB_MSG_BUFFER_MAX :]
+
+    character.attributes.add("web_msg_buffer", buf)
+    character.attributes.add("web_msg_seq", last_assigned)
+
+
+def _coerce_web_msg_buffer_row(row):
+    """
+    Turn a stored buffer entry into a plain dict, or None if it is unusable.
+    """
+    if not isinstance(row, dict):
+        return None
+    try:
+        seq = int(row["seq"])
+        html = str(row["html"])
+        ts = float(row["ts"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    raw_meta = row.get("meta")
+    meta = dict(raw_meta) if isinstance(raw_meta, dict) else {}
+    return {"seq": seq, "html": html, "ts": ts, "meta": meta}
+
+
+def normalize_web_msg_buffer_rows(stored_list):
+    """
+    Coerce rows, drop garbage, dedupe by seq (later list position wins), sort by seq.
+    One canonical row per seq for the web UI and msg-stream JSON.
+    """
+    merged = {}
+    for row in stored_list:
+        c = _coerce_web_msg_buffer_row(row)
+        if c is None:
+            continue
+        merged[c["seq"]] = c
+    return [merged[s] for s in sorted(merged)]
+
+
 class Character(ObjectParent, DefaultCharacter):
     """
     The Character just re-implements some of the Object's methods and hooks
@@ -259,7 +348,7 @@ class Character(ObjectParent, DefaultCharacter):
 
     @lazy_property
     def challenges(self):
-        return ChallengeHandler(self)
+        return challenge_handler_for_object(self)
 
     @lazy_property
     def faction_standing(self):
@@ -282,20 +371,19 @@ class Character(ObjectParent, DefaultCharacter):
         if not isinstance(raw, str) or not raw.strip():
             return
         html = parse_html(raw, strip_ansi=False)
+        oid = self.id
 
-        buf = list(self.attributes.get("web_msg_buffer", default=[]))
-        seq = int(self.attributes.get("web_msg_seq", default=0)) + 1
-        buf.append({
-            "seq": seq,
-            "html": str(html),
-            "ts": float(time.time()),
-            "meta": dict(meta),
-        })
-        if len(buf) > self.WEB_MSG_BUFFER_MAX:
-            buf = buf[-self.WEB_MSG_BUFFER_MAX :]
-
-        self.attributes.add("web_msg_buffer", buf)
-        self.attributes.add("web_msg_seq", seq)
+        with _web_msg_stream_lock(self):
+            lst = _WEB_MSG_PENDING.setdefault(oid, [])
+            lst.append(
+                {
+                    "html": str(html),
+                    "ts": float(time.time()),
+                    "meta": dict(meta),
+                }
+            )
+            if len(lst) >= _WEB_MSG_PENDING_HARD_CAP or len(lst) >= _WEB_MSG_COALESCE_BATCH:
+                _flush_web_msg_buffer_inner(self)
 
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         """Emit to client(s); tee via data_out when sessions exist, else record here (API/headless)."""
@@ -320,22 +408,16 @@ class Character(ObjectParent, DefaultCharacter):
         """
         Return rows: plain dicts with int seq, str html, float ts, dict meta.
         Only includes seq > since_seq when since_seq > 0.
+        Flushes process-local pending rows first so polls see recent lines.
         """
-        stored_list = list(self.attributes.get("web_msg_buffer", default=[]))
-        cutoff = int(since_seq)
-
-        out = []
-        for row in stored_list:
-            out.append({
-                "seq": int(row["seq"]),
-                "html": str(row["html"]),
-                "ts": float(row["ts"]),
-                "meta": dict(row["meta"]),
-            })
-
-        if cutoff:
-            return [e for e in out if e["seq"] > cutoff]
-        return out
+        with _web_msg_stream_lock(self):
+            _flush_web_msg_buffer_inner(self)
+            stored_list = list(self.attributes.get("web_msg_buffer", default=[]))
+            out = normalize_web_msg_buffer_rows(stored_list)
+            cutoff = int(since_seq)
+            if cutoff:
+                return [e for e in out if e["seq"] > cutoff]
+            return list(out)
 
     def at_object_creation(self):
         super().at_object_creation()

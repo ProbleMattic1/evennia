@@ -7,8 +7,12 @@ for every venue that sells that SKU.
 
 from evennia import create_object, search_object
 
+from world.product_catalog import catalog_id_for_display_key
 from world.venue_resolve import hub_room_for_venue
 from world.venues import all_venue_ids, apply_venue_metadata, get_venue
+
+MINING_SCANNER_TEMPLATE_KEY = "Mining Scanner - Basic Stationary"
+MINING_SCANNER_PRICE_CR = 3200
 
 # (template key, vendor_slug matching venues shops, desc, price, inventory bucket)
 CATALOG = (
@@ -21,6 +25,13 @@ CATALOG = (
     ("Toy Holo Chess", "toy-gallery", "Portable holographic chess set with classic variants.", 95, "novelty"),
     ("Toy Plush Bot", "toy-gallery", "A soft plush replica of a popular station robot.", 42, "novelty"),
     ("Toy Model Freighter", "toy-gallery", "Die-cast display model of a civilian freighter class.", 175, "novelty"),
+    (
+        MINING_SCANNER_TEMPLATE_KEY,
+        "mining-outfitters",
+        "Deploy at a claim site to run legal geological surveys and query the district grid.",
+        MINING_SCANNER_PRICE_CR,
+        "tool",
+    ),
 )
 
 _LEGACY_VENDOR_IDS = frozenset(
@@ -80,11 +91,26 @@ def _get_or_create_catalog_vendor(room, spec):
 
 
 def _ensure_catalog_template(key, vendor_slug, desc, price_cr, inventory_bucket_tag: str):
+    from evennia.utils import logger
+
     found = search_object(key)
+    is_scanner = key == MINING_SCANNER_TEMPLATE_KEY
     if found:
         obj = found[0]
+        if is_scanner and not obj.is_typeclass("typeclasses.mining_scanner.MiningScanner", exact=False):
+            logger.log_warn(
+                f"[shops] Template {key!r} exists but is not MiningScanner; "
+                "replace the object or delete and re-run bootstrap_shops."
+            )
     else:
-        obj = create_object("typeclasses.objects.Object", key=key, location=None)
+        if is_scanner:
+            obj = create_object(
+                "typeclasses.mining_scanner.MiningScanner",
+                key=key,
+                location=None,
+            )
+        else:
+            obj = create_object("typeclasses.objects.Object", key=key, location=None)
     obj.db.desc = desc
     obj.db.economy = {"base_price_cr": int(price_cr)}
     obj.db.is_template = True
@@ -96,6 +122,9 @@ def _ensure_catalog_template(key, vendor_slug, desc, price_cr, inventory_bucket_
         obj.tags.add(vid, category="vendor")
     obj.tags.add(inventory_bucket_tag, category="inventory")
     obj.locks.add("get:false()")
+    cid = catalog_id_for_display_key(key)
+    if cid:
+        obj.db.catalog_id = cid
     return obj
 
 

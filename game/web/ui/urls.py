@@ -10,6 +10,7 @@ from .economy_world import economy_world_state
 from . import ui_auth
 
 urlpatterns = [
+    path("health", views.ui_health, name="ui-health"),
     path("auth/csrf", ui_auth.ui_auth_csrf, name="ui-auth-csrf"),
     path("auth/status", ui_auth.ui_auth_status, name="ui-auth-status"),
     path("auth/token", ui_auth.ui_auth_token, name="ui-auth-token"),
@@ -63,6 +64,11 @@ urlpatterns = [
     path("refinery/queue-recipe", views.refinery_queue_recipe, name="ui-refinery-queue-recipe"),
     path("refinery/collect-refined", views.refinery_collect_refined, name="ui-refinery-collect-refined"),
     path(
+        "refinery/withdraw-parts",
+        views.refinery_withdraw_parts,
+        name="ui-refinery-withdraw-parts",
+    ),
+    path(
         "shipyard",
         RedirectView.as_view(
             url="shop?room=Meridian%20Civil%20Shipyard",
@@ -92,6 +98,11 @@ urlpatterns = [
         name="ui-claims-market-purchase-random-fauna-claim",
     ),
     path("claims-market/list-property", views.claims_market_list_property, name="ui-claims-market-list-property"),
+    path(
+        "claims-market/list-discovery",
+        views.claims_market_list_discovery,
+        name="ui-claims-market-list-discovery",
+    ),
     path("claims-market/list-claim", views.claims_market_list_claim, name="ui-claims-market-list-claim"),
     path(
         "claims-market/purchase-listed-claim",
@@ -174,6 +185,9 @@ urlpatterns = [
     path("mine/deploy-flora", views.mine_deploy_flora, name="ui-mine-deploy-flora"),
     path("mine/deploy-fauna", views.mine_deploy_fauna, name="ui-mine-deploy-fauna"),
     path("mine/undeploy", views.mine_undeploy, name="ui-mine-undeploy"),
+    path("mine/scanner/deploy", views.mine_scanner_deploy, name="ui-mine-scanner-deploy"),
+    path("mine/scanner/undeploy", views.mine_scanner_undeploy, name="ui-mine-scanner-undeploy"),
+    path("mine/district-scan", views.mine_district_scan, name="ui-mine-district-scan"),
     path("mine/reactivate", views.mine_reactivate, name="ui-mine-reactivate"),
     path("mine/repair-rig", views.mine_repair_rig, name="ui-mine-repair-rig"),
     path("package/list", views.package_list_for_sale, name="ui-package-list"),

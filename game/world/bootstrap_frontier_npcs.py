@@ -2,6 +2,8 @@
 Frontier venue service NPCs (realty, construction, advertising). Idempotent.
 
 Mirrors NanoMega bootstrap patterns; characters use FRONTIER_* keys in typeclasses.characters.
+
+All three seeded characters are world NPCs: ``char.db.is_npc = True``.
 """
 
 import os
@@ -60,6 +62,7 @@ def _ensure_character(account, key: str, bases: dict, *, location):
         if char not in account.characters:
             account.characters.add(char)
         char.db.rpg_pointbuy_done = True
+        char.db.is_npc = True
         _apply_bases(char, bases)
         if char.location != location:
             char.move_to(location, quiet=True)
@@ -76,6 +79,7 @@ def _ensure_character(account, key: str, bases: dict, *, location):
         return
     _apply_bases(char, bases)
     char.db.rpg_pointbuy_done = True
+    char.db.is_npc = True
     _apply_zero_credits(char)
     print(f"[frontier-npcs] Created {key!r} (#{char.id}).")
 

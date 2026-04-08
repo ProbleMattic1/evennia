@@ -130,30 +130,9 @@ def handle_frontier_kiosk(char, payload=None):
 # ---------------------------------------------------------------------------
 
 def handle_survey(char, payload=None):
-    loc = char.location
-    if not loc:
-        raise InteractionError("There is no minable deposit here.")
-    site = None
-    for obj in loc.contents:
-        if obj.tags.has("mining_site", category="mining"):
-            site = obj
-            break
-    if not site:
-        raise InteractionError("There is no minable deposit here.")
+    from world.mining_survey_ops import execute_survey
 
-    new_level, report = site.advance_survey()
-    from typeclasses.mining import SURVEY_LEVELS
-
-    label = SURVEY_LEVELS.get(new_level, "?")
-    if new_level >= 3:
-        dialogue = f"|wSurvey complete ({label}).|n\n{report}"
-    else:
-        remaining = 3 - new_level
-        dialogue = (
-            f"|wSurvey advanced to level {new_level} ({label}).|n  "
-            f"({remaining} more survey{'s' if remaining > 1 else ''} to full assessment)\n{report}"
-        )
-    return InteractionLine(dialogue, "survey", None)
+    return execute_survey(char)
 
 
 # ---------------------------------------------------------------------------

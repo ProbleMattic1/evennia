@@ -8,7 +8,13 @@ UTC = timezone.utc
 from types import SimpleNamespace
 from unittest import mock
 
+from world.time import MINING_DELIVERY_PERIOD, MINING_HAULER_PICKUP_OFFSET_SEC
+
 MIN_PY = (3, 11)
+
+
+def _mining_grid_patch_tuple(site):
+    return (site, MINING_DELIVERY_PERIOD, MINING_HAULER_PICKUP_OFFSET_SEC, "last_ore_deposit_at")
 
 
 @unittest.skipUnless(
@@ -66,7 +72,7 @@ class HaulerDynamicScheduleTests(unittest.TestCase):
         site = self._site(owner, next_cycle_at=next_c, last_dep=None, storage_tons=0.0)
         hauler, _ = self._hauler(owner, state="at_mine", cargo_mass=0.0, storage_tons=0.0)
 
-        grid_ret = (site, 1800, 900, "last_ore_deposit_at")
+        grid_ret = _mining_grid_patch_tuple(site)
 
         with mock.patch("typeclasses.haulers._hauler_grid_params", return_value=grid_ret):
             got = compute_next_hauler_run_at(hauler, after=after)
@@ -84,7 +90,10 @@ class HaulerDynamicScheduleTests(unittest.TestCase):
             storage_tons=50.0,
         )
         hauler, _ = self._hauler(owner, state="at_mine", cargo_mass=0.0, storage_tons=50.0)
-        with mock.patch("typeclasses.haulers._hauler_grid_params", return_value=(site, 1800, 900, "last_ore_deposit_at")):
+        with mock.patch(
+            "typeclasses.haulers._hauler_grid_params",
+            return_value=_mining_grid_patch_tuple(site),
+        ):
             got = compute_next_hauler_run_at(hauler, after=after)
         self.assertEqual(got, after)
 
@@ -100,7 +109,10 @@ class HaulerDynamicScheduleTests(unittest.TestCase):
             storage_tons=0.0,
         )
         hauler, _ = self._hauler(owner, state="transit_refinery", cargo_mass=40.0, storage_tons=0.0)
-        with mock.patch("typeclasses.haulers._hauler_grid_params", return_value=(site, 1800, 900, "last_ore_deposit_at")):
+        with mock.patch(
+            "typeclasses.haulers._hauler_grid_params",
+            return_value=_mining_grid_patch_tuple(site),
+        ):
             got = compute_next_hauler_run_at(hauler, after=after)
         self.assertEqual(got, after)
 
@@ -116,7 +128,10 @@ class HaulerDynamicScheduleTests(unittest.TestCase):
             storage_tons=0.0,
         )
         hauler, _ = self._hauler(owner, state="at_mine", cargo_mass=0.01, storage_tons=0.0)
-        with mock.patch("typeclasses.haulers._hauler_grid_params", return_value=(site, 1800, 900, "last_ore_deposit_at")):
+        with mock.patch(
+            "typeclasses.haulers._hauler_grid_params",
+            return_value=_mining_grid_patch_tuple(site),
+        ):
             got = compute_next_hauler_run_at(hauler, after=after)
         self.assertEqual(got, after)
 
@@ -147,7 +162,7 @@ class HaulerDynamicScheduleTests(unittest.TestCase):
         owner = self._owner()
         last_dep = datetime(2030, 5, 1, 10, 0, 0, tzinfo=UTC)
         after = datetime(2030, 5, 1, 10, 10, 0, tzinfo=UTC)
-        expected_pickup = last_dep + timedelta(seconds=900)
+        expected_pickup = last_dep + timedelta(seconds=MINING_HAULER_PICKUP_OFFSET_SEC)
         site = self._site(
             owner,
             next_cycle_at=datetime(2030, 5, 1, 11, 0, 0, tzinfo=UTC),
@@ -155,7 +170,10 @@ class HaulerDynamicScheduleTests(unittest.TestCase):
             storage_tons=0.0,
         )
         hauler, _ = self._hauler(owner, state="at_mine", cargo_mass=0.0, storage_tons=0.0)
-        with mock.patch("typeclasses.haulers._hauler_grid_params", return_value=(site, 1800, 900, "last_ore_deposit_at")):
+        with mock.patch(
+            "typeclasses.haulers._hauler_grid_params",
+            return_value=_mining_grid_patch_tuple(site),
+        ):
             got = compute_next_hauler_run_at(hauler, after=after)
         self.assertEqual(got, expected_pickup)
 

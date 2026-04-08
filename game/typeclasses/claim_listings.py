@@ -239,8 +239,36 @@ def get_claim_listings_rows(venue_id=None):
     return merged
 
 
+def _transfer_mining_site_operator_for_listed_deed_sale(site, buyer):
+    """
+    After a successful player-listed mining deed sale, exclusive survey/operator
+    rights on the deposit must follow the deed owner (same contract as
+    purchase_property_listing for mining).
+    """
+    if not site or not buyer:
+        return
+    if not site.tags.has("mining_site", category="mining"):
+        return
+
+    from django.utils import timezone
+
+    from world.claims_market_read_model import invalidate_claims_market_snapshot
+
+    site.db.discovered_by = buyer
+    site.db.discovery_pending = False
+    site.db.discovered_at = timezone.now()
+    invalidate_claims_market_snapshot()
+
+
 def buy_listed_claim(buyer, claim_id):
-    """Transfer credits; move claim from escrow to buyer. Returns (success, message)."""
+    """
+    Transfer credits; move claim from escrow to buyer.
+
+    Mining: reassigns ``discovered_by`` / survey registration on the bound deposit
+    to the buyer so deploy and exclusive-operator rules match deed ownership.
+
+    Returns (success, message).
+    """
     from typeclasses.economy import get_economy
 
     try:
@@ -323,6 +351,9 @@ def buy_listed_claim(buyer, claim_id):
         )
     except ValueError:
         return False, "Insufficient credits."
+
+    if claim_kind == "mining":
+        _transfer_mining_site_operator_for_listed_deed_sale(site, buyer)
 
     claim.move_to(buyer)
     script.db.listings = [e for e in listings if e.get("claim_id") != cid]

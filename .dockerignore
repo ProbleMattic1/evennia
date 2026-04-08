@@ -16,3 +16,9 @@ frontend/
 
 # Exclude deploy/ - KVM / multi-host layout notes only; not part of the Evennia runtime
 deploy/
+
+# Python caches (often root-owned on host after bind-mount runs); not needed in image and
+# can make "load build context" fail for the unprivileged context sender.
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo

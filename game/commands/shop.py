@@ -224,6 +224,8 @@ class CmdBuy(Command):
 
         new_item = template.copy(new_key=template.key)
         new_item.db.is_template = False
+        if getattr(template.db, "catalog_id", None):
+            new_item.db.catalog_id = template.db.catalog_id
         if new_item.tags.has("for_sale", category="shop_stock"):
             new_item.tags.remove("for_sale", category="shop_stock")
         vid = vendor.db.vendor_id

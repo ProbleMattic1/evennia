@@ -108,6 +108,9 @@ class CmdSetChallengeSeason(Command):
         if not season_id:
             self.msg("Usage: setchallengeseason <season_id> [/ resetpoints]")
             return
+        if getattr(char.db, "is_npc", False):
+            self.msg("NPCs do not participate in the challenge system.")
+            return
         h = char.challenges
         h._state["season_id"] = season_id
         if reset:

@@ -9,6 +9,7 @@ UI_JWT_AUTH_EXEMPT_PREFIXES: tuple[str, ...] = (
     "/ui/auth/refresh",
     "/ui/auth/revoke",
     "/ui/auth/status",
+    "/ui/health",
 )
 
 

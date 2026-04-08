@@ -62,7 +62,7 @@ function TakeoverMedia({
 }
 
 /**
- * Full-width hero strip below the compact location banner (dashboard) or inside play panels.
+ * Full-width hero strip above the compact location banner on the dashboard, or inside play panels.
  */
 export function RoomVisualTakeoverTopStrip({
   panel,

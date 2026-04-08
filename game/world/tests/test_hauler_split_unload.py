@@ -90,13 +90,13 @@ class TestSplitLocalPlantUnload(unittest.TestCase):
 
         # Threshold = capacity (100) * fraction; single-commodity cargo 60 t.
         cases = [
-            (0.1, 10.0, 50.0, True),
-            (0.25, 25.0, 35.0, True),
-            (0.5, 50.0, 10.0, True),
-            (0.75, 60.0, 0.0, False),
-            (1.0, 60.0, 0.0, False),
+            (0.1, 10.0, 50.0),
+            (0.25, 25.0, 35.0),
+            (0.5, 50.0, 10.0),
+            (0.75, 60.0, 0.0),
+            (1.0, 60.0, 0.0),
         ]
-        for frac, want_local, want_bay, expect_settle in cases:
+        for frac, want_local, want_bay in cases:
             with self.subTest(fraction=frac):
                 local = _FakeInvStore(100.0, key="Local Raw")
                 bay = _FakeInvStore(1000.0, key="Ore Receiving Bay")
@@ -126,17 +126,15 @@ class TestSplitLocalPlantUnload(unittest.TestCase):
                 self.assertAlmostEqual(local.total_mass(), want_local)
                 self.assertAlmostEqual(bay.total_mass(), want_bay)
                 self.assertEqual(hauler.db.cargo, {})
-                if expect_settle:
-                    settle.assert_called_once()
-                    kwargs = settle.call_args.kwargs
-                    args = settle.call_args.args
-                    self.assertEqual(kwargs.get("raw_pipeline"), "mining")
-                    delivered = kwargs.get("delivered") or (args[2] if len(args) > 2 else None)
-                    self.assertIsNotNone(delivered)
-                    assert delivered is not None
-                    self.assertAlmostEqual(float(delivered.get("iron", 0)), want_bay)
-                else:
-                    settle.assert_not_called()
+                settle.assert_called_once()
+                kwargs = settle.call_args.kwargs
+                args = settle.call_args.args
+                self.assertEqual(kwargs.get("raw_pipeline"), "mining")
+                delivered = kwargs.get("delivered") or (args[2] if len(args) > 2 else None)
+                self.assertIsNotNone(delivered)
+                assert delivered is not None
+                want_total = round(float(want_local) + float(want_bay), 2)
+                self.assertAlmostEqual(float(delivered.get("iron", 0)), want_total)
 
     def test_default_fraction_when_override_unset(self):
         from typeclasses.haulers import HAUL_LOCAL_PLANT_FILL_FRACTION, _haul_unload_split_local_then_plant
@@ -164,6 +162,11 @@ class TestSplitLocalPlantUnload(unittest.TestCase):
         self.assertAlmostEqual(local.total_mass(), want_local)
         self.assertAlmostEqual(bay.total_mass(), 10.0)
         settle.assert_called_once()
+        kwargs = settle.call_args.kwargs
+        args = settle.call_args.args
+        delivered = kwargs.get("delivered") or (args[2] if len(args) > 2 else None)
+        assert delivered is not None
+        self.assertAlmostEqual(float(delivered.get("iron", 0)), 60.0)
 
     def test_invalid_override_falls_back_to_default_half(self):
         from typeclasses.haulers import HAUL_LOCAL_PLANT_FILL_FRACTION, _haul_unload_split_local_then_plant
@@ -186,7 +189,7 @@ class TestSplitLocalPlantUnload(unittest.TestCase):
                 with mock.patch(
                     "typeclasses.refining.settle_plant_raw_purchase_from_treasury",
                     return_value=1,
-                ):
+                ) as settle:
                     ok, _msg = _haul_unload_split_local_then_plant(
                         hauler, owner, plant, mine, "mining"
                     )
@@ -195,6 +198,12 @@ class TestSplitLocalPlantUnload(unittest.TestCase):
         want_local = round(100.0 * HAUL_LOCAL_PLANT_FILL_FRACTION, 2)
         self.assertAlmostEqual(local.total_mass(), want_local)
         self.assertAlmostEqual(bay.total_mass(), 10.0)
+        settle.assert_called_once()
+        kwargs = settle.call_args.kwargs
+        args = settle.call_args.args
+        delivered = kwargs.get("delivered") or (args[2] if len(args) > 2 else None)
+        assert delivered is not None
+        self.assertAlmostEqual(float(delivered.get("iron", 0)), 60.0)
 
     def test_local_already_at_threshold_all_to_bay(self):
         from typeclasses.haulers import _haul_unload_split_local_then_plant
@@ -212,7 +221,7 @@ class TestSplitLocalPlantUnload(unittest.TestCase):
                 with mock.patch(
                     "typeclasses.refining.settle_plant_raw_purchase_from_treasury",
                     return_value=500,
-                ):
+                ) as settle:
                     ok, _msg = _haul_unload_split_local_then_plant(
                         hauler, owner, plant, mine, "mining"
                     )
@@ -221,6 +230,12 @@ class TestSplitLocalPlantUnload(unittest.TestCase):
         self.assertAlmostEqual(local.total_mass(), 50.0)
         self.assertAlmostEqual(bay.total_mass(), 20.0)
         self.assertEqual(hauler.db.cargo, {})
+        settle.assert_called_once()
+        kwargs = settle.call_args.kwargs
+        args = settle.call_args.args
+        delivered = kwargs.get("delivered") or (args[2] if len(args) > 2 else None)
+        assert delivered is not None
+        self.assertAlmostEqual(float(delivered.get("copper", 0)), 20.0)
 
     def test_settlement_failure_rollbacks_local_and_bay(self):
         from typeclasses.haulers import _haul_unload_split_local_then_plant
@@ -229,6 +244,38 @@ class TestSplitLocalPlantUnload(unittest.TestCase):
         bay = _FakeInvStore(1000.0, key="Bay")
         hauler = _FakeHauler({"iron": 60.0})
         owner = SimpleNamespace(key="NPC", db=SimpleNamespace(local_raw_storage=None))
+        plant = SimpleNamespace(key="Plant")
+        mine = SimpleNamespace(key="Mine")
+
+        with mock.patch("typeclasses.haulers.ensure_local_raw_storage", return_value=local):
+            with mock.patch("typeclasses.haulers.get_plant_ore_receiving_bay", return_value=bay):
+                with mock.patch(
+                    "typeclasses.refining.settle_plant_raw_purchase_from_treasury",
+                    side_effect=ValueError("treasury"),
+                ):
+                    ok, msg = _haul_unload_split_local_then_plant(
+                        hauler, owner, plant, mine, "mining"
+                    )
+
+        self.assertTrue(ok)
+        self.assertIn("treasury could not cover", msg)
+        self.assertEqual(local.total_mass(), 0.0)
+        self.assertEqual(bay.total_mass(), 0.0)
+        self.assertAlmostEqual(float(hauler.db.cargo.get("iron", 0)), 60.0)
+
+    def test_settlement_failure_rollbacks_local_only_when_all_to_local(self):
+        from typeclasses.haulers import _haul_unload_split_local_then_plant
+
+        local = _FakeInvStore(100.0)
+        bay = _FakeInvStore(1000.0, key="Bay")
+        hauler = _FakeHauler({"iron": 60.0})
+        owner = SimpleNamespace(
+            key="NPC",
+            db=SimpleNamespace(
+                local_raw_storage=None,
+                haul_local_plant_fill_fraction=1.0,
+            ),
+        )
         plant = SimpleNamespace(key="Plant")
         mine = SimpleNamespace(key="Mine")
 

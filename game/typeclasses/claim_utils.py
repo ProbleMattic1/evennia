@@ -149,10 +149,14 @@ JACKPOT_FAUNA_DEPOSIT = {
 }
 
 
-def generate_mining_site(is_jackpot=False, venue_id="nanomega_core"):
+def generate_mining_site(is_jackpot=False, venue_id="nanomega_core", *, register_for_market_survey=True):
     """
     Create a brand-new MiningSite in a new room with randomised deposit data.
     Returns the site object.  The site starts unclaimed.
+
+    When register_for_market_survey is True (world discovery), the site stays off the primary
+    claims market until a character runs geological survey here (see mining_survey_ops).
+    When False (e.g. random claim deed), caller should set discovered_by on the site if needed.
     """
     from world.bootstrap_mining import _get_or_create_exit, _get_or_create_room
     from world.venue_resolve import hub_room_for_venue
@@ -182,6 +186,10 @@ def generate_mining_site(is_jackpot=False, venue_id="nanomega_core"):
         _get_or_create_exit(
             "promenade", ["back", "exit", "out", "plex", "hub"], room, hub,
         )
+
+    from world.mining_site_adjacency_wiring import wire_new_mining_room_to_strip
+
+    wire_new_mining_room_to_strip(room, venue_id)
 
     if is_jackpot:
         deposit = dict(JACKPOT_DEPOSIT)
@@ -214,6 +222,16 @@ def generate_mining_site(is_jackpot=False, venue_id="nanomega_core"):
         invalidate_world_graph_cache()
     except Exception:
         pass
+
+    from world.mining_districts import assign_district_key
+
+    site.db.mining_district_key = assign_district_key(venue_id, site.id)
+
+    if register_for_market_survey:
+        site.db.discovery_pending = True
+        site.db.discovered_by = None
+        site.db.discovered_at = None
+
     return site
 
 
@@ -481,7 +499,13 @@ def grant_random_claim_on_purchase(buyer):
     vid = venue_id_for_object(buyer) if buyer else None
     if not vid:
         vid = "nanomega_core"
-    site = generate_mining_site(is_jackpot=is_jackpot, venue_id=vid)
+    from django.utils import timezone
+
+    site = generate_mining_site(
+        is_jackpot=is_jackpot, venue_id=vid, register_for_market_survey=False
+    )
+    site.db.discovered_by = buyer
+    site.db.discovered_at = timezone.now()
     claim = create_claim_for_site(site, buyer, is_jackpot=is_jackpot)
     return claim, is_jackpot
 

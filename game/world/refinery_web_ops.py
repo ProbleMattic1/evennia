@@ -258,3 +258,28 @@ def collect_attributed_refined(char, venue_id: str) -> tuple[bool, str]:
 
     lines.append(f"Received {bd['net']:,} cr from treasury. Balance: {char.db.credits:,} cr.")
     return True, "\n".join(lines)
+
+
+def withdraw_attributed_parts_to_hold(
+    char,
+    venue_id: str,
+    *,
+    withdraw_all: bool = False,
+    amounts: dict[str, float] | None = None,
+) -> tuple[bool, str]:
+    """
+    Move attributed refinery output into char.db.part_inventory (no credit payout).
+    """
+    from world.part_withdraw import withdraw_attributed_refinery_parts
+
+    ref_room, _plant_room, err = resolve_refinery_web_context(char, venue_id)
+    if err:
+        return False, err
+
+    ref = _main_refinery(ref_room)
+    if not ref:
+        return False, "No refinery in this plant."
+
+    return withdraw_attributed_refinery_parts(
+        ref, char, withdraw_all=withdraw_all, amounts=amounts
+    )

@@ -27,6 +27,9 @@ from commands.mining import (
     CmdSurvey,
     CmdUndeployMine,
 )
+from commands.mining_cluster_commands import CmdFormMiningBase, CmdFormMiningCamp
+from commands.mining_district_scan import CmdDistrictScan
+from commands.mining_scanner import CmdDeployMiningScanner, CmdUndeployMiningScanner
 from commands.refining import (
     CmdCollectProduct,
     CmdCollectRefined,
@@ -105,6 +108,12 @@ from commands.space_combat import (
     CmdKinetic,
     CmdPDC,
 )
+from commands.product_fabrication import (
+    CmdFabricateProduct,
+    CmdPartsHold,
+    CmdWithdrawProcessorParts,
+    CmdWithdrawRefinedParts,
+)
 from commands.shop import CmdBuy, CmdShop
 from commands.vehicles import (
     CmdBoardVehicle,
@@ -128,6 +137,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdBalance())
         self.add(CmdTreasury())
         self.add(CmdSurvey())
+        self.add(CmdDeployMiningScanner())
+        self.add(CmdUndeployMiningScanner())
+        self.add(CmdDistrictScan())
+        self.add(CmdFormMiningCamp())
+        self.add(CmdFormMiningBase())
         self.add(CmdClaimSite())
         self.add(CmdDeployRig())
         self.add(CmdLinkStorage())
@@ -149,6 +163,10 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdRefine())
         self.add(CmdCollectProduct())
         self.add(CmdCollectRefined())
+        self.add(CmdPartsHold())
+        self.add(CmdWithdrawRefinedParts())
+        self.add(CmdWithdrawProcessorParts())
+        self.add(CmdFabricateProduct())
         self.add(CmdWorkshopStatus())
         self.add(CmdFeedFab())
         self.add(CmdQueueFab())

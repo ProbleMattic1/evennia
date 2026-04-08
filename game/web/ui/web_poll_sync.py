@@ -1,9 +1,16 @@
 """
 Throttle expensive mission / quest / challenge sync on web GET polls.
 
-Full sync runs when the puppet's room changes, on the first poll for that character
-in the session, or after WEB_HEAVY_SYNC_COOLDOWN_SEC without a sync. POST handlers
-that mutate missions should continue to call sync explicitly before serialize.
+Full sync runs when the character's room changes, on the first poll for that
+character in the session, or after WEB_HEAVY_SYNC_COOLDOWN_SEC without a sync.
+POST handlers that mutate missions should continue to call sync explicitly before
+serialize.
+
+Cooldown is fixed at 120s so bursty navigation plus 15s control-surface polls do not
+re-run the heavy chain every minute under load; mission/challenge windows may be
+up to this many seconds stale until the next eligible poll or room change.
+
+No character: never run heavy mission/quest/challenge sync on this basis alone.
 """
 
 from __future__ import annotations
@@ -14,7 +21,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-WEB_HEAVY_SYNC_COOLDOWN_SEC = 60.0
+WEB_HEAVY_SYNC_COOLDOWN_SEC = 120.0
 
 _SESSION_KEY_PREFIX = "web_heavy_mc_sync:"
 
@@ -22,7 +29,7 @@ _SESSION_KEY_PREFIX = "web_heavy_mc_sync:"
 def web_needs_heavy_mission_challenge_sync(request: HttpRequest, char) -> bool:
     """True when control-surface / dashboard should run sync_* and challenge evaluate."""
     if char is None:
-        return True
+        return False
     rid = char.location.id if getattr(char, "location", None) else None
     sk = f"{_SESSION_KEY_PREFIX}{char.id}"
     raw = request.session.get(sk)

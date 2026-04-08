@@ -16,6 +16,7 @@ from django.views.decorators.http import require_GET
 from evennia import GLOBAL_SCRIPTS, search_object, search_script
 
 from world.inventory_taxonomy import empty_inventory_payload, serialize_inventory_by_bucket
+from world.part_inventory import part_inventory_for_json
 from world.time import (
     FLORA_DELIVERY_PERIOD,
     MINING_DELIVERY_PERIOD,
@@ -32,8 +33,8 @@ from world.room_ambient import resolve_room_ambient, resolve_room_venue_id
 from world.venue_resolve import hub_for_object, processing_plant_room_for_object, treasury_bank_id_for_object, venue_id_for_object
 
 from .client_poll_hints import CLIENT_POLL_HINTS_MS
-from .web_poll_sync import web_needs_heavy_mission_challenge_sync
 from .contrib_web import account_may_manage_ingame_reports_web
+from .heavy_mission_quest_challenge_web import run_heavy_mission_quest_challenge_sync_if_due
 from .economy_world import _to_json_plain
 from .dashboard_ships import dashboard_ship_row
 from .views import (
@@ -290,7 +291,7 @@ def _serialize_market():
 
 
 _MARKET_CACHE_KEY = "ui:control_surface:market:v1"
-_MARKET_CACHE_TTL_SEC = 3
+_MARKET_CACHE_TTL_SEC = 15
 
 
 def _serialize_market_cached():
@@ -532,6 +533,7 @@ def control_surface_state(request):
         "character": None,
         "credits": None,
         "inventory": _EMPTY_INVENTORY,
+        "partInventory": [],
         "ships": [],
         "resources": [],
         "mines": [],
@@ -609,19 +611,14 @@ def control_surface_state(request):
     tbid = treasury_bank_id_for_object(char)
     treasury_balance = econ.get_balance(econ.get_treasury_account(tbid))
 
-    if web_needs_heavy_mission_challenge_sync(request, char):
-        char.missions.sync_global_seeds()
-        if char.location:
-            char.missions.sync_room(char.location)
-            char.quests.on_room_enter(char.location)
-        char.challenges.sync_all_windows()
-        char.challenges.evaluate_window()
+    run_heavy_mission_quest_challenge_sync_if_due(request, char)
     missions = char.missions.serialize_for_web()
     quests = char.quests.serialize_for_web()
     challenges = char.challenges.serialize_for_web()
 
     character_block = _serialize_character_block(char, credits)
     inventory = _serialize_inventory(char)
+    part_inventory_rows = part_inventory_for_json(char)
     ships = _serialize_ships(char)
     resources, mining_value_per_cycle, mining_total_stored = _serialize_resources(char)
     mining_accrual_cycle = sum(
@@ -669,6 +666,7 @@ def control_surface_state(request):
             "character": character_block,
             "credits": credits,
             "inventory": inventory,
+            "partInventory": part_inventory_rows,
             "ships": ships,
             "resources": resources,
             "mines": resources,

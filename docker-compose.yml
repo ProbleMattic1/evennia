@@ -47,7 +47,7 @@ services:
       - .:/usr/src/game
       - ./evennia:/usr/src/evennia/evennia
     entrypoint: ["/usr/local/bin/evennia-docker-entrypoint.sh"]
-    command: ["evennia", "start", "-l"]
+    command: ["/usr/local/bin/evennia-docker-aurnom-cmd.sh"]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_DB: evennia
@@ -55,21 +55,30 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/1
-      AURNOM_TRUSTED_PROXY_HOST: edge
+      # Trusted proxy hops for ip_from_request (Caddy + Next BFF). Legacy: AURNOM_TRUSTED_PROXY_HOST
+      AURNOM_TRUSTED_PROXY_HOSTS: edge,frontend
+      # Optional: AURNOM_SLOW_UI_LOG_MS=2500 — slow /ui/* log threshold (ms); see slow_request_logging_middleware
+      # Optional: CSRF_TRUSTED_ORIGIN=http://YOUR_HOST:8080 — comma-separated origins for new servers
       AURNOM_JWT_SECRET: docker-dev-jwt-secret-change-for-production
+      # HaulerEngine (optional; code defaults: max wall 2s, 96 haulers/tick, 10 pipeline steps):
+      # AURNOM_HAULER_ENGINE_MAX_WALL_SEC: "2"
+      # AURNOM_MAX_HAULERS_PER_ENGINE_TICK: "96"
+      # AURNOM_HAULER_MAX_PIPELINE_STEPS: "10"
       EVENNIA_SUPERUSER_USERNAME: admin
       EVENNIA_SUPERUSER_PASSWORD: admin
       EVENNIA_SUPERUSER_EMAIL: ""
+    # Portal on 4001 can be up before the game Server exists (Twisted then returns 501 for /ui/*).
+    # Do not use `evennia status` here: it runs a Twisted AMP client and can hang or contend with the launcher.
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "python3 -c \"import socket; s=socket.create_connection(('127.0.0.1', 4001), 2); s.close()\"",
+          "test -s /usr/src/game/game/server/server.pid && kill -0 \"$(cat /usr/src/game/game/server/server.pid)\" 2>/dev/null && python3 -c \"import socket; s=socket.create_connection(('127.0.0.1',4001),3); s.close()\"",
         ]
-      interval: 5s
-      timeout: 3s
-      retries: 15
-      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 180s
     restart: unless-stopped
 
   postgres:
@@ -87,26 +96,24 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Debian-based image: Tailwind v4 / lightningcss need prebuilt native binaries;
-  # linux-arm64-musl (Alpine) is often missing from the optional dependency set on clean installs.
+  # Production Next: image from frontend/aurnom/Dockerfile (`next build` + standalone).
+  # UI hot-reload: run `npm run dev` on the host from frontend/aurnom (or restore a dev
+  # override that bind-mounts /app and uses `npm run dev`).
   frontend:
-    image: node:20-bookworm-slim
+    build:
+      context: ./frontend/aurnom
+      dockerfile: Dockerfile
+    image: aurnom-frontend:local
     container_name: evennia_frontend
-    working_dir: /app
+    # Do not wait on service_healthy: strict checks can block `compose up` for a long time if
+    # the game Server is slow; Evennia nudge script + restarts converge. Edge still needs Next up.
     depends_on:
       evennia:
-        condition: service_healthy
+        condition: service_started
     environment:
+      - NODE_ENV=production
       - HOSTNAME=0.0.0.0
       - EVENNIA_BASE_URL=http://evennia:4001
-    volumes:
-      # Bind mount alone would reuse host node_modules (e.g. macOS); Tailwind v4 /
-      # lightningcss need Linux .node binaries inside this Debian image.
-      # If lightningcss still fails after an image/arch change: docker compose down, then
-      # docker volume rm <compose_project>_frontend_aurnom_node_modules_v2 (see docker volume ls).
-      - ./frontend/aurnom:/app
-      - frontend_aurnom_node_modules_v2:/app/node_modules
-    command: sh -c "npm install && HOST=0.0.0.0 npm run dev -- --hostname 0.0.0.0"
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -118,9 +125,10 @@ services:
       - evennia
     ports:
       - "8080:8080"
+    environment:
+      # Override when using docker-compose.dev-frontend.yml (e.g. CADDY_UPSTREAM_NEXT=frontend_dev:3000)
+      CADDY_UPSTREAM_NEXT: frontend:3000
     volumes:
       - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
     restart: unless-stopped
 
-volumes:
-  frontend_aurnom_node_modules_v2:

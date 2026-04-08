@@ -1,0 +1,41 @@
+# Dev Next.js behind Caddy (HMR). Merge with the main compose file:
+#
+#   docker compose stop frontend
+#   docker compose -f docker-compose.yml -f docker-compose.dev-frontend.yml up -d
+#
+# Set NEXT_ALLOWED_DEV_ORIGINS to the host clients use (no scheme), e.g.:
+#   NEXT_ALLOWED_DEV_ORIGINS=10.0.0.140,mybox.local docker compose ...
+#
+# Caddy routes / and /api/* to frontend_dev via CADDY_UPSTREAM_NEXT.
+
+services:
+  frontend_dev:
+    image: node:20-bookworm-slim
+    container_name: evennia_frontend_dev
+    working_dir: /app
+    depends_on:
+      evennia:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      HOSTNAME: "0.0.0.0"
+      EVENNIA_BASE_URL: http://evennia:4001
+      NEXT_ALLOWED_DEV_ORIGINS: ${NEXT_ALLOWED_DEV_ORIGINS:-}
+    volumes:
+      - ./frontend/aurnom:/app
+      - frontend_dev_node_modules:/app/node_modules
+    command: sh -c "npm ci && HOST=0.0.0.0 npm run dev -- --hostname 0.0.0.0"
+    # No host port: use edge :8080. To hit Next directly, temporarily add "3001:3000" here.
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  edge:
+    environment:
+      CADDY_UPSTREAM_NEXT: frontend_dev:3000
+    depends_on:
+      frontend_dev:
+        condition: service_started
+
+volumes:
+  frontend_dev_node_modules:

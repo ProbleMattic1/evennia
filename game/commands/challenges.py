@@ -160,6 +160,10 @@ class CmdGrantChallenge(Command):
             self.caller.msg(f"No character found matching '{char_name}'.")
             return
 
+        if getattr(char.db, "is_npc", False):
+            self.caller.msg("NPCs do not participate in the challenge system.")
+            return
+
         from world.challenges.challenge_loader import get_challenge_template
         tmpl = get_challenge_template(cid)
         if not tmpl:

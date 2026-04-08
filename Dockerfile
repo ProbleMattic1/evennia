@@ -63,7 +63,9 @@ COPY evennia /usr/src/evennia/evennia/
 # something mounts over /usr/src/evennia (e.g. a dev bind mount).
 COPY bin/unix/evennia-docker-entrypoint.sh /usr/local/bin/evennia-docker-entrypoint.sh
 COPY bin/unix/evennia-docker-start.sh /usr/local/bin/evennia-docker-start.sh
-RUN chmod +x /usr/local/bin/evennia-docker-entrypoint.sh /usr/local/bin/evennia-docker-start.sh
+COPY bin/unix/evennia-docker-aurnom-cmd.sh /usr/local/bin/evennia-docker-aurnom-cmd.sh
+RUN chmod +x /usr/local/bin/evennia-docker-entrypoint.sh /usr/local/bin/evennia-docker-start.sh \
+    /usr/local/bin/evennia-docker-aurnom-cmd.sh
 
 # install dependencies/evennia
 # EVENNIA_INSTALL_MODE options:

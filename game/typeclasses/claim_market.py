@@ -252,6 +252,51 @@ def list_property_for_sale(seller, site_id, price):
     return True, f"Property listed for {price:,} cr."
 
 
+def list_unclaimed_discovery_for_sale(seller, site_id, price):
+    """
+    Discoverer lists an unclaimed mining site for sale (property listing).
+    Buyers use purchase_property_listing; NPC primary deed row is suppressed while listed.
+    """
+    try:
+        sid = int(site_id)
+    except (TypeError, ValueError):
+        return False, "Invalid site id."
+
+    site = _find_owned_resource_site_by_id(sid)
+    if not site:
+        return False, "Site not found."
+    if not site.tags.has("mining_site", category="mining"):
+        return False, "Only mining deposits support this listing type."
+    if getattr(site.db, "is_claimed", False):
+        return False, "That site is claimed. Use the standard property listing when idle."
+    disc = getattr(site.db, "discovered_by", None)
+    if disc != seller:
+        return False, "You can only list deposits you registered by survey."
+    if getattr(site.db, "discovery_pending", False):
+        return False, "Survey this deposit before listing it."
+    if _existing_deed_for_site(site):
+        return False, "This site already has an outstanding claim deed."
+
+    script = _get_property_listings_script()
+    if not script:
+        return False, "Property market is not available."
+    if is_site_id_property_listed(sid):
+        return False, "That property is already listed."
+
+    try:
+        price = int(round(float(price)))
+    except (TypeError, ValueError):
+        return False, "Invalid price."
+    if price < 0:
+        return False, "Invalid price."
+
+    listings = list(script.db.listings or [])
+    listings.append({"site_id": sid, "seller_id": seller.id, "price": price})
+    script.db.listings = listings
+
+    return True, f"Discovery listing posted for {price:,} cr."
+
+
 def purchase_property_listing(buyer, site):
     """
     Buyer pays the listed seller; listing removed; deed granted for site kind.
@@ -319,6 +364,10 @@ def purchase_property_listing(buyer, site):
     listings = [e for e in listings if e.get("site_id") != site.id]
     script.db.listings = listings
 
+    if site.tags.has("mining_site", category="mining"):
+        site.db.discovered_by = buyer
+        site.db.discovery_pending = False
+
     claim = create_claim_for_resource_site(site, buyer, is_jackpot=False)
     if not claim:
         return False, "Could not create claim deed for this site.", None
@@ -364,7 +413,54 @@ def site_is_claims_market_listable(site):
         return False
     if is_site_id_property_listed(site.id):
         return False
+    if site.tags.has("mining_site", category="mining") and getattr(
+        site.db, "discovery_pending", False
+    ):
+        return False
     return True
+
+
+def mining_site_primary_deed_eligibility(site, buyer):
+    """
+    Primary NPC deed purchase (mining only). Legacy sites: discovered_by unset and not pending → anyone.
+    Returns (ok, error_message).
+    """
+    if not site or not site.tags.has("mining_site", category="mining"):
+        return True, None
+    if getattr(site.db, "discovery_pending", False):
+        return (
+            False,
+            "This deposit is not registered on the claims market until someone runs a geological survey here.",
+        )
+    disc = getattr(site.db, "discovered_by", None)
+    if disc is None:
+        return True, None
+    if disc == buyer:
+        return True, None
+    return (
+        False,
+        "Only the operator who surveyed this deposit may buy the primary deed, unless they list it for sale.",
+    )
+
+
+def mining_site_buyer_may_operate_exclusive(site, buyer):
+    """
+    Direct deploy / package-to-site flows (mining). Blocks pending sites and wrong discoverer.
+    Returns (ok, error_message).
+    """
+    if not site or not site.tags.has("mining_site", category="mining"):
+        return True, None
+    if getattr(site.db, "discovery_pending", False):
+        return (
+            False,
+            "This deposit is not registered for operations until geological survey is run here.",
+        )
+    disc = getattr(site.db, "discovered_by", None)
+    if disc is None:
+        return True, None
+    if disc == buyer:
+        return True, None
+    return False, "You are not the surveying operator for this deposit."
 
 
 def listing_price_cr(site):
@@ -500,6 +596,10 @@ def purchase_site_claim_deed(buyer, site_key):
     if not ok:
         return False, err, None
 
+    ok, err = mining_site_primary_deed_eligibility(site, buyer)
+    if not ok:
+        return False, err, None
+
     price = listing_price_cr(site)
     econ = get_economy(create_missing=True)
     credits = econ.get_character_balance(buyer)
@@ -507,6 +607,10 @@ def purchase_site_claim_deed(buyer, site_key):
         return False, f"This deed costs {price:,} cr. You have {credits:,} cr.", None
 
     ok, err = _validate_site_purchasable(site, buyer)
+    if not ok:
+        return False, err, None
+
+    ok, err = mining_site_primary_deed_eligibility(site, buyer)
     if not ok:
         return False, err, None
 
@@ -580,6 +684,18 @@ def purchase_site_claim_deed(buyer, site_key):
         if getattr(existing.location, "id", None) == getattr(buyer, "id", None):
             return False, "You already hold a claim deed for this site.", None
         return False, "This site already has an outstanding claim deed.", None
+
+    ok, err = mining_site_primary_deed_eligibility(site, buyer)
+    if not ok:
+        _refund_claim_deed_purchase(
+            buyer,
+            price,
+            net_amount=net_amount,
+            tax_amount=tax_amount,
+            broker=payment_broker,
+            vendor=payment_vendor,
+        )
+        return False, err, None
 
     claim = create_claim_for_resource_site(site, buyer, is_jackpot=False)
     if not claim:

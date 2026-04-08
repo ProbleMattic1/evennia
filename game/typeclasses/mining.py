@@ -49,7 +49,7 @@ from .objects import ObjectParent
 from .scripts import Script
 
 
-CYCLE_SECONDS = MINING_DELIVERY_PERIOD  # backward compat; global UTC grid (3h)
+CYCLE_SECONDS = MINING_DELIVERY_PERIOD  # backward compat; global UTC grid (world.time)
 MAX_CATCHUP_CYCLES = 10  # cap back-fill after long downtime
 
 # Spread process_cycle work across engine ticks (logical due times unchanged).
@@ -480,6 +480,12 @@ class MiningSite(ObjectParent, DefaultObject):
     """
     A claimable mineral deposit placed in a room.
 
+    Discovery (claims market)
+    -------------------------
+    db.discovery_pending   bool   True until first geological survey registers the deposit
+    db.discovered_by       Character | None   primary deed / claimsite rights (None = legacy world-open)
+    db.discovered_at       datetime | None
+
     Pass-2 db additions
     -------------------
     db.survey_level  int   0-3; advanced by the survey command each use
@@ -500,6 +506,9 @@ class MiningSite(ObjectParent, DefaultObject):
         self.db.last_processed_at = None
         self.db.cycle_log = []
         self.db.survey_level = 0
+        self.db.discovery_pending = False
+        self.db.discovered_by = None
+        self.db.discovered_at = None
         self.db.deposit = {
             "richness": 1.0,
             "base_output_tons": 10.0,
@@ -538,6 +547,8 @@ class MiningSite(ObjectParent, DefaultObject):
             }
         if self.db.survey_level is None:
             self.db.survey_level = 0
+        if self.db.discovery_pending is None:
+            self.db.discovery_pending = False
         if self.db.license_level is None:
             self.db.license_level = 0
         if self.db.tax_rate is None:
@@ -735,7 +746,7 @@ class MiningSite(ObjectParent, DefaultObject):
 
     def schedule_next_cycle(self, completed_boundary=None):
         """
-        Set next_cycle_at on the global UTC 3h grid (MINING_DELIVERY_PERIOD).
+        Set next_cycle_at on the global UTC grid (MINING_DELIVERY_PERIOD).
 
         Args:
             completed_boundary: Grid instant for the cycle just processed; next is +period.
@@ -837,8 +848,19 @@ class MiningSite(ObjectParent, DefaultObject):
 
             point_mult = mining_output_multiplier(_owner)
 
+        from world.mining_clusters import cluster_multiplier_for_site
+
+        cluster_mult = cluster_multiplier_for_site(self)
+
         total_tons = (
-            base_tons * richness * rig_rating * mode_out * power_out * wear_out * point_mult
+            base_tons
+            * richness
+            * rig_rating
+            * mode_out
+            * power_out
+            * wear_out
+            * point_mult
+            * cluster_mult
         )
 
         # -- Composition filtering (target_family + purity_cutoff) --
@@ -1250,7 +1272,7 @@ class MiningEngine(Script):
     """
     Global persistent script that drives mining production cycles.
 
-    Wakes every 30 minutes (interval = 1800 s), scans all MiningSite objects
+    Wakes on a short interval (default 60 s), scans all MiningSite objects
     via tag search, and processes any active site whose next_cycle_at has passed.
     Delivery times use the shared UTC grid (world.time.MINING_DELIVERY_PERIOD).
     Catch-up is capped at MAX_CATCHUP_CYCLES per wakeup.
@@ -1302,7 +1324,7 @@ class MiningEngine(Script):
                             reason = "no linked storage"
                         else:
                             reason = "unknown"
-                        logger.log_info(
+                        logger.log_trace(
                             f"[mining_engine] {site.key}: cycle due but site inactive "
                             f"({reason}) — advancing clock without production."
                         )
@@ -1323,7 +1345,7 @@ class MiningEngine(Script):
                 catchup = 0
                 while next_cycle <= now and catchup < MAX_CATCHUP_CYCLES:
                     summary = site.process_cycle()
-                    logger.log_info(f"[mining_engine] {site.key}: {summary}")
+                    logger.log_trace(f"[mining_engine] {site.key}: {summary}")
 
                     owner = site.db.owner
                     if owner and hasattr(owner, "sessions") and owner.sessions.count():

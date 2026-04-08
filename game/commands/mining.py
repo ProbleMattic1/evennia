@@ -24,7 +24,8 @@ Design notes
 
 from commands.command import Command
 from typeclasses.mining import RESOURCE_CATALOG
-from world.web_interactions import InteractionError, handle_survey
+from world.mining_survey_ops import execute_survey
+from world.web_interactions import InteractionError
 from world.web_stream import WEB_STREAM_OPTIONS_KEY, normalize_web_stream_meta
 
 
@@ -95,7 +96,8 @@ class CmdSurvey(Command):
       survey
       prospect
 
-    Each use advances the survey level of the site by one tier (max 3):
+    Requires a |wdeployminingscanner|n at this deposit. Each use advances the survey
+    level by one tier (max 3):
       Level 0 — unsurveyed (no data)
       Level 1 — basic scan (richness tier, content families, rough output range)
       Level 2 — standard assessment (approximate percentages)
@@ -110,16 +112,11 @@ class CmdSurvey(Command):
 
     def func(self):
         caller = self.caller
-        if not caller.cooldowns.ready("survey_scan"):
-            left = float(caller.cooldowns.time_left("survey_scan"))
-            caller.msg(f"Survey equipment is still recalibrating ({left:.1f}s).")
-            return
         try:
-            outcome = handle_survey(caller)
+            outcome = execute_survey(caller)
         except InteractionError as exc:
             caller.msg(str(exc))
             return
-        caller.cooldowns.add("survey_scan", 3.0)
         caller.msg(
             outcome.dialogue,
             options={
@@ -165,6 +162,13 @@ class CmdClaimSite(Command):
                     f"|w{site.key}|n is already claimed"
                     + (f" by {owner.key}." if owner else ".")
                 )
+            return
+
+        from typeclasses.claim_market import mining_site_primary_deed_eligibility
+
+        ok, err = mining_site_primary_deed_eligibility(site, caller)
+        if not ok:
+            caller.msg(err or "You cannot file a claim on this deposit.")
             return
 
         site.db.is_claimed = True

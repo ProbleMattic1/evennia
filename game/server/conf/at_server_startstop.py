@@ -259,6 +259,10 @@ def at_server_start():
                     f"[startup] WARNING: {label} not found. It must be listed in settings.GLOBAL_SCRIPTS."
                 )
 
+        from server.conf.wsgi_ui_preflight import schedule_ui_wsgi_preflight
+
+        schedule_ui_wsgi_preflight()
+
     except Exception:
         import traceback
 

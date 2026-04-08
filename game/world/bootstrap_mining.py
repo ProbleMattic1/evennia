@@ -65,6 +65,21 @@ def _get_or_create_refinery(room, refinery_key, refinery_desc):
     return ref
 
 
+def _ensure_station_fabricator(refinery_room):
+    """One catalog fabricator kiosk per refinery chamber (idempotent)."""
+    from typeclasses.fabricator import STATION_FABRICATOR_TAG, STATION_FABRICATOR_TAG_CATEGORY
+
+    for obj in refinery_room.contents:
+        if obj.tags.has(STATION_FABRICATOR_TAG, category=STATION_FABRICATOR_TAG_CATEGORY):
+            return obj
+    return create_object(
+        "typeclasses.fabricator.Fabricator",
+        key="Station Fabrication Kiosk",
+        location=refinery_room,
+        home=refinery_room,
+    )
+
+
 def _ensure_main_refinery_in_chamber(refinery_room, plant_room, refinery_key, refinery_desc):
     """
     Venue main Refinery lives in ``refinery_room``; migrate from ``plant_room`` if needed.
@@ -243,6 +258,8 @@ def bootstrap_mining():
         ref = _ensure_main_refinery_in_chamber(
             refinery_room, plant_room, proc["refinery_key"], proc["refinery_desc"]
         )
+        fab = _ensure_station_fabricator(refinery_room)
+        print(f"[mining] Station fabricator '{fab.key}' in '{refinery_key}' ({venue_id}).")
 
         hub = search_object(vspec["hub_key"])
         hub = hub[0] if hub else None
@@ -271,5 +288,11 @@ def bootstrap_mining():
             )
 
         print(f"[mining] Refinery '{ref.key}' in '{refinery_key}' ({venue_id}) ready.")
+
+    from world.mining_districts import backfill_mining_district_keys
+
+    n_dist = backfill_mining_district_keys()
+    if n_dist:
+        print(f"[mining] Assigned mining_district_key on {n_dist} existing site(s).")
 
     print("[mining] Bootstrap complete.")

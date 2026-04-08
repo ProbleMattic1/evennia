@@ -1,17 +1,23 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { ActionGrid } from "@/components/action-grid";
 import { PanelExpandButton } from "@/components/panel-expand-button";
 import { useControlSurface } from "@/components/control-surface-provider";
-import type { MineRigRow, MineSiteDetails, PlayAction } from "@/lib/ui-api";
+import type { MineDistrictScanPeerRow, MineRigRow, MineSiteDetails, PlayAction } from "@/lib/ui-api";
 import {
+  listDiscoveryForClaims,
   listMinePropertyForClaims,
+  mineDistrictScan,
   mineReactivate,
   mineRepairRig,
+  mineScannerDeploy,
+  mineScannerUndeploy,
   mineUndeploy,
+  playInteract,
+  purchaseClaimDeed,
 } from "@/lib/ui-api";
 import { volumeTierStyle, rarityTierStyle } from "@/lib/mine-tier-styles";
 import { compositionToLines, displayResourceName } from "@/lib/resource-display";
@@ -182,6 +188,14 @@ export function MineDetailsPanel({ site }: PrimaryProps) {
             }
           />
           <Kv label="Survey" value={`Level ${site.surveyLevel}`} />
+          {site.discoveryPending ? (
+            <Kv label="Market registration" value="Survey required" />
+          ) : null}
+          {site.discoveredByKey ? <Kv label="Survey operator" value={site.discoveredByKey} /> : null}
+          {site.miningDistrictKey ? (
+            <Kv label="District" value={site.miningDistrictKey} />
+          ) : null}
+          {site.clusterId ? <Kv label="Cluster" value={site.clusterId} /> : null}
         </MineDetailSectionCard>
 
         <MineDetailSectionCard panelKey={pk("deposit")} title="Deposit">
@@ -289,6 +303,40 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
   const [repairBusyRigKey, setRepairBusyRigKey] = useState<string | null>(null);
   const [repairError, setRepairError] = useState<string | null>(null);
 
+  const carried = site.carriedMiningScanners ?? [];
+  const [scannerPickId, setScannerPickId] = useState<number | "">("");
+  const [deployScannerBusy, setDeployScannerBusy] = useState(false);
+  const [deployScannerError, setDeployScannerError] = useState<string | null>(null);
+  const [pickupScannerBusy, setPickupScannerBusy] = useState(false);
+  const [pickupScannerError, setPickupScannerError] = useState<string | null>(null);
+  const [surveyBusy, setSurveyBusy] = useState(false);
+  const [surveyError, setSurveyError] = useState<string | null>(null);
+  const [districtBusy, setDistrictBusy] = useState(false);
+  const [districtError, setDistrictError] = useState<string | null>(null);
+  const [districtLastMessage, setDistrictLastMessage] = useState<string | null>(null);
+  const [districtPeers, setDistrictPeers] = useState<MineDistrictScanPeerRow[] | null>(null);
+
+  const [primaryDeedBusy, setPrimaryDeedBusy] = useState(false);
+  const [primaryDeedError, setPrimaryDeedError] = useState<string | null>(null);
+  const [discoverySalePrice, setDiscoverySalePrice] = useState("");
+  const [discoveryListBusy, setDiscoveryListBusy] = useState(false);
+  const [discoveryListError, setDiscoveryListError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (carried.length === 0) {
+      setScannerPickId("");
+      return;
+    }
+    const ok = carried.some((c) => c.id === scannerPickId);
+    if (!ok) {
+      setScannerPickId(carried[0]!.id);
+    }
+  }, [carried, scannerPickId]);
+
+  const canSurvey = site.canRunSurvey === true;
+  const canDistrict = site.canRunDistrictScan === true;
+  const deployed = site.deployedScanner ?? null;
+
   const showUndeploy = site.canUndeploy;
   const showIdleActions = site.canListProperty && site.canReactivate;
 
@@ -391,8 +439,301 @@ export function MinePlayRightColumn({ site, playActions, onPlayReload }: MinePla
 
   const needsFieldService = site.rigs?.some((r) => r.needsRepair);
 
+  async function handleDeployScanner() {
+    if (deployScannerBusy || scannerPickId === "") return;
+    setDeployScannerError(null);
+    setDeployScannerBusy(true);
+    try {
+      await mineScannerDeploy({ scannerObjectId: Number(scannerPickId) });
+      setDistrictPeers(null);
+      setDistrictLastMessage(null);
+      bump();
+    } catch (err) {
+      setDeployScannerError(String(err instanceof Error ? err.message : "Deploy failed."));
+    } finally {
+      setDeployScannerBusy(false);
+    }
+  }
+
+  async function handlePickupScanner() {
+    if (pickupScannerBusy || !deployed) return;
+    setPickupScannerError(null);
+    setPickupScannerBusy(true);
+    try {
+      await mineScannerUndeploy({ scannerObjectId: deployed.id });
+      setDistrictPeers(null);
+      setDistrictLastMessage(null);
+      bump();
+    } catch (err) {
+      setPickupScannerError(String(err instanceof Error ? err.message : "Pickup failed."));
+    } finally {
+      setPickupScannerBusy(false);
+    }
+  }
+
+  async function handleSurvey() {
+    if (surveyBusy || !canSurvey) return;
+    setSurveyError(null);
+    setSurveyBusy(true);
+    try {
+      await playInteract({ interactionKey: "survey" });
+      bump();
+    } catch (err) {
+      setSurveyError(String(err instanceof Error ? err.message : "Survey failed."));
+    } finally {
+      setSurveyBusy(false);
+    }
+  }
+
+  async function handleDistrictScan() {
+    if (districtBusy || !canDistrict) return;
+    setDistrictError(null);
+    setDistrictBusy(true);
+    try {
+      const res = await mineDistrictScan();
+      setDistrictLastMessage(res.message ?? null);
+      setDistrictPeers(res.peers ?? []);
+      bump();
+    } catch (err) {
+      setDistrictError(String(err instanceof Error ? err.message : "District scan failed."));
+    } finally {
+      setDistrictBusy(false);
+    }
+  }
+
+  async function handlePurchasePrimaryDeed() {
+    if (primaryDeedBusy || !site.canPurchasePrimaryDeed) return;
+    setPrimaryDeedError(null);
+    setPrimaryDeedBusy(true);
+    try {
+      const res = await purchaseClaimDeed({ siteKey: site.siteKey });
+      if (res.ok) {
+        bump();
+      } else {
+        setPrimaryDeedError(res.message ?? "Purchase failed.");
+      }
+    } catch (err) {
+      setPrimaryDeedError(String(err instanceof Error ? err.message : "Purchase failed."));
+    } finally {
+      setPrimaryDeedBusy(false);
+    }
+  }
+
+  async function handleListDiscoveryForSale() {
+    if (discoveryListBusy || !site.canListDiscoveryForSale) return;
+    const price = parseInt(discoverySalePrice, 10);
+    if (isNaN(price) || price < 0) {
+      setDiscoveryListError("Enter a valid non-negative price.");
+      return;
+    }
+    setDiscoveryListError(null);
+    setDiscoveryListBusy(true);
+    try {
+      const res = await listDiscoveryForClaims({ siteId: site.id, price });
+      if (res.ok) {
+        router.push("/real-estate#claims-market");
+        bump();
+      } else {
+        setDiscoveryListError(res.message ?? "Failed to list deposit.");
+      }
+    } catch (err) {
+      setDiscoveryListError(String(err instanceof Error ? err.message : "Failed to list deposit."));
+    } finally {
+      setDiscoveryListBusy(false);
+    }
+  }
+
   return (
     <div>
+      <Card title="Scanner & survey">
+        <p className="text-xs text-ui-muted">
+          Deploy a carried mining scanner at this deposit to run geological survey and district scan (30s
+          cooldown). District scan lists adjacent rooms where you can buy a deposit now (primary deed or
+          player listing), if you can afford it.
+        </p>
+        {deployed ? (
+          <p className="mt-1 font-mono text-xs text-foreground">
+            Deployed: {deployed.key}{" "}
+            <span className="text-ui-muted">(#{deployed.id})</span>
+          </p>
+        ) : null}
+        {!deployed && carried.length > 0 ? (
+          <div className="mt-2 flex flex-col gap-1.5">
+            <label className="block text-xs uppercase tracking-wide text-ui-muted">Scanner in inventory</label>
+            <select
+              className="w-full rounded border border-cyan-900/50 bg-zinc-900 px-1 py-0.5 text-xs text-foreground"
+              value={scannerPickId === "" ? "" : String(scannerPickId)}
+              onChange={(e) => setScannerPickId(e.target.value ? Number(e.target.value) : "")}
+            >
+              {carried.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.key} #{c.id}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => void handleDeployScanner()}
+              disabled={deployScannerBusy || scannerPickId === ""}
+              className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
+            >
+              {deployScannerBusy ? "Deploying…" : "Deploy scanner"}
+            </button>
+            {deployScannerError ? (
+              <p className="text-xs text-red-600 dark:text-red-400">{deployScannerError}</p>
+            ) : null}
+          </div>
+        ) : null}
+        {!deployed && carried.length === 0 ? (
+          <p className="mt-1 text-xs text-ui-muted">No mining scanner in your inventory here.</p>
+        ) : null}
+        {deployed ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handlePickupScanner()}
+              disabled={pickupScannerBusy}
+              className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
+            >
+              {pickupScannerBusy ? "Packing up…" : "Pick up scanner"}
+            </button>
+            {pickupScannerError ? (
+              <p className="w-full text-xs text-red-600 dark:text-red-400">{pickupScannerError}</p>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-cyan-900/40 pt-2">
+          <button
+            type="button"
+            onClick={() => void handleSurvey()}
+            disabled={surveyBusy || !canSurvey}
+            className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
+          >
+            {surveyBusy ? "Surveying…" : "Run geological survey"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleDistrictScan()}
+            disabled={districtBusy || !canDistrict}
+            className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
+          >
+            {districtBusy ? "Scanning…" : "District scan"}
+          </button>
+        </div>
+        {surveyError ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{surveyError}</p> : null}
+        {districtError ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{districtError}</p> : null}
+        {districtLastMessage && !districtError ? (
+          <p className="mt-1 text-xs text-ui-muted">{districtLastMessage}</p>
+        ) : null}
+        {districtPeers && districtPeers.length > 0 ? (
+          <div className="mt-2 max-h-[min(220px,40vh)] overflow-auto rounded border border-cyan-900/40">
+            <table className="w-full border-collapse text-left text-[11px]">
+              <thead>
+                <tr className="border-b border-cyan-900/50 text-ui-muted">
+                  <th className="p-1 font-medium">Room</th>
+                  <th className="p-1 font-medium">Site</th>
+                  <th className="p-1 font-medium">Status</th>
+                  <th className="p-1 font-medium">Survey</th>
+                  <th className="p-1 font-medium">Offer</th>
+                  <th className="p-1 font-medium">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {districtPeers.map((row) => (
+                  <tr key={`${row.roomKey}:${row.siteKey}`} className="border-b border-cyan-900/30 font-mono">
+                    <td className="p-1 text-foreground">{row.roomKey}</td>
+                    <td className="p-1 text-foreground">{row.siteKey}</td>
+                    <td className="p-1">{row.isClaimed ? "claimed" : "open"}</td>
+                    <td className="p-1">L{row.surveyLevel}</td>
+                    <td className="p-1 text-foreground">
+                      {row.purchaseKind === "npc_primary"
+                        ? "Primary deed"
+                        : row.purchaseKind === "player_listing"
+                          ? "Player listing"
+                          : row.purchaseKind ?? "—"}
+                    </td>
+                    <td className="p-1">
+                      {row.listingPriceCr != null ? `${row.listingPriceCr.toLocaleString()} cr` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </Card>
+
+      {!site.isClaimed ? (
+        <Card title="Claim deed (this deposit)">
+          {site.discoveryPending ? (
+            <p className="text-xs text-ui-muted">
+              Run a geological survey here first to register this deposit on the market. Only the operator who
+              surveys it may buy the primary deed unless they list it for sale.
+            </p>
+          ) : null}
+          {site.discoveryListedPriceCr != null && site.discoveryListedPriceCr >= 0 ? (
+            <p className="text-xs text-amber-400/90">
+              Listed on the claims market at {site.discoveryListedPriceCr.toLocaleString()} cr.
+            </p>
+          ) : null}
+          {site.canPurchasePrimaryDeed && site.primaryDeedPriceCr != null ? (
+            <div className="mt-1 flex flex-col gap-1.5">
+              <p className="text-xs text-ui-muted">
+                Buy the primary claim deed for {site.primaryDeedPriceCr.toLocaleString()} cr (same as claims
+                market). Deploy with a matching package from Mining Outfitters on the home dashboard.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handlePurchasePrimaryDeed()}
+                disabled={primaryDeedBusy}
+                className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
+              >
+                {primaryDeedBusy ? "Purchasing…" : "Buy primary claim deed"}
+              </button>
+              {primaryDeedError ? (
+                <p className="text-xs text-red-600 dark:text-red-400">{primaryDeedError}</p>
+              ) : null}
+            </div>
+          ) : null}
+          {!site.discoveryPending &&
+          !site.canPurchasePrimaryDeed &&
+          site.primaryDeedBlockReason ? (
+            <p className="text-xs text-ui-muted">{site.primaryDeedBlockReason}</p>
+          ) : null}
+          {site.canListDiscoveryForSale ? (
+            <div className="mt-2 flex flex-col gap-1.5 border-t border-cyan-900/40 pt-2">
+              <p className="text-xs text-ui-muted">
+                List this deposit for sale at your price. Anyone can buy the deed from the claims market while
+                it is listed.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5">
+                  <span className="text-xs text-ui-muted">Price (cr)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={discoverySalePrice}
+                    onChange={(e) => setDiscoverySalePrice(e.target.value)}
+                    className="w-28 rounded border border-cyan-800/60 bg-zinc-900 px-2 py-0.5 text-xs font-mono text-foreground"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void handleListDiscoveryForSale()}
+                  disabled={discoveryListBusy}
+                  className="w-fit rounded border border-cyan-800/60 bg-zinc-900 px-2 py-1 text-xs font-medium text-cyber-cyan hover:bg-cyan-900/40 disabled:opacity-50"
+                >
+                  {discoveryListBusy ? "Listing…" : "List deposit for sale"}
+                </button>
+              </div>
+              {discoveryListError ? (
+                <p className="text-xs text-red-600 dark:text-red-400">{discoveryListError}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
+
       <Card title="Actions">
         <ActionGrid actions={playActions} />
         {(showUndeploy || showIdleActions) && (
