@@ -5,6 +5,8 @@ Mirrors flora: FaunaSite, FaunaHarvester, FaunaStorage, FaunaEngine. Pickup offs
 FLORA_HAULER_PICKUP_OFFSET_SEC (15 min), same as flora.
 """
 
+import logging
+
 from evennia import search_tag
 from evennia.objects.objects import DefaultObject
 from evennia.utils import logger
@@ -22,6 +24,7 @@ from world.time import (
 from .objects import ObjectParent
 from .scripts import Script
 
+_fauna_site_cycle_log = logging.getLogger("fauna_engine.site_cycles")
 
 MAX_CATCHUP_CYCLES = 10
 FAUNA_ENGINE_STAGGER_MOD = 4
@@ -430,9 +433,11 @@ class FaunaEngine(Script):
                             reason = "no linked storage"
                         else:
                             reason = "unknown"
-                        logger.log_info(
-                            f"[fauna_engine] {site.key}: cycle due but site inactive "
-                            f"({reason}) — advancing clock without production."
+                        _fauna_site_cycle_log.debug(
+                            "[fauna_engine] %s: cycle due but site inactive (%s) — "
+                            "advancing clock without production.",
+                            site.key,
+                            reason,
                         )
                         site.schedule_next_cycle(
                             completed_boundary=floor_period(
@@ -452,7 +457,7 @@ class FaunaEngine(Script):
                 catchup = 0
                 while next_cycle <= now and catchup < MAX_CATCHUP_CYCLES:
                     summary = site.process_cycle()
-                    logger.log_info(f"[fauna_engine] {site.key}: {summary}")
+                    _fauna_site_cycle_log.debug("[fauna_engine] %s: %s", site.key, summary)
 
                     owner = site.db.owner
                     if owner and hasattr(owner, "sessions") and owner.sessions.count():

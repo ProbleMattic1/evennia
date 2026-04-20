@@ -303,6 +303,58 @@ def _serialize_market_cached():
     return data
 
 
+_PUBLIC_CONTROL_SHELL_CACHE_KEY = "ui:control_surface:public_shell:v1"
+_PUBLIC_CONTROL_SHELL_TTL_SEC = 15
+
+
+def _public_control_shell_block():
+    """
+    User-agnostic slice of control-surface: economy rollups, default treasury,
+    world pipeline + simulation. Cached briefly to cap ledger work under poll load.
+    """
+    hit = cache.get(_PUBLIC_CONTROL_SHELL_CACHE_KEY)
+    if hit is not None:
+        return hit
+
+    from typeclasses.economy import get_economy
+
+    econ = get_economy(create_missing=True)
+    tbid = treasury_bank_id_for_object(None)
+    treasury_balance = econ.get_balance(econ.get_treasury_account(tbid))
+    miner_payout_last_cr, miner_payout_total_cr = econ.get_miner_payout_totals_for_web()
+    (
+        miner_settlement_last_gross,
+        miner_settlement_last_fees,
+        miner_settlement_total_gross,
+        miner_settlement_total_fees,
+    ) = econ.get_miner_settlement_value_totals_for_web()
+    (
+        miner_settlement_this_net,
+        miner_settlement_this_gross,
+        miner_settlement_this_fees,
+    ) = econ.get_miner_settlement_this_slot_for_web()
+
+    world_production_pipeline = _world_production_pipeline_for_control_surface()
+    world_simulation = _world_simulation_summary()
+
+    block = {
+        "treasuryBalance": treasury_balance,
+        "minerPayoutLastCycleCr": miner_payout_last_cr,
+        "minerPayoutTotalCr": miner_payout_total_cr,
+        "minerSettlementLastCycleGrossCr": miner_settlement_last_gross,
+        "minerSettlementLastCycleFeesCr": miner_settlement_last_fees,
+        "minerSettlementTotalGrossCr": miner_settlement_total_gross,
+        "minerSettlementTotalFeesCr": miner_settlement_total_fees,
+        "minerSettlementThisSlotNetCr": miner_settlement_this_net,
+        "minerSettlementThisSlotGrossCr": miner_settlement_this_gross,
+        "minerSettlementThisSlotFeesCr": miner_settlement_this_fees,
+        "worldProductionPipeline": world_production_pipeline,
+        "worldSimulation": world_simulation,
+    }
+    cache.set(_PUBLIC_CONTROL_SHELL_CACHE_KEY, block, timeout=_PUBLIC_CONTROL_SHELL_TTL_SEC)
+    return block
+
+
 _KIOSK_HREF = {
     "bank": ("Bank", "/bank"),
     "processing": ("Processor", "/processing"),
@@ -494,22 +546,19 @@ def control_surface_state(request):
     from typeclasses.economy import get_economy
     from typeclasses.system_alerts import get_system_alerts_script
 
-    econ = get_economy(create_missing=True)
-    treasury_balance = None
-    tbid = treasury_bank_id_for_object(None)
-    treasury_balance = econ.get_balance(econ.get_treasury_account(tbid))
-    miner_payout_last_cr, miner_payout_total_cr = econ.get_miner_payout_totals_for_web()
-    (
-        miner_settlement_last_gross,
-        miner_settlement_last_fees,
-        miner_settlement_total_gross,
-        miner_settlement_total_fees,
-    ) = econ.get_miner_settlement_value_totals_for_web()
-    (
-        miner_settlement_this_net,
-        miner_settlement_this_gross,
-        miner_settlement_this_fees,
-    ) = econ.get_miner_settlement_this_slot_for_web()
+    pub = _public_control_shell_block()
+    treasury_balance = pub["treasuryBalance"]
+    miner_payout_last_cr = pub["minerPayoutLastCycleCr"]
+    miner_payout_total_cr = pub["minerPayoutTotalCr"]
+    miner_settlement_last_gross = pub["minerSettlementLastCycleGrossCr"]
+    miner_settlement_last_fees = pub["minerSettlementLastCycleFeesCr"]
+    miner_settlement_total_gross = pub["minerSettlementTotalGrossCr"]
+    miner_settlement_total_fees = pub["minerSettlementTotalFeesCr"]
+    miner_settlement_this_net = pub["minerSettlementThisSlotNetCr"]
+    miner_settlement_this_gross = pub["minerSettlementThisSlotGrossCr"]
+    miner_settlement_this_fees = pub["minerSettlementThisSlotFeesCr"]
+    world_production_pipeline = pub["worldProductionPipeline"]
+    world_simulation = pub["worldSimulation"]
 
     market = _serialize_market_cached()
 
@@ -522,9 +571,6 @@ def control_surface_state(request):
         "miningNextCycleAt": next_mining_delivery_boundary_iso(),
         "floraNextCycleAt": next_flora_delivery_boundary_iso(),
     }
-
-    world_production_pipeline = _world_production_pipeline_for_control_surface()
-    world_simulation = _world_simulation_summary()
 
     base_sparse = {
         "schemaVersion": SCHEMA_VERSION,
@@ -606,6 +652,7 @@ def control_surface_state(request):
             })
         )
 
+    econ = get_economy(create_missing=True)
     credits = econ.get_character_balance(char)
 
     tbid = treasury_bank_id_for_object(char)

@@ -1066,6 +1066,8 @@ class HaulerEngine(Script):
         now = _now()
         now_tz = timezone.now()
         due_ids = fetch_due_hauler_ids(now=now_tz, limit=MAX_HAULERS_PER_ENGINE_TICK)
+        due_list = list(due_ids)
+        haulers_by_id = ObjectDB.objects.in_bulk(due_list) if due_list else {}
 
         self.ndb.hauler_venue_tons = {}
 
@@ -1079,15 +1081,14 @@ class HaulerEngine(Script):
         def _over_budget() -> bool:
             return (time.perf_counter() - _tick_t0) >= max_wall
 
-        for idx, hid in enumerate(due_ids):
+        for idx, hid in enumerate(due_list):
             if _over_budget():
                 budget_hit = True
-                deferred_approx = len(due_ids) - idx
+                deferred_approx = len(due_list) - idx
                 break
             try:
-                try:
-                    hauler = ObjectDB.objects.get(id=hid)
-                except ObjectDB.DoesNotExist:
+                hauler = haulers_by_id.get(hid)
+                if hauler is None:
                     delete_hauler_dispatch_row(hid)
                     continue
 
@@ -1108,7 +1109,7 @@ class HaulerEngine(Script):
                 while steps < HAULER_MAX_PIPELINE_STEPS:
                     if _over_budget():
                         budget_hit = True
-                        deferred_approx = len(due_ids) - idx
+                        deferred_approx = len(due_list) - idx
                         break
                     next_at = get_hauler_next_cycle_at(hauler)
                     if next_at is None:
@@ -1139,7 +1140,10 @@ class HaulerEngine(Script):
 
             except Exception as err:
                 errors += 1
-                logger.log_err(f"[hauler_engine] Error on {getattr(hauler, 'key', '?')}: {err}")
+                h = haulers_by_id.get(hid)
+                logger.log_err(
+                    f"[hauler_engine] Error on {getattr(h, 'key', hid)!r}: {err}"
+                )
 
         self.ndb.last_tick_duration_sec = round(time.perf_counter() - _tick_t0, 4)
         self.ndb.last_tick_budget_hit = budget_hit
@@ -1150,7 +1154,7 @@ class HaulerEngine(Script):
             else " budget_hit=0"
         )
         logger.log_info(
-            f"[hauler_engine] Tick — due_fetched={len(due_ids)} scanned={scanned} "
+            f"[hauler_engine] Tick — due_fetched={len(due_list)} scanned={scanned} "
             f"step(s)={processed} error(s)={errors} wall_s={self.ndb.last_tick_duration_sec}"
             f"{extra}"
         )
